@@ -19,9 +19,9 @@ local systems = {}
 -- System execution order (deterministic)
 local systemOrder = {
     "InputSystem",        -- Process input first
-    "MiningSystem",       -- Handle mining laser
     "PhysicsSystem",      -- Apply physics after input
     "CollisionSystem",    -- Check collisions after physics
+    "MagnetSystem",       -- Handle item attraction and collection
     "DestructionSystem",  -- Handle entity destruction
     "BoundarySystem",     -- Apply boundaries after physics
     "TrailSystem",        -- Update trails after movement
@@ -121,6 +121,32 @@ function ECS.getComponent(entityId, componentType)
         return nil
     end
     return components[componentType][entityId]
+end
+
+-- Get all components of a specific type for an entity
+-- @param entityId number: The entity to get components from
+-- @param componentType string: The type of component to get
+-- @return table: An array of component data tables. Returns an empty table if none found.
+function ECS.getComponents(entityId, componentType)
+    if not entityId or type(entityId) ~= "number" then
+        error("Invalid entity ID: " .. tostring(entityId))
+    end
+    
+    if not componentType or type(componentType) ~= "string" then
+        error("Invalid component type: " .. tostring(componentType))
+    end
+    
+    local results = {}
+    -- The current ECS design stores only one component of each type per entity.
+    -- If multiple 'Renderable' components are desired (for layered drawing), 
+    -- the component storage mechanism would need to be re-evaluated.
+    -- For now, this function will return the single component if it exists, 
+    -- or an empty table if not.
+    local component = components[componentType] and components[componentType][entityId]
+    if component then
+        table.insert(results, component)
+    end
+    return results
 end
 
 -- Check if an entity has a component

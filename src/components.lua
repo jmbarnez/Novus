@@ -287,4 +287,38 @@ Components.DebrisParticle = function(x, y, vx, vy, life, size, color)
     }
 end
 
+-- Turret component - Manages active turret module and firing state
+-- @field moduleName string: The name of the currently equipped turret module
+-- @field cooldown number: The cooldown duration in seconds
+-- @field lastFireTime number: The time (love.timer.getTime()) when the turret last fired
+Components.Turret = function(moduleName, cooldown)
+    return {
+        moduleName = moduleName or "default",
+        cooldown = cooldown or 0.2,
+        lastFireTime = 0
+    }
+end
+
+-- Cargo component - Represents inventory or cargo bay for the drone/player
+-- @field items table: List or map of items and their amounts
+-- @field capacity number: Maximum cargo capacity
+Components.Cargo = function(items, capacity)
+    return {
+        items = items or {},
+        capacity = capacity or 10 -- Default 10 slots/items
+    }
+end
+
+-- Magnet component - Attracts and collects items within range
+-- @field range number: Distance in units to attract items
+-- @field pullSpeed number: Speed to pull items toward the magnet
+-- @field collectDistance number: Distance to automatically collect items
+Components.Magnet = function(range, pullSpeed, collectDistance)
+    return {
+        range = range or 200,
+        pullSpeed = pullSpeed or 120,
+        collectDistance = collectDistance or 24
+    }
+end
+
 return Components

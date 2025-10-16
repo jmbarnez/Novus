@@ -8,22 +8,6 @@ function love.load()
     Core.init()
 end
 
-function love.update(dt)
-    Core.update(dt)
-end
-
-function love.draw()
-    Core.draw()
-end
-
-function love.keypressed(key)
-    Core.keypressed(key)
-end
-
-function love.keyreleased(key)
-    Core.keyreleased(key)
-end
-
-function love.quit()
+-- All Love2D callbacks are handled in the root main.lua. This file only provides the Core module.
     Core.quit()
 end

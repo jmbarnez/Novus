@@ -5,6 +5,7 @@ local Core = require('src.core')
 
 -- Love2D callback functions - delegate to core module
 function love.load()
+    love.window.setVSync(1) -- lock to vsync, usually 60Hz
     Core.init()
 end
 
@@ -28,8 +29,18 @@ function love.mousemoved(x, y, dx, dy, isTouch)
     Core.mousemoved(x, y, dx, dy, isTouch)
 end
 
+function love.mousereleased(x, y, button)
+    Core.mousereleased(x, y, button)
+end
+
 function love.wheelmoved(x, y)
     Core.wheelmoved(x, y)
+end
+
+
+function love.mousepressed(x, y, button)
+    print("love.mousepressed called (top-level)", x, y, button)
+    Core.mousepressed(x, y, button)
 end
 
 function love.quit()

@@ -13,8 +13,9 @@ Systems.CameraSystem = require('src.systems.camera')
 Systems.UISystem = require('src.systems.ui')
 Systems.TrailSystem = require('src.systems.trail')
 Systems.CollisionSystem = require('src.systems.collision').CollisionSystem
-Systems.MiningSystem = require('src.systems.mining')
+Systems.MagnetSystem = require('src.systems.magnet')
 Systems.DestructionSystem = require('src.systems.destruction')
 Systems.DebrisSystem = require('src.systems.debris')
+Systems.TurretSystem = require('src.systems.turret')
 
 return Systems

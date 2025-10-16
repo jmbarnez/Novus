@@ -10,6 +10,7 @@ local Components = require('src.components')
 local Parallax = require('src.parallax')
 local Constants = require('src.constants')
 local Procedural = require('src.procedural')
+local UISystem = require('src.systems.ui')
 
 -- Game initialization
 function Core.init()
@@ -31,9 +32,10 @@ function Core.init()
     ECS.registerSystem("UISystem", Systems.UISystem)
     ECS.registerSystem("TrailSystem", Systems.TrailSystem)
     ECS.registerSystem("CollisionSystem", Systems.CollisionSystem)
-    ECS.registerSystem("MiningSystem", Systems.MiningSystem)
+    ECS.registerSystem("MagnetSystem", Systems.MagnetSystem)
     ECS.registerSystem("DestructionSystem", Systems.DestructionSystem)
     ECS.registerSystem("DebrisSystem", Systems.DebrisSystem)
+    ECS.registerSystem("TurretSystem", Systems.TurretSystem)
 
     -- Create Canvas Entity
     local canvasId = ECS.createEntity()
@@ -47,16 +49,25 @@ function Core.init()
     ECS.addComponent(playerId, "Velocity", Components.Velocity(0, 0))
     ECS.addComponent(playerId, "Acceleration", Components.Acceleration(0, 0))
     ECS.addComponent(playerId, "Physics", Components.Physics(Constants.player_friction, Constants.player_max_speed, 1))
-    ECS.addComponent(playerId, "Renderable", Components.Renderable("polygon", nil, nil, nil, {0.5, 0.5, 0.5, 1})) -- Changed to polygon
     ECS.addComponent(playerId, "InputControlled", Components.InputControlled())
     ECS.addComponent(playerId, "Boundary", Components.Boundary(-5000, 5000, -5000, 5000))
     ECS.addComponent(playerId, "CameraTarget", Components.CameraTarget())
     ECS.addComponent(playerId, "PolygonShape", Components.PolygonShape({
-        {x = -4, y = -4}, {x = 4, y = -4}, {x = 4, y = 4}, {x = -4, y = 4} -- 8x8 square for drone body
+        -- Main hexagonal body
+        {x = 0, y = -10}, {x = 8.66, y = -5}, {x = 8.66, y = 5}, 
+        {x = 0, y = 10}, {x = -8.66, y = 5}, {x = -8.66, y = -5}
     }, 0))
+    -- The main Renderable for the hexagonal drone
+    ECS.addComponent(playerId, "Renderable", Components.Renderable("polygon", nil, nil, nil, {0.5, 0.5, 0.5, 1}))
     ECS.addComponent(playerId, "TrailEmitter", Components.TrailEmitter(Constants.trail_emit_rate, Constants.trail_max_particles, Constants.trail_particle_life, Constants.trail_spread_angle, Constants.trail_speed_multiplier))
     ECS.addComponent(playerId, "Health", Components.Health(100, 100))
-    ECS.addComponent(playerId, "Collidable", Components.Collidable(6)) -- Bounding radius for 8x8 square polygon is approx 6
+    ECS.addComponent(playerId, "Collidable", Components.Collidable(10)) -- Bounding radius for hexagon is approx 10
+    ECS.addComponent(playerId, "Turret", Components.Turret("mining_laser", 0.2)) -- Add Turret component to player, renamed module
+    ECS.addComponent(playerId, "Cargo", Components.Cargo({}, 10))
+    ECS.addComponent(playerId, "Magnet", Components.Magnet(200, 120, 24)) -- Attract items within 200 units
+
+    -- Load turret modules
+    Systems.TurretSystem.loadTurretModules("src/turret_modules")
 
     -- Create Camera Entity
     local cameraId = ECS.createEntity()
@@ -111,12 +122,27 @@ function Core.draw()
     ECS.draw()
 end
 
--- Input handling
+
 function Core.keypressed(key)
     if key == 'escape' then
         love.event.quit()
+    elseif key == 'tab' then
+        UISystem.toggleCargoWindow()
+        return
     end
+    UISystem.keypressed = UISystem.keypressed or function(_) end
+    UISystem.keypressed(key)
     Systems.InputSystem.keypressed(key)
+end
+
+function Core.mousepressed(x, y, button)
+    print("Core.mousepressed called", x, y, button)
+    if UISystem.mousepressed then
+        UISystem.mousepressed(x, y, button)
+    end
+    if Systems.InputSystem.mousepressed then
+        Systems.InputSystem.mousepressed(x, y, button)
+    end
 end
 
 function Core.keyreleased(key)
@@ -124,7 +150,21 @@ function Core.keyreleased(key)
 end
 
 function Core.mousemoved(x, y, dx, dy, isTouch)
-    Systems.InputSystem.mousemoved(x, y, dx, dy, isTouch)
+    if UISystem.mousemoved then
+        UISystem.mousemoved(x, y, dx, dy, isTouch)
+    end
+    if Systems.InputSystem.mousemoved then
+        Systems.InputSystem.mousemoved(x, y, dx, dy, isTouch)
+    end
+end
+
+function Core.mousereleased(x, y, button)
+    if UISystem.mousereleased then
+        UISystem.mousereleased(x, y, button)
+    end
+    if Systems.InputSystem.mousereleased then
+        Systems.InputSystem.mousereleased(x, y, button)
+    end
 end
 
 function Core.wheelmoved(x, y)
