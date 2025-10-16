@@ -18,16 +18,18 @@ local systems = {}
 
 -- System execution order (deterministic)
 local systemOrder = {
-    "InputSystem",        -- Process input first
-    "PhysicsSystem",      -- Apply physics after input
-    "CollisionSystem",    -- Check collisions after physics
-    "MagnetSystem",       -- Handle item attraction and collection
-    "DestructionSystem",  -- Handle entity destruction
-    "BoundarySystem",     -- Apply boundaries after physics
-    "TrailSystem",        -- Update trails after movement
-    "DebrisSystem",       -- Update debris particles
-    "CameraSystem",       -- Update camera after all movement
-    "RenderSystem"        -- Render world after all movement
+    "InputSystem",              -- Process input first
+    "PhysicsSystem",            -- Apply physics after input
+    "PhysicsCollisionSystem",   -- Handle all physics-based collisions (items, asteroids, etc)
+    "CollisionSystem",          -- Special collisions (player-specific logic)
+    "MagnetSystem",             -- Handle item attraction and collection
+    "DestructionSystem",        -- Handle entity destruction
+    "BoundarySystem",           -- Apply boundaries after physics
+    "TrailSystem",              -- Update trails after movement
+    "DebrisSystem",             -- Update debris particles
+    "UISystem",                 -- Update UI (notifications, etc)
+    "CameraSystem",             -- Update camera after all movement
+    "RenderSystem"              -- Render world after all movement
 }
 
 -- Create a new entity

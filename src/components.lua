@@ -8,10 +8,14 @@ local Constants = require('src.constants')
 -- Position component - 2D coordinates in world space
 -- @field x number: X coordinate
 -- @field y number: Y coordinate
+-- @field prevX number: Previous X coordinate (for CCD)
+-- @field prevY number: Previous Y coordinate (for CCD)
 Components.Position = function(x, y)
     return {
         x = x or 0,
-        y = y or 0
+        y = y or 0,
+        prevX = x or 0,
+        prevY = y or 0
     }
 end
 
@@ -217,10 +221,12 @@ end
 -- PolygonShape component - Stores vertex data for irregular polygon rendering and collision
 -- @field vertices table: Array of {x, y} points relative to entity position
 -- @field rotation number: Current rotation angle in radians
+-- @field prevRotation number: Previous rotation angle (for CCD and rotation change detection)
 Components.PolygonShape = function(vertices, rotation)
     return {
         vertices = vertices or {},
-        rotation = rotation or 0
+        rotation = rotation or 0,
+        prevRotation = rotation or 0
     }
 end
 
@@ -318,6 +324,22 @@ Components.Magnet = function(range, pullSpeed, collectDistance)
         range = range or 200,
         pullSpeed = pullSpeed or 120,
         collectDistance = collectDistance or 24
+    }
+end
+
+-- RotationalMass component - Moment of inertia for rotational physics
+-- @field inertia number: Moment of inertia (resistance to rotation)
+Components.RotationalMass = function(inertia)
+    return {
+        inertia = inertia or 1
+    }
+end
+
+-- Stack component - Tracks quantity of stacked items
+-- @field quantity number: How many items in this stack
+Components.Stack = function(quantity)
+    return {
+        quantity = quantity or 1
     }
 end
 

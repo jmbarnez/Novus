@@ -20,7 +20,7 @@ function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
     }
     
     -- Calculate dimensions
-    local font = love.graphics.newFont(Theme.fonts.small)
+    local font = Theme.getFont(Theme.fonts.small)
     love.graphics.setFont(font)
     local lineHeight = 18
     local maxWidth = 0
@@ -74,7 +74,7 @@ function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
         end
     end
     
-    love.graphics.setFont(love.graphics.newFont(Theme.fonts.title))
+    love.graphics.setFont(Theme.getFont(Theme.fonts.title))
 end
 
 return Tooltips

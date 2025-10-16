@@ -41,7 +41,7 @@ function Dialogs.drawContextMenu(x, y)
     Dialogs.contextMenu.displayY = y
     
     -- Draw options
-    love.graphics.setFont(love.graphics.newFont(Theme.fonts.normal))
+    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
     for i, option in ipairs(options) do
         local optY = y + (i - 1) * optionH
         
@@ -58,7 +58,7 @@ function Dialogs.drawContextMenu(x, y)
         love.graphics.printf(option, x, optY + 6, optionW, "center")
     end
     
-    love.graphics.setFont(love.graphics.newFont(Theme.fonts.title))
+    love.graphics.setFont(Theme.getFont(Theme.fonts.title))
 end
 
 -- Draw confirmation dialog
@@ -82,12 +82,12 @@ function Dialogs.drawConfirmDialog()
     love.graphics.rectangle("line", x - 2, y - 2, dialogW + 4, dialogH + 4)
     
     -- Draw title
-    love.graphics.setFont(love.graphics.newFont(Theme.fonts.title))
+    love.graphics.setFont(Theme.getFont(Theme.fonts.title))
     love.graphics.setColor(Theme.colors.textPrimary)
     love.graphics.printf("Delete Item?", x, y + 15, dialogW, "center")
     
     -- Draw message
-    love.graphics.setFont(love.graphics.newFont(Theme.fonts.small))
+    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
     love.graphics.setColor(Theme.colors.textSecondary)
     love.graphics.printf("Are you sure you want to delete all of these items?", x + 10, y + 45, dialogW - 20, "center")
     
@@ -110,7 +110,7 @@ function Dialogs.drawConfirmDialog()
     local noHover = mx >= noX and mx <= noX + btnW and my >= btnY and my <= btnY + btnH
     Theme.drawButton(noX, btnY, btnW, btnH, "No", noHover, Theme.colors.buttonNo, Theme.colors.buttonNoHover)
     
-    love.graphics.setFont(love.graphics.newFont(Theme.fonts.title))
+    love.graphics.setFont(Theme.getFont(Theme.fonts.title))
     
     -- Store button rects for click detection
     Dialogs.confirmDialog.yesRect = {x = yesX, y = btnY, w = btnW, h = btnH}

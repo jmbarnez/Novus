@@ -1,0 +1,585 @@
+-- Physics Collision System - Universal collision handling for all physics entities
+-- Handles collisions between any entities with Position, Velocity, Physics, and Collidable components
+
+local ECS = require('src.ecs')
+
+-- Frame counter for optimization
+local frameCounter = 0
+
+-- Helper: Check if rotation has changed significantly
+local function hasRotationChanged(poly1, poly2, rotationThreshold)
+    rotationThreshold = rotationThreshold or 0.1  -- ~5.7 degrees
+    local rot1Changed = poly1 and math.abs(poly1.rotation - (poly1.prevRotation or 0)) > rotationThreshold or false
+    local rot2Changed = poly2 and math.abs(poly2.rotation - (poly2.prevRotation or 0)) > rotationThreshold or false
+    return rot1Changed or rot2Changed
+end
+
+-- Helper: Check bounding circle collision
+local function checkBoundingCircles(pos1, coll1, pos2, coll2)
+    local dx = pos2.x - pos1.x
+    local dy = pos2.y - pos1.y
+    local distance = math.sqrt(dx * dx + dy * dy)
+    return distance < (coll1.radius + coll2.radius)
+end
+
+-- Helper: Swept circle collision (CCD for fast-moving objects)
+-- Checks if a circle moving from oldPos to newPos collides with a static circle
+-- Returns collision flag and time-of-impact (for better penetration handling)
+local function checkSweptCircleCircle(oldPos, newPos, radius1, staticPos, radius2)
+    local minDist = radius1 + radius2
+    
+    -- Vector from old to new position
+    local dx = newPos.x - oldPos.x
+    local dy = newPos.y - oldPos.y
+    
+    -- Vector from old position to static circle
+    local fx = oldPos.x - staticPos.x
+    local fy = oldPos.y - staticPos.y
+    
+    local a = dx * dx + dy * dy
+    local b = 2 * (fx * dx + fy * dy)
+    local c = (fx * fx + fy * fy) - (minDist * minDist)
+    
+    if a < 0.0001 then
+        -- Movement is negligible, do static check
+        local dist = math.sqrt(fx * fx + fy * fy)
+        return dist < minDist, 0  -- Return collision flag and time of impact
+    end
+    
+    local discriminant = b * b - 4 * a * c
+    if discriminant < 0 then
+        return false, 1  -- No intersection
+    end
+    
+    discriminant = math.sqrt(discriminant)
+    local t1 = (-b - discriminant) / (2 * a)
+    local t2 = (-b + discriminant) / (2 * a)
+    
+    -- Check if collision happens within movement (t in [0, 1])
+    -- Return earliest collision time
+    if t1 >= 0 and t1 <= 1 then
+        return true, t1
+    elseif t2 >= 0 and t2 <= 1 then
+        return true, t2
+    elseif t1 < 0 and t2 > 1 then
+        return true, 0  -- Object is moving through target
+    end
+    
+    return false, 1
+end
+
+-- Helper: Point in polygon test
+local function pointInPolygon(x, y, vertices)
+    local inside = false
+    local j = #vertices
+    
+    for i = 1, #vertices do
+        local vi = vertices[i]
+        local vj = vertices[j]
+        
+        if ((vi.y > y) ~= (vj.y > y)) and (x < (vj.x - vi.x) * (y - vi.y) / (vj.y - vi.y) + vi.x) then
+            inside = not inside
+        end
+        j = i
+    end
+    
+    return inside
+end
+
+-- Check collision between two polygons using SAT (Separating Axis Theorem)
+local function checkPolygonPolygonCollision(polygon1Pos, polygon1Shape, polygon2Pos, polygon2Shape)
+    local function getTransformedVertices(pos, vertices, rotation)
+        local transformed = {}
+        local cos = math.cos(rotation)
+        local sin = math.sin(rotation)
+        for _, v in ipairs(vertices) do
+            local rx = v.x * cos - v.y * sin
+            local ry = v.x * sin + v.y * cos
+            table.insert(transformed, {x = pos.x + rx, y = pos.y + ry})
+        end
+        return transformed
+    end
+
+    local function getAxes(vertices)
+        local axes = {}
+        for i = 1, #vertices do
+            local p1 = vertices[i]
+            local p2 = vertices[(i % #vertices) + 1]
+            local edge = {x = p2.x - p1.x, y = p2.y - p1.y}
+            local normal = {x = -edge.y, y = edge.x}
+            local length = math.sqrt(normal.x * normal.x + normal.y * normal.y)
+            if length > 0 then
+                table.insert(axes, {x = normal.x / length, y = normal.y / length})
+            end
+        end
+        return axes
+    end
+
+    local function project(axis, vertices)
+        local minProjection = (vertices[1].x * axis.x) + (vertices[1].y * axis.y)
+        local maxProjection = minProjection
+        for i = 2, #vertices do
+            local projection = (vertices[i].x * axis.x) + (vertices[i].y * axis.y)
+            minProjection = math.min(minProjection, projection)
+            maxProjection = math.max(maxProjection, projection)
+        end
+        return minProjection, maxProjection
+    end
+
+    local transformedVertices1 = getTransformedVertices(polygon1Pos, polygon1Shape.vertices, polygon1Shape.rotation)
+    local transformedVertices2 = getTransformedVertices(polygon2Pos, polygon2Shape.vertices, polygon2Shape.rotation)
+
+    local axes = getAxes(transformedVertices1)
+    for _, axis in ipairs(getAxes(transformedVertices2)) do
+        table.insert(axes, axis)
+    end
+
+    local minOverlap = nil
+    local smallestAxis = nil
+
+    for _, axis in ipairs(axes) do
+        local min1, max1 = project(axis, transformedVertices1)
+        local min2, max2 = project(axis, transformedVertices2)
+
+        local overlap = math.min(max1, max2) - math.max(min1, min2)
+
+        if overlap < 0 then
+            return false, nil, nil
+        end
+
+        if minOverlap == nil or overlap < minOverlap then
+            minOverlap = overlap
+            smallestAxis = axis
+        end
+    end
+
+    if smallestAxis then
+        -- Ensure the normal is pointing from polygon1 to polygon2
+        local direction = {x = polygon2Pos.x - polygon1Pos.x, y = polygon2Pos.y - polygon1Pos.y}
+        if (direction.x * smallestAxis.x + direction.y * smallestAxis.y) < 0 then
+            smallestAxis.x = -smallestAxis.x
+            smallestAxis.y = -smallestAxis.y
+        end
+        return true, smallestAxis, minOverlap
+    end
+
+    return false, nil, nil
+end
+
+-- Check collision between polygon and circle
+local function checkPolygonCircleCollision(polygonPos, polygonShape, circlePos, circleRadius)
+    local vertices = polygonShape.vertices
+    local rotation = polygonShape.rotation
+    
+    if #vertices < 3 then return false end
+    
+    -- Transform circle position to polygon's local space
+    local dx = circlePos.x - polygonPos.x
+    local dy = circlePos.y - polygonPos.y
+    
+    -- Apply inverse rotation
+    local cos = math.cos(-rotation)
+    local sin = math.sin(-rotation)
+    local localX = dx * cos - dy * sin
+    local localY = dx * sin + dy * cos
+    
+    -- Check if circle center is inside polygon
+    local inside = pointInPolygon(localX, localY, vertices)
+    if inside then return true end
+    
+    -- Check distance from circle to each edge
+    for i = 1, #vertices do
+        local v1 = vertices[i]
+        local v2 = vertices[(i % #vertices) + 1]
+        
+        -- Find closest point on edge
+        local A = localX - v1.x
+        local B = localY - v1.y
+        local C = v2.x - v1.x
+        local D = v2.y - v1.y
+        
+        local dot = A * C + B * D
+        local lenSq = C * C + D * D
+        
+        local param = 0
+        if lenSq > 0 then
+            param = math.max(0, math.min(1, dot / lenSq))
+        end
+        
+        local px = v1.x + param * C
+        local py = v1.y + param * D
+        
+        local pdx = localX - px
+        local pdy = localY - py
+        local dist = math.sqrt(pdx * pdx + pdy * pdy)
+        
+        if dist <= circleRadius then
+            return true
+        end
+    end
+    
+    return false
+end
+
+-- Helper: Swept circle-polygon collision for CCD
+-- Checks if a circle swept from oldPos to newPos collides with a static polygon
+local function checkSweptCirclePolygon(oldPos, newPos, radius, polygonPos, polygonShape)
+    -- Check collision at current position first
+    if checkPolygonCircleCollision(polygonPos, polygonShape, newPos, radius) then
+        return true, newPos
+    end
+    -- Check collision at previous position
+    if checkPolygonCircleCollision(polygonPos, polygonShape, oldPos, radius) then
+        return true, oldPos
+    end
+    -- Check if sweep line intersects polygon edges
+    local vertices = polygonShape.vertices
+    local rotation = polygonShape.rotation
+    local cos = math.cos(rotation)
+    local sin = math.sin(rotation)
+    -- Transform vertices to world space
+    local transformedVertices = {}
+    for _, v in ipairs(vertices) do
+        local rx = v.x * cos - v.y * sin
+        local ry = v.x * sin + v.y * cos
+        table.insert(transformedVertices, {x = polygonPos.x + rx, y = polygonPos.y + ry})
+    end
+    -- Check sweep line against each edge
+    local sweepRadius = radius
+    local closestImpact = nil
+    local closestDist = math.huge
+    for i = 1, #transformedVertices do
+        local v1 = transformedVertices[i]
+        local v2 = transformedVertices[(i % #transformedVertices) + 1]
+        local edgeDx = v2.x - v1.x
+        local edgeDy = v2.y - v1.y
+        local edgeLen = math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy)
+        if edgeLen > 0 then
+            local sweepDx = newPos.x - oldPos.x
+            local sweepDy = newPos.y - oldPos.y
+            local f1x = oldPos.x - v1.x
+            local f1y = oldPos.y - v1.y
+            local sweepDot = sweepDx * sweepDx + sweepDy * sweepDy
+            if sweepDot > 0.0001 then
+                local t = -(f1x * sweepDx + f1y * sweepDy) / sweepDot
+                t = math.max(0, math.min(1, t))
+                local px = oldPos.x + t * sweepDx
+                local py = oldPos.y + t * sweepDy
+                local edgeDot2 = (px - v1.x) * edgeDx + (py - v1.y) * edgeDy
+                local s = edgeDot2 / (edgeLen * edgeLen)
+                s = math.max(0, math.min(1, s))
+                local ex = v1.x + s * edgeDx
+                local ey = v1.y + s * edgeDy
+                local dx = px - ex
+                local dy = py - ey
+                local dist = math.sqrt(dx * dx + dy * dy)
+                if dist < sweepRadius and dist < closestDist then
+                    closestDist = dist
+                    closestImpact = {x = px, y = py}
+                end
+            end
+        end
+    end
+    if closestImpact then
+        return true, closestImpact
+    end
+    return false
+end
+
+-- Find closest point on polygon to a circle, with proper normal
+local function findCollisionNormal(polygonPos, polygonShape, circlePos, circleRadius)
+    local vertices = polygonShape.vertices
+    local rotation = polygonShape.rotation
+    
+    local function getTransformedVertices(pos, vertices, rotation)
+        local transformed = {}
+        local cos = math.cos(rotation)
+        local sin = math.sin(rotation)
+        for _, v in ipairs(vertices) do
+            local rx = v.x * cos - v.y * sin
+            local ry = v.x * sin + v.y * cos
+            table.insert(transformed, {x = pos.x + rx, y = pos.y + ry})
+        end
+        return transformed
+    end
+    
+    local transformedVertices = getTransformedVertices(polygonPos, vertices, rotation)
+    
+    local closestDist = math.huge
+    local closestPoint = {x = polygonPos.x, y = polygonPos.y}
+    local closestNormal = {x = 0, y = 1}
+    
+    for i = 1, #transformedVertices do
+        local v1 = transformedVertices[i]
+        local v2 = transformedVertices[(i % #transformedVertices) + 1]
+        
+        -- Find closest point on this edge
+        local A = circlePos.x - v1.x
+        local B = circlePos.y - v1.y
+        local C = v2.x - v1.x
+        local D = v2.y - v1.y
+        
+        local dot = A * C + B * D
+        local lenSq = C * C + D * D
+        
+        local param = 0
+        if lenSq > 0 then
+            param = math.max(0, math.min(1, dot / lenSq))
+        end
+        
+        local px = v1.x + param * C
+        local py = v1.y + param * D
+        
+        local dx = circlePos.x - px
+        local dy = circlePos.y - py
+        local dist = math.sqrt(dx * dx + dy * dy)
+        
+        if dist < closestDist then
+            closestDist = dist
+            closestPoint = {x = px, y = py}
+            -- Normal is perpendicular to edge, pointing outward
+            local edgeLen = math.sqrt(C * C + D * D)
+            if edgeLen > 0 then
+                local edgeNx = -D / edgeLen
+                local edgeNy = C / edgeLen
+                -- Flip normal if needed (should point from polygon to circle)
+                if edgeNx * dx + edgeNy * dy < 0 then
+                    edgeNx = -edgeNx
+                    edgeNy = -edgeNy
+                end
+                closestNormal = {x = edgeNx, y = edgeNy}
+            end
+        end
+    end
+    
+    return {normal = closestNormal, distance = closestDist, point = closestPoint}
+end
+
+-- Apply impulse-based collision response
+-- Apply impulse-based collision response with angular momentum
+local function resolveCollision(entity1, entity2, normal, depth)
+    local pos1 = entity1.pos
+    local vel1 = entity1.vel
+    local phys1 = entity1.phys
+    local angularVel1 = entity1.angularVel
+    local rotMass1 = entity1.rotMass
+    
+    local pos2 = entity2.pos
+    local vel2 = entity2.vel
+    local phys2 = entity2.phys
+    local angularVel2 = entity2.angularVel
+    local rotMass2 = entity2.rotMass
+    
+    -- Calculate relative velocity
+    local rv = {x = vel2.vx - vel1.vx, y = vel2.vy - vel1.vy}
+    local velAlongNormal = rv.x * normal.x + rv.y * normal.y
+    
+    -- Only resolve if objects are moving toward each other
+    if velAlongNormal >= 0 then
+        return
+    end
+    
+    -- Calculate impulse for linear collision response
+    local restitution = 0.0  -- Inelastic collisions
+    local j = -(1 + restitution) * velAlongNormal
+    j = j / (1 / phys1.mass + 1 / phys2.mass)
+    
+    -- Calculate contact point (approximate - center of collision)
+    local contactX = (pos1.x + pos2.x) / 2
+    local contactY = (pos1.y + pos2.y) / 2
+    
+    -- Calculate torque (rotational impulse)
+    -- Torque = r x F (cross product of radius and impulse force)
+    local r1x = contactX - pos1.x
+    local r1y = contactY - pos1.y
+    local r2x = contactX - pos2.x
+    local r2y = contactY - pos2.y
+    
+    local impulseX = j * normal.x
+    local impulseY = j * normal.y
+    
+    -- Cross product for torque: r x F = r.x * F.y - r.y * F.x
+    local torque1 = r1x * impulseY - r1y * impulseX
+    local torque2 = r2x * impulseY - r2y * impulseX
+    
+    -- Apply linear impulse
+    vel1.vx = vel1.vx - (1 / phys1.mass) * impulseX
+    vel1.vy = vel1.vy - (1 / phys1.mass) * impulseY
+    vel2.vx = vel2.vx + (1 / phys2.mass) * impulseX
+    vel2.vy = vel2.vy + (1 / phys2.mass) * impulseY
+    
+    -- Apply angular impulse (only if entity has rotational properties)
+    if angularVel1 and rotMass1 then
+        angularVel1.omega = angularVel1.omega - torque1 / rotMass1.inertia
+    end
+    if angularVel2 and rotMass2 then
+        angularVel2.omega = angularVel2.omega + torque2 / rotMass2.inertia
+    end
+    
+    -- AGGRESSIVE Positional correction to prevent penetration
+    -- Separate objects immediately if interpenetrating
+    local percent = 0.8  -- Increased from 0.3 - more aggressive separation
+    local slop = 0.01   -- Reduced from 0.5 - stricter penetration threshold
+    local correction = math.max(depth - slop, 0) / (1 / phys1.mass + 1 / phys2.mass) * percent
+    
+    -- Push objects apart along collision normal
+    pos1.x = pos1.x - (1 / phys1.mass) * correction * normal.x
+    pos1.y = pos1.y - (1 / phys1.mass) * correction * normal.y
+    pos2.x = pos2.x + (1 / phys2.mass) * correction * normal.x
+    pos2.y = pos2.y + (1 / phys2.mass) * correction * normal.y
+    
+    -- ADDITIONAL: Clamp velocities to prevent re-penetration
+    -- If objects are still moving toward each other after impulse, reduce that velocity component
+    local rv_after = {x = vel2.vx - vel1.vx, y = vel2.vy - vel1.vy}
+    local velAlongNormalAfter = rv_after.x * normal.x + rv_after.y * normal.y
+    
+    if velAlongNormalAfter < 0 then
+        -- Still moving toward each other - apply additional damping
+        local damping = 0.5
+        vel1.vx = vel1.vx + damping * velAlongNormalAfter * normal.x
+        vel1.vy = vel1.vy + damping * velAlongNormalAfter * normal.y
+        vel2.vx = vel2.vx - damping * velAlongNormalAfter * normal.x
+        vel2.vy = vel2.vy - damping * velAlongNormalAfter * normal.y
+    end
+end
+
+local PhysicsCollisionSystem = {
+    name = "PhysicsCollisionSystem",
+
+    update = function(dt)
+        -- Get all entities with physics colliders
+        local physicsEntities = ECS.getEntitiesWith({"Position", "Velocity", "Physics", "Collidable"})
+        
+        -- Calculate max velocity for CCD threshold (half bounding radius per frame is threshold)
+        local maxVelocityThreshold = 50  -- u/s - if faster, use sub-frame checks
+        
+        -- Check collisions between all physics entities
+        for i = 1, #physicsEntities do
+            for j = i + 1, #physicsEntities do
+                local entity1Id = physicsEntities[i]
+                local entity2Id = physicsEntities[j]
+                
+                local pos1 = ECS.getComponent(entity1Id, "Position")
+                local vel1 = ECS.getComponent(entity1Id, "Velocity")
+                local phys1 = ECS.getComponent(entity1Id, "Physics")
+                local coll1 = ECS.getComponent(entity1Id, "Collidable")
+                local poly1 = ECS.getComponent(entity1Id, "PolygonShape")
+                
+                local pos2 = ECS.getComponent(entity2Id, "Position")
+                local vel2 = ECS.getComponent(entity2Id, "Velocity")
+                local phys2 = ECS.getComponent(entity2Id, "Physics")
+                local coll2 = ECS.getComponent(entity2Id, "Collidable")
+                local poly2 = ECS.getComponent(entity2Id, "PolygonShape")
+                
+                if pos1 and pos2 and coll1 and coll2 then
+                    -- Use previous position for CCD if available, else use current position
+                    local prevPos1 = pos1.prevX and {x = pos1.prevX, y = pos1.prevY} or pos1
+                    local prevPos2 = pos2.prevX and {x = pos2.prevX, y = pos2.prevY} or pos2
+                    
+                    -- Calculate velocities for sub-frame detection
+                    local vel1Mag = math.sqrt(vel1.vx * vel1.vx + vel1.vy * vel1.vy)
+                    local vel2Mag = math.sqrt(vel2.vx * vel2.vx + vel2.vy * vel2.vy)
+                    local maxVel = math.max(vel1Mag, vel2Mag)
+                    
+                    -- Broad-phase: check swept bounding circles
+                    local bboxCheck1 = checkBoundingCircles(pos1, coll1, pos2, coll2)
+                    local bboxCheck2 = checkBoundingCircles(prevPos1, coll1, pos2, coll2)
+                    local bboxCheck3 = checkBoundingCircles(pos1, coll1, prevPos2, coll2)
+                    
+                    -- For very fast objects, also check mid-frame position
+                    local bboxCheckMid = false
+                    if maxVel > maxVelocityThreshold then
+                        -- Check collision at mid-frame for fast-moving objects
+                        local midPos1 = {x = pos1.x - vel1.vx * dt * 0.5, y = pos1.y - vel1.vy * dt * 0.5}
+                        local midPos2 = {x = pos2.x - vel2.vx * dt * 0.5, y = pos2.y - vel2.vy * dt * 0.5}
+                        bboxCheckMid = checkBoundingCircles(midPos1, coll1, midPos2, coll2)
+                    end
+                    
+                    if bboxCheck1 or bboxCheck2 or bboxCheck3 or bboxCheckMid then
+                        local colliding = false
+                        local normal = {x = 0, y = 1}
+                        local depth = 0
+                        
+                        -- Narrow-phase collision detection
+                        if poly1 and poly2 then
+                            -- Both polygons - use SAT (expensive, so optimize)
+                            -- Check SAT if: rotation changed, broad-phase hit in current frame, or occasionally
+                            local rotationChanged = hasRotationChanged(poly1, poly2)
+                            local shouldCheckSAT = rotationChanged or bboxCheck1 or (frameCounter % 2) == 0
+                            
+                            if shouldCheckSAT then
+                                local isColliding, axis, overlap = checkPolygonPolygonCollision(pos1, poly1, pos2, poly2)
+                                if isColliding and axis and overlap then
+                                    normal = axis
+                                    depth = overlap or 0
+                                    colliding = true
+                                end
+                            end
+                        elseif poly1 then
+                            -- Entity1 is polygon, entity2 is circle (use CCD)
+                            local ccdHit, impactPoint = checkSweptCirclePolygon(prevPos2, pos2, coll2.radius, pos1, poly1)
+                            if ccdHit then
+                                local collision = findCollisionNormal(pos1, poly1, impactPoint or pos2, coll2.radius)
+                                normal = collision.normal
+                                local dx = (impactPoint and (impactPoint.x - pos1.x) or (pos2.x - pos1.x))
+                                local dy = (impactPoint and (impactPoint.y - pos1.y) or (pos2.y - pos1.y))
+                                local dist = math.sqrt(dx * dx + dy * dy)
+                                depth = math.max(0.1, coll2.radius + dist)
+                                colliding = true
+                                -- Swap normal direction for entity2 perspective
+                                normal = {x = -normal.x, y = -normal.y}
+                            end
+                        elseif poly2 then
+                            -- Entity2 is polygon, entity1 is circle (use CCD)
+                            local ccdHit, impactPoint = checkSweptCirclePolygon(prevPos1, pos1, coll1.radius, pos2, poly2)
+                            if ccdHit then
+                                local collision = findCollisionNormal(pos2, poly2, impactPoint or pos1, coll1.radius)
+                                normal = collision.normal
+                                local dx = (impactPoint and (impactPoint.x - pos2.x) or (pos1.x - pos2.x))
+                                local dy = (impactPoint and (impactPoint.y - pos2.y) or (pos1.y - pos2.y))
+                                local dist = math.sqrt(dx * dx + dy * dy)
+                                depth = math.max(0.1, coll1.radius + dist)
+                                colliding = true
+                            end
+                        else
+                            -- Both circles (use CCD)
+                            local ccdHit = checkSweptCircleCircle(prevPos1, pos1, coll1.radius, pos2, coll2.radius)
+                            local ccdHit2 = checkSweptCircleCircle(prevPos2, pos2, coll2.radius, pos1, coll1.radius)
+                            
+                            if ccdHit or ccdHit2 then
+                                local dx = pos2.x - pos1.x
+                                local dy = pos2.y - pos1.y
+                                local dist = math.sqrt(dx * dx + dy * dy)
+                                if dist > 0 then
+                                    normal = {x = dx / dist, y = dy / dist}
+                                    depth = math.max(0.1, coll1.radius + coll2.radius - dist)
+                                    colliding = true
+                                end
+                            end
+                        end
+                        
+                        -- Resolve collision if detected
+                        if colliding and vel1 and vel2 and phys1 and phys2 then
+                            resolveCollision(
+                                {pos = pos1, vel = vel1, phys = phys1, angularVel = ECS.getComponent(entity1Id, "AngularVelocity"), rotMass = ECS.getComponent(entity1Id, "RotationalMass")},
+                                {pos = pos2, vel = vel2, phys = phys2, angularVel = ECS.getComponent(entity2Id, "AngularVelocity"), rotMass = ECS.getComponent(entity2Id, "RotationalMass")},
+                                normal,
+                                depth
+                            )
+                        end
+                    end
+                end
+            end
+        end
+        
+        -- Increment frame counter for optimization
+        frameCounter = frameCounter + 1
+    end,
+    
+    -- Increment frame counter for optimization
+    getFrameCounter = function()
+        return frameCounter
+    end
+}
+
+return PhysicsCollisionSystem

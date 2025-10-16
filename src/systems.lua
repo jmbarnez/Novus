@@ -6,6 +6,7 @@ local Systems = {}
 
 -- Load individual system modules
 Systems.PhysicsSystem = require('src.systems.physics')
+Systems.PhysicsCollisionSystem = require('src.systems.physics_collision')
 Systems.BoundarySystem = require('src.systems.boundary')
 Systems.InputSystem = require('src.systems.input')
 Systems.RenderSystem = require('src.systems.render')

@@ -88,7 +88,7 @@ function CargoWindow.draw(viewportWidth, viewportHeight)
     
     -- Draw cargo info text
     love.graphics.setColor(Theme.colors.textPrimary)
-    love.graphics.setFont(love.graphics.newFont(Theme.fonts.normal))
+    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
     local itemCount = 0
     for _, v in pairs(cargo.items) do itemCount = itemCount + v end
     local capText = string.format("Cargo: %d / %d", itemCount, cargo.capacity or 0)
@@ -138,9 +138,9 @@ function CargoWindow.drawItemsGrid(windowX, windowY, cargo)
         -- Draw stack count
         if count > 1 then
             love.graphics.setColor(Theme.colors.textPrimary)
-            love.graphics.setFont(love.graphics.newFont(Theme.fonts.small))
+            love.graphics.setFont(Theme.getFont(Theme.fonts.small))
             love.graphics.printf(tostring(count), iconX, iconY + iconSize - 8, iconSize, "center")
-            love.graphics.setFont(love.graphics.newFont(Theme.fonts.title))
+            love.graphics.setFont(Theme.getFont(Theme.fonts.title))
         end
         
         i = i + 1

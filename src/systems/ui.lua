@@ -8,6 +8,7 @@ local Theme = require('src.ui.theme')
 local CargoWindow = require('src.ui.cargo_window')
 local Tooltips = require('src.ui.tooltips')
 local Dialogs = require('src.ui.dialogs')
+local Notifications = require('src.ui.notifications')
 
 -- UI System main table
 local UISystem = {
@@ -70,6 +71,19 @@ end
 
 -- Main draw function
 function UISystem.draw(viewportWidth, viewportHeight)
+    -- Get viewport dimensions from parameters or canvas
+    if not viewportWidth or not viewportHeight then
+        local canvasEntities = ECS.getEntitiesWith({"Canvas"})
+        viewportWidth = Constants.screen_width
+        viewportHeight = Constants.screen_height
+        
+        if #canvasEntities > 0 then
+            local canvasComp = ECS.getComponent(canvasEntities[1], "Canvas")
+            viewportWidth = canvasComp.width
+            viewportHeight = canvasComp.height
+        end
+    end
+    
     -- Draw HUD elements
     local uiEntities = ECS.getEntitiesWith({"UI"})
     for _, entityId in ipairs(uiEntities) do
@@ -79,6 +93,9 @@ function UISystem.draw(viewportWidth, viewportHeight)
             drawHealthBar(viewportWidth, viewportHeight)
         end
     end
+    
+    -- Draw notifications (in screen space)
+    Notifications.draw(0, 0, 1)
     
     -- Draw cargo window and related UI
     CargoWindow.draw(viewportWidth, viewportHeight)
@@ -103,6 +120,11 @@ function UISystem.draw(viewportWidth, viewportHeight)
             CargoWindow.hoveredItemSlot.mouseY
         )
     end
+end
+
+-- Update function for UI (handles notifications timing)
+function UISystem.update(dt)
+    Notifications.update(dt)
 end
 
 -- Key pressed handler

@@ -173,10 +173,22 @@ local RenderSystem = {
                 local position = ECS.getComponent(entityId, "Position")
                 local renderable = ECS.getComponent(entityId, "Renderable")
                 local item = ECS.getComponent(entityId, "Item")
+                local stack = ECS.getComponent(entityId, "Stack")
 
                 -- Draw items using their custom draw method
                 if renderable.shape == "item" and item and item.def and item.def.draw then
                     item.def:draw(position.x, position.y)
+                    
+                    -- Draw item name above item (small, crisp font)
+                    love.graphics.setColor(1, 1, 1, 0.9)  -- White text with slight transparency
+                    local Theme = require('src.ui.theme')
+                    local smallFont = Theme.getFont(8)  -- Small 8px sci-fi font for crisp text
+                    love.graphics.setFont(smallFont)
+                    local displayName = item.def.name
+                    if stack and stack.quantity > 1 then
+                        displayName = displayName .. " x" .. stack.quantity
+                    end
+                    love.graphics.printf(displayName, position.x - 40, position.y - 15, 80, "center")
                 -- Draw all other entities using their renderable component
                 else
                     -- Set color

@@ -35,11 +35,13 @@ local Theme = {
         overlay = {0, 0, 0, 0.6},                     -- Modal overlay
     },
     
-    -- Font sizes
+    -- Font sizes and paths
     fonts = {
         small = 11,      -- Tooltips, small text
         normal = 12,     -- Default UI text
         title = 14,      -- Window titles, headers
+        fontPath = "assets/fonts/Orbitron-Regular.ttf",  -- Sci-fi font
+        fontPathBold = "assets/fonts/Orbitron-Bold.ttf",  -- Sci-fi bold font
     },
     
     -- Dimensions and spacing
@@ -58,6 +60,40 @@ local Theme = {
         bottomBarHeight = 24,       -- Bottom bar height
     },
 }
+
+-- Helper function to create a font with sci-fi styling
+function Theme.getFont(size)
+    size = size or Theme.fonts.normal
+    local fontPath = Theme.fonts.fontPath
+    
+    -- Check if font file exists, if not fall back to default
+    if fontPath then
+        local fontFile = love.filesystem.getInfo(fontPath)
+        if fontFile then
+            return love.graphics.newFont(fontPath, size)
+        end
+    end
+    
+    -- Fallback to default font
+    return love.graphics.newFont(size)
+end
+
+-- Helper function to create a bold sci-fi font
+function Theme.getFontBold(size)
+    size = size or Theme.fonts.normal
+    local fontPath = Theme.fonts.fontPathBold
+    
+    -- Check if font file exists, if not fall back to default
+    if fontPath then
+        local fontFile = love.filesystem.getInfo(fontPath)
+        if fontFile then
+            return love.graphics.newFont(fontPath, size)
+        end
+    end
+    
+    -- Fallback to default font
+    return love.graphics.newFont(size)
+end
 
 -- Helper function to create a 3D border effect
 function Theme.draw3DBorder(x, y, w, h, depth)

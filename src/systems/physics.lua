@@ -16,6 +16,16 @@ local PhysicsSystem = {
             local physics = ECS.getComponent(entityId, "Physics")
             local acceleration = ECS.getComponent(entityId, "Acceleration")
 
+            -- Store previous position for CCD (Continuous Collision Detection)
+            position.prevX = position.x
+            position.prevY = position.y
+            
+            -- Store previous rotation for rotated object CCD
+            local polygonShape = ECS.getComponent(entityId, "PolygonShape")
+            if polygonShape then
+                polygonShape.prevRotation = polygonShape.rotation
+            end
+
             -- Apply acceleration to velocity
             if acceleration then
                 velocity.vx = velocity.vx + acceleration.ax * dt

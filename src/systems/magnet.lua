@@ -1,49 +1,51 @@
 ---@diagnostic disable: undefined-global
--- Magnet System - Handles item attraction and collection for entities with Magnet components
+-- Pickup System - Handles item collection on player contact
 
 local ECS = require('src.ecs')
+local Notifications = require('src.ui.notifications')
 
-local MagnetSystem = {
-    name = "MagnetSystem"
+local PickupSystem = {
+    name = "MagnetSystem"  -- Keep name for compatibility
 }
 
-function MagnetSystem.update(dt)
-    -- Get all entities with Magnet, Position, and Cargo components
-    local magnetEntities = ECS.getEntitiesWith({"Magnet", "Position", "Cargo"})
+function PickupSystem.update(dt)
+    -- Get all entities with Cargo (the player)
+    local cargoEntities = ECS.getEntitiesWith({"Cargo", "Position", "Collidable"})
     
-    for _, magnetId in ipairs(magnetEntities) do
-        local magnet = ECS.getComponent(magnetId, "Magnet")
-        local magnetPos = ECS.getComponent(magnetId, "Position")
-        local cargo = ECS.getComponent(magnetId, "Cargo")
+    for _, cargoId in ipairs(cargoEntities) do
+        local cargo = ECS.getComponent(cargoId, "Cargo")
+        local cargoPos = ECS.getComponent(cargoId, "Position")
+        local coll = ECS.getComponent(cargoId, "Collidable")
         
-        if magnet and magnetPos and cargo then
+        if cargo and cargoPos and coll then
             -- Get all items in the world
-            local itemEntities = ECS.getEntitiesWith({"Item", "Position", "Velocity"})
+            local itemEntities = ECS.getEntitiesWith({"Item", "Position", "Collidable"})
             
             for _, itemId in ipairs(itemEntities) do
                 local itemComp = ECS.getComponent(itemId, "Item")
-                local pos = ECS.getComponent(itemId, "Position")
-                local vel = ECS.getComponent(itemId, "Velocity")
+                local itemPos = ECS.getComponent(itemId, "Position")
+                local itemColl = ECS.getComponent(itemId, "Collidable")
+                local stack = ECS.getComponent(itemId, "Stack")
                 
-                if itemComp and pos and vel then
-                    local dx = magnetPos.x - pos.x
-                    local dy = magnetPos.y - pos.y
+                if itemComp and itemPos and itemColl then
+                    local dx = cargoPos.x - itemPos.x
+                    local dy = cargoPos.y - itemPos.y
                     local dist = math.sqrt(dx*dx + dy*dy)
+                    local minDist = coll.radius + itemColl.radius
                     
-                    -- If item is within magnet range, pull it
-                    if dist < magnet.range and dist > 0 then
-                        vel.vx = dx/dist * magnet.pullSpeed
-                        vel.vy = dy/dist * magnet.pullSpeed
+                    -- If player touches item, collect it
+                    if dist < minDist then
+                        local quantity = stack and stack.quantity or 1
+                        cargo.items[itemComp.id] = (cargo.items[itemComp.id] or 0) + quantity
                         
-                        -- If close enough, collect the item
-                        if dist < magnet.collectDistance then
-                            cargo.items[itemComp.id] = (cargo.items[itemComp.id] or 0) + 1
-                            ECS.destroyEntity(itemId)
-                            
-                            -- Call item's onCollect hook if it exists
-                            if itemComp.def and itemComp.def.onCollect then
-                                itemComp.def:onCollect(magnetId)
-                            end
+                        -- Show notification for item collected
+                        Notifications.addNotification(itemComp.id, quantity, cargoPos.x, cargoPos.y)
+                        
+                        ECS.destroyEntity(itemId)
+                        
+                        -- Call item's onCollect hook if it exists
+                        if itemComp.def and itemComp.def.onCollect then
+                            itemComp.def:onCollect(cargoId)
                         end
                     end
                 end
@@ -52,4 +54,4 @@ function MagnetSystem.update(dt)
     end
 end
 
-return MagnetSystem
+return PickupSystem

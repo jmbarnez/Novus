@@ -39,32 +39,42 @@ function DestructionSystem.spawnItemDrops(x, y)
     local dropCount = math.random(2, 4) -- Spawn 2-4 items
     print("Spawning " .. dropCount .. " items at (" .. x .. ", " .. y .. ")")
     
+    -- Group items by type for stacking
+    local itemsByType = {}
     for i = 1, dropCount do
-        -- Randomly choose an item type
         local itemType = itemTypes[math.random(#itemTypes)]
+        itemsByType[itemType] = (itemsByType[itemType] or 0) + 1
+    end
+    
+    -- Spawn one entity per item type with stack quantity
+    for itemType, quantity in pairs(itemsByType) do
         local itemDef = ItemDefs[itemType]
-        if not itemDef then return end
-        
-        -- Spawn item in random direction around asteroid
-        local angle = math.random() * math.pi * 2  -- Random angle 0-2π
-        local distance = math.random(20, 50)  -- Distance from asteroid center
-        
-        local itemX = x + math.cos(angle) * distance
-        local itemY = y + math.sin(angle) * distance
-        
-        -- Random velocity away from asteroid
-        local speed = math.random(30, 80)
-        local vx = math.cos(angle) * speed
-        local vy = math.sin(angle) * speed
-        
-        -- Create item entity
-        local itemId = ECS.createEntity()
-        ECS.addComponent(itemId, "Position", Components.Position(itemX, itemY))
-        ECS.addComponent(itemId, "Velocity", Components.Velocity(vx, vy))
-        ECS.addComponent(itemId, "Item", {id = itemType, def = itemDef})
-        ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
-        
-        print("Spawned " .. itemType .. " item at (" .. itemX .. ", " .. itemY .. ")")
+        if itemDef then
+            -- Spawn item in random direction around asteroid
+            local angle = math.random() * math.pi * 2  -- Random angle 0-2π
+            local distance = math.random(70, 120)  -- Distance from asteroid center (further to avoid overlap)
+            
+            local itemX = x + math.cos(angle) * distance
+            local itemY = y + math.sin(angle) * distance
+            
+            -- Random velocity away from asteroid
+            local speed = math.random(30, 80)
+            local vx = math.cos(angle) * speed
+            local vy = math.sin(angle) * speed
+            
+            -- Create item entity
+            local itemId = ECS.createEntity()
+            ECS.addComponent(itemId, "Position", Components.Position(itemX, itemY))
+            ECS.addComponent(itemId, "Velocity", Components.Velocity(vx, vy))
+            ECS.addComponent(itemId, "Physics", Components.Physics(0.95, 200, 0.5))  -- Friction, max speed, mass
+            ECS.addComponent(itemId, "Item", {id = itemType, def = itemDef})
+            ECS.addComponent(itemId, "Stack", Components.Stack(quantity))  -- Add stack with quantity
+            ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
+            -- Add circular collider matching visual size (design.size / 2 is the radius)
+            ECS.addComponent(itemId, "Collidable", Components.Collidable(itemDef.design.size / 2))
+            
+            print("Spawned " .. quantity .. "x " .. itemType .. " stack at (" .. itemX .. ", " .. itemY .. ")")
+        end
     end
 end
 

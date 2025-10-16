@@ -1,5 +1,6 @@
--- Collision System - Handles collision detection and response
--- Uses broad-phase (bounding circles) and narrow-phase (SAT) collision detection
+-- Collision System - Handles player-specific collisions
+-- Player collides with all collidable objects
+-- Physics-based collisions between entities are handled by PhysicsCollisionSystem
 
 local ECS = require('src.ecs')
 local PhysicsSystem = require('src.systems.physics')
@@ -231,6 +232,10 @@ local function checkPolygonPolygonCollision(polygon1Pos, polygon1Shape, polygon2
 end
 
 local function handleCollision(entity1Id, entity2Id, normal, depth)
+    -- Ensure normal is never nil
+    if not normal or not normal.x or not normal.y then
+        normal = {x = 0, y = 1}
+    end
     local pos1 = ECS.getComponent(entity1Id, "Position")
     local vel1 = ECS.getComponent(entity1Id, "Velocity")
     local phys1 = ECS.getComponent(entity1Id, "Physics")
@@ -298,6 +303,7 @@ local CollisionSystem = {
         local playerCollidable = ECS.getComponent(playerId, "Collidable")
         
         -- Check collisions between player and all other collidables
+        -- Note: Items are handled by PhysicsCollisionSystem for automatic physics responses
         for _, entityId in ipairs(collidableEntities) do
             if entityId ~= playerId then -- Don't check player with itself
                 local entityPos = ECS.getComponent(entityId, "Position")
@@ -305,7 +311,6 @@ local CollisionSystem = {
                 
                 -- Broad-phase: Check bounding circles
                 local broadPhaseHit = checkBoundingCircles(playerPos, playerCollidable, entityPos, entityCollidable)
-                -- print("Broad-phase check: " .. tostring(broadPhaseHit) .. ", Player ID: " .. playerId .. ", Entity ID: " .. entityId)
 
                 if broadPhaseHit then
                     local playerPolygon = ECS.getComponent(playerId, "PolygonShape")
@@ -313,14 +318,12 @@ local CollisionSystem = {
 
                     if playerPolygon and entityPolygon then
                         -- Both are polygons, use polygon-polygon collision
-                        -- print("Attempting polygon-polygon collision between player and entity: " .. entityId)
                         local isColliding, normal, depth = checkPolygonPolygonCollision(playerPos, playerPolygon, entityPos, entityPolygon)
                         if isColliding then
-                            -- print("POLYGON-POLYGON COLLISION DETECTED!")
                             handleCollision(playerId, entityId, normal, depth)
                         end
                     elseif playerPolygon then
-                        -- Player is polygon, entity is circle (should not happen with asteroids, but for future)
+                        -- Player is polygon, entity is circle (for future use)
                         if checkPolygonCircleCollision(playerPos, playerPolygon, entityPos, entityCollidable.radius) then
                             handleCollision(playerId, entityId)
                         end

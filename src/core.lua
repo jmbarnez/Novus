@@ -25,6 +25,7 @@ function Core.init()
 
     -- Register all ECS systems
     ECS.registerSystem("PhysicsSystem", Systems.PhysicsSystem)
+    ECS.registerSystem("PhysicsCollisionSystem", Systems.PhysicsCollisionSystem)
     ECS.registerSystem("BoundarySystem", Systems.BoundarySystem)
     ECS.registerSystem("InputSystem", Systems.InputSystem)
     ECS.registerSystem("RenderSystem", Systems.RenderSystem)

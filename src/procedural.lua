@@ -28,7 +28,7 @@ function Procedural.generateEntity(templateName, spawnData)
     return template(spawnData or {})
 end
 
--- Spawn multiple entities using a template
+-- Spawn multiple entities using a template with collision avoidance
 -- @param templateName string: Name of the template to use
 -- @param count number: Number of entities to spawn
 -- @param spawnStrategy string: Strategy for positioning ("cluster", "grid", "edge")
@@ -36,11 +36,43 @@ end
 -- @return table: Array of component data tables
 function Procedural.spawnMultiple(templateName, count, spawnStrategy, strategyData)
     local entities = {}
+    local positions = {}  -- Track spawned positions for collision detection
     
     for i = 1, count do
         local spawnData = Procedural.calculateSpawnPosition(spawnStrategy, strategyData, i)
-        local entityData = Procedural.generateEntity(templateName, spawnData)
-        table.insert(entities, entityData)
+        local maxAttempts = 20  -- Try up to 20 times to find a valid spawn position
+        local attempts = 0
+        local validPosition = false
+        
+        while attempts < maxAttempts and not validPosition do
+            -- Check if this position collides with any existing entity
+            validPosition = true
+            local minDistance = 150  -- Minimum distance between entity centers
+            
+            for _, existingPos in ipairs(positions) do
+                local dx = spawnData.x - existingPos.x
+                local dy = spawnData.y - existingPos.y
+                local distance = math.sqrt(dx * dx + dy * dy)
+                
+                if distance < minDistance then
+                    validPosition = false
+                    break
+                end
+            end
+            
+            -- If position is invalid, try a new random position
+            if not validPosition then
+                spawnData = Procedural.calculateSpawnPosition(spawnStrategy, strategyData, i)
+                attempts = attempts + 1
+            end
+        end
+        
+        -- Only add entity if we found a valid position
+        if validPosition then
+            local entityData = Procedural.generateEntity(templateName, spawnData)
+            table.insert(entities, entityData)
+            table.insert(positions, {x = spawnData.x, y = spawnData.y})
+        end
     end
     
     return entities
@@ -149,12 +181,20 @@ function Procedural.registerAsteroidTemplate()
         local velocity = Procedural.randomVelocity(Constants.asteroid_velocity_min, Constants.asteroid_velocity_max)
         local angularVelocity = Procedural.randomRange(Constants.asteroid_rotation_min, Constants.asteroid_rotation_max)
         
+        -- Heavy asteroid mass based on size (much heavier - not easily pushed)
+        -- Density scales cubically with size for realistic mass
+        local asteroidMass = size * size * 0.5  -- Much heavier than drone (which is mass 1)
+        
+        -- Very high rotational inertia - asteroids resist spinning from impacts
+        local rotationalInertia = size * size * size * 2  -- Cubic scaling for resistance
+        
         return {
             Position = Components.Position(spawnData.x, spawnData.y),
             Velocity = Components.Velocity(velocity.vx, velocity.vy),
-            Physics = Components.Physics(0.999, 100, 1), -- Low friction, moderate max speed
+            Physics = Components.Physics(0.999, 100, asteroidMass), -- Low friction, moderate max speed, HEAVY mass
             PolygonShape = Components.PolygonShape(vertices, spawnData.angle or 0),
             AngularVelocity = Components.AngularVelocity(angularVelocity),
+            RotationalMass = Components.RotationalMass(rotationalInertia), -- Huge rotational inertia - hard to spin
             Collidable = Components.Collidable(size / 2), -- Bounding radius
             Durability = Components.Durability(size * 2, size * 2),
             Asteroid = Components.Asteroid(),
