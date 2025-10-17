@@ -18,5 +18,6 @@ Systems.MagnetSystem = require('src.systems.magnet')
 Systems.DestructionSystem = require('src.systems.destruction')
 Systems.DebrisSystem = require('src.systems.debris')
 Systems.TurretSystem = require('src.systems.turret')
+Systems.ProjectileSystem = require('src.systems.projectile')
 
 return Systems

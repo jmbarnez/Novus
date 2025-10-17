@@ -13,11 +13,13 @@ function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
     local lines = {
         itemDef.name,
         "Count: " .. count,
-        "Value: " .. itemDef.value,
-        "Stackable: " .. (itemDef.stackable and "Yes" or "No"),
-        "",
-        itemDef.description
     }
+    if itemDef.value then
+        table.insert(lines, "Value: " .. itemDef.value)
+    end
+    table.insert(lines, "Stackable: " .. (itemDef.stackable and "Yes" or "No"))
+    table.insert(lines, "")
+    table.insert(lines, itemDef.description)
     
     -- Calculate dimensions
     local font = Theme.getFont(Theme.fonts.small)

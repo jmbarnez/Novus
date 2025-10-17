@@ -159,7 +159,7 @@ function Dialogs.handleConfirmDialogClick(x, y, button)
                 local cargo = ECS.getComponent(cargoEntities[1], "Cargo")
                 if cargo and cargo.items[Dialogs.confirmDialog.itemId] then
                     cargo.items[Dialogs.confirmDialog.itemId] = nil
-                    print("Deleted all " .. Dialogs.confirmDialog.itemId .. " items")
+                    -- ...existing code...
                 end
             end
             

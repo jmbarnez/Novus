@@ -10,7 +10,7 @@ local particleCount = 0
 
 local TrailSystem = {
     name = "TrailSystem",
-
+    priority = 8,
     update = function(dt)
         -- Update existing trail particles and count them
         local trailEntities = ECS.getEntitiesWith({"TrailParticle"})

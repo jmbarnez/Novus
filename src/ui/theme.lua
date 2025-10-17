@@ -12,7 +12,8 @@ local Theme = {
         -- Borders and accents
         borderDark = {0.05, 0.06, 0.08, 1},      -- Dark shadow border
         borderMedium = {0.22, 0.24, 0.28, 1},    -- Medium border
-        borderLight = {0.35, 0.38, 0.45, 1},     -- Light/highlight border
+    borderLight = {0.35, 0.38, 0.45, 1},     -- Light/highlight border
+    borderNeon = {0.2, 0.95, 1, 0.85},       -- Neon blue/cyan border
         
         -- Text
         textPrimary = {1, 1, 1, 1},              -- Main text (white)
@@ -95,26 +96,48 @@ function Theme.getFontBold(size)
     return love.graphics.newFont(size)
 end
 
--- Helper function to create a 3D border effect
+-- Helper function to create a 3D border effect with neon segmented sci-fi style
 function Theme.draw3DBorder(x, y, w, h, depth)
     depth = depth or 4
-    
+
     -- Outer shadow
     love.graphics.setColor(Theme.colors.bgDark)
     love.graphics.rectangle("fill", x - depth, y - depth, w + depth * 2, h + depth * 2)
-    
+
     -- Medium border
     love.graphics.setColor(Theme.colors.borderMedium)
     love.graphics.rectangle("fill", x - depth + 2, y - depth + 2, w + depth * 2 - 4, h + depth * 2 - 4)
-    
+
     -- Base background
     love.graphics.setColor(Theme.colors.bgDark)
     love.graphics.rectangle("fill", x, y, w, h)
-    
+
+    -- Neon segmented border (sci-fi panel)
+    love.graphics.setColor(Theme.colors.borderNeon)
+    love.graphics.setLineWidth(3)
+    local seg = math.max(32, math.floor(w / 6))
+    -- Top border
+    for i = 0, w - seg, seg do
+        love.graphics.line(x + i, y, x + i + seg * 0.7, y)
+    end
+    -- Bottom border
+    for i = 0, w - seg, seg do
+        love.graphics.line(x + i, y + h, x + i + seg * 0.7, y + h)
+    end
+    -- Left border
+    for i = 0, h - seg, seg do
+        love.graphics.line(x, y + i, x, y + i + seg * 0.7)
+    end
+    -- Right border
+    for i = 0, h - seg, seg do
+        love.graphics.line(x + w, y + i, x + w, y + i + seg * 0.7)
+    end
+    love.graphics.setLineWidth(1)
+
     -- Top highlight
     love.graphics.setColor(Theme.colors.highlightBright)
     love.graphics.rectangle("fill", x, y, w, 8)
-    
+
     -- Bottom shadow
     love.graphics.setColor(Theme.colors.shadowDark)
     love.graphics.rectangle("fill", x, y + h - 8, w, 8)

@@ -4,6 +4,7 @@ local ECS = require('src.ecs')
 
 local DebrisSystem = {
     name = "DebrisSystem",
+    priority = 9
 }
 
 function DebrisSystem.update(dt)

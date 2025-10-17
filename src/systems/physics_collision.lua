@@ -1,12 +1,12 @@
 -- Physics Collision System - Universal collision handling for all physics entities
 -- Handles collisions between any entities with Position, Velocity, Physics, and Collidable components
 
+
 local ECS = require('src.ecs')
 
 -- Frame counter for optimization
 local frameCounter = 0
 
--- Helper: Check if rotation has changed significantly
 local function hasRotationChanged(poly1, poly2, rotationThreshold)
     rotationThreshold = rotationThreshold or 0.1  -- ~5.7 degrees
     local rot1Changed = poly1 and math.abs(poly1.rotation - (poly1.prevRotation or 0)) > rotationThreshold or false
@@ -14,7 +14,6 @@ local function hasRotationChanged(poly1, poly2, rotationThreshold)
     return rot1Changed or rot2Changed
 end
 
--- Helper: Check bounding circle collision
 local function checkBoundingCircles(pos1, coll1, pos2, coll2)
     local dx = pos2.x - pos1.x
     local dy = pos2.y - pos1.y
@@ -22,9 +21,6 @@ local function checkBoundingCircles(pos1, coll1, pos2, coll2)
     return distance < (coll1.radius + coll2.radius)
 end
 
--- Helper: Swept circle collision (CCD for fast-moving objects)
--- Checks if a circle moving from oldPos to newPos collides with a static circle
--- Returns collision flag and time-of-impact (for better penetration handling)
 local function checkSweptCircleCircle(oldPos, newPos, radius1, staticPos, radius2)
     local minDist = radius1 + radius2
     
@@ -39,6 +35,10 @@ local function checkSweptCircleCircle(oldPos, newPos, radius1, staticPos, radius
     local a = dx * dx + dy * dy
     local b = 2 * (fx * dx + fy * dy)
     local c = (fx * fx + fy * fy) - (minDist * minDist)
+local PhysicsCollisionSystem = {
+     name = "PhysicsCollisionSystem",
+     priority = 3
+}
     
     if a < 0.0001 then
         -- Movement is negligible, do static check
@@ -447,6 +447,15 @@ local PhysicsCollisionSystem = {
     name = "PhysicsCollisionSystem",
 
     update = function(dt)
+        -- First pass: update projectile owner immunity timers
+        local projectiles = ECS.getEntitiesWith({"Projectile"})
+        for _, projId in ipairs(projectiles) do
+            local proj = ECS.getComponent(projId, "Projectile")
+            if proj and proj.ownerImmunityTime and proj.ownerImmunityTime > 0 then
+                proj.ownerImmunityTime = proj.ownerImmunityTime - dt
+            end
+        end
+
         -- Get all entities with physics colliders
         local physicsEntities = ECS.getEntitiesWith({"Position", "Velocity", "Physics", "Collidable"})
         
@@ -476,6 +485,10 @@ local PhysicsCollisionSystem = {
                     local prevPos1 = pos1.prevX and {x = pos1.prevX, y = pos1.prevY} or pos1
                     local prevPos2 = pos2.prevX and {x = pos2.prevX, y = pos2.prevY} or pos2
                     
+                    -- Ensure we have velocity and physics components
+                    if not (vel1 and vel2 and phys1 and phys2) then
+                        goto continue_pair
+                    end
                     -- Calculate velocities for sub-frame detection
                     local vel1Mag = math.sqrt(vel1.vx * vel1.vx + vel1.vy * vel1.vy)
                     local vel2Mag = math.sqrt(vel2.vx * vel2.vx + vel2.vy * vel2.vy)
@@ -488,10 +501,10 @@ local PhysicsCollisionSystem = {
                     
                     -- For very fast objects, also check mid-frame position
                     local bboxCheckMid = false
-                    if maxVel > maxVelocityThreshold then
+                            if maxVel > maxVelocityThreshold then
                         -- Check collision at mid-frame for fast-moving objects
-                        local midPos1 = {x = pos1.x - vel1.vx * dt * 0.5, y = pos1.y - vel1.vy * dt * 0.5}
-                        local midPos2 = {x = pos2.x - vel2.vx * dt * 0.5, y = pos2.y - vel2.vy * dt * 0.5}
+                                local midPos1 = {x = pos1.x - vel1.vx * dt * 0.5, y = pos1.y - vel1.vy * dt * 0.5}
+                                local midPos2 = {x = pos2.x - vel2.vx * dt * 0.5, y = pos2.y - vel2.vy * dt * 0.5}
                         bboxCheckMid = checkBoundingCircles(midPos1, coll1, midPos2, coll2)
                     end
                     
@@ -560,6 +573,36 @@ local PhysicsCollisionSystem = {
                         
                         -- Resolve collision if detected
                         if colliding and vel1 and vel2 and phys1 and phys2 then
+                           -- Prevent projectile from colliding with its owner (if immunity still active)
+                           local proj1 = ECS.getComponent(entity1Id, "Projectile")
+                           local proj2 = ECS.getComponent(entity2Id, "Projectile")
+                           if proj1 and proj1.ownerId == entity2Id and proj1.ownerImmunityTime > 0 then goto continue_pair end
+                           if proj2 and proj2.ownerId == entity1Id and proj2.ownerImmunityTime > 0 then goto continue_pair end
+                            -- If either entity is a projectile, apply its damage to the other
+                            local proj1 = ECS.getComponent(entity1Id, "Projectile")
+                            local proj2 = ECS.getComponent(entity2Id, "Projectile")
+                            if proj1 then
+                                local durability2 = ECS.getComponent(entity2Id, "Durability")
+                                if durability2 then
+                                    durability2.current = durability2.current - (proj1.damage or 10)
+                                end
+                                -- If projectile is brittle, mark it for destruction
+                                if proj1.brittle then
+                                    local pDur = ECS.getComponent(entity1Id, "Durability")
+                                    if pDur then pDur.current = 0 end
+                                end
+                            end
+                            if proj2 then
+                                local durability1 = ECS.getComponent(entity1Id, "Durability")
+                                if durability1 then
+                                    durability1.current = durability1.current - (proj2.damage or 10)
+                                end
+                                if proj2.brittle then
+                                    local pDur = ECS.getComponent(entity2Id, "Durability")
+                                    if pDur then pDur.current = 0 end
+                                end
+                            end
+
                             resolveCollision(
                                 {pos = pos1, vel = vel1, phys = phys1, angularVel = ECS.getComponent(entity1Id, "AngularVelocity"), rotMass = ECS.getComponent(entity1Id, "RotationalMass")},
                                 {pos = pos2, vel = vel2, phys = phys2, angularVel = ECS.getComponent(entity2Id, "AngularVelocity"), rotMass = ECS.getComponent(entity2Id, "RotationalMass")},
@@ -568,6 +611,7 @@ local PhysicsCollisionSystem = {
                             )
                         end
                     end
+                    ::continue_pair::
                 end
             end
         end

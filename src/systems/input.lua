@@ -6,7 +6,8 @@ local Constants = require('src.constants')
 local TurretSystem = require('src.systems.turret')
 
 local InputSystem = {
-    name = "InputSystem"
+    name = "InputSystem",
+    priority = 1
 }
 
 function InputSystem.update(dt)
@@ -80,7 +81,7 @@ function InputSystem.update(dt)
                         else
                             laserBeam.endPos = {x = mouseX, y = mouseY}
                         end
-                        print("Updated laser beam")
+                        -- ...existing code...
                     end
                 end
             end

@@ -17,7 +17,9 @@ local function drawTurret(x, y, color, playerRotation)
     local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
     local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
 
-    -- Convert mouse position to world coordinates, accounting for zoom and camera position
+        if not (canvasComp and cameraComp and cameraPos and color and color[4]) then return end
+    
+        -- Convert mouse position to world coordinates, accounting for zoom and camera position
     mouseX = (mouseX / cameraComp.zoom - canvasComp.offsetX) / canvasComp.scale + cameraPos.x
     mouseY = (mouseY / cameraComp.zoom - canvasComp.offsetY) / canvasComp.scale + cameraPos.y
 
@@ -62,18 +64,18 @@ local function drawPolygon(x, y, polygonShape, color)
     -- Draw outline
     love.graphics.setColor(color[1] * 0.7, color[2] * 0.7, color[3] * 0.7, color[4])
     love.graphics.polygon("line", worldVertices)
+        if not (polygonShape and color and color[1] and color[2] and color[3] and color[4]) then return end
+        if not vertices or #vertices < 3 then return end
 end
 
 -- Helper function to draw the mining laser
 local function drawLaser()
     local laserEntities = ECS.getEntitiesWith({"LaserBeam"})
-    if #laserEntities > 0 then
-        print("Drawing " .. #laserEntities .. " laser beams")
-    end
+    -- ...existing code...
     for _, entityId in ipairs(laserEntities) do
         local laser = ECS.getComponent(entityId, "LaserBeam")
         if laser then
-            print("Laser beam: start=(" .. laser.start.x .. "," .. laser.start.y .. ") end=(" .. laser.endPos.x .. "," .. laser.endPos.y .. ")")
+            -- ...existing code...
             love.graphics.setColor(1, 0, 0, 1) -- Red
             love.graphics.setLineWidth(2)
             love.graphics.line(laser.start.x, laser.start.y, laser.endPos.x, laser.endPos.y)
@@ -90,15 +92,15 @@ local function drawDebris()
         if particle then
             -- Calculate alpha based on remaining life
             local alpha = particle.life / particle.maxLife
+                if particle.color and particle.color[1] and particle.color[2] and particle.color[3] and particle.color[4] then
             love.graphics.setColor(
                 particle.color[1],
                 particle.color[2],
                 particle.color[3],
                 particle.color[4] * alpha
             )
-
-            -- Draw particle as a circle that fades over time
             love.graphics.circle("fill", particle.x, particle.y, particle.size)
+                end
         end
     end
 end
@@ -163,7 +165,8 @@ local RenderSystem = {
             -- Render debris particles
             drawDebris()
 
-            -- Render laser beam
+            if not canvasComp or not canvasComp.canvas or not canvasComp.width or not canvasComp.height then return end
+            love.graphics.setCanvas(canvasComp.canvas)
             drawLaser()
 
             -- Render regular entities
@@ -201,6 +204,8 @@ local RenderSystem = {
                             position.y - renderable.height/2,
                             renderable.width,
                             renderable.height)
+                    elseif renderable.shape == "circle" then
+                        love.graphics.circle("fill", position.x, position.y, renderable.radius)
                     elseif renderable.shape == "polygon" then
                         local polygonShape = ECS.getComponent(entityId, "PolygonShape")
                         if polygonShape and ECS.hasComponent(entityId, "InputControlled") then

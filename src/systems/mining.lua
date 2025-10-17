@@ -19,6 +19,15 @@ function MiningSystem.update(dt)
     local turret = ECS.getComponent(playerId, "Turret")
     if not turret then return end
 
+    -- Prevent mining if no module is fitted
+    if not turret.moduleName or turret.moduleName == "" or turret.moduleName == "default" then
+        if MiningSystem.laserEntity then
+            ECS.destroyEntity(MiningSystem.laserEntity)
+            MiningSystem.laserEntity = nil
+        end
+        return
+    end
+
     -- Always get the equipped turret module from TurretSystem
     local turretModules = TurretSystem.turretModules
     local turretModule = turretModules[turret.moduleName]

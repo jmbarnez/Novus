@@ -5,6 +5,7 @@ local ECS = require('src.ecs')
 
 local PhysicsSystem = {
     name = "PhysicsSystem",
+    priority = 2,
 
     update = function(dt)
         -- Get all entities with Position and Velocity (physics applies to all moving entities)
@@ -49,6 +50,14 @@ local PhysicsSystem = {
             -- Update position based on velocity
             position.x = position.x + velocity.vx * dt
             position.y = position.y + velocity.vy * dt
+            
+            -- Debug log for projectiles
+            local proj = ECS.getComponent(entityId, "Projectile")
+            if proj and velocity then
+                if velocity.vx ~= 0 or velocity.vy ~= 0 then
+                    print(string.format("[PhysicsSystem] Projectile %d moved to (%.2f, %.2f)", entityId, position.x, position.y))
+                end
+            end
         end
         
         -- Update angular velocity for entities with rotation

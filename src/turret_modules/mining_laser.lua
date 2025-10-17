@@ -5,6 +5,7 @@ local ECS = require('src.ecs')
 local Components = require('src.components')
 local CollisionSystem = require('src.systems.collision')
 local DebrisSystem = require('src.systems.debris')
+local UISystem = require('src.systems.ui')
 
 local MiningLaser = {
     name = "mining_laser",
@@ -28,7 +29,7 @@ function MiningLaser.fire(ownerId, startX, startY, endX, endY)
         start = {x = startX, y = startY},
         endPos = {x = endX, y = endY}
     })
-    print("Created laser entity: " .. MiningLaser.laserEntity)
+    -- ...existing code...
 end
 
 -- Called every frame while the laser is firing
@@ -57,7 +58,12 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt)
         -- Apply per-frame DPS
         local durability = ECS.getComponent(hitAsteroidId, "Durability")
         if durability then
-            durability.current = durability.current - MiningLaser.LASER_DPS * dt
+            local damageApplied = math.min(MiningLaser.LASER_DPS * dt, durability.current)
+            durability.current = durability.current - damageApplied
+            -- Only grant XP if asteroid is destroyed this frame
+            if durability.current <= 0 then
+                UISystem.addSkillExperience("mining", 10)
+            end
         end
         -- Store color of hit asteroid
         local renderable = ECS.getComponent(hitAsteroidId, "Renderable")

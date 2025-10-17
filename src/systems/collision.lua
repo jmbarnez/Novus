@@ -3,7 +3,11 @@
 -- Physics-based collisions between entities are handled by PhysicsCollisionSystem
 
 local ECS = require('src.ecs')
-local PhysicsSystem = require('src.systems.physics')
+
+local CollisionSystem = {
+    name = "CollisionSystem",
+    priority = 4
+}
 
 -- Helper functions for collision detection
 

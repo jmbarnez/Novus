@@ -206,7 +206,7 @@ end
 -- Initialize all default templates
 function Procedural.init()
     Procedural.registerAsteroidTemplate()
-    print("Procedural content generation system initialized")
+    -- ...existing code...
 end
 
 return Procedural

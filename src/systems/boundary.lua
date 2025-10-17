@@ -5,7 +5,7 @@ local ECS = require('src.ecs')
 
 local BoundarySystem = {
     name = "BoundarySystem",
-
+    priority = 7,
     update = function(dt)
         local entities = ECS.getEntitiesWith({"Position", "Boundary"})
 

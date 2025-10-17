@@ -36,7 +36,7 @@ Components.Acceleration = function(ax, ay)
     return {
         ax = ax or 0,
         ay = ay or 0
-    }
+    } -- Close the table definition properly
 end
 
 -- Renderable component - Visual representation
@@ -118,7 +118,7 @@ Components.UI = function(uiType, data)
     return {
         uiType = uiType or "hud",
         data = data or {}
-    }
+    } -- Close the table definition properly
 end
 
 -- Tag components - Simple marker components with no data
@@ -164,7 +164,7 @@ Components.TrailParticle = function(x, y, vx, vy, life, size, color)
         maxLife = life or 1.0,
         size = size or 2,
         color = color or {0.5, 0.8, 1.0, 0.8} -- Light blue default
-    }
+    } -- Close the table definition properly
 end
 
 -- TrailEmitter component - Controls trail particle emission
@@ -182,7 +182,7 @@ Components.TrailEmitter = function(emitRate, maxParticles, particleLife, spreadA
         particleLife = particleLife or Constants.trail_particle_life, -- seconds
         spreadAngle = spreadAngle or Constants.trail_spread_angle, -- radians
         speedMultiplier = speedMultiplier or Constants.trail_speed_multiplier
-    }
+    } -- Close the table definition properly
 end
 
 -- Canvas component - For off-screen rendering
@@ -305,6 +305,15 @@ Components.Turret = function(moduleName, cooldown)
     }
 end
 
+-- TurretSlots component - Holds equipped turret modules
+-- @field slots table: Array of turret module names/IDs (max 1 for drone)
+Components.TurretSlots = function(maxSlots)
+    return {
+        slots = {},
+        maxSlots = maxSlots or 1
+    }
+end
+
 -- Cargo component - Represents inventory or cargo bay for the drone/player
 -- @field items table: List or map of items and their amounts
 -- @field capacity number: Maximum cargo capacity
@@ -340,6 +349,35 @@ end
 Components.Stack = function(quantity)
     return {
         quantity = quantity or 1
+    }
+end
+
+-- Skills component - Tracks player skills and experience
+-- @field skills table: Map of skill names to skill data {level, experience, requiredXp}
+Components.Skills = function()
+    return {
+        skills = {
+            mining = {
+                level = 1,
+                experience = 0,
+                requiredXp = 100,  -- XP needed for next level
+                totalXp = 0        -- Total XP earned (for history)
+            }
+        }
+    }
+end
+
+-- Projectile component - Marks an entity as a projectile
+-- @field ownerId number: The entity ID of the owner who fired the projectile
+-- @field damage number: The amount of damage the projectile deals
+-- @field brittle boolean: Whether projectile breaks on impact
+-- @field ownerImmunityTime number: Time remaining during which projectile won't collide with owner
+Components.Projectile = function(data)
+    return {
+        ownerId = data.ownerId or 0,
+        damage = data.damage or 10,
+        brittle = data.brittle or false,
+        ownerImmunityTime = data.ownerImmunityTime or 0.2  -- 0.2 seconds of immunity to owner collision
     }
 end
 

@@ -9,10 +9,13 @@ local CargoWindow = require('src.ui.cargo_window')
 local Tooltips = require('src.ui.tooltips')
 local Dialogs = require('src.ui.dialogs')
 local Notifications = require('src.ui.notifications')
+local SkillNotifications = require('src.ui.skill_notifications')
+-- Hotbar removed
 
 -- UI System main table
 local UISystem = {
-    name = "UISystem"
+    name = "UISystem",
+    priority = 10
 }
 
 -- Helper function to draw speed indicator
@@ -91,14 +94,18 @@ function UISystem.draw(viewportWidth, viewportHeight)
         if ui.uiType == "hud" then
             drawSpeedIndicator(viewportWidth, viewportHeight)
             drawHealthBar(viewportWidth, viewportHeight)
+            -- Hotbar removed
         end
     end
     
     -- Draw notifications (in screen space)
     Notifications.draw(0, 0, 1)
     
+    -- Draw skill notifications (in screen space)
+    SkillNotifications.draw()
+    
     -- Draw cargo window and related UI
-    CargoWindow.draw(viewportWidth, viewportHeight)
+    CargoWindow:draw(viewportWidth, viewportHeight)
     
     -- Draw confirmation dialog if active (highest priority)
     if Dialogs.confirmDialog then
@@ -120,17 +127,30 @@ function UISystem.draw(viewportWidth, viewportHeight)
             CargoWindow.hoveredItemSlot.mouseY
         )
     end
+    
+    -- Draw tooltip for turret slot
+    if CargoWindow.isOpen and CargoWindow.hoveredTurretSlot and not Dialogs.contextMenu and not Dialogs.confirmDialog then
+        Tooltips.drawItemTooltip(
+            CargoWindow.hoveredTurretSlot.itemId,
+            CargoWindow.hoveredTurretSlot.itemDef,
+            CargoWindow.hoveredTurretSlot.count,
+            CargoWindow.hoveredTurretSlot.mouseX,
+            CargoWindow.hoveredTurretSlot.mouseY
+        )
+    end
 end
 
 -- Update function for UI (handles notifications timing)
 function UISystem.update(dt)
     Notifications.update(dt)
+    SkillNotifications.update(dt)
+    CargoWindow:update(dt)
 end
 
 -- Key pressed handler
 function UISystem.keypressed(key)
     if key == 'tab' or key == 'escape' then
-        CargoWindow.toggle()
+        CargoWindow:toggle()
     end
 end
 
@@ -155,31 +175,63 @@ function UISystem.mousepressed(x, y, button)
             return
         end
         
-        CargoWindow.mousepressed(x, y, button)
+    CargoWindow:mousepressed(x, y, button)
     end
 end
 
 -- Mouse released handler
 function UISystem.mousereleased(x, y, button)
-    CargoWindow.mousereleased(x, y, button)
+    CargoWindow:mousereleased(x, y, button)
 end
 
 -- Mouse moved handler
 function UISystem.mousemoved(x, y, dx, dy, isTouch)
-    CargoWindow.mousemoved(x, y, dx, dy)
+    CargoWindow:mousemoved(x, y, dx, dy)
 end
 
 -- Public API functions
 function UISystem.setCargoWindowOpen(state)
-    CargoWindow.setOpen(state)
+    CargoWindow:setOpen(state)
 end
 
 function UISystem.toggleCargoWindow()
-    CargoWindow.toggle()
+    CargoWindow:toggle()
 end
 
 function UISystem.isCargoWindowOpen()
-    return CargoWindow.getOpen()
+    return CargoWindow:getOpen()
+end
+
+-- Public API for adding skill experience
+function UISystem.addSkillExperience(skillName, xpGain)
+    local playerEntities = ECS.getEntitiesWith({"InputControlled", "Skills"})
+    if #playerEntities == 0 then return end
+    
+    local playerId = playerEntities[1]
+    local skills = ECS.getComponent(playerId, "Skills")
+    if not skills or not skills.skills[skillName] then return end
+    
+    local skill = skills.skills[skillName]
+    skill.experience = skill.experience + xpGain
+    skill.totalXp = skill.totalXp + xpGain
+    
+    -- Check for level up
+    local leveledUp = false
+    while skill.experience >= skill.requiredXp do
+        skill.experience = skill.experience - skill.requiredXp
+        skill.level = skill.level + 1
+        skill.requiredXp = math.ceil(skill.requiredXp * 1.1)  -- 10% increase per level
+        leveledUp = true
+    end
+    
+    -- Show notification
+    local notifData = {
+        level = skill.level,
+        experience = skill.experience,
+        requiredXp = skill.requiredXp,
+        levelUp = leveledUp
+    }
+    SkillNotifications.addNotification(skillName, xpGain, notifData)
 end
 
 return UISystem

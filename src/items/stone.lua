@@ -5,21 +5,35 @@ return {
     -- Item Data (can be modified at runtime)
     id = "stone",
     name = "Stone",
-    description = "A chunk of common asteroid stone.",
+    description = "A chunk of common asteroid stone. Basic building material.",
     stackable = true,
     value = 1,
     
     -- Visual/Design properties
     design = {
-        shape = "circle",
-        size = 8,
+        shape = "custom",
+        size = 10,
         color = {0.6, 0.55, 0.5, 1} -- Brownish stone color
     },
     
     -- Draw method - called by render system
     draw = function(self, x, y)
-        love.graphics.setColor(self.design.color)
-        love.graphics.circle("fill", x, y, self.design.size / 2)
+        local size = self.design.size
+        -- Main stone body (angular, jagged rock)
+        love.graphics.setColor(0.55, 0.5, 0.45, 1)
+        love.graphics.polygon("fill", x - size/2, y - size/3, x + size/2, y - size/4, x + size/2.5, y + size/2.5, x - size/2.5, y + size/2)
+        
+        -- Light edges for 3D effect
+        love.graphics.setColor(0.75, 0.7, 0.65, 0.9)
+        love.graphics.polygon("fill", x - size/2, y - size/3, x + size/3, y - size/4, x + size/4, y)
+        
+        -- Dark shadow for depth
+        love.graphics.setColor(0.35, 0.3, 0.25, 0.7)
+        love.graphics.polygon("fill", x, y + size/4, x + size/2.5, y + size/2.5, x - size/2.5, y + size/2)
+        
+        -- Additional texture detail
+        love.graphics.setColor(0.45, 0.4, 0.35, 0.5)
+        love.graphics.polygon("fill", x - size/4, y + size/6, x + size/5, y + size/4, x - size/6, y + size/3)
     end,
     
     -- Update method - called by item system (if needed)

@@ -37,6 +37,7 @@ function Core.init()
     ECS.registerSystem("DestructionSystem", Systems.DestructionSystem)
     ECS.registerSystem("DebrisSystem", Systems.DebrisSystem)
     ECS.registerSystem("TurretSystem", Systems.TurretSystem)
+    ECS.registerSystem("ProjectileSystem", Systems.ProjectileSystem)
 
     -- Create Canvas Entity
     local canvasId = ECS.createEntity()
@@ -63,11 +64,24 @@ function Core.init()
     ECS.addComponent(playerId, "TrailEmitter", Components.TrailEmitter(Constants.trail_emit_rate, Constants.trail_max_particles, Constants.trail_particle_life, Constants.trail_spread_angle, Constants.trail_speed_multiplier))
     ECS.addComponent(playerId, "Health", Components.Health(100, 100))
     ECS.addComponent(playerId, "Collidable", Components.Collidable(10)) -- Bounding radius for hexagon is approx 10
-    ECS.addComponent(playerId, "Turret", Components.Turret("mining_laser", 0.2)) -- Add Turret component to player, renamed module
+    ECS.addComponent(playerId, "Turret", Components.Turret("", 0.2)) -- Turret starts empty, only operational when module equipped
     ECS.addComponent(playerId, "Cargo", Components.Cargo({}, 10))
     ECS.addComponent(playerId, "Magnet", Components.Magnet(200, 120, 24)) -- Attract items within 200 units
+    ECS.addComponent(playerId, "Skills", Components.Skills())
+    ECS.addComponent(playerId, "TurretSlots", Components.TurretSlots(1)) -- Add TurretSlots component, max 1 slot for drone
 
-    -- Load turret modules
+    -- Give player the mining laser and basic cannon turret items in cargo (not equipped)
+    local miningLaserId = "mining_laser_turret"
+    local basicCannonId = "basic_cannon_turret"
+    local combatLaserId = "combat_laser_turret"
+    local playerCargo = ECS.getComponent(playerId, "Cargo")
+    if playerCargo then
+        playerCargo.items[miningLaserId] = 1
+        playerCargo.items[basicCannonId] = 1
+        playerCargo.items[combatLaserId] = 1
+    end
+
+    -- Load turret modules (including basic cannon)
     Systems.TurretSystem.loadTurretModules("src/turret_modules")
 
     -- Create Camera Entity

@@ -4,8 +4,10 @@
 local ECS = require('src.ecs')
 local Notifications = require('src.ui.notifications')
 
+
 local PickupSystem = {
-    name = "MagnetSystem"  -- Keep name for compatibility
+    name = "MagnetSystem",  -- Keep name for compatibility
+    priority = 5
 }
 
 function PickupSystem.update(dt)

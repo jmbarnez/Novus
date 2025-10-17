@@ -32,14 +32,14 @@ end
 function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
     -- Safety checks
     if not parallax or not parallax.layers then
-        print("Warning: Parallax object or layers is nil")
+    -- ...existing code...
         return
     end
     
     for _, layer in ipairs(parallax.layers) do
         -- Safety check for layer
         if not layer or not layer.stars then
-            print("Warning: Layer or layer.stars is nil")
+            -- ...existing code...
             goto continue
         end
         

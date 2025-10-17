@@ -25,8 +25,12 @@ end
 function TurretSystem.fireTurret(entityId, targetX, targetY)
     local turret = ECS.getComponent(entityId, "Turret")
     local position = ECS.getComponent(entityId, "Position")
-    
     if not turret or not position then return end
+
+    -- Do nothing if no module is fitted
+    if not turret.moduleName or turret.moduleName == "" or turret.moduleName == "default" then
+        return
+    end
 
     local currentTime = love.timer.getTime()
     if currentTime - turret.lastFireTime >= turret.cooldown then

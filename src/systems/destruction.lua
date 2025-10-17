@@ -7,6 +7,7 @@ local ItemDefs = require('src.items.item_loader')
 
 local DestructionSystem = {
     name = "DestructionSystem",
+    priority = 6
 }
 
 function DestructionSystem.update(dt)
@@ -19,12 +20,20 @@ function DestructionSystem.update(dt)
             local renderable = ECS.getComponent(entityId, "Renderable") -- Get renderable component for color
             local color = renderable and renderable.color or {0.5, 0.5, 0.5, 1} -- Default grey if no color
             
+            -- Log if this is a projectile being destroyed
+            local proj = ECS.getComponent(entityId, "Projectile")
+            if proj then
+                print(string.format("[Destruction] Destroying projectile %d", entityId))
+            end
+            
             -- Call DebrisSystem to create debris particles
-            DebrisSystem.createDebris(pos.x, pos.y, nil, color)
+            if pos then
+                DebrisSystem.createDebris(pos.x, pos.y, nil, color)
+            end
 
             -- Spawn items if this is an asteroid
             local asteroid = ECS.getComponent(entityId, "Asteroid")
-            if asteroid then
+            if asteroid and pos then
                 DestructionSystem.spawnItemDrops(pos.x, pos.y)
             end
 
@@ -37,7 +46,7 @@ end
 function DestructionSystem.spawnItemDrops(x, y)
     local itemTypes = {"stone", "iron"}
     local dropCount = math.random(2, 4) -- Spawn 2-4 items
-    print("Spawning " .. dropCount .. " items at (" .. x .. ", " .. y .. ")")
+    -- ...existing code...
     
     -- Group items by type for stacking
     local itemsByType = {}
@@ -73,7 +82,7 @@ function DestructionSystem.spawnItemDrops(x, y)
             -- Add circular collider matching visual size (design.size / 2 is the radius)
             ECS.addComponent(itemId, "Collidable", Components.Collidable(itemDef.design.size / 2))
             
-            print("Spawned " .. quantity .. "x " .. itemType .. " stack at (" .. itemX .. ", " .. itemY .. ")")
+            -- ...existing code...
         end
     end
 end

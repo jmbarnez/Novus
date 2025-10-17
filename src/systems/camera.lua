@@ -5,7 +5,7 @@ local ECS = require('src.ecs')
 
 local CameraSystem = {
     name = "CameraSystem",
-
+    priority = 11,
     update = function(dt)
         local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
         local targetEntities = ECS.getEntitiesWith({"Position", "CameraTarget"})
