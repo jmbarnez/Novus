@@ -65,16 +65,8 @@
 - **Later**: Replace test hard-codes with proper configuration systems
 
 ## Organization Guidelines
-
-### Directory Structure
-```
-project/
 ├── conf.lua              # LÖVE config (framework requirement)
 ├── main.lua              # Love2D entry point
-├── src/                  # All custom code
-│   ├── main.lua          # Love2D entry point (duplicate)
-│   ├── core.lua          # Core game logic
-│   ├── ecs.lua           # ECS core implementation
 │   ├── components.lua    # Component definitions
 │   ├── systems.lua       # System aggregator
 │   ├── constants.lua     # Game constants
@@ -116,7 +108,6 @@ project/
 local CameraSystem = require('src.systems.camera')
 local PhysicsSystem = require('src.systems.physics')
 local ECS = require('src.ecs')
-local Components = require('src.components')
 
 -- BAD: Generic imports or incorrect paths
 local cam = require('camera')
