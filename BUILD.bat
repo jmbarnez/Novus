@@ -29,7 +29,10 @@ REM Fallback: use PowerShell
 where powershell >nul 2>nul
 if %ERRORLEVEL% EQU 0 (
     echo Using PowerShell to create .love...
-    powershell -Command "Compress-Archive -Path conf.lua,main.lua,README.md,docs,src,assets -DestinationPath dist/novus.love -Force"
+    powershell -Command "Compress-Archive -Path conf.lua,main.lua,README.md,docs,src,assets -DestinationPath dist/novus.zip -Force"
+    if exist dist\novus.zip (
+        rename dist\novus.zip novus.love
+    )
     if exist dist\novus.love (
         echo Success! See dist\novus.love
     ) else (

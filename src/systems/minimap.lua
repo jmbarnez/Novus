@@ -22,11 +22,20 @@ function Minimap.draw()
     love.graphics.setColor(1, 1, 1, 0.7)
     love.graphics.circle('line', minimapX, minimapY, minimapRadius)
 
-    -- Get player position (center of minimap)
-    local playerEntities = ECS.getEntitiesWith({'Player', 'Position'})
+    -- Get player or controlled drone position (center of minimap)
+    local controllers = ECS.getEntitiesWith({'Player', 'InputControlled'})
     local playerX, playerY = 0, 0
-    if #playerEntities > 0 then
-        local pos = ECS.getComponent(playerEntities[1], 'Position')
+    if #controllers > 0 then
+        local pilotId = controllers[1]
+        local input = ECS.getComponent(pilotId, 'InputControlled')
+        local targetId = input and input.targetEntity or nil
+        local pos
+        if targetId then
+            pos = ECS.getComponent(targetId, 'Position')
+        end
+        if not pos then
+            pos = ECS.getComponent(pilotId, 'Position')
+        end
         if pos then playerX, playerY = pos.x, pos.y end
     end
 
@@ -115,10 +124,24 @@ function Minimap.draw()
     end
 
     -- Draw player with actual size
-    local playerId = playerEntities[1]
-    local playerColl = playerId and ECS.getComponent(playerId, 'Collidable')
-    local playerRenderable = playerId and ECS.getComponent(playerId, 'Renderable')
-    local playerRadius = (playerColl and playerColl.radius) or (playerRenderable and playerRenderable.radius) or 8
+    local trackedEntityId = nil
+    if #controllers > 0 then
+        local pilotId = controllers[1]
+        local input = ECS.getComponent(pilotId, 'InputControlled')
+        if input and input.targetEntity then
+            trackedEntityId = input.targetEntity
+        else
+            trackedEntityId = pilotId
+        end
+    end
+    local playerColl, playerRenderable, playerRadius
+    if trackedEntityId then
+        playerColl = ECS.getComponent(trackedEntityId, 'Collidable')
+        playerRenderable = ECS.getComponent(trackedEntityId, 'Renderable')
+        playerRadius = (playerColl and playerColl.radius) or (playerRenderable and playerRenderable.radius) or 8
+    else
+        playerRadius = 8
+    end
     love.graphics.setColor(0.2, 0.6, 1, 1)
     local playerBlipRadius = math.max(3, playerRadius * combinedScale)
     love.graphics.circle('fill', minimapX, minimapY, playerBlipRadius)

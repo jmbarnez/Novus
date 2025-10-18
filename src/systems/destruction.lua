@@ -79,10 +79,7 @@ function DestructionSystem.spawnItemDrops(x, y)
             ECS.addComponent(itemId, "Item", {id = itemType, def = itemDef})
             ECS.addComponent(itemId, "Stack", Components.Stack(quantity))  -- Add stack with quantity
             ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
-            -- Add circular collider matching visual size (design.size / 2 is the radius)
-            ECS.addComponent(itemId, "Collidable", Components.Collidable(itemDef.design.size / 2))
-            
-            -- ...existing code...
+            -- (REMOVED) No collider for dropped items!
         end
     end
 end

@@ -1,0 +1,22 @@
+# Build outputs and game bundles
+dist/
+*.love
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor settings
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Logs and temp
+*.log
+*.tmp
+
+# Backup files
+*~
+*.bak
