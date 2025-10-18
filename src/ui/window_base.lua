@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Universal UI Window Base Module
 -- Provides neon border, fade animation, elastic drag, and shared window logic
 
@@ -55,11 +56,12 @@ end
 
 function WindowBase:mousepressed(x, y, button)
     if not self.isOpen or not self.position then return end
-    if x >= self.position.x and x <= self.position.x + self.width
-       and y >= self.position.y and y <= self.position.y + Theme.window.topBarHeight and button == 1 then
+    local mx, my = x, y
+    if mx >= self.position.x and mx <= self.position.x + self.width
+       and my >= self.position.y and my <= self.position.y + Theme.window.topBarHeight and button == 1 then
         self.isDragging = true
-        self.dragOffset.x = x - self.position.x
-        self.dragOffset.y = y - self.position.y
+        self.dragOffset.x = mx - self.position.x
+        self.dragOffset.y = my - self.position.y
     end
 end
 
@@ -71,20 +73,35 @@ end
 
 function WindowBase:mousemoved(x, y, dx, dy)
     if self.isDragging and self.position then
-        self.position.x = x - self.dragOffset.x
-        self.position.y = y - self.dragOffset.y
+        local mx, my = x, y
+        self.position.x = mx - self.dragOffset.x
+        self.position.y = my - self.dragOffset.y
     end
 end
 
 function WindowBase:draw()
     if not self.isOpen or not self.position then return end
-    local x = Scaling.scaleX(self.position.x)
-    local y = Scaling.scaleY(self.position.y)
-    local w = Scaling.scaleSize(self.width)
-    local h = Scaling.scaleSize(self.height)
+    local x = self.position.x
+    local y = self.position.y
+    local w = self.width
+    local h = self.height
+    local topBarH = Theme.window.topBarHeight
+    local bottomBarH = Theme.window.bottomBarHeight
+    local border = 3
+
+    -- Draw window border
     love.graphics.setColor(1, 1, 1, 1)
     Theme.draw3DBorder(x, y, w, h)
-    -- Additional universal window drawing can use scaled values (e.g. top bar)
+
+    -- ...existing code...
+
+    -- Divider line below top bar
+    love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1)
+    love.graphics.line(x+border, y+topBarH, x+w-border, y+topBarH)
+
+    -- Divider line above bottom bar
+    love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1)
+    love.graphics.line(x+border, y+h-bottomBarH, x+w-border, y+h-bottomBarH)
 end
 
 -- Helper for sign

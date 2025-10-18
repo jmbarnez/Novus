@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Combat Laser Turret Item Definition
 
 local CombatLaserItem = {

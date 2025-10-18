@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- UI Cargo Window Module - Handles cargo inventory display and interaction
 -- Derives from WindowBase for universal effects (neon border, fade, elasticity)
 
@@ -28,29 +29,22 @@ end
 
 -- Override draw to add cargo-specific content on top of universal window
 function CargoWindow:draw(viewportWidth, viewportHeight)
+    -- Draw base window (background, top/bottom bars, dividers)
+    WindowBase.draw(self)
+
     -- Check if should be visible
     if not self.isOpen and not self.animAlphaActive then return end
-    
+
     local alpha = self.animAlpha
     if alpha <= 0 then return end
-    
-    -- Scale window variables
-    local x = Scaling.scaleX(self.position.x)
-    local y = Scaling.scaleY(self.position.y)
-    local w = Scaling.scaleSize(self.width)
-    local h = Scaling.scaleSize(self.height)
 
-    -- Draw universal window frame (border, background)
-    love.graphics.setColor(1, 1, 1, alpha)
-    Theme.draw3DBorder(x, y, w, h)
-    -- Integrated top bar: use a subtle gradient or slightly darker fill, no hard border
-    local topBarH = Scaling.scaleSize(Theme.window.topBarHeight)
-    local border = Scaling.scaleSize(3)
-    love.graphics.setColor(Theme.colors.bgDark[1]*0.92, Theme.colors.bgDark[2]*0.92, Theme.colors.bgDark[3]*0.92, alpha)
-    love.graphics.rectangle("fill", x+border, y+border, w-2*border, topBarH-2*border)
-    -- Subtle shadow line below top bar
-    love.graphics.setColor(0,0,0,0.10*alpha)
-    love.graphics.rectangle("fill", x+border, y+border+topBarH-2*border-1, w-2*border, Scaling.scaleSize(1))
+    -- Window variables are in reference/UI space (1920x1080)
+    local x = self.position.x
+    local y = self.position.y
+    local w = self.width
+    local h = self.height
+
+    -- ...existing code...
     
     local cargoEntities = ECS.getEntitiesWith({"Player", "Cargo"})
     if #cargoEntities == 0 then return end
@@ -65,15 +59,14 @@ function CargoWindow:draw(viewportWidth, viewportHeight)
     self:drawCloseButton(x, y, alpha)
     
     -- Draw bottom bar
-    local bottomBarH = Scaling.scaleSize(Theme.window.bottomBarHeight)
+    local bottomBarH = Theme.window.bottomBarHeight
     local bottomY = y + h - bottomBarH
     local bottomBarColor = Theme.colors.bgMedium
     love.graphics.setColor(bottomBarColor[1], bottomBarColor[2], bottomBarColor[3], alpha)
-    love.graphics.rectangle("fill", x, bottomY, w, bottomBarH)
     
     -- Draw cargo info
     love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-    love.graphics.setFont(Scaling.scaleSize(Theme.getFont(Theme.fonts.normal)))
+    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
     local itemCount = 0
     for _, v in pairs(cargo.items) do itemCount = itemCount + v end
     local capText = string.format("Cargo: %d / %d", itemCount, cargo.capacity or 0)
@@ -84,16 +77,13 @@ function CargoWindow:draw(viewportWidth, viewportHeight)
     
     -- Draw items grid
     self:drawItemsGrid(x, y, cargo, alpha)
-    
     -- Draw skills panel on the right side
     self:drawSkillsPanel(x, y, cargo, alpha)
-    
     -- Draw turret panel on the left side
     self:drawTurretPanel(x, y, cargo, alpha)
-
-    -- Draw dragged item icon at mouse position if dragging
+    -- Draw dragged item icon at mouse position if dragging (use UI coords)
     if self.draggedItem and self.draggedItem.itemDef and self.draggedItem.itemDef.draw then
-        local mx, my = love.mouse.getPosition()
+        local mx, my = Scaling.toUI(love.mouse.getPosition())
         love.graphics.setColor(1, 1, 1, 0.8 * alpha)
         self.draggedItem.itemDef:draw(mx, my)
         love.graphics.setColor(1, 1, 1, 1) -- reset color
@@ -102,9 +92,9 @@ end
 
 function CargoWindow:drawSkillsPanel(windowX, windowY, cargo, alpha)
     local panelWidth = Scaling.scaleSize(130)
-    local panelX = windowX + Scaling.scaleSize(self.width) - panelWidth - Scaling.scaleSize(3)  -- 3 for border
-    local panelY = windowY + Scaling.scaleSize(Theme.window.topBarHeight) + Scaling.scaleSize(3)
-    local panelHeight = Scaling.scaleSize(self.height) - Scaling.scaleSize(Theme.window.topBarHeight) - Scaling.scaleSize(Theme.window.bottomBarHeight) - Scaling.scaleSize(6)
+    local panelX = windowX + 3
+    local panelY = windowY + Theme.window.topBarHeight + 3
+    local panelHeight = self.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - 6
     
     -- Draw skills panel background
     love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], Theme.colors.bgMedium[3], alpha * 0.9)
@@ -125,41 +115,35 @@ function CargoWindow:drawSkillsPanel(windowX, windowY, cargo, alpha)
     
     -- Draw title
     love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-    love.graphics.setFont(Scaling.scaleSize(Theme.getFont(Theme.fonts.normal)))
-    love.graphics.printf("Skills", panelX + Scaling.scaleX(4), panelY + Scaling.scaleY(8), panelWidth - Scaling.scaleX(8), "center")
+    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
+    love.graphics.printf("Skills", panelX + 4, panelY + 8, panelWidth - 8, "center")
     
     -- Draw divider line
     love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], alpha)
-    love.graphics.line(panelX + Scaling.scaleX(8), panelY + Scaling.scaleY(28), panelX + panelWidth - Scaling.scaleX(8), panelY + Scaling.scaleY(28))
+    love.graphics.line(panelX + 8, panelY + 28, panelX + panelWidth - 8, panelY + 28)
     
     -- Draw mining skill
     local miningSkill = skills.skills.mining
     if miningSkill then
-        local skillY = panelY + Scaling.scaleY(38)
-        
+        local skillY = panelY + 38
         -- Skill name
         love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-        love.graphics.setFont(Scaling.scaleSize(Theme.getFont(Theme.fonts.small)))
-        love.graphics.print("Mining", panelX + Scaling.scaleX(8), skillY)
-        
+        love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+        love.graphics.print("Mining", panelX + 8, skillY)
         -- Skill level
-        love.graphics.printf("Lvl " .. miningSkill.level, panelX + Scaling.scaleX(8), skillY + Scaling.scaleY(12), panelWidth - Scaling.scaleX(16), "right")
-        
+        love.graphics.printf("Lvl " .. miningSkill.level, panelX + 8, skillY + 12, panelWidth - 16, "right")
         -- Experience bar background
-        local barX = panelX + Scaling.scaleX(8)
-        local barY = skillY + Scaling.scaleY(28)
-        local barWidth = panelWidth - Scaling.scaleX(16)
-        local barHeight = Scaling.scaleSize(12)
-        
+        local barX = panelX + 8
+        local barY = skillY + 28
+        local barWidth = panelWidth - 16
+        local barHeight = 12
         love.graphics.setColor(0.1, 0.1, 0.1, alpha)
         love.graphics.rectangle("fill", barX, barY, barWidth, barHeight)
-        
         -- Experience bar border
         love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha)
         love.graphics.rectangle("line", barX, barY, barWidth, barHeight)
-        
         -- Experience bar fill (gradient blue-cyan)
-        local xpRatio = miningSkill.experience / miningSkill.requiredXp
+        local xpRatio = math.min(1, miningSkill.experience / miningSkill.requiredXp)
         local fillWidth = math.max(0, math.min(barWidth - 2, (barWidth - 2) * xpRatio))
         love.graphics.setColor(0.2, 0.6, 1.0, alpha)
         love.graphics.rectangle("fill", barX + 1, barY + 1, fillWidth, barHeight - 2)
@@ -168,16 +152,15 @@ end
 
 function CargoWindow:drawTurretPanel(windowX, windowY, cargo, alpha)
     local panelWidth = Scaling.scaleSize(130)
-    local panelX = windowX + Scaling.scaleSize(3)
-    local panelY = windowY + Scaling.scaleSize(Theme.window.topBarHeight) + Scaling.scaleSize(3)
-    local panelHeight = Scaling.scaleSize(self.height) - Scaling.scaleSize(Theme.window.topBarHeight) - Scaling.scaleSize(Theme.window.bottomBarHeight) - Scaling.scaleSize(6)
+    local panelX = windowX + self.width - panelWidth - 3
+    local panelY = windowY + Theme.window.topBarHeight + 3
+    local panelHeight = self.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - 6
 
     love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], Theme.colors.bgMedium[3], alpha * 0.9)
-    love.graphics.rectangle("fill", panelX, panelY, panelWidth, panelHeight)
+                love.graphics.setFont(Theme.getFont(Theme.fonts.small))
     love.graphics.setColor(Theme.colors.borderLight[1], Theme.colors.borderLight[2], Theme.colors.borderLight[3], alpha)
     love.graphics.setLineWidth(1)
     love.graphics.rectangle("line", panelX, panelY, panelWidth, panelHeight)
-
     -- Find pilot and their controlled drone's turret slots
     local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
     if #pilotEntities == 0 then return end
@@ -190,24 +173,26 @@ function CargoWindow:drawTurretPanel(windowX, windowY, cargo, alpha)
 
     love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
     love.graphics.setFont(Scaling.scaleSize(Theme.getFont(Theme.fonts.normal)))
-    love.graphics.printf("Turret Slot", panelX + Scaling.scaleX(4), panelY + Scaling.scaleY(8), panelWidth - Scaling.scaleX(8), "center")
+    love.graphics.printf("Turret Slot", panelX + 4, panelY + 8, panelWidth - 8, "center")
     love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], alpha)
-    love.graphics.line(panelX + Scaling.scaleX(8), panelY + Scaling.scaleY(28), panelX + panelWidth - Scaling.scaleX(8), panelY + Scaling.scaleY(28))
+    love.graphics.line(panelX + 8, panelY + 28, panelX + panelWidth - 8, panelY + 28)
 
     -- Equipment slot for turret modules (drag and drop)
-    local slotSize = Scaling.scaleSize(Theme.spacing.iconSize)  -- Use same size as cargo slots (48x48)
+    local slotSize = Theme.spacing.iconSize  -- Use same size as cargo slots (48x48)
     local slotX = panelX + (panelWidth - slotSize) / 2  -- Center horizontally
-    local slotY = panelY + Scaling.scaleY(38)
+    local slotY = panelY + 38
     local slotWidth = slotSize
     local slotHeight = slotSize
     
-    -- Store slot rect for drag-drop handling
+    -- Store slot rect for drag-drop handling (in UI/reference space)
     if not self.turretSlotRect then self.turretSlotRect = {} end
     self.turretSlotRect = {x = slotX, y = slotY, w = slotWidth, h = slotHeight}
+
+    -- Get mouse in UI space (accounting for canvas offset)
+    local mx, my = Scaling.toUI(love.mouse.getPosition())
     
     -- Check if dragging a turret item over this slot
     local isDragOverSlot = false
-    local mx, my = love.mouse.getPosition()
     if self.draggedItem and string.match(self.draggedItem.itemId, "turret") then
         if mx >= slotX and mx <= slotX + slotWidth and my >= slotY and my <= slotY + slotHeight then
             isDragOverSlot = true
@@ -256,11 +241,12 @@ function CargoWindow:drawTurretPanel(windowX, windowY, cargo, alpha)
 end
 
 function CargoWindow:drawCloseButton(x, y, alpha)
-    local border = Scaling.scaleSize(3)
-    local closeSize = Scaling.scaleSize(18)
-    local closeX = x + Scaling.scaleSize(self.width) - closeSize - Scaling.scaleSize(8) - border
-    local closeY = y + border + (Scaling.scaleSize(Theme.window.topBarHeight) - 2*border - closeSize) / 2
-    local mx, my = love.mouse.getPosition()
+    local border = 3
+    local closeSize = 18
+    local closeX = x + self.width - closeSize - 8 - border
+    local closeY = y + border + (Theme.window.topBarHeight - 2*border - closeSize) / 2
+    local mx, my = Scaling.toUI(love.mouse.getPosition())
+    
     local closeHover = mx >= closeX and mx <= closeX + closeSize and my >= closeY and my <= closeY + closeSize
     -- Minimal X: black by default, red on hover, no background
     local xColor = closeHover and {1,0.15,0.15,alpha} or {0,0,0,alpha}
@@ -273,16 +259,17 @@ function CargoWindow:drawCloseButton(x, y, alpha)
 end
 
 function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
-    local iconSize = Scaling.scaleSize(Theme.spacing.iconSize)
-    local padding = Scaling.scaleSize(Theme.spacing.iconGridPadding)
-    local gridTop = windowY + Scaling.scaleSize(Theme.window.topBarHeight) + padding
-    local skillsPanelWidth = Scaling.scaleSize(130 + 6)
-    local turretPanelWidth = Scaling.scaleSize(130 + 6)
-    local availableWidth = Scaling.scaleSize(self.width) - skillsPanelWidth - turretPanelWidth - padding * 3
+    local iconSize = Theme.spacing.iconSize
+    local padding = Theme.spacing.iconGridPadding
+    local gridTop = windowY + Theme.window.topBarHeight + padding
+    local skillsPanelWidth = 130 + 6
+    local turretPanelWidth = 130 + 6
+    local availableWidth = self.width - skillsPanelWidth - turretPanelWidth - padding * 3
     local cols = math.max(1, math.floor(availableWidth / (iconSize + padding)))
     
-    local mx, my = love.mouse.getPosition()
+    local mx, my = Scaling.toUI(love.mouse.getPosition())
     self.hoveredItemSlot = nil
+    self.hoveredGridSlot = nil
     
     local ItemDefs = require('src.items.item_loader')
     local i = 0
@@ -295,18 +282,173 @@ function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
         local col = i % cols
         local iconX = gridLeftX + padding + col * (iconSize + padding)
         local iconY = gridTop + row * (iconSize + padding)
+        love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
+    -- Convert icon position to UI space for hit testing
+    local uiIconX, uiIconY = iconX, iconY
+    local uiIconSize = iconSize
         
-        local isHovering = mx >= iconX and mx <= iconX + iconSize and my >= iconY and my <= iconY + iconSize
+        local isHovering = mx >= uiIconX and mx <= uiIconX + uiIconSize and my >= uiIconY and my <= uiIconY + uiIconSize
         
         local itemDef = ItemDefs[itemId]
         
         if isHovering then
-            self.hoveredItemSlot = {itemId = itemId, itemDef = itemDef, count = count, mouseX = mx, mouseY = my}
+            self.hoveredItemSlot = {itemId = itemId, itemDef = itemDef, count = count, mouseX = mx, mouseY = my, slotIndex = i}
+            self.hoveredGridSlot = {slotIndex = i, itemId = itemId}
             -- Draw hover highlight
             local color = itemDef and itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}
             love.graphics.setColor(color[1] * 1.5, color[2] * 1.5, color[3] * 1.5, 0.3 * alpha)
             love.graphics.rectangle("fill", iconX, iconY, iconSize, iconSize, 4, 4)
         end
+-- Drag and drop logic for cargo items
+function CargoWindow:mousepressed(x, y, button)
+    if not self.isOpen or not self.position then return end
+    local mx, my = x, y
+    -- Check close button click
+    if self.closeButtonRect and button == 1 then
+        if mx >= self.closeButtonRect.x and mx <= self.closeButtonRect.x + self.closeButtonRect.w
+           and my >= self.closeButtonRect.y and my <= self.closeButtonRect.y + self.closeButtonRect.h then
+            self:setOpen(false)
+            return
+        end
+    end
+    -- Start dragging any item from cargo grid
+    if button == 1 and self.hoveredItemSlot then
+        self.draggedItem = {
+            itemId = self.hoveredItemSlot.itemId,
+            itemDef = self.hoveredItemSlot.itemDef,
+            slotIndex = self.hoveredItemSlot.slotIndex,
+            count = self.hoveredItemSlot.count
+        }
+    end
+
+    -- Start dragging turret module from turret slot
+    if button == 1 and self.hoveredTurretSlot then
+        self.draggedItem = {
+            itemId = self.hoveredTurretSlot.itemId,
+            itemDef = self.hoveredTurretSlot.itemDef,
+            slotIndex = "turret",
+            count = 1
+        }
+        -- Remove from turret slot immediately for drag
+        local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+        if #pilotEntities > 0 then
+            local pilotId = pilotEntities[1]
+            local input = ECS.getComponent(pilotId, "InputControlled")
+            if input and input.targetEntity then
+                local droneId = input.targetEntity
+                local turretSlots = ECS.getComponent(droneId, "TurretSlots")
+                if turretSlots then
+                    turretSlots.slots[1] = nil
+                end
+            end
+        end
+    end
+
+    -- Right-click turret slot to remove module to inventory
+    if button == 2 and self.hoveredTurretSlot then
+        local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+        if #pilotEntities > 0 then
+            local pilotId = pilotEntities[1]
+            local input = ECS.getComponent(pilotId, "InputControlled")
+            if input and input.targetEntity then
+                local droneId = input.targetEntity
+                local turretSlots = ECS.getComponent(droneId, "TurretSlots")
+                local playerCargo = ECS.getComponent(pilotId, "Cargo")
+                if turretSlots and playerCargo then
+                    local moduleId = turretSlots.slots[1]
+                    if moduleId then
+                        -- Remove from slot
+                        turretSlots.slots[1] = nil
+                        -- Add to inventory
+                        playerCargo.items[moduleId] = (playerCargo.items[moduleId] or 0) + 1
+                    end
+                end
+            end
+        end
+    end
+    WindowBase.mousepressed(self, x, y, button)
+end
+
+function CargoWindow:mousereleased(x, y, button)
+    if button == 1 then
+        self.isDragging = false
+    end
+    local mx, my = x, y
+    local cargoEntities = ECS.getEntitiesWith({"Player", "Cargo"})
+    if #cargoEntities > 0 then
+        local playerId = cargoEntities[1]
+        local cargo = ECS.getComponent(playerId, "Cargo")
+        -- Dragging turret item to turret slot
+        if self.isOpen and button == 1 and self.draggedItem and string.match(self.draggedItem.itemId, "turret") then
+            if self.turretSlotRect and mx >= self.turretSlotRect.x and mx <= self.turretSlotRect.x + self.turretSlotRect.w
+               and my >= self.turretSlotRect.y and my <= self.turretSlotRect.y + self.turretSlotRect.h then
+                local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+                if #pilotEntities > 0 then
+                    local pilotId = pilotEntities[1]
+                    local input = ECS.getComponent(pilotId, "InputControlled")
+                    if input and input.targetEntity then
+                        local droneId = input.targetEntity
+                        local playerTurretSlots = ECS.getComponent(droneId, "TurretSlots")
+                        local playerCargo = ECS.getComponent(pilotId, "Cargo")
+                        local playerTurret = ECS.getComponent(droneId, "Turret")
+                        if playerTurretSlots and playerCargo and playerTurret then
+                            playerTurretSlots.slots[1] = self.draggedItem.itemId
+                            local turretModuleMap = {
+                                mining_laser_turret = "mining_laser",
+                                basic_cannon_turret = "basic_cannon",
+                                combat_laser_turret = "combat_laser"
+                            }
+                            playerTurret.moduleName = turretModuleMap[self.draggedItem.itemId] or self.draggedItem.itemId
+                            if playerCargo.items[self.draggedItem.itemId] then
+                                playerCargo.items[self.draggedItem.itemId] = playerCargo.items[self.draggedItem.itemId] - 1
+                                if playerCargo.items[self.draggedItem.itemId] <= 0 then
+                                    playerCargo.items[self.draggedItem.itemId] = nil
+                                end
+                            end
+                        end
+                    end
+                end
+                self.draggedItem = nil
+                return
+            end
+        end
+        -- Dragging turret module out of turret slot to inventory
+        if self.isOpen and button == 1 and self.draggedItem and self.draggedItem.slotIndex == "turret" then
+            -- If dropped onto cargo grid, add to inventory
+            if self.hoveredGridSlot then
+                local itemId = self.draggedItem.itemId
+                if cargo and not cargo.items then cargo.items = {} end
+                if cargo and itemId then
+                    cargo.items[itemId] = (cargo.items[itemId] or 0) + 1
+                end
+                self.draggedItem = nil
+                return
+            end
+            -- If dropped elsewhere, just clear draggedItem (module already removed from slot)
+            self.draggedItem = nil
+            return
+        end
+        -- Dragging any item to another cargo slot
+        if self.isOpen and button == 1 and self.draggedItem and self.hoveredGridSlot then
+            local fromId = self.draggedItem.itemId
+            local toId = self.hoveredItemSlot and self.hoveredItemSlot.itemId or nil
+            if cargo and cargo.items and fromId and toId and fromId ~= toId then
+                -- Swap items
+                local temp = cargo.items[fromId] or 0
+                cargo.items[fromId] = cargo.items[toId] or 0
+                cargo.items[toId] = temp
+            end
+            self.draggedItem = nil
+            return
+        end
+        self.draggedItem = nil
+    end
+    WindowBase.mousereleased(self, x, y, button)
+end
+
+function CargoWindow:mousemoved(x, y, dx, dy)
+    WindowBase.mousemoved(self, x, y, dx, dy)
+end
         
         -- Draw item using its draw method
         if itemDef and itemDef.draw then
@@ -330,91 +472,5 @@ function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
 end
 
 -- Handle mouse events (delegate to base, handle cargo-specific actions)
-function CargoWindow:mousepressed(x, y, button)
-    if not self.isOpen then return end
-    
-    -- Check close button click
-    if self.closeButtonRect and button == 1 then
-        if x >= self.closeButtonRect.x and x <= self.closeButtonRect.x + self.closeButtonRect.w
-           and y >= self.closeButtonRect.y and y <= self.closeButtonRect.y + self.closeButtonRect.h then
-            self:setOpen(false)
-            return
-        end
-    end
-    
-    -- Check if clicking on inventory item (for drag start)
-    if button == 1 and self.hoveredItemSlot then
-        local itemId = self.hoveredItemSlot.itemId
-        if string.match(itemId, "turret") then
-            self.draggedItem = {itemId = itemId, itemDef = self.hoveredItemSlot.itemDef}
-        end
-    end
-    
-    -- Delegate drag handling to base class
-    WindowBase.mousepressed(self, x, y, button)
-end
-
-function CargoWindow:mousereleased(x, y, button)
-    if self.isOpen and button == 1 and self.draggedItem then
-        -- Check if dropped on turret slot
-        if self.turretSlotRect then
-            if x >= self.turretSlotRect.x and x <= self.turretSlotRect.x + self.turretSlotRect.w
-               and y >= self.turretSlotRect.y and y <= self.turretSlotRect.y + self.turretSlotRect.h then
-                -- Equip the module on the drone controlled by the pilot
-                local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-                if #pilotEntities > 0 then
-                    local pilotId = pilotEntities[1]
-                    local input = ECS.getComponent(pilotId, "InputControlled")
-                    if input and input.targetEntity then
-                        local droneId = input.targetEntity
-                        local playerTurretSlots = ECS.getComponent(droneId, "TurretSlots")
-                        local playerCargo = ECS.getComponent(pilotId, "Cargo")
-                        local playerTurret = ECS.getComponent(droneId, "Turret")
-                        if playerTurretSlots and playerCargo and playerTurret then
-                            playerTurretSlots.slots[1] = self.draggedItem.itemId
-                            -- Map itemId to turret module name
-                            local turretModuleMap = {
-                                mining_laser_turret = "mining_laser",
-                                basic_cannon_turret = "basic_cannon",
-                                combat_laser_turret = "combat_laser"
-                            }
-                            playerTurret.moduleName = turretModuleMap[self.draggedItem.itemId] or self.draggedItem.itemId
-                            -- Remove from cargo
-                            if playerCargo.items[self.draggedItem.itemId] then
-                                playerCargo.items[self.draggedItem.itemId] = playerCargo.items[self.draggedItem.itemId] - 1
-                                if playerCargo.items[self.draggedItem.itemId] <= 0 then
-                                    playerCargo.items[self.draggedItem.itemId] = nil
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        self.draggedItem = nil
-    end
-
-    -- If turret slot is empty, set Turret.moduleName to empty string
-    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-    if #pilotEntities > 0 then
-        local pilotId = pilotEntities[1]
-        local input = ECS.getComponent(pilotId, "InputControlled")
-        if input and input.targetEntity then
-            local droneId = input.targetEntity
-            local playerTurretSlots = ECS.getComponent(droneId, "TurretSlots")
-            local playerTurret = ECS.getComponent(droneId, "Turret")
-            if playerTurretSlots and playerTurret then
-                if not playerTurretSlots.slots[1] or playerTurretSlots.slots[1] == "" then
-                    playerTurret.moduleName = ""
-                end
-            end
-        end
-    end
-    WindowBase.mousereleased(self, x, y, button)
-end
-
-function CargoWindow:mousemoved(x, y, dx, dy)
-    WindowBase.mousemoved(self, x, y, dx, dy)
-end
 
 return CargoWindow

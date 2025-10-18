@@ -8,6 +8,6 @@ function love.load()
     Core.init()
 end
 
--- All Love2D callbacks are handled in the root main.lua. This file only provides the Core module.
+function love.quit()
     Core.quit()
 end

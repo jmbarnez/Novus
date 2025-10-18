@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- UI Notifications Module - Displays text notifications for items added to cargo
 -- Simple text popups that fade out over time
 

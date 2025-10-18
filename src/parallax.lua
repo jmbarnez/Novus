@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Parallax starfield module
 local Parallax = {}
 

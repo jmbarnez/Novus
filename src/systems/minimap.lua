@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Minimap System
 -- Draws a circular minimap with player, asteroids, and items
 

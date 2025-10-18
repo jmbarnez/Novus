@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Debris System - Manages explosion debris particles
 
 local ECS = require('src.ecs')

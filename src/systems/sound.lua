@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Sound System: Procedural Sound Effects
 -- Generates and plays procedural sounds for game events
 

@@ -23,13 +23,13 @@ local function drawSpeedText(viewportWidth, viewportHeight)
     if not velocity then return end
     local speed = math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy)
 
-    -- Position under minimap (assuming minimap is in top-right corner)
-    local minimapSize = Scaling.scaleSize(150)  -- Scaled minimap size
-    local x = Scaling.scaleX(viewportWidth - 150 - 20)
-    local y = Scaling.scaleY(150 + 30)  -- Position under minimap
+    -- Position under minimap (top-right, in screen space)
+    local minimapSize = 150  -- True pixel size for HUD
+    local x = viewportWidth - minimapSize - 20
+    local y = 150 + 30
 
     love.graphics.setColor(Theme.colors.textPrimary)
-    love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.normal)))
+    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
     love.graphics.printf(string.format("%.1f u/s", speed), x, y, minimapSize, "center")
 end
 
@@ -89,6 +89,12 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
         Minimap.draw()
     end
     drawSpeedText(viewportWidth, viewportHeight)
+
+    -- Draw notifications and experience pop-ups as part of HUD
+    local Notifications = require('src.ui.notifications')
+    local SkillNotifications = require('src.ui.skill_notifications')
+    Notifications.draw(0, 0, 1)
+    SkillNotifications.draw()
 end
 
 return HUDSystem

@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Input System - Handles player input
 -- Translates keyboard and mouse input into entity actions
 
@@ -106,17 +107,17 @@ function InputSystem.update(dt)
         if love.mouse.isDown(1) then -- Left mouse button held
             local mouseX, mouseY = love.mouse.getPosition()
             
-            -- Convert screen coordinates to world coordinates
-            local canvasEntities = ECS.getEntitiesWith({"Canvas"})
+            -- Convert screen coordinates to world coordinates using Scaling helper
             local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
-            if #canvasEntities > 0 and #cameraEntities > 0 then
-                local canvasComp = ECS.getComponent(canvasEntities[1], "Canvas")
+            if #cameraEntities > 0 then
                 local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
                 local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
-                
-                -- Convert screen to world coordinates
-                mouseX = (mouseX / cameraComp.zoom - canvasComp.offsetX) / canvasComp.scale + cameraPos.x
-                mouseY = (mouseY / cameraComp.zoom - canvasComp.offsetY) / canvasComp.scale + cameraPos.y
+                local Scaling = require('src.scaling')
+                mouseX, mouseY = Scaling.toWorld(mouseX, mouseY, cameraComp, cameraPos)
+            else
+                -- Fallback: convert using global canvas transform if present
+                local Scaling = require('src.scaling')
+                mouseX, mouseY = Scaling.toUI(mouseX, mouseY)
             end
             
             -- Fire the turret (creates/updates laser beam on cooldown)

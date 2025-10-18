@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Space Drone Adventure - Core Game Logic
 -- Handles game initialization, entity creation, and game state management
 

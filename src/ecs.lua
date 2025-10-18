@@ -295,4 +295,15 @@ function ECS.debug()
     end
 end
 
+function ECS.debugCanvasEntities()
+    local canvasCount = 0
+    for entityId, entityComponents in pairs(entities) do
+        if entityComponents["Canvas"] then
+            canvasCount = canvasCount + 1
+            print("Canvas entity found: " .. entityId)
+        end
+    end
+    print("Total Canvas entities: " .. canvasCount)
+end
+
 return ECS

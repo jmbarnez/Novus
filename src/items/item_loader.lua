@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Item loader: loads all items from src/items/
 local itemDefs = {}
 local lfs = love.filesystem

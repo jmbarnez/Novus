@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Camera System - Handles camera following and viewport management
 -- Smoothly follows target entities and manages view transformations
 

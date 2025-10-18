@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Component Definitions module
 -- Defines all component types used in the ECS
 -- Components are pure data structures with no logic

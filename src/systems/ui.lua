@@ -40,6 +40,7 @@ local interactiveMap = {}
 
 -- Register an interactive area with a hit-test and optional click handler
 -- name (string), hitTestFn(x,y,button) -> boolean, clickHandlerFn(x,y,button) -> boolean
+-- Note: hitTestFn and clickHandlerFn receive scaled coordinates (reference space)
 function UISystem.registerInteractive(name, hitTestFn, clickHandlerFn)
     if interactiveMap[name] then
         -- replace existing
@@ -75,13 +76,6 @@ UISystem.registerInteractive('context_menu', function(x, y, button)
            y >= (Dialogs.contextMenu.displayY or Dialogs.contextMenu.y) and y <= (Dialogs.contextMenu.displayY or Dialogs.contextMenu.y) + 28
 end, function(x, y, button)
     return Dialogs.handleContextMenuClick(x, y, button)
-end)
-
--- Confirmation dialog
-UISystem.registerInteractive('confirm_dialog', function(x, y, button)
-    return Dialogs.confirmDialog ~= nil and true or false
-end, function(x, y, button)
-    return Dialogs.handleConfirmDialogClick(x, y, button)
 end)
 
 -- Cargo window
@@ -126,8 +120,7 @@ function UISystem.draw(viewportWidth, viewportHeight)
             end
         end
     end
-    viewportWidth = Scaling.scaleX(viewportWidth)
-    viewportHeight = Scaling.scaleY(viewportHeight)
+    -- viewportWidth/viewportHeight are already canvas (reference) units
     
     -- HUD elements are rendered by the HUD system inside RenderSystem
     
@@ -192,12 +185,15 @@ end
 
 -- Mouse pressed handler
 function UISystem.mousepressed(x, y, button)
+    -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale)
+    local mx, my = Scaling.toUI(x, y)
+    
     -- Let registered interactive elements handle the click in registration order
     for _, name in ipairs(interactiveOrder) do
         local entry = interactiveMap[name]
-        if entry and entry.hit and entry.hit(x, y, button) then
+        if entry and entry.hit and entry.hit(mx, my, button) then
             local handled = false
-            if entry.handler then handled = entry.handler(x, y, button) end
+            if entry.handler then handled = entry.handler(mx, my, button) end
             if handled then
                 UISystem.captureMouse()
                 return true
@@ -208,7 +204,7 @@ function UISystem.mousepressed(x, y, button)
     -- If click is on the minimap, capture it so it doesn't pass to the world
     local Minimap = require('src.systems.minimap')
     if Minimap and Minimap.isPointOver then
-        if Minimap.isPointOver(x, y) then
+        if Minimap.isPointOver(mx, my) then
             UISystem.captureMouse()
             return true
         end
@@ -217,7 +213,9 @@ end
 
 -- Mouse released handler
 function UISystem.mousereleased(x, y, button)
-    CargoWindow:mousereleased(x, y, button)
+    -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale)
+    local mx, my = Scaling.toUI(x, y)
+    CargoWindow:mousereleased(mx, my, button)
     -- Release capture on mouse release (assumes left click)
     if button == 1 then
         UISystem.releaseMouse()
@@ -226,7 +224,9 @@ end
 
 -- Mouse moved handler
 function UISystem.mousemoved(x, y, dx, dy, isTouch)
-    CargoWindow:mousemoved(x, y, dx, dy)
+    -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale)
+    local mx, my = Scaling.toUI(x, y)
+    CargoWindow:mousemoved(mx, my, dx, dy)
 end
 
 -- Public API functions

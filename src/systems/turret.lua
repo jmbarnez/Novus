@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Turret System - Manages turret modules, firing, and cooldowns
 
 local ECS = require('src.ecs')

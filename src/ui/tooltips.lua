@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- UI Tooltips Module - Handles tooltip rendering with theme support
 -- Displays item information on hover
 
@@ -37,17 +38,27 @@ function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
     local tooltipW = maxWidth + padding * 2
     local tooltipH = #lines * lineHeight + padding * 2
     
-    -- Position tooltip (offset from cursor)
-    local tooltipX = Scaling.scaleX(mouseX) + Scaling.scaleX(12)
-    local tooltipY = Scaling.scaleY(mouseY) + Scaling.scaleY(12)
+    -- Position tooltip to the right of cursor with proper offset
+        local cursorOffset = 16 -- Distance from cursor in UI units
+        local tooltipX = mouseX + cursorOffset
+        local tooltipY = mouseY - 8 -- Slightly above cursor center
     
     -- Keep within screen bounds
     local screenW, screenH = love.graphics.getWidth(), love.graphics.getHeight()
+    
+    -- If tooltip would go off right edge, position to the left of cursor
     if tooltipX + tooltipW > screenW then
-        tooltipX = Scaling.scaleX(mouseX) - tooltipW - Scaling.scaleX(12)
+            tooltipX = mouseX - tooltipW - cursorOffset
     end
+    
+    -- If tooltip would go off bottom edge, position above cursor
     if tooltipY + tooltipH > screenH then
-        tooltipY = Scaling.scaleY(mouseY) - tooltipH - Scaling.scaleY(12)
+            tooltipY = mouseY - tooltipH - 8
+    end
+    
+    -- If tooltip would go off top edge, position below cursor
+    if tooltipY < 0 then
+            tooltipY = mouseY + 8
     end
     
     -- Draw background

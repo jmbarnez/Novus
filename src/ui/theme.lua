@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- UI Theme - Universal styling for all UI windows and components
 -- Provides consistent colors, fonts, and styling across the game
 

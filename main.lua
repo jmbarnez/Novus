@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Space Drone Adventure - Love2D Entry Point
 -- Minimal Love2D main file that delegates to core game logic
 
@@ -20,6 +21,10 @@ function love.draw()
 end
 
 function love.keypressed(key)
+    if key == "f9" then
+        local ECS = require('src.ecs')
+        ECS.debugCanvasEntities()
+    end
     Core.keypressed(key)
 end
 

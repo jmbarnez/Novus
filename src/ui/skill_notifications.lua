@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- UI Skill Notifications Module - Displays popup notifications for experience gains
 -- Shows skill name, XP gained, and the updated experience bar
 

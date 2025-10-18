@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- UI Dialogs Module - Handles context menus and confirmation dialogs with theme support
 -- Modular dialog system for user confirmations
 
@@ -13,50 +14,50 @@ local Dialogs = {
 -- Draw context menu
 function Dialogs.drawContextMenu(x, y)
     if not Dialogs.contextMenu then return end
-    
+
     local options = {"Delete"}
-    local optionH = Scaling.scaleSize(28)
-    local optionW = Scaling.scaleSize(100)
+    local optionH_ui = 28
+    local optionW_ui = 100
+    local optionH = Scaling.scaleSize(optionH_ui)
+    local optionW = Scaling.scaleSize(optionW_ui)
     local menuH = (#options * optionH) + Scaling.scaleSize(4)
-    
-    -- Clamp position to screen bounds
+
+    -- Convert menu origin to screen space and clamp to screen bounds
     local screenW = love.graphics.getWidth()
     local screenH = love.graphics.getHeight()
-    if x + optionW + Scaling.scaleSize(4) > screenW then
-        x = screenW - optionW - Scaling.scaleSize(4)
+    local sX, sY = Scaling.toScreenCanvas(x, y)
+    if sX + optionW + Scaling.scaleSize(4) > screenW then
+        sX = screenW - optionW - Scaling.scaleSize(4)
+        x, y = Scaling.toUI(sX, sY)
     end
-    if y + menuH > screenH then
-        y = screenH - menuH
+    if sY + menuH > screenH then
+        sY = screenH - menuH
+        x, y = Scaling.toUI(sX, sY)
     end
-    
-    -- Draw background
-    love.graphics.setColor(Theme.colors.bgMedium)
-    love.graphics.rectangle("fill", x - Scaling.scaleSize(2), y - Scaling.scaleSize(2), optionW + Scaling.scaleSize(4), menuH)
-    
-    -- Draw border
-    love.graphics.setColor(Theme.colors.borderLight)
-    love.graphics.rectangle("line", x - Scaling.scaleSize(2), y - Scaling.scaleSize(2), optionW + Scaling.scaleSize(4), menuH)
-    
-    -- Store clamped position for click detection
-    Dialogs.contextMenu.displayX = x
-    Dialogs.contextMenu.displayY = y
-    
+
+    -- Store clamped UI position for click detection
+    local cm = Dialogs.contextMenu
+    if cm then
+        cm.displayX = x
+        cm.displayY = y
+    end
+
     -- Draw options
     love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.normal)))
     for i, option in ipairs(options) do
-        local optY = y + (i - 1) * optionH
-        
-        -- Check hover
-        local mx, my = love.mouse.getPosition()
-        local isHovering = mx >= x and mx <= x + optionW and my >= optY and my <= optY + optionH
-        
+        local optY_ui = y + (i - 1) * optionH_ui
+        local mx, my = Scaling.toUI(love.mouse.getPosition())
+        local isHovering = mx >= x and mx <= x + optionW_ui and my >= optY_ui and my <= optY_ui + optionH_ui
+
+        -- Convert menu origin (UI space) to screen space for drawing
+        local screenX, screenY = Scaling.toScreenCanvas(x, optY_ui)
         if isHovering then
             love.graphics.setColor(Theme.colors.buttonHover)
-            love.graphics.rectangle("fill", x, optY, optionW, optionH)
+            love.graphics.rectangle("fill", screenX, screenY, optionW, optionH)
         end
-        
+
         love.graphics.setColor(Theme.colors.textPrimary)
-        love.graphics.printf(option, x, optY + Scaling.scaleY(6), optionW, "center")
+        love.graphics.printf(option, screenX, screenY + Scaling.scaleY(6), optionW, "center")
     end
     
     love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.title)))
@@ -101,21 +102,27 @@ function Dialogs.drawConfirmDialog()
     local noX = startX + btnW + btnSpacing
     local btnY = y + dialogH - Scaling.scaleY(45)
     
-    local mx, my = love.mouse.getPosition()
-    
+    local mx, my = Scaling.toUI(love.mouse.getPosition())
+
+    -- Convert button boxes to UI space for hover checks
+    local uiYesX, uiYesY = Scaling.toUI(yesX, btnY)
+    local uiNoX, uiNoY = Scaling.toUI(noX, btnY)
+    local uiBtnW, uiBtnH = btnW / Scaling.getScale(), btnH / Scaling.getScale()
+
     -- Yes button
-    local yesHover = mx >= yesX and mx <= yesX + btnW and my >= btnY and my <= btnY + btnH
+    local yesHover = mx >= uiYesX and mx <= uiYesX + uiBtnW and my >= uiYesY and my <= uiYesY + uiBtnH
     Theme.drawButton(yesX, btnY, btnW, btnH, "Yes", yesHover, Theme.colors.buttonYes, Theme.colors.buttonYesHover)
     
     -- No button
-    local noHover = mx >= noX and mx <= noX + btnW and my >= btnY and my <= btnY + btnH
+    local noHover = mx >= uiNoX and mx <= uiNoX + uiBtnW and my >= uiNoY and my <= uiNoY + uiBtnH
     Theme.drawButton(noX, btnY, btnW, btnH, "No", noHover, Theme.colors.buttonNo, Theme.colors.buttonNoHover)
     
     love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.title)))
     
     -- Store button rects for click detection
-    Dialogs.confirmDialog.yesRect = {x = yesX, y = btnY, w = btnW, h = btnH}
-    Dialogs.confirmDialog.noRect = {x = noX, y = btnY, w = btnW, h = btnH}
+    -- Store button rects in UI/reference space
+    Dialogs.confirmDialog.yesRect = {x = uiYesX, y = uiYesY, w = uiBtnW, h = uiBtnH}
+    Dialogs.confirmDialog.noRect = {x = uiNoX, y = uiNoY, w = uiBtnW, h = uiBtnH}
 end
 
 -- Handle context menu interactions
@@ -123,16 +130,19 @@ function Dialogs.handleContextMenuClick(x, y, button)
     if not Dialogs.contextMenu then return false end
     
     if button == 1 then
-        local optionH = Scaling.scaleSize(28)
-        local optionW = Scaling.scaleSize(100)
-        local displayX = Dialogs.contextMenu.displayX or Dialogs.contextMenu.x
-        local displayY = Dialogs.contextMenu.displayY or Dialogs.contextMenu.y
-        
-        -- Check if Delete was clicked
-        if x >= displayX and x <= displayX + optionW 
-           and y >= displayY and y <= displayY + optionH then
+        -- Use UI units for options
+        local optionH_ui = 28
+        local optionW_ui = 100
+        local context = Dialogs.contextMenu
+        if not context then return false end
+        local displayX = context.displayX or context['x'] or 0
+        local displayY = context.displayY or context['y'] or 0
+
+        -- Check if Delete was clicked (all in UI space)
+        if x >= displayX and x <= displayX + optionW_ui
+           and y >= displayY and y <= displayY + optionH_ui then
             -- Show confirmation dialog
-            Dialogs.confirmDialog = {itemId = Dialogs.contextMenu.itemId, yesRect = nil, noRect = nil}
+            Dialogs.confirmDialog = {itemId = context['itemId'], yesRect = nil, noRect = nil}
             Dialogs.contextMenu = nil
             return true
         end

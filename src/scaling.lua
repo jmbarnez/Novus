@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- scaling.lua - universal scaling utilities for game/UI rendering
 
 local Scaling = {}
@@ -54,6 +55,42 @@ end
 function Scaling.toGame(x, y)
     local s, _ = Scaling.getScale()
     return x / s, y / s
+end
+
+-- Convert screen coordinates to canvas/UI coordinates, accounting for canvas offset and scale
+-- This is used for UI hit testing and mouse interactions
+function Scaling.toUI(x, y)
+    -- Use cached canvas transform if available
+    local offsetX = Scaling.canvasOffsetX or 0
+    local offsetY = Scaling.canvasOffsetY or 0
+    local s = Scaling.canvasScale or Scaling.getScale()
+    local uiX = (x - offsetX) / s
+    local uiY = (y - offsetY) / s
+    return uiX, uiY
+end
+
+-- Convert UI/reference coordinates (1920x1080) to screen coordinates, accounting for canvas offset and scale
+function Scaling.toScreenCanvas(x, y)
+    local s = Scaling.canvasScale or Scaling.getScale()
+    local offsetX = Scaling.canvasOffsetX or 0
+    local offsetY = Scaling.canvasOffsetY or 0
+    return x * s + offsetX, y * s + offsetY
+end
+
+-- Update cached canvas transform information used by toUI and toScreenCanvas
+function Scaling.setCanvasTransform(offsetX, offsetY, scale)
+    Scaling.canvasOffsetX = offsetX or 0
+    Scaling.canvasOffsetY = offsetY or 0
+    Scaling.canvasScale = scale or Scaling.getScale()
+end
+
+-- Convert screen coordinates to world coordinates, given camera component and position
+function Scaling.toWorld(screenX, screenY, cameraComp, cameraPos)
+    local uiX, uiY = Scaling.toUI(screenX, screenY)
+    local camZoom = (cameraComp and cameraComp.zoom) or 1
+    local worldX = uiX / camZoom + (cameraPos and cameraPos.x or 0)
+    local worldY = uiY / camZoom + (cameraPos and cameraPos.y or 0)
+    return worldX, worldY
 end
 
 return Scaling
