@@ -67,7 +67,7 @@ function Notifications.draw(cameraX, cameraY, cameraZoom)
         -- Get item definition
         local itemDef = ItemDefs[notif.itemId]
         if itemDef then
-            local text = "+ " .. notif.count .. "x " .. itemDef.name
+            local text = "Picked up: " .. itemDef.name .. " x" .. notif.count
             
             -- Draw text with fade
             love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)

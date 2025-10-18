@@ -31,6 +31,7 @@ function Core.init()
     ECS.registerSystem("RenderSystem", Systems.RenderSystem)
     ECS.registerSystem("CameraSystem", Systems.CameraSystem)
     ECS.registerSystem("UISystem", Systems.UISystem)
+    ECS.registerSystem("HUDSystem", Systems.HUDSystem)
     ECS.registerSystem("TrailSystem", Systems.TrailSystem)
     ECS.registerSystem("CollisionSystem", Systems.CollisionSystem)
     ECS.registerSystem("MagnetSystem", Systems.MagnetSystem)
@@ -43,46 +44,80 @@ function Core.init()
     local canvasId = ECS.createEntity()
     ECS.addComponent(canvasId, "Canvas", Components.Canvas(Constants.screen_width, Constants.screen_height))
 
-    -- Create Player Entity
-    local playerId = ECS.createEntity()
+    -- Create Pilot (Player) Entity
+    local pilotId = ECS.createEntity()
+    ECS.addComponent(pilotId, "InputControlled", Components.InputControlled())
+    ECS.addComponent(pilotId, "Player", Components.Player())
+    ECS.addComponent(pilotId, "Cargo", Components.Cargo({}, 10))
+    ECS.addComponent(pilotId, "Skills", Components.Skills())
 
-    -- Add player components
-    ECS.addComponent(playerId, "Position", Components.Position(0, 0))
-    ECS.addComponent(playerId, "Velocity", Components.Velocity(0, 0))
-    ECS.addComponent(playerId, "Acceleration", Components.Acceleration(0, 0))
-    ECS.addComponent(playerId, "Physics", Components.Physics(Constants.player_friction, Constants.player_max_speed, 1))
-    ECS.addComponent(playerId, "InputControlled", Components.InputControlled())
-    ECS.addComponent(playerId, "Boundary", Components.Boundary(-5000, 5000, -5000, 5000))
-    ECS.addComponent(playerId, "CameraTarget", Components.CameraTarget())
-    ECS.addComponent(playerId, "PolygonShape", Components.PolygonShape({
+    -- Give pilot (player) initial turret items in their cargo
+    local miningLaserId = "mining_laser_turret"
+    local basicCannonId = "basic_cannon_turret"
+    local combatLaserId = "combat_laser_turret"
+    local pilotCargo = ECS.getComponent(pilotId, "Cargo")
+    if pilotCargo then
+        pilotCargo.items[miningLaserId] = 1
+        pilotCargo.items[basicCannonId] = 1
+        pilotCargo.items[combatLaserId] = 1
+    end
+
+    -- Create Drone Entity (starter ship)
+    local droneId = ECS.createEntity()
+    ECS.addComponent(droneId, "Position", Components.Position(0, 0))
+    ECS.addComponent(droneId, "Velocity", Components.Velocity(0, 0))
+    ECS.addComponent(droneId, "Acceleration", Components.Acceleration(0, 0))
+    ECS.addComponent(droneId, "Physics", Components.Physics(Constants.player_friction, Constants.player_max_speed, 1))
+    ECS.addComponent(droneId, "Boundary", Components.Boundary(-5000, 5000, -5000, 5000))
+    ECS.addComponent(droneId, "CameraTarget", Components.CameraTarget())
+    ECS.addComponent(droneId, "PolygonShape", Components.PolygonShape({
         -- Main hexagonal body
         {x = 0, y = -10}, {x = 8.66, y = -5}, {x = 8.66, y = 5}, 
         {x = 0, y = 10}, {x = -8.66, y = 5}, {x = -8.66, y = -5}
     }, 0))
     -- The main Renderable for the hexagonal drone
-    ECS.addComponent(playerId, "Renderable", Components.Renderable("polygon", nil, nil, nil, {0.5, 0.5, 0.5, 1}))
-    ECS.addComponent(playerId, "TrailEmitter", Components.TrailEmitter(Constants.trail_emit_rate, Constants.trail_max_particles, Constants.trail_particle_life, Constants.trail_spread_angle, Constants.trail_speed_multiplier))
-    ECS.addComponent(playerId, "Health", Components.Health(100, 100))
-    ECS.addComponent(playerId, "Collidable", Components.Collidable(10)) -- Bounding radius for hexagon is approx 10
-    ECS.addComponent(playerId, "Turret", Components.Turret("", 0.2)) -- Turret starts empty, only operational when module equipped
-    ECS.addComponent(playerId, "Cargo", Components.Cargo({}, 10))
-    ECS.addComponent(playerId, "Magnet", Components.Magnet(200, 120, 24)) -- Attract items within 200 units
-    ECS.addComponent(playerId, "Skills", Components.Skills())
-    ECS.addComponent(playerId, "TurretSlots", Components.TurretSlots(1)) -- Add TurretSlots component, max 1 slot for drone
+    ECS.addComponent(droneId, "Renderable", Components.Renderable("polygon", nil, nil, nil, {0.5, 0.5, 0.5, 1}))
+    ECS.addComponent(droneId, "TrailEmitter", Components.TrailEmitter(Constants.trail_emit_rate, Constants.trail_max_particles, Constants.trail_particle_life, Constants.trail_spread_angle, Constants.trail_speed_multiplier))
+    ECS.addComponent(droneId, "Health", Components.Health(100, 100))
+    ECS.addComponent(droneId, "Collidable", Components.Collidable(10)) -- Bounding radius for hexagon is approx 10
+    ECS.addComponent(droneId, "Turret", Components.Turret("", 0.2)) -- Turret starts empty, only operational when module equipped
+    ECS.addComponent(droneId, "TurretSlots", Components.TurretSlots(1)) -- Add TurretSlots component, max 1 slot for drone
+    ECS.addComponent(droneId, "Magnet", Components.Magnet(200, 120, 24)) -- Attract items within 200 units
+    -- Mark that this drone is controlled by the pilot
+    ECS.addComponent(droneId, "ControlledBy", Components.ControlledBy(pilotId))
 
-    -- Give player the mining laser and basic cannon turret items in cargo (not equipped)
-    local miningLaserId = "mining_laser_turret"
-    local basicCannonId = "basic_cannon_turret"
-    local combatLaserId = "combat_laser_turret"
-    local playerCargo = ECS.getComponent(playerId, "Cargo")
-    if playerCargo then
-        playerCargo.items[miningLaserId] = 1
-        playerCargo.items[basicCannonId] = 1
-        playerCargo.items[combatLaserId] = 1
+    -- Link pilot InputControlled to the drone
+    local inputComp = ECS.getComponent(pilotId, "InputControlled")
+    if inputComp then
+        inputComp.targetEntity = droneId
     end
 
     -- Load turret modules (including basic cannon)
     Systems.TurretSystem.loadTurretModules("src/turret_modules")
+
+    -- Load sound assets
+    if Systems.SoundSystem and Systems.SoundSystem.loadAll then
+        Systems.SoundSystem.loadAll("assets/sounds")
+        -- Debug: list loaded sounds
+        for k, _ in pairs(Systems.SoundSystem.sounds or {}) do
+            print("[Core] Sound available:", k)
+        end
+        -- Fallback: ensure item_pickup is loaded (some environments may not list files)
+        if not Systems.SoundSystem.sounds["item_pickup"] then
+            local pickupPath = "assets/sounds/item_pickup.ogg"
+            local ok, src = pcall(love.audio.newSource, pickupPath, "static")
+            if ok and src then
+                Systems.SoundSystem.sounds["item_pickup"] = src
+                print("[Core] Manually loaded pickup sound from: " .. pickupPath)
+            else
+                print("[Core] Failed to manually load pickup sound: " .. tostring(pickupPath))
+            end
+        end
+    end
+    -- Start looping background music if available
+    if Systems.SoundSystem and Systems.SoundSystem.playMusic then
+        Systems.SoundSystem.playMusic("assets/music/adrift.mp3", {volume = 0.5})
+    end
 
     -- Create Camera Entity
     local cameraId = ECS.createEntity()
@@ -121,7 +156,7 @@ function Core.init()
     end
 
     print("Game entities created and systems initialized")
-    print("Player spawned at world center (0, 0)")
+    print("Pilot and starting drone spawned at world center (0, 0)")
     print("Asteroids spawned: " .. Constants.asteroid_cluster_count .. " in cluster around center")
     print("Player controls: WASD for thrust, ESC to quit")
 end
@@ -134,7 +169,8 @@ end
 
 -- Main game render loop
 function Core.draw()
-    ECS.draw()
+    ECS.draw() -- Draw all world and UI systems
+    -- Minimap is now drawn as part of HUD, not separately
 end
 
 
@@ -143,6 +179,12 @@ function Core.keypressed(key)
         love.event.quit()
     elseif key == 'tab' then
         UISystem.toggleCargoWindow()
+        return
+    elseif key == 'f5' then
+        local HUDSystem = require('src.systems.hud')
+        if HUDSystem and HUDSystem.toggle then
+            HUDSystem.toggle()
+        end
         return
     end
     UISystem.keypressed = UISystem.keypressed or function(_) end
@@ -153,7 +195,10 @@ end
 function Core.mousepressed(x, y, button)
     print("Core.mousepressed called", x, y, button)
     if UISystem.mousepressed then
-        UISystem.mousepressed(x, y, button)
+        local consumed = UISystem.mousepressed(x, y, button)
+        if consumed then
+            return
+        end
     end
     if Systems.InputSystem.mousepressed then
         Systems.InputSystem.mousepressed(x, y, button)

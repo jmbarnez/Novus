@@ -298,11 +298,14 @@ local CollisionSystem = {
         -- Get all collidable entities
         local collidableEntities = ECS.getEntitiesWith({"Collidable", "Position"})
         
-        -- Get player entity
-        local playerEntities = ECS.getEntitiesWith({"InputControlled", "Position", "Collidable"})
-        if #playerEntities == 0 then return end
+    -- Get the pilot and their controlled drone
+    local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+    if #playerEntities == 0 then return end
         
-        local playerId = playerEntities[1]
+    local pilotId = playerEntities[1]
+    local input = ECS.getComponent(pilotId, "InputControlled")
+    if not input or not input.targetEntity then return end
+    local playerId = input.targetEntity
         local playerPos = ECS.getComponent(playerId, "Position")
         local playerCollidable = ECS.getComponent(playerId, "Collidable")
         

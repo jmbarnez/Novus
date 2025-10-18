@@ -11,41 +11,97 @@ local InputSystem = {
 }
 
 function InputSystem.update(dt)
-    local entities = ECS.getEntitiesWith({"InputControlled", "Acceleration"})
+    -- Apply input from controller entities (pilots) to the controlled entity (drone)
+    local controllers = ECS.getEntitiesWith({"InputControlled"})
+    for _, controllerId in ipairs(controllers) do
+    local input = ECS.getComponent(controllerId, "InputControlled")
+    input = input or {speed = 300}
+        local targetEntity = input and input.targetEntity or nil
+        -- Prefer controlling the target entity if provided, otherwise control the controller itself
+        local accelEntity = targetEntity or controllerId
+        local acceleration = ECS.getComponent(accelEntity, "Acceleration")
+        if not acceleration then
+            -- If no Acceleration on target, skip
+        else
+            local new_ax = 0
+            local new_ay = 0
 
-    for _, entityId in ipairs(entities) do
-        local acceleration = ECS.getComponent(entityId, "Acceleration")
-        local input = ECS.getComponent(entityId, "InputControlled")
+            if love.keyboard.isDown("w") then
+                new_ay = -input.speed
+            end
 
-        local new_ax = 0
-        local new_ay = 0
+            if love.keyboard.isDown("s") then
+                new_ay = input.speed
+            end
 
-        if love.keyboard.isDown("w") then
-            new_ay = -input.speed
+            if love.keyboard.isDown("a") then
+                new_ax = -input.speed
+            end
+
+            if love.keyboard.isDown("d") then
+                new_ax = input.speed
+            end
+
+            acceleration.ax = new_ax
+            acceleration.ay = new_ay
         end
-
-        if love.keyboard.isDown("s") then
-            new_ay = input.speed
-        end
-
-        if love.keyboard.isDown("a") then
-            new_ax = -input.speed
-        end
-
-        if love.keyboard.isDown("d") then
-            new_ax = input.speed
-        end
-
-        acceleration.ax = new_ax
-        acceleration.ay = new_ay
     end
 
     -- Handle weapon firing for entities with turrets
-    local turretEntities = ECS.getEntitiesWith({"Turret", "Position"})
-    if #turretEntities > 0 then
-        local playerEntity = turretEntities[1] -- Typically the player
-        local playerPos = ECS.getComponent(playerEntity, "Position")
-        local turret = ECS.getComponent(playerEntity, "Turret")
+    -- If UI has captured mouse input, do not fire turrets
+    local UIS = ECS.getSystem("UISystem")
+    if UIS and UIS.isMouseCaptured and UIS.isMouseCaptured() then
+        -- If turret beams exist, clean them up (as a safety) for the player's controlled drone
+        local controllersList = ECS.getEntitiesWith({"InputControlled"})
+        local controllerId = controllersList[1]
+        local turretOwner = nil
+        if controllerId then
+            local input = ECS.getComponent(controllerId, "InputControlled")
+            if input and input.targetEntity then
+                turretOwner = input.targetEntity
+            end
+        end
+        if not turretOwner then
+            local turretEntities = ECS.getEntitiesWith({"Turret", "Position"})
+            if #turretEntities > 0 then
+                turretOwner = turretEntities[1]
+            end
+        end
+        if turretOwner then
+            local turret = ECS.getComponent(turretOwner, "Turret")
+            if turret then
+                local turretModule = TurretSystem.turretModules[turret.moduleName]
+                if turretModule and turretModule.laserEntity then
+                    local laserBeam = ECS.getComponent(turretModule.laserEntity, "LaserBeam")
+                    if laserBeam then
+                        ECS.destroyEntity(turretModule.laserEntity)
+                        turretModule.laserEntity = nil
+                    end
+                end
+            end
+        end
+        return
+    end
+    -- Find the pilot/controller entity to determine which turret to fire
+    local controllersList = ECS.getEntitiesWith({"InputControlled"})
+    local controllerId = controllersList[1]
+    local turretOwner = nil
+    if controllerId then
+        local input = ECS.getComponent(controllerId, "InputControlled")
+        if input and input.targetEntity then
+            turretOwner = input.targetEntity
+        end
+    end
+    -- Fallback: find any entity with a turret
+    if not turretOwner then
+        local turretEntities = ECS.getEntitiesWith({"Turret", "Position"})
+        if #turretEntities > 0 then
+            turretOwner = turretEntities[1]
+        end
+    end
+    if turretOwner then
+        local playerPos = ECS.getComponent(turretOwner, "Position")
+        local turret = ECS.getComponent(turretOwner, "Turret")
         
         if love.mouse.isDown(1) then -- Left mouse button held
             local mouseX, mouseY = love.mouse.getPosition()
@@ -64,12 +120,12 @@ function InputSystem.update(dt)
             end
             
             -- Fire the turret (creates/updates laser beam on cooldown)
-            TurretSystem.fireTurret(playerEntity, mouseX, mouseY)
+            TurretSystem.fireTurret(turretOwner, mouseX, mouseY)
             
             -- Apply beam effects every frame (damage, debris, beam positioning)
             local turretModule = TurretSystem.turretModules[turret.moduleName]
-            if turretModule and turretModule.applyBeam then
-                local beamResult = turretModule.applyBeam(playerEntity, playerPos.x, playerPos.y, mouseX, mouseY, dt)
+                if turretModule and turretModule.applyBeam then
+                local beamResult = turretModule.applyBeam(turretOwner, playerPos.x, playerPos.y, mouseX, mouseY, dt)
                 -- Also update the laser beam position on the entity
                 if turretModule.laserEntity and turretModule.laserEntity > 0 then
                     local laserBeam = ECS.getComponent(turretModule.laserEntity, "LaserBeam")

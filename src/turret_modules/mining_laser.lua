@@ -29,6 +29,8 @@ function MiningLaser.fire(ownerId, startX, startY, endX, endY)
         start = {x = startX, y = startY},
         endPos = {x = endX, y = endY}
     })
+    -- Mark this entity as a mining laser projectile for asteroid damage
+    ECS.addComponent(MiningLaser.laserEntity, "Projectile", {ownerId = ownerId, damage = MiningLaser.LASER_DPS, brittle = false, isMiningLaser = true})
     -- ...existing code...
 end
 

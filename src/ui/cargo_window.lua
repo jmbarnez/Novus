@@ -48,7 +48,7 @@ function CargoWindow:draw(viewportWidth, viewportHeight)
     love.graphics.setColor(0,0,0,0.10*alpha)
     love.graphics.rectangle("fill", x+border, y+border+Theme.window.topBarHeight-2*border-1, w-2*border, 1)
     
-    local cargoEntities = ECS.getEntitiesWith({"InputControlled", "Cargo"})
+    local cargoEntities = ECS.getEntitiesWith({"Player", "Cargo"})
     if #cargoEntities == 0 then return end
     
     local playerId = cargoEntities[1]
@@ -111,7 +111,7 @@ function CargoWindow:drawSkillsPanel(windowX, windowY, cargo, alpha)
     love.graphics.rectangle("line", panelX, panelY, panelWidth, panelHeight)
     
     -- Get player skills
-    local cargoEntities = ECS.getEntitiesWith({"InputControlled", "Skills"})
+    local cargoEntities = ECS.getEntitiesWith({"Player", "Skills"})
     if #cargoEntities == 0 then return end
     
     local playerId = cargoEntities[1]
@@ -173,10 +173,14 @@ function CargoWindow:drawTurretPanel(windowX, windowY, cargo, alpha)
     love.graphics.setLineWidth(1)
     love.graphics.rectangle("line", panelX, panelY, panelWidth, panelHeight)
 
-    local cargoEntities = ECS.getEntitiesWith({"InputControlled", "TurretSlots"})
-    if #cargoEntities == 0 then return end
-    local playerId = cargoEntities[1]
-    local turretSlots = ECS.getComponent(playerId, "TurretSlots")
+    -- Find pilot and their controlled drone's turret slots
+    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+    if #pilotEntities == 0 then return end
+    local pilotId = pilotEntities[1]
+    local input = ECS.getComponent(pilotId, "InputControlled")
+    if not input or not input.targetEntity then return end
+    local droneId = input.targetEntity
+    local turretSlots = ECS.getComponent(droneId, "TurretSlots")
     if not turretSlots then return end
 
     love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
@@ -354,26 +358,31 @@ function CargoWindow:mousereleased(x, y, button)
         if self.turretSlotRect then
             if x >= self.turretSlotRect.x and x <= self.turretSlotRect.x + self.turretSlotRect.w
                and y >= self.turretSlotRect.y and y <= self.turretSlotRect.y + self.turretSlotRect.h then
-                -- Equip the module
-                local turretSlots = ECS.getEntitiesWith({"InputControlled", "TurretSlots"})
-                if #turretSlots > 0 then
-                    local playerId = turretSlots[1]
-                    local playerTurretSlots = ECS.getComponent(playerId, "TurretSlots")
-                    local playerCargo = ECS.getComponent(playerId, "Cargo")
-                    local playerTurret = ECS.getComponent(playerId, "Turret")
-                    if playerTurretSlots and playerCargo and playerTurret then
-                        playerTurretSlots.slots[1] = self.draggedItem.itemId
-                        -- Map itemId to turret module name
-                        local turretModuleMap = {
-                            mining_laser_turret = "mining_laser",
-                            basic_cannon_turret = "basic_cannon"
-                        }
-                        playerTurret.moduleName = turretModuleMap[self.draggedItem.itemId] or self.draggedItem.itemId
-                        -- Remove from cargo
-                        if playerCargo.items[self.draggedItem.itemId] then
-                            playerCargo.items[self.draggedItem.itemId] = playerCargo.items[self.draggedItem.itemId] - 1
-                            if playerCargo.items[self.draggedItem.itemId] <= 0 then
-                                playerCargo.items[self.draggedItem.itemId] = nil
+                -- Equip the module on the drone controlled by the pilot
+                local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+                if #pilotEntities > 0 then
+                    local pilotId = pilotEntities[1]
+                    local input = ECS.getComponent(pilotId, "InputControlled")
+                    if input and input.targetEntity then
+                        local droneId = input.targetEntity
+                        local playerTurretSlots = ECS.getComponent(droneId, "TurretSlots")
+                        local playerCargo = ECS.getComponent(pilotId, "Cargo")
+                        local playerTurret = ECS.getComponent(droneId, "Turret")
+                        if playerTurretSlots and playerCargo and playerTurret then
+                            playerTurretSlots.slots[1] = self.draggedItem.itemId
+                            -- Map itemId to turret module name
+                            local turretModuleMap = {
+                                mining_laser_turret = "mining_laser",
+                                basic_cannon_turret = "basic_cannon",
+                                combat_laser_turret = "combat_laser"
+                            }
+                            playerTurret.moduleName = turretModuleMap[self.draggedItem.itemId] or self.draggedItem.itemId
+                            -- Remove from cargo
+                            if playerCargo.items[self.draggedItem.itemId] then
+                                playerCargo.items[self.draggedItem.itemId] = playerCargo.items[self.draggedItem.itemId] - 1
+                                if playerCargo.items[self.draggedItem.itemId] <= 0 then
+                                    playerCargo.items[self.draggedItem.itemId] = nil
+                                end
                             end
                         end
                     end
@@ -384,14 +393,18 @@ function CargoWindow:mousereleased(x, y, button)
     end
 
     -- If turret slot is empty, set Turret.moduleName to empty string
-    local turretSlots = ECS.getEntitiesWith({"InputControlled", "TurretSlots"})
-    if #turretSlots > 0 then
-        local playerId = turretSlots[1]
-        local playerTurretSlots = ECS.getComponent(playerId, "TurretSlots")
-        local playerTurret = ECS.getComponent(playerId, "Turret")
-        if playerTurretSlots and playerTurret then
-            if not playerTurretSlots.slots[1] or playerTurretSlots.slots[1] == "" then
-                playerTurret.moduleName = ""
+    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+    if #pilotEntities > 0 then
+        local pilotId = pilotEntities[1]
+        local input = ECS.getComponent(pilotId, "InputControlled")
+        if input and input.targetEntity then
+            local droneId = input.targetEntity
+            local playerTurretSlots = ECS.getComponent(droneId, "TurretSlots")
+            local playerTurret = ECS.getComponent(droneId, "Turret")
+            if playerTurretSlots and playerTurret then
+                if not playerTurretSlots.slots[1] or playerTurretSlots.slots[1] == "" then
+                    playerTurret.moduleName = ""
+                end
             end
         end
     end

@@ -12,9 +12,12 @@ local MiningSystem = {
 }
 
 function MiningSystem.update(dt)
-    local playerEntities = ECS.getEntitiesWith({"InputControlled", "Position"})
-    if #playerEntities == 0 then return end
-    local playerId = playerEntities[1]
+    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+    if #pilotEntities == 0 then return end
+    local pilotId = pilotEntities[1]
+    local input = ECS.getComponent(pilotId, "InputControlled")
+    if not input or not input.targetEntity then return end
+    local playerId = input.targetEntity
     local playerPos = ECS.getComponent(playerId, "Position")
     local turret = ECS.getComponent(playerId, "Turret")
     if not turret then return end

@@ -61,7 +61,9 @@ end
 Components.InputControlled = function(controlType, speed)
     return {
         controlType = controlType or "drone",
-        speed = speed or 300
+        speed = speed or 300,
+        -- targetEntity: optionally references the entity id this controller is piloting
+        targetEntity = nil
     }
 end
 
@@ -127,6 +129,14 @@ end
 -- Player tag - Marks the player entity
 Components.Player = function()
     return {}
+end
+
+-- ControlledBy component - Marks an entity as being controlled by a pilot
+-- @field pilotId number: Entity ID of the pilot controlling this entity
+Components.ControlledBy = function(pilotId)
+    return {
+        pilotId = pilotId or nil
+    }
 end
 
 -- Camera tag - Marks the camera entity

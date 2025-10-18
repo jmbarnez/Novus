@@ -154,7 +154,7 @@ function Dialogs.handleConfirmDialogClick(x, y, button)
            and y <= Dialogs.confirmDialog.yesRect.y + Dialogs.confirmDialog.yesRect.h then
             
             -- Delete the item
-            local cargoEntities = ECS.getEntitiesWith({"InputControlled", "Cargo"})
+            local cargoEntities = ECS.getEntitiesWith({"Player", "Cargo"})
             if #cargoEntities > 0 then
                 local cargo = ECS.getComponent(cargoEntities[1], "Cargo")
                 if cargo and cargo.items[Dialogs.confirmDialog.itemId] then

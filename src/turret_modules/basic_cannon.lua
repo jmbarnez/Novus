@@ -38,7 +38,7 @@ function BasicCannon.fire(ownerId, startX, startY, endX, endY)
     -- Small durability so it breaks upon a strong impact (brittle)
     ECS.addComponent(ballId, "Durability", Components.Durability(1, 1)) -- Destroy on impact
     -- Mark projectile as brittle so collision handling can treat it specially
-    ECS.addComponent(ballId, "Projectile", {ownerId = ownerId, damage = 10, brittle = true})
+    ECS.addComponent(ballId, "Projectile", {ownerId = ownerId, damage = 10, brittle = true, isMiningLaser = false})
     
     print(string.format("[Cannon] Created projectile %d | vel: (%.2f, %.2f) | pos: (%.2f, %.2f)", ballId, dirX * BasicCannon.BALL_SPEED, dirY * BasicCannon.BALL_SPEED, spawnX, spawnY))
 end

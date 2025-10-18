@@ -43,7 +43,10 @@ function ProjectileSystem.update(dt)
                 -- Collision detected
                 local durability = ECS.getComponent(astId, "Durability")
                 if durability and projectile then
-                    durability.current = durability.current - (projectile.damage or 10)
+                    -- Only allow mining laser projectiles to damage asteroids
+                    if projectile.isMiningLaser then
+                        durability.current = durability.current - (projectile.damage or 10)
+                    end
                 end
                 
                 -- Previously we destroyed the projectile immediately.

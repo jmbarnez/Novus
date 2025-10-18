@@ -182,16 +182,15 @@ local RenderSystem = {
                 if renderable.shape == "item" and item and item.def and item.def.draw then
                     item.def:draw(position.x, position.y)
                     
-                    -- Draw item name above item (small, crisp font)
-                    love.graphics.setColor(1, 1, 1, 0.9)  -- White text with slight transparency
-                    local Theme = require('src.ui.theme')
-                    local smallFont = Theme.getFont(8)  -- Small 8px sci-fi font for crisp text
-                    love.graphics.setFont(smallFont)
-                    local displayName = item.def.name
-                    if stack and stack.quantity > 1 then
-                        displayName = displayName .. " x" .. stack.quantity
+                    -- Draw item quantity underneath the item (e.g., "x5"); hide full name in world
+                    if stack and stack.quantity and stack.quantity > 1 then
+                        love.graphics.setColor(1, 1, 1, 0.9)  -- White text with slight transparency
+                        local Theme = require('src.ui.theme')
+                        local smallFont = Theme.getFont(10)
+                        love.graphics.setFont(smallFont)
+                        local qtyText = "x" .. tostring(stack.quantity)
+                        love.graphics.printf(qtyText, position.x - 40, position.y + 10, 80, "center")
                     end
-                    love.graphics.printf(displayName, position.x - 40, position.y - 15, 80, "center")
                 -- Draw all other entities using their renderable component
                 else
                     -- Set color
@@ -208,19 +207,26 @@ local RenderSystem = {
                         love.graphics.circle("fill", position.x, position.y, renderable.radius)
                     elseif renderable.shape == "polygon" then
                         local polygonShape = ECS.getComponent(entityId, "PolygonShape")
-                        if polygonShape and ECS.hasComponent(entityId, "InputControlled") then
-                            -- If it's the player, draw the drone design and turret
-                            local playerRotation = polygonShape.rotation
-                            love.graphics.push()
-                            love.graphics.translate(position.x, position.y)
-                            love.graphics.rotate(playerRotation)
-                            -- Draw the single Renderable polygon for the player entity
-                            drawPolygon(0, 0, polygonShape, renderable.color)
-                            love.graphics.pop()
-                            drawTurret(position.x, position.y, renderable.color, playerRotation) -- Pass playerRotation to drawTurret
-                        elseif polygonShape then
-                            -- Otherwise, draw the polygon for asteroids
-                            drawPolygon(position.x, position.y, polygonShape, renderable.color)
+                        if polygonShape then
+                            local controlledBy = ECS.getComponent(entityId, "ControlledBy")
+                            local isPlayerDrone = false
+                            if controlledBy and controlledBy.pilotId and ECS.hasComponent(controlledBy.pilotId, "Player") then
+                                isPlayerDrone = true
+                            end
+                            if isPlayerDrone then
+                                -- If it's the player's drone, draw the drone design and turret
+                                local playerRotation = polygonShape.rotation
+                                love.graphics.push()
+                                love.graphics.translate(position.x, position.y)
+                                love.graphics.rotate(playerRotation)
+                                -- Draw the single Renderable polygon for the player entity
+                                drawPolygon(0, 0, polygonShape, renderable.color)
+                                love.graphics.pop()
+                                drawTurret(position.x, position.y, renderable.color, playerRotation) -- Pass playerRotation to drawTurret
+                            else
+                                -- Otherwise, draw the polygon for asteroids
+                                drawPolygon(position.x, position.y, polygonShape, renderable.color)
+                            end
                         end
                     end
                 end
@@ -294,7 +300,13 @@ local RenderSystem = {
                 CameraSystem.resetTransform()
             end
 
-            -- Draw UI
+            -- Draw HUD (always-on overlay)
+            local HUDSystem = ECS.getSystem("HUDSystem")
+            if HUDSystem and HUDSystem.draw then
+                HUDSystem.draw(canvasComp.width, canvasComp.height)
+            end
+
+            -- Draw UI (toggleable)
             local UISystem = ECS.getSystem("UISystem")
             if UISystem and UISystem.draw then
                 UISystem.draw(canvasComp.width, canvasComp.height)

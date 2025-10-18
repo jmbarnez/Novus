@@ -18,59 +18,96 @@ local UISystem = {
     priority = 10
 }
 
--- Helper function to draw speed indicator
-local function drawSpeedIndicator(viewportWidth, viewportHeight)
-    local playerEntities = ECS.getEntitiesWith({"InputControlled", "Velocity"})
-    if #playerEntities == 0 then return end
-    
-    local velocity = ECS.getComponent(playerEntities[1], "Velocity")
-    local speed = math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy)
-    
-    local barWidth = Constants.ui_speed_bar_width
-    local barHeight = Constants.ui_speed_bar_height
-    local x = viewportWidth - barWidth - 20
-    local y = viewportHeight - barHeight - 20
-    
-    -- Draw background
-    love.graphics.setColor(0.1, 0.1, 0.1, 0.7)
-    love.graphics.rectangle("fill", x, y, barWidth, barHeight)
-    
-    -- Draw speed fill
-    local maxSpeed = Constants.player_max_speed
-    local speedRatio = math.min(speed / maxSpeed, 1.0)
-    love.graphics.setColor(0.2, 0.6, 1.0, 0.9)
-    love.graphics.rectangle("fill", x, y, barWidth * speedRatio, barHeight)
-    
-    -- Draw text
-    love.graphics.setColor(Theme.colors.textPrimary)
-    love.graphics.printf(string.format("Speed: %d", speed), x, y + 5, barWidth, "center")
+-- Track whether the UI has captured (consumed) pointer input
+local mouseCaptured = false
+
+function UISystem.captureMouse()
+    mouseCaptured = true
 end
 
--- Helper function to draw health bar
-local function drawHealthBar(viewportWidth, viewportHeight)
-    local playerEntities = ECS.getEntitiesWith({"InputControlled", "Health"})
-    if #playerEntities == 0 then return end
-    
-    local health = ECS.getComponent(playerEntities[1], "Health")
-    
-    local barWidth = Constants.ui_health_bar_width
-    local barHeight = Constants.ui_health_bar_height
-    local x = 20
-    local y = 20
-    
-    -- Draw background
-    love.graphics.setColor(0.1, 0.1, 0.1, 0.7)
-    love.graphics.rectangle("fill", x, y, barWidth, barHeight)
-    
-    -- Draw health fill
-    local healthRatio = math.min(health.current / health.max, 1.0)
-    love.graphics.setColor(1.0, 0.2, 0.2, 0.9)
-    love.graphics.rectangle("fill", x, y, barWidth * healthRatio, barHeight)
-    
-    -- Draw text
-    love.graphics.setColor(Theme.colors.textPrimary)
-    love.graphics.printf(string.format("Hull: %d%%", health.current / health.max * 100), x, y + 5, barWidth, "center")
+function UISystem.releaseMouse()
+    mouseCaptured = false
 end
+
+function UISystem.isMouseCaptured()
+    return mouseCaptured
+end
+
+-- Interactive registry for UI elements that should capture pointer input
+local interactiveOrder = {}
+local interactiveMap = {}
+
+-- Register an interactive area with a hit-test and optional click handler
+-- name (string), hitTestFn(x,y,button) -> boolean, clickHandlerFn(x,y,button) -> boolean
+function UISystem.registerInteractive(name, hitTestFn, clickHandlerFn)
+    if interactiveMap[name] then
+        -- replace existing
+        interactiveMap[name] = {hit = hitTestFn, handler = clickHandlerFn}
+        return
+    end
+    interactiveMap[name] = {hit = hitTestFn, handler = clickHandlerFn}
+    table.insert(interactiveOrder, name)
+end
+
+function UISystem.unregisterInteractive(name)
+    interactiveMap[name] = nil
+    for i, n in ipairs(interactiveOrder) do
+        if n == name then
+            table.remove(interactiveOrder, i)
+            break
+        end
+    end
+end
+
+-- Register default interactive elements
+-- Confirmation dialog
+UISystem.registerInteractive('confirm_dialog', function(x, y, button)
+    return Dialogs.confirmDialog ~= nil and true or false
+end, function(x, y, button)
+    return Dialogs.handleConfirmDialogClick(x, y, button)
+end)
+
+-- Context menu
+UISystem.registerInteractive('context_menu', function(x, y, button)
+    return Dialogs.contextMenu ~= nil and Dialogs.contextMenu.displayX and Dialogs.contextMenu.displayY and
+           x >= (Dialogs.contextMenu.displayX or Dialogs.contextMenu.x) and x <= (Dialogs.contextMenu.displayX or Dialogs.contextMenu.x) + 100 and
+           y >= (Dialogs.contextMenu.displayY or Dialogs.contextMenu.y) and y <= (Dialogs.contextMenu.displayY or Dialogs.contextMenu.y) + 28
+end, function(x, y, button)
+    return Dialogs.handleContextMenuClick(x, y, button)
+end)
+
+-- Confirmation dialog
+UISystem.registerInteractive('confirm_dialog', function(x, y, button)
+    return Dialogs.confirmDialog ~= nil and true or false
+end, function(x, y, button)
+    return Dialogs.handleConfirmDialogClick(x, y, button)
+end)
+
+-- Cargo window
+UISystem.registerInteractive('cargo_window', function(x, y, button)
+    return CargoWindow.isOpen and CargoWindow.position and x >= CargoWindow.position.x and x <= CargoWindow.position.x + CargoWindow.width
+           and y >= CargoWindow.position.y and y <= CargoWindow.position.y + CargoWindow.height
+end, function(x, y, button)
+    -- Right-click to open context menu if hovering an item
+    if button == 2 and CargoWindow.hoveredItemSlot then
+        Dialogs.contextMenu = {itemId = CargoWindow.hoveredItemSlot.itemId, x = x, y = y}
+        return true
+    end
+    CargoWindow:mousepressed(x, y, button)
+    return true
+end)
+
+
+-- Minimap input capture is now handled by HUD, but we still want UI to eat clicks over minimap
+local Minimap = require('src.systems.minimap')
+UISystem.registerInteractive('minimap', function(x, y, button)
+    return Minimap and Minimap.isPointOver and Minimap.isPointOver(x, y)
+end, function(x, y, button)
+    -- just consume the click
+    return true
+end)
+
+-- HUD drawing has been moved to `src.systems.hud`
 
 -- Main draw function
 function UISystem.draw(viewportWidth, viewportHeight)
@@ -82,21 +119,14 @@ function UISystem.draw(viewportWidth, viewportHeight)
         
         if #canvasEntities > 0 then
             local canvasComp = ECS.getComponent(canvasEntities[1], "Canvas")
-            viewportWidth = canvasComp.width
-            viewportHeight = canvasComp.height
+            if canvasComp then
+                viewportWidth = canvasComp.width
+                viewportHeight = canvasComp.height
+            end
         end
     end
     
-    -- Draw HUD elements
-    local uiEntities = ECS.getEntitiesWith({"UI"})
-    for _, entityId in ipairs(uiEntities) do
-        local ui = ECS.getComponent(entityId, "UI")
-        if ui.uiType == "hud" then
-            drawSpeedIndicator(viewportWidth, viewportHeight)
-            drawHealthBar(viewportWidth, viewportHeight)
-            -- Hotbar removed
-        end
-    end
+    -- HUD elements are rendered by the HUD system inside RenderSystem
     
     -- Draw notifications (in screen space)
     Notifications.draw(0, 0, 1)
@@ -137,7 +167,10 @@ function UISystem.draw(viewportWidth, viewportHeight)
             CargoWindow.hoveredTurretSlot.mouseX,
             CargoWindow.hoveredTurretSlot.mouseY
         )
+        -- Not handled by UI
+        return false
     end
+    return false
 end
 
 -- Update function for UI (handles notifications timing)
@@ -156,32 +189,36 @@ end
 
 -- Mouse pressed handler
 function UISystem.mousepressed(x, y, button)
-    -- Handle dialogs first (highest priority)
-    if Dialogs.confirmDialog then
-        Dialogs.handleConfirmDialogClick(x, y, button)
-        return
-    end
-    
-    if Dialogs.contextMenu then
-        Dialogs.handleContextMenuClick(x, y, button)
-        return
-    end
-    
-    -- Handle cargo window
-    if CargoWindow.isOpen then
-        -- Right-click on items for context menu
-        if button == 2 and CargoWindow.hoveredItemSlot then
-            Dialogs.contextMenu = {itemId = CargoWindow.hoveredItemSlot.itemId, x = x, y = y}
-            return
+    -- Let registered interactive elements handle the click in registration order
+    for _, name in ipairs(interactiveOrder) do
+        local entry = interactiveMap[name]
+        if entry and entry.hit and entry.hit(x, y, button) then
+            local handled = false
+            if entry.handler then handled = entry.handler(x, y, button) end
+            if handled then
+                UISystem.captureMouse()
+                return true
+            end
         end
-        
-    CargoWindow:mousepressed(x, y, button)
+    end
+
+    -- If click is on the minimap, capture it so it doesn't pass to the world
+    local Minimap = require('src.systems.minimap')
+    if Minimap and Minimap.isPointOver then
+        if Minimap.isPointOver(x, y) then
+            UISystem.captureMouse()
+            return true
+        end
     end
 end
 
 -- Mouse released handler
 function UISystem.mousereleased(x, y, button)
     CargoWindow:mousereleased(x, y, button)
+    -- Release capture on mouse release (assumes left click)
+    if button == 1 then
+        UISystem.releaseMouse()
+    end
 end
 
 -- Mouse moved handler
@@ -204,7 +241,7 @@ end
 
 -- Public API for adding skill experience
 function UISystem.addSkillExperience(skillName, xpGain)
-    local playerEntities = ECS.getEntitiesWith({"InputControlled", "Skills"})
+    local playerEntities = ECS.getEntitiesWith({"Player", "Skills"})
     if #playerEntities == 0 then return end
     
     local playerId = playerEntities[1]

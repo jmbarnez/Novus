@@ -5,15 +5,15 @@ local Theme = {
     -- Color palette
     colors = {
         -- Backgrounds
-        bgDark = {0.1, 0.11, 0.13, 1},      -- Main window background
-        bgMedium = {0.15, 0.16, 0.19, 1},   -- Secondary background (menus, etc)
-        bgLight = {0.18, 0.19, 0.22, 1},    -- Slightly lighter background
+        bgDark = {0.08, 0.08, 0.08, 1},      -- Main window background
+        bgMedium = {0.12, 0.12, 0.12, 1},    -- Secondary background (menus, etc)
+        bgLight = {0.16, 0.16, 0.16, 1},     -- Slightly lighter background
         
         -- Borders and accents
-        borderDark = {0.05, 0.06, 0.08, 1},      -- Dark shadow border
-        borderMedium = {0.22, 0.24, 0.28, 1},    -- Medium border
-    borderLight = {0.35, 0.38, 0.45, 1},     -- Light/highlight border
-    borderNeon = {0.2, 0.95, 1, 0.85},       -- Neon blue/cyan border
+        borderDark = {0.05, 0.05, 0.05, 1},      -- Dark shadow border
+        borderMedium = {0.25, 0.25, 0.25, 1},    -- Medium border
+        borderLight = {0.4, 0.4, 0.4, 1},        -- Light/highlight border
+        borderNeon = {0.2, 0.95, 1, 0.85},       -- Neon blue/cyan border
         
         -- Text
         textPrimary = {1, 1, 1, 1},              -- Main text (white)
@@ -47,18 +47,18 @@ local Theme = {
     
     -- Dimensions and spacing
     spacing = {
-        padding = 8,           -- Standard padding inside elements
-        margin = 12,           -- Standard margin between elements
-        windowBorder = 2,      -- Border thickness
-        iconSize = 28,         -- Standard icon size
-        iconGridPadding = 18,  -- Grid spacing for icon layout
+        padding = 6,           -- Standard padding inside elements
+        margin = 8,            -- Standard margin between elements
+        windowBorder = 1,      -- Border thickness
+        iconSize = 48,         -- Standard icon size (2x larger)
+        iconGridPadding = 12,  -- Grid spacing for icon layout
     },
     
     -- Window styling
     window = {
-        borderThickness = 2,        -- 3D effect: outer, medium, base
-        topBarHeight = 24,          -- Top bar height
-        bottomBarHeight = 24,       -- Bottom bar height
+        borderThickness = 1,        -- Minimal border thickness
+        topBarHeight = 20,          -- Top bar height
+        bottomBarHeight = 20,       -- Bottom bar height
     },
 }
 
@@ -96,51 +96,17 @@ function Theme.getFontBold(size)
     return love.graphics.newFont(size)
 end
 
--- Helper function to create a 3D border effect with neon segmented sci-fi style
+-- Helper function to create a sleek minimal border with opaque background
 function Theme.draw3DBorder(x, y, w, h, depth)
-    depth = depth or 4
+    depth = depth or 1
 
-    -- Outer shadow
-    love.graphics.setColor(Theme.colors.bgDark)
+    -- Single clean border
+    love.graphics.setColor(Theme.colors.borderLight)
     love.graphics.rectangle("fill", x - depth, y - depth, w + depth * 2, h + depth * 2)
 
-    -- Medium border
-    love.graphics.setColor(Theme.colors.borderMedium)
-    love.graphics.rectangle("fill", x - depth + 2, y - depth + 2, w + depth * 2 - 4, h + depth * 2 - 4)
-
-    -- Base background
+    -- Opaque background
     love.graphics.setColor(Theme.colors.bgDark)
     love.graphics.rectangle("fill", x, y, w, h)
-
-    -- Neon segmented border (sci-fi panel)
-    love.graphics.setColor(Theme.colors.borderNeon)
-    love.graphics.setLineWidth(3)
-    local seg = math.max(32, math.floor(w / 6))
-    -- Top border
-    for i = 0, w - seg, seg do
-        love.graphics.line(x + i, y, x + i + seg * 0.7, y)
-    end
-    -- Bottom border
-    for i = 0, w - seg, seg do
-        love.graphics.line(x + i, y + h, x + i + seg * 0.7, y + h)
-    end
-    -- Left border
-    for i = 0, h - seg, seg do
-        love.graphics.line(x, y + i, x, y + i + seg * 0.7)
-    end
-    -- Right border
-    for i = 0, h - seg, seg do
-        love.graphics.line(x + w, y + i, x + w, y + i + seg * 0.7)
-    end
-    love.graphics.setLineWidth(1)
-
-    -- Top highlight
-    love.graphics.setColor(Theme.colors.highlightBright)
-    love.graphics.rectangle("fill", x, y, w, 8)
-
-    -- Bottom shadow
-    love.graphics.setColor(Theme.colors.shadowDark)
-    love.graphics.rectangle("fill", x, y + h - 8, w, 8)
 end
 
 -- Helper function to draw a button with consistent styling
