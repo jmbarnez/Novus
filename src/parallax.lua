@@ -15,12 +15,14 @@ function Parallax.new(layers, worldSize)
             brightness = layer.brightness or 0.5,
             count = layer.count or 100
         }
-        
+        local isStatic = (parallax.layers[i].parallaxFactor == 0)
+        local starXMax = isStatic and (love.graphics.getWidth()) or parallax.worldSize
+        local starYMax = isStatic and (love.graphics.getHeight()) or parallax.worldSize
         -- Generate stars for this layer
         for j = 1, parallax.layers[i].count do
             table.insert(parallax.layers[i].stars, {
-                x = love.math.random(0, parallax.worldSize),
-                y = love.math.random(0, parallax.worldSize),
+                x = love.math.random(0, starXMax),
+                y = love.math.random(0, starYMax),
                 size = love.math.random(1, 2), -- Tiny specks
                 brightness = love.math.random(layer.brightness * 0.7, layer.brightness)
             })
@@ -37,34 +39,31 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
         return
     end
     
+    local t = love.timer and love.timer.getTime and love.timer.getTime() or 0
     for _, layer in ipairs(parallax.layers) do
-        -- Safety check for layer
-        if not layer or not layer.stars then
-            -- ...existing code...
-            goto continue
-        end
-        
-        -- Calculate parallax offset
-        local offsetX = cameraX * layer.parallaxFactor
-        local offsetY = cameraY * layer.parallaxFactor
-
-        for _, star in ipairs(layer.stars) do
-            -- Wrap stars around the world for infinite parallax effect
-            local drawX = (star.x - offsetX) % parallax.worldSize
-            if drawX < 0 then drawX = drawX + parallax.worldSize end
-            local drawY = (star.y - offsetY) % parallax.worldSize
-            if drawY < 0 then drawY = drawY + parallax.worldSize end
-
-            -- Only draw stars that are visible on screen (with some padding)
-            if drawX >= -50 and drawX <= screenWidth + 50 and
-               drawY >= -50 and drawY <= screenHeight + 50 then
-                -- Bright white stars
-                love.graphics.setColor(1, 1, 1, star.brightness)
-                -- Draw as tiny points (1-2 pixels)
-                love.graphics.points(drawX, drawY)
+        if not layer or not layer.stars then goto continue end
+        if layer.parallaxFactor == 0 then
+            -- Static layer: draw stars at fixed screen positions, twinkling
+            for _, star in ipairs(layer.stars) do
+                local twinkle = star.brightness * (0.7 + 0.3 * math.abs(math.sin(t * (star.size + 1) + star.x + star.y)))
+                love.graphics.setColor(1, 1, 1, twinkle)
+                love.graphics.points(star.x, star.y)
+            end
+        else
+            -- Parallax layer: draw as before
+            local offsetX = cameraX * layer.parallaxFactor
+            local offsetY = cameraY * layer.parallaxFactor
+            for _, star in ipairs(layer.stars) do
+                local drawX = (star.x - offsetX) % parallax.worldSize
+                if drawX < 0 then drawX = drawX + parallax.worldSize end
+                local drawY = (star.y - offsetY) % parallax.worldSize
+                if drawY < 0 then drawY = drawY + parallax.worldSize end
+                if drawX >= -50 and drawX <= screenWidth + 50 and drawY >= -50 and drawY <= screenHeight + 50 then
+                    love.graphics.setColor(1, 1, 1, star.brightness)
+                    love.graphics.points(drawX, drawY)
+                end
             end
         end
-        
         ::continue::
     end
 

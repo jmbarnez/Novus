@@ -3,7 +3,7 @@
 
 return {
     id = "basic_cannon_turret",
-    name = "Basic Cannon Turret",
+    name = "Basic Cannon",
     description = "A simple kinetic cannon that fires yellow projectiles.",
     stackable = false,
     value = 80,
@@ -13,7 +13,7 @@ return {
         size = 16,
         color = {1, 0.9, 0.2, 1}
     },
-    module = require("src.turret_modules.basic_cannon"),
+    module = require("src.modules.basic_cannon"),
     draw = function(self, x, y)
         local size = self.design.size
         -- Cannon barrel

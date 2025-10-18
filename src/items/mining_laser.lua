@@ -3,7 +3,7 @@
 
 return {
     id = "mining_laser_turret",
-    name = "Mining Laser Turret",
+    name = "Mining Laser",
     description = "A precision mining laser for extracting resources from asteroids. Deals moderate damage.",
     stackable = false,
     value = 100,
@@ -13,7 +13,7 @@ return {
         size = 16,
         color = {0.2, 0.8, 1.0, 1}
     },
-    module = require("src.turret_modules.mining_laser"),
+    module = require("src.modules.mining_laser"),
     draw = function(self, x, y)
         local size = self.design.size
         -- Laser housing (dark metallic)

@@ -2,7 +2,9 @@
 -- Space Drone Adventure - Core Game Logic
 -- Handles game initialization, entity creation, and game state management
 
+local Constants = require('src.constants')
 local Core = {}
+
 
 -- Dependencies
 local ECS = require('src.ecs')
@@ -19,9 +21,9 @@ function Core.init()
     print("=== Space Drone Adventure Loading ===")
     Scaling.update()
 
-    -- Set fullscreen mode
-    local w, h = love.window.getDesktopDimensions()
-    love.window.setMode(w, h, {fullscreen = true, fullscreentype = "desktop"})
+    -- Set windowed mode, matching start screen size
+    local w, h = Constants.screen_width, Constants.screen_height
+    love.window.setMode(w, h, {fullscreen = false, resizable = false})
 
     -- Initialize procedural generation system
     Procedural.init()
@@ -96,7 +98,7 @@ function Core.init()
     end
 
     -- Load turret modules (including basic cannon)
-    Systems.TurretSystem.loadTurretModules("src/turret_modules")
+    Systems.TurretSystem.loadTurretModules("src/modules")
 
     -- Load sound assets
     if Systems.SoundSystem and Systems.SoundSystem.loadAll then
@@ -132,14 +134,14 @@ function Core.init()
     ECS.addComponent(uiId, "UI", Components.UI())
     ECS.addComponent(uiId, "UITag", Components.UITag())
 
-    -- Create Starfield Entity (background)
+    -- Create Starfield Entity (background) with static twinkling layer
     local starFieldId = ECS.createEntity()
     local starLayers = {
-        {count = 200, brightness = 0.9, parallaxFactor = 0.01},  -- Very far distant stars
-        {count = 150, brightness = 1.0, parallaxFactor = 0.03},  -- Far distant stars
-        {count = 100, brightness = 1.0, parallaxFactor = 0.08}   -- Medium distant stars
+        {count = 80, brightness = 0.9, parallaxFactor = 0},      -- Static twinkling stars
+        {count = 800, brightness = 0.9, parallaxFactor = 0.01},  -- Very far distant stars
+        {count = 600, brightness = 1.0, parallaxFactor = 0.03},  -- Far distant stars
+        {count = 400, brightness = 1.0, parallaxFactor = 0.08}   -- Medium distant stars
     }
-    -- Create the actual parallax object with generated stars
     local parallaxObject = Parallax.new(starLayers, 10000)
     ECS.addComponent(starFieldId, "StarField", parallaxObject)
 
@@ -172,6 +174,7 @@ end
 
 -- Main game render loop
 function Core.draw()
+    love.graphics.clear(0, 0, 0)
     ECS.draw() -- Draw all world and UI systems
     -- Minimap is now drawn as part of HUD, not separately
 end
