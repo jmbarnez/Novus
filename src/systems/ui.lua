@@ -10,6 +10,7 @@ local Tooltips = require('src.ui.tooltips')
 local Dialogs = require('src.ui.dialogs')
 local Notifications = require('src.ui.notifications')
 local SkillNotifications = require('src.ui.skill_notifications')
+local Scaling = require('src.scaling')
 -- Hotbar removed
 
 -- UI System main table
@@ -125,6 +126,8 @@ function UISystem.draw(viewportWidth, viewportHeight)
             end
         end
     end
+    viewportWidth = Scaling.scaleX(viewportWidth)
+    viewportHeight = Scaling.scaleY(viewportHeight)
     
     -- HUD elements are rendered by the HUD system inside RenderSystem
     

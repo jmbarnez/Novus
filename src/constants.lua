@@ -22,8 +22,9 @@ Constants.trail_particle_size_max = 1.0
 -- UI settings
 Constants.ui_speed_bar_width = 200
 Constants.ui_speed_bar_height = 20
-Constants.ui_health_bar_width = 200
-Constants.ui_health_bar_height = 20
+-- UI scaling constants (add for reference resolution)
+Constants.ui_health_bar_width = 240
+Constants.ui_health_bar_height = 16
 
 -- Asteroid settings
 Constants.asteroid_cluster_count = 15

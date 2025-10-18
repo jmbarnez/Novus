@@ -11,10 +11,12 @@ local Parallax = require('src.parallax')
 local Constants = require('src.constants')
 local Procedural = require('src.procedural')
 local UISystem = require('src.systems.ui')
+local Scaling = require('src.scaling')
 
 -- Game initialization
 function Core.init()
     print("=== Space Drone Adventure Loading ===")
+    Scaling.update()
 
     -- Set fullscreen mode
     local w, h = love.window.getDesktopDimensions()
@@ -235,6 +237,12 @@ end
 function Core.quit()
     -- Any cleanup logic would go here
     print("Space Drone Adventure shutting down...")
+end
+
+function Core.onResize(w, h)
+    Scaling.update()
+    -- If you want systems (like ECS, HUD) to react, call them here
+    -- Example: UISystem.onResize(w, h) (if such a method exists)
 end
 
 return Core

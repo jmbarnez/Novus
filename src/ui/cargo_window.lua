@@ -5,6 +5,7 @@ local ECS = require('src.ecs')
 local Components = require('src.components')
 local Theme = require('src.ui.theme')
 local WindowBase = require('src.ui.window_base')
+local Scaling = require('src.scaling')
 
 -- Create cargo window instance inheriting from WindowBase
 local CargoWindow = WindowBase:new{
@@ -33,20 +34,23 @@ function CargoWindow:draw(viewportWidth, viewportHeight)
     local alpha = self.animAlpha
     if alpha <= 0 then return end
     
+    -- Scale window variables
+    local x = Scaling.scaleX(self.position.x)
+    local y = Scaling.scaleY(self.position.y)
+    local w = Scaling.scaleSize(self.width)
+    local h = Scaling.scaleSize(self.height)
+
     -- Draw universal window frame (border, background)
-    local x, y = self.position.x, self.position.y
-    local w, h = self.width, self.height
     love.graphics.setColor(1, 1, 1, alpha)
     Theme.draw3DBorder(x, y, w, h)
     -- Integrated top bar: use a subtle gradient or slightly darker fill, no hard border
-    local topBarColor = {Theme.colors.bgDark[1]*0.92, Theme.colors.bgDark[2]*0.92, Theme.colors.bgDark[3]*0.92, alpha}
-    -- Inset top bar by border thickness to fit inside border
-    local border = 3
-    love.graphics.setColor(topBarColor)
-    love.graphics.rectangle("fill", x+border, y+border, w-2*border, Theme.window.topBarHeight-2*border)
+    local topBarH = Scaling.scaleSize(Theme.window.topBarHeight)
+    local border = Scaling.scaleSize(3)
+    love.graphics.setColor(Theme.colors.bgDark[1]*0.92, Theme.colors.bgDark[2]*0.92, Theme.colors.bgDark[3]*0.92, alpha)
+    love.graphics.rectangle("fill", x+border, y+border, w-2*border, topBarH-2*border)
     -- Subtle shadow line below top bar
     love.graphics.setColor(0,0,0,0.10*alpha)
-    love.graphics.rectangle("fill", x+border, y+border+Theme.window.topBarHeight-2*border-1, w-2*border, 1)
+    love.graphics.rectangle("fill", x+border, y+border+topBarH-2*border-1, w-2*border, Scaling.scaleSize(1))
     
     local cargoEntities = ECS.getEntitiesWith({"Player", "Cargo"})
     if #cargoEntities == 0 then return end
@@ -61,21 +65,22 @@ function CargoWindow:draw(viewportWidth, viewportHeight)
     self:drawCloseButton(x, y, alpha)
     
     -- Draw bottom bar
-    local bottomY = y + h - Theme.window.bottomBarHeight
+    local bottomBarH = Scaling.scaleSize(Theme.window.bottomBarHeight)
+    local bottomY = y + h - bottomBarH
     local bottomBarColor = Theme.colors.bgMedium
     love.graphics.setColor(bottomBarColor[1], bottomBarColor[2], bottomBarColor[3], alpha)
-    love.graphics.rectangle("fill", x, bottomY, w, Theme.window.bottomBarHeight)
+    love.graphics.rectangle("fill", x, bottomY, w, bottomBarH)
     
     -- Draw cargo info
     love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
+    love.graphics.setFont(Scaling.scaleSize(Theme.getFont(Theme.fonts.normal)))
     local itemCount = 0
     for _, v in pairs(cargo.items) do itemCount = itemCount + v end
     local capText = string.format("Cargo: %d / %d", itemCount, cargo.capacity or 0)
-    love.graphics.print(capText, x + 12, bottomY + 5)
+    love.graphics.print(capText, x + Scaling.scaleX(12), bottomY + Scaling.scaleY(5))
     
     local currencyText = currency and string.format("Credits: %d", currency.amount or 0) or ""
-    love.graphics.print(currencyText, x + w - 140, bottomY + 5)
+    love.graphics.print(currencyText, x + w - Scaling.scaleX(140), bottomY + Scaling.scaleY(5))
     
     -- Draw items grid
     self:drawItemsGrid(x, y, cargo, alpha)
@@ -96,10 +101,10 @@ function CargoWindow:draw(viewportWidth, viewportHeight)
 end
 
 function CargoWindow:drawSkillsPanel(windowX, windowY, cargo, alpha)
-    local panelWidth = 130
-    local panelX = windowX + self.width - panelWidth - 3  -- 3 for border
-    local panelY = windowY + Theme.window.topBarHeight + 3
-    local panelHeight = self.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - 6
+    local panelWidth = Scaling.scaleSize(130)
+    local panelX = windowX + Scaling.scaleSize(self.width) - panelWidth - Scaling.scaleSize(3)  -- 3 for border
+    local panelY = windowY + Scaling.scaleSize(Theme.window.topBarHeight) + Scaling.scaleSize(3)
+    local panelHeight = Scaling.scaleSize(self.height) - Scaling.scaleSize(Theme.window.topBarHeight) - Scaling.scaleSize(Theme.window.bottomBarHeight) - Scaling.scaleSize(6)
     
     -- Draw skills panel background
     love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], Theme.colors.bgMedium[3], alpha * 0.9)
@@ -120,31 +125,31 @@ function CargoWindow:drawSkillsPanel(windowX, windowY, cargo, alpha)
     
     -- Draw title
     love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-    love.graphics.printf("Skills", panelX + 4, panelY + 8, panelWidth - 8, "center")
+    love.graphics.setFont(Scaling.scaleSize(Theme.getFont(Theme.fonts.normal)))
+    love.graphics.printf("Skills", panelX + Scaling.scaleX(4), panelY + Scaling.scaleY(8), panelWidth - Scaling.scaleX(8), "center")
     
     -- Draw divider line
     love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], alpha)
-    love.graphics.line(panelX + 8, panelY + 28, panelX + panelWidth - 8, panelY + 28)
+    love.graphics.line(panelX + Scaling.scaleX(8), panelY + Scaling.scaleY(28), panelX + panelWidth - Scaling.scaleX(8), panelY + Scaling.scaleY(28))
     
     -- Draw mining skill
     local miningSkill = skills.skills.mining
     if miningSkill then
-        local skillY = panelY + 38
+        local skillY = panelY + Scaling.scaleY(38)
         
         -- Skill name
         love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-        love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-        love.graphics.print("Mining", panelX + 8, skillY)
+        love.graphics.setFont(Scaling.scaleSize(Theme.getFont(Theme.fonts.small)))
+        love.graphics.print("Mining", panelX + Scaling.scaleX(8), skillY)
         
         -- Skill level
-        love.graphics.printf("Lvl " .. miningSkill.level, panelX + 8, skillY + 12, panelWidth - 16, "right")
+        love.graphics.printf("Lvl " .. miningSkill.level, panelX + Scaling.scaleX(8), skillY + Scaling.scaleY(12), panelWidth - Scaling.scaleX(16), "right")
         
         -- Experience bar background
-        local barX = panelX + 8
-        local barY = skillY + 28
-        local barWidth = panelWidth - 16
-        local barHeight = 12
+        local barX = panelX + Scaling.scaleX(8)
+        local barY = skillY + Scaling.scaleY(28)
+        local barWidth = panelWidth - Scaling.scaleX(16)
+        local barHeight = Scaling.scaleSize(12)
         
         love.graphics.setColor(0.1, 0.1, 0.1, alpha)
         love.graphics.rectangle("fill", barX, barY, barWidth, barHeight)
@@ -162,10 +167,10 @@ function CargoWindow:drawSkillsPanel(windowX, windowY, cargo, alpha)
 end
 
 function CargoWindow:drawTurretPanel(windowX, windowY, cargo, alpha)
-    local panelWidth = 130
-    local panelX = windowX + 3
-    local panelY = windowY + Theme.window.topBarHeight + 3
-    local panelHeight = self.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - 6
+    local panelWidth = Scaling.scaleSize(130)
+    local panelX = windowX + Scaling.scaleSize(3)
+    local panelY = windowY + Scaling.scaleSize(Theme.window.topBarHeight) + Scaling.scaleSize(3)
+    local panelHeight = Scaling.scaleSize(self.height) - Scaling.scaleSize(Theme.window.topBarHeight) - Scaling.scaleSize(Theme.window.bottomBarHeight) - Scaling.scaleSize(6)
 
     love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], Theme.colors.bgMedium[3], alpha * 0.9)
     love.graphics.rectangle("fill", panelX, panelY, panelWidth, panelHeight)
@@ -184,15 +189,15 @@ function CargoWindow:drawTurretPanel(windowX, windowY, cargo, alpha)
     if not turretSlots then return end
 
     love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-    love.graphics.printf("Turret Slot", panelX + 4, panelY + 8, panelWidth - 8, "center")
+    love.graphics.setFont(Scaling.scaleSize(Theme.getFont(Theme.fonts.normal)))
+    love.graphics.printf("Turret Slot", panelX + Scaling.scaleX(4), panelY + Scaling.scaleY(8), panelWidth - Scaling.scaleX(8), "center")
     love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], alpha)
-    love.graphics.line(panelX + 8, panelY + 28, panelX + panelWidth - 8, panelY + 28)
+    love.graphics.line(panelX + Scaling.scaleX(8), panelY + Scaling.scaleY(28), panelX + panelWidth - Scaling.scaleX(8), panelY + Scaling.scaleY(28))
 
     -- Equipment slot for turret modules (drag and drop)
-    local slotSize = Theme.spacing.iconSize  -- Use same size as cargo slots (48x48)
+    local slotSize = Scaling.scaleSize(Theme.spacing.iconSize)  -- Use same size as cargo slots (48x48)
     local slotX = panelX + (panelWidth - slotSize) / 2  -- Center horizontally
-    local slotY = panelY + 38
+    local slotY = panelY + Scaling.scaleY(38)
     local slotWidth = slotSize
     local slotHeight = slotSize
     
@@ -251,10 +256,10 @@ function CargoWindow:drawTurretPanel(windowX, windowY, cargo, alpha)
 end
 
 function CargoWindow:drawCloseButton(x, y, alpha)
-    local border = 3
-    local closeSize = 18
-    local closeX = x + self.width - closeSize - 8 - border
-    local closeY = y + border + (Theme.window.topBarHeight - 2*border - closeSize) / 2
+    local border = Scaling.scaleSize(3)
+    local closeSize = Scaling.scaleSize(18)
+    local closeX = x + Scaling.scaleSize(self.width) - closeSize - Scaling.scaleSize(8) - border
+    local closeY = y + border + (Scaling.scaleSize(Theme.window.topBarHeight) - 2*border - closeSize) / 2
     local mx, my = love.mouse.getPosition()
     local closeHover = mx >= closeX and mx <= closeX + closeSize and my >= closeY and my <= closeY + closeSize
     -- Minimal X: black by default, red on hover, no background
@@ -268,12 +273,12 @@ function CargoWindow:drawCloseButton(x, y, alpha)
 end
 
 function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
-    local iconSize = Theme.spacing.iconSize
-    local padding = Theme.spacing.iconGridPadding
-    local gridTop = windowY + Theme.window.topBarHeight + padding
-    local skillsPanelWidth = 130 + 6  -- panel width + padding/border
-    local turretPanelWidth = 130 + 6  -- panel width + padding/border
-    local availableWidth = self.width - skillsPanelWidth - turretPanelWidth - padding * 3
+    local iconSize = Scaling.scaleSize(Theme.spacing.iconSize)
+    local padding = Scaling.scaleSize(Theme.spacing.iconGridPadding)
+    local gridTop = windowY + Scaling.scaleSize(Theme.window.topBarHeight) + padding
+    local skillsPanelWidth = Scaling.scaleSize(130 + 6)
+    local turretPanelWidth = Scaling.scaleSize(130 + 6)
+    local availableWidth = Scaling.scaleSize(self.width) - skillsPanelWidth - turretPanelWidth - padding * 3
     local cols = math.max(1, math.floor(availableWidth / (iconSize + padding)))
     
     local mx, my = love.mouse.getPosition()
@@ -315,9 +320,9 @@ function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
         
         if count > 1 then
             love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-            love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+            love.graphics.setFont(Scaling.scaleSize(Theme.getFont(Theme.fonts.small)))
             love.graphics.printf(tostring(count), iconX, iconY + iconSize - 8, iconSize, "center")
-            love.graphics.setFont(Theme.getFont(Theme.fonts.title))
+            love.graphics.setFont(Scaling.scaleSize(Theme.getFont(Theme.fonts.title)))
         end
         
         i = i + 1

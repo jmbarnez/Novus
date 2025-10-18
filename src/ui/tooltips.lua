@@ -2,6 +2,7 @@
 -- Displays item information on hover
 
 local Theme = require('src.ui.theme')
+local Scaling = require('src.scaling')
 
 local Tooltips = {}
 
@@ -22,9 +23,9 @@ function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
     table.insert(lines, itemDef.description)
     
     -- Calculate dimensions
-    local font = Theme.getFont(Theme.fonts.small)
+    local font = Theme.getFont(Scaling.scaleSize(Theme.fonts.small))
     love.graphics.setFont(font)
-    local lineHeight = 18
+    local lineHeight = Scaling.scaleSize(18)
     local maxWidth = 0
     
     for _, line in ipairs(lines) do
@@ -32,29 +33,30 @@ function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
         maxWidth = math.max(maxWidth, width)
     end
     
-    local padding = Theme.spacing.padding
+    local padding = Scaling.scaleSize(Theme.spacing.padding)
     local tooltipW = maxWidth + padding * 2
     local tooltipH = #lines * lineHeight + padding * 2
     
     -- Position tooltip (offset from cursor)
-    local tooltipX = mouseX + 12
-    local tooltipY = mouseY + 12
+    local tooltipX = Scaling.scaleX(mouseX) + Scaling.scaleX(12)
+    local tooltipY = Scaling.scaleY(mouseY) + Scaling.scaleY(12)
     
     -- Keep within screen bounds
-    if tooltipX + tooltipW > 1920 then
-        tooltipX = mouseX - tooltipW - 12
+    local screenW, screenH = love.graphics.getWidth(), love.graphics.getHeight()
+    if tooltipX + tooltipW > screenW then
+        tooltipX = Scaling.scaleX(mouseX) - tooltipW - Scaling.scaleX(12)
     end
-    if tooltipY + tooltipH > 1080 then
-        tooltipY = mouseY - tooltipH - 12
+    if tooltipY + tooltipH > screenH then
+        tooltipY = Scaling.scaleY(mouseY) - tooltipH - Scaling.scaleY(12)
     end
     
     -- Draw background
     love.graphics.setColor(Theme.colors.bgMedium)
-    love.graphics.rectangle("fill", tooltipX - 2, tooltipY - 2, tooltipW + 4, tooltipH + 4)
+    love.graphics.rectangle("fill", tooltipX - Scaling.scaleX(2), tooltipY - Scaling.scaleY(2), tooltipW + Scaling.scaleX(4), tooltipH + Scaling.scaleY(4))
     
     -- Draw border
     love.graphics.setColor(Theme.colors.borderLight)
-    love.graphics.rectangle("line", tooltipX - 2, tooltipY - 2, tooltipW + 4, tooltipH + 4)
+    love.graphics.rectangle("line", tooltipX - Scaling.scaleX(2), tooltipY - Scaling.scaleY(2), tooltipW + Scaling.scaleX(4), tooltipH + Scaling.scaleY(4))
     
     -- Draw text
     love.graphics.setColor(Theme.colors.textPrimary)
@@ -76,7 +78,7 @@ function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
         end
     end
     
-    love.graphics.setFont(Theme.getFont(Theme.fonts.title))
+    love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.title)))
 end
 
 return Tooltips

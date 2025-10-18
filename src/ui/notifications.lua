@@ -2,6 +2,7 @@
 -- Simple text popups that fade out over time
 
 local Theme = require('src.ui.theme')
+local Scaling = require('src.scaling')
 
 local Notifications = {
     notifications = {},  -- {text, timer, maxTimer}
@@ -54,11 +55,11 @@ end
 function Notifications.draw(cameraX, cameraY, cameraZoom)
     local ItemDefs = require('src.items.item_loader')
     
-    local x = 20
-    local y = love.graphics.getHeight() - 40  -- Bottom left
-    local lineHeight = 25
+    local x = Scaling.scaleX(20)
+    local y = love.graphics.getHeight() - Scaling.scaleY(40)  -- Bottom left
+    local lineHeight = Scaling.scaleSize(25)
     
-    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
+    love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.normal)))
     
     for _, notif in ipairs(Notifications.notifications) do
         -- Calculate alpha fade (starts at 1, ends at 0)
@@ -77,7 +78,7 @@ function Notifications.draw(cameraX, cameraY, cameraZoom)
         end
     end
     
-    love.graphics.setFont(Theme.getFont(Theme.fonts.title))
+    love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.title)))
 end
 
 return Notifications

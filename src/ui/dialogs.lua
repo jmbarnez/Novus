@@ -3,6 +3,7 @@
 
 local Theme = require('src.ui.theme')
 local ECS = require('src.ecs')
+local Scaling = require('src.scaling')
 
 local Dialogs = {
     contextMenu = nil,      -- {itemId, x, y}
@@ -14,15 +15,15 @@ function Dialogs.drawContextMenu(x, y)
     if not Dialogs.contextMenu then return end
     
     local options = {"Delete"}
-    local optionH = 28
-    local optionW = 100
-    local menuH = (#options * optionH) + 4
+    local optionH = Scaling.scaleSize(28)
+    local optionW = Scaling.scaleSize(100)
+    local menuH = (#options * optionH) + Scaling.scaleSize(4)
     
     -- Clamp position to screen bounds
     local screenW = love.graphics.getWidth()
     local screenH = love.graphics.getHeight()
-    if x + optionW + 4 > screenW then
-        x = screenW - optionW - 4
+    if x + optionW + Scaling.scaleSize(4) > screenW then
+        x = screenW - optionW - Scaling.scaleSize(4)
     end
     if y + menuH > screenH then
         y = screenH - menuH
@@ -30,18 +31,18 @@ function Dialogs.drawContextMenu(x, y)
     
     -- Draw background
     love.graphics.setColor(Theme.colors.bgMedium)
-    love.graphics.rectangle("fill", x - 2, y - 2, optionW + 4, menuH)
+    love.graphics.rectangle("fill", x - Scaling.scaleSize(2), y - Scaling.scaleSize(2), optionW + Scaling.scaleSize(4), menuH)
     
     -- Draw border
     love.graphics.setColor(Theme.colors.borderLight)
-    love.graphics.rectangle("line", x - 2, y - 2, optionW + 4, menuH)
+    love.graphics.rectangle("line", x - Scaling.scaleSize(2), y - Scaling.scaleSize(2), optionW + Scaling.scaleSize(4), menuH)
     
     -- Store clamped position for click detection
     Dialogs.contextMenu.displayX = x
     Dialogs.contextMenu.displayY = y
     
     -- Draw options
-    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
+    love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.normal)))
     for i, option in ipairs(options) do
         local optY = y + (i - 1) * optionH
         
@@ -55,17 +56,17 @@ function Dialogs.drawContextMenu(x, y)
         end
         
         love.graphics.setColor(Theme.colors.textPrimary)
-        love.graphics.printf(option, x, optY + 6, optionW, "center")
+        love.graphics.printf(option, x, optY + Scaling.scaleY(6), optionW, "center")
     end
     
-    love.graphics.setFont(Theme.getFont(Theme.fonts.title))
+    love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.title)))
 end
 
 -- Draw confirmation dialog
 function Dialogs.drawConfirmDialog()
     if not Dialogs.confirmDialog then return end
     
-    local dialogW, dialogH = 300, 150
+    local dialogW, dialogH = Scaling.scaleSize(300), Scaling.scaleSize(150)
     local x = (love.graphics.getWidth() - dialogW) / 2
     local y = (love.graphics.getHeight() - dialogH) / 2
     
@@ -75,30 +76,30 @@ function Dialogs.drawConfirmDialog()
     
     -- Draw dialog background
     love.graphics.setColor(Theme.colors.bgDark)
-    love.graphics.rectangle("fill", x - 2, y - 2, dialogW + 4, dialogH + 4)
+    love.graphics.rectangle("fill", x - Scaling.scaleSize(2), y - Scaling.scaleSize(2), dialogW + Scaling.scaleSize(4), dialogH + Scaling.scaleSize(4))
     
     -- Draw border
     love.graphics.setColor(Theme.colors.borderLight)
-    love.graphics.rectangle("line", x - 2, y - 2, dialogW + 4, dialogH + 4)
+    love.graphics.rectangle("line", x - Scaling.scaleSize(2), y - Scaling.scaleSize(2), dialogW + Scaling.scaleSize(4), dialogH + Scaling.scaleSize(4))
     
     -- Draw title
-    love.graphics.setFont(Theme.getFont(Theme.fonts.title))
+    love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.title)))
     love.graphics.setColor(Theme.colors.textPrimary)
-    love.graphics.printf("Delete Item?", x, y + 15, dialogW, "center")
+    love.graphics.printf("Delete Item?", x, y + Scaling.scaleY(15), dialogW, "center")
     
     -- Draw message
-    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+    love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.small)))
     love.graphics.setColor(Theme.colors.textSecondary)
-    love.graphics.printf("Are you sure you want to delete all of these items?", x + 10, y + 45, dialogW - 20, "center")
+    love.graphics.printf("Are you sure you want to delete all of these items?", x + Scaling.scaleX(10), y + Scaling.scaleY(45), dialogW - Scaling.scaleX(20), "center")
     
     -- Draw buttons
-    local btnW, btnH = 70, 28
-    local btnSpacing = 20
+    local btnW, btnH = Scaling.scaleSize(70), Scaling.scaleSize(28)
+    local btnSpacing = Scaling.scaleSize(20)
     local totalBtnWidth = (btnW * 2) + btnSpacing
     local startX = x + (dialogW - totalBtnWidth) / 2
     local yesX = startX
     local noX = startX + btnW + btnSpacing
-    local btnY = y + dialogH - 45
+    local btnY = y + dialogH - Scaling.scaleY(45)
     
     local mx, my = love.mouse.getPosition()
     
@@ -110,7 +111,7 @@ function Dialogs.drawConfirmDialog()
     local noHover = mx >= noX and mx <= noX + btnW and my >= btnY and my <= btnY + btnH
     Theme.drawButton(noX, btnY, btnW, btnH, "No", noHover, Theme.colors.buttonNo, Theme.colors.buttonNoHover)
     
-    love.graphics.setFont(Theme.getFont(Theme.fonts.title))
+    love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.title)))
     
     -- Store button rects for click detection
     Dialogs.confirmDialog.yesRect = {x = yesX, y = btnY, w = btnW, h = btnH}
@@ -122,8 +123,8 @@ function Dialogs.handleContextMenuClick(x, y, button)
     if not Dialogs.contextMenu then return false end
     
     if button == 1 then
-        local optionH = 28
-        local optionW = 100
+        local optionH = Scaling.scaleSize(28)
+        local optionW = Scaling.scaleSize(100)
         local displayX = Dialogs.contextMenu.displayX or Dialogs.contextMenu.x
         local displayY = Dialogs.contextMenu.displayY or Dialogs.contextMenu.y
         

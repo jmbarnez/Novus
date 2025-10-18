@@ -2,11 +2,13 @@
 -- Minimal Love2D main file that delegates to core game logic
 
 local Core = require('src.core')
+local Scaling = require('src.scaling')
 
 -- Love2D callback functions - delegate to core module
 function love.load()
     love.window.setVSync(1) -- lock to vsync, usually 60Hz
     Core.init()
+    Scaling.update()
 end
 
 function love.update(dt)
@@ -45,4 +47,10 @@ end
 
 function love.quit()
     Core.quit()
+end
+
+function love.resize(w, h)
+    Scaling.update()
+    -- Optional: If your HUD or UI needs to reset
+    if Core.onResize then Core.onResize(w, h) end
 end

@@ -2,6 +2,7 @@
 -- Provides neon border, fade animation, elastic drag, and shared window logic
 
 local Theme = require('src.ui.theme')
+local Scaling = require('src.scaling')
 
 local WindowBase = {}
 WindowBase.__index = WindowBase
@@ -77,11 +78,13 @@ end
 
 function WindowBase:draw()
     if not self.isOpen or not self.position then return end
-    local x, y = self.position.x, self.position.y
-    local w, h = self.width, self.height
+    local x = Scaling.scaleX(self.position.x)
+    local y = Scaling.scaleY(self.position.y)
+    local w = Scaling.scaleSize(self.width)
+    local h = Scaling.scaleSize(self.height)
     love.graphics.setColor(1, 1, 1, 1)
     Theme.draw3DBorder(x, y, w, h)
-    -- You can add more universal window drawing here (e.g. top bar, close button)
+    -- Additional universal window drawing can use scaled values (e.g. top bar)
 end
 
 -- Helper for sign

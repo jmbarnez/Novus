@@ -62,9 +62,12 @@ local Theme = {
     },
 }
 
+local Scaling = require('src.scaling')
+
 -- Helper function to create a font with sci-fi styling
 function Theme.getFont(size)
     size = size or Theme.fonts.normal
+    size = Scaling and Scaling.scaleSize and Scaling.scaleSize(size) or size
     local fontPath = Theme.fonts.fontPath
     
     -- Check if font file exists, if not fall back to default
@@ -82,6 +85,7 @@ end
 -- Helper function to create a bold sci-fi font
 function Theme.getFontBold(size)
     size = size or Theme.fonts.normal
+    size = Scaling and Scaling.scaleSize and Scaling.scaleSize(size) or size
     local fontPath = Theme.fonts.fontPathBold
     
     -- Check if font file exists, if not fall back to default

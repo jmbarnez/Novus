@@ -2,6 +2,7 @@
 -- Shows skill name, XP gained, and the updated experience bar
 
 local Theme = require('src.ui.theme')
+local Scaling = require('src.scaling')
 
 local SkillNotifications = {
     notifications = {},  -- {skillName, xpGain, level, experience, requiredXp, timer, maxTimer}
@@ -54,48 +55,48 @@ end
 -- Draw all skill notifications
 function SkillNotifications.draw()
     local screenW = love.graphics.getWidth()
-    local notifWidth = 220
-    local notifHeight = 44
-    local y = 18
+    local notifWidth = Scaling.scaleSize(220)
+    local notifHeight = Scaling.scaleSize(44)
+    local y = Scaling.scaleY(18)
     local x = (screenW - notifWidth) / 2
     for _, notif in ipairs(SkillNotifications.notifications) do
         local alpha = notif.timer / notif.maxTimer
         -- Background
         love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.92)
-        love.graphics.rectangle("fill", x, y, notifWidth, notifHeight, 8, 8)
+        love.graphics.rectangle("fill", x, y, notifWidth, notifHeight, Scaling.scaleSize(8), Scaling.scaleSize(8))
         -- Border
         love.graphics.setColor(Theme.colors.borderLight[1], Theme.colors.borderLight[2], Theme.colors.borderLight[3], alpha)
         love.graphics.setLineWidth(1)
-        love.graphics.rectangle("line", x, y, notifWidth, notifHeight, 8, 8)
+        love.graphics.rectangle("line", x, y, notifWidth, notifHeight, Scaling.scaleSize(8), Scaling.scaleSize(8))
         -- Skill name and XP
         love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-        love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
+        love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.normal)))
         local skillLabel = string.upper(notif.skillName)
         if notif.leveledUp then
             skillLabel = skillLabel .. " ↑ LVL UP!"
             love.graphics.setColor(0.2, 1, 0.2, alpha)
         end
-        love.graphics.print(skillLabel, x + 12, y + 6)
+        love.graphics.print(skillLabel, x + Scaling.scaleX(12), y + Scaling.scaleY(6))
         love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
-        love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-        love.graphics.print("+" .. notif.xpGain .. " XP", x + notifWidth - 70, y + 6)
+        love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.small)))
+        love.graphics.print("+" .. notif.xpGain .. " XP", x + notifWidth - Scaling.scaleX(70), y + Scaling.scaleY(6))
         -- Experience bar
-        local barX = x + 12
-        local barY = y + notifHeight - 16
-        local barWidth = notifWidth - 24
-        local barHeight = 8
+        local barX = x + Scaling.scaleX(12)
+        local barY = y + notifHeight - Scaling.scaleY(16)
+        local barWidth = notifWidth - Scaling.scaleX(24)
+        local barHeight = Scaling.scaleSize(8)
         love.graphics.setColor(0.1, 0.1, 0.1, alpha)
-        love.graphics.rectangle("fill", barX, barY, barWidth, barHeight, 4, 4)
+        love.graphics.rectangle("fill", barX, barY, barWidth, barHeight, Scaling.scaleSize(4), Scaling.scaleSize(4))
         love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha)
-        love.graphics.rectangle("line", barX, barY, barWidth, barHeight, 4, 4)
+        love.graphics.rectangle("line", barX, barY, barWidth, barHeight, Scaling.scaleSize(4), Scaling.scaleSize(4))
         local xpRatio = notif.experience / notif.requiredXp
         local fillWidth = math.max(0, math.min(barWidth - 2, (barWidth - 2) * xpRatio))
         love.graphics.setColor(0.2, 0.6, 1.0, alpha)
-        love.graphics.rectangle("fill", barX + 1, barY + 1, fillWidth, barHeight - 2, 3, 3)
+        love.graphics.rectangle("fill", barX + 1, barY + 1, fillWidth, barHeight - 2, Scaling.scaleSize(3), Scaling.scaleSize(3))
         -- XP text (removed from inside the bar)
-        y = y + notifHeight + 8
+        y = y + notifHeight + Scaling.scaleY(8)
     end
-    love.graphics.setFont(Theme.getFont(Theme.fonts.title))
+    love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.title)))
 end
 
 return SkillNotifications

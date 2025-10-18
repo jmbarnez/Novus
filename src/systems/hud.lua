@@ -4,6 +4,7 @@
 local ECS = require('src.ecs')
 local Constants = require('src.constants')
 local Theme = require('src.ui.theme')
+local Scaling = require('src.scaling')
 
 local HUDSystem = {
     name = "HUDSystem",
@@ -23,12 +24,12 @@ local function drawSpeedText(viewportWidth, viewportHeight)
     local speed = math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy)
 
     -- Position under minimap (assuming minimap is in top-right corner)
-    local minimapSize = 150  -- Approximate minimap size
-    local x = viewportWidth - minimapSize - 20
-    local y = minimapSize + 30  -- Position under minimap
+    local minimapSize = Scaling.scaleSize(150)  -- Scaled minimap size
+    local x = Scaling.scaleX(viewportWidth - 150 - 20)
+    local y = Scaling.scaleY(150 + 30)  -- Position under minimap
 
     love.graphics.setColor(Theme.colors.textPrimary)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
+    love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.normal)))
     love.graphics.printf(string.format("%.1f u/s", speed), x, y, minimapSize, "center")
 end
 
@@ -41,11 +42,11 @@ local function drawHealthBar(viewportWidth, viewportHeight)
     local health = ECS.getComponent(input.targetEntity, "Health")
     if not health then return end
 
-    local barWidth = Constants.ui_health_bar_width
-    local barHeight = Constants.ui_health_bar_height
-    local x = 20
-    local y = 20
-    local skew = 15  -- Skew amount for parallelogram effect
+    local barWidth = Scaling.scaleSize(Constants.ui_health_bar_width)
+    local barHeight = Scaling.scaleSize(Constants.ui_health_bar_height)
+    local x = Scaling.scaleX(20)
+    local y = Scaling.scaleY(20)
+    local skew = Scaling.scaleSize(15)  -- Skew amount for parallelogram effect
 
     -- Background parallelogram
     love.graphics.setColor(0.1, 0.1, 0.1, 0.7)
