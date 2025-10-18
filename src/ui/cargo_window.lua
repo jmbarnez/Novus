@@ -190,10 +190,11 @@ function CargoWindow:drawTurretPanel(windowX, windowY, cargo, alpha)
     love.graphics.line(panelX + 8, panelY + 28, panelX + panelWidth - 8, panelY + 28)
 
     -- Equipment slot for turret modules (drag and drop)
+    local slotSize = Theme.spacing.iconSize  -- Use same size as cargo slots (48x48)
+    local slotX = panelX + (panelWidth - slotSize) / 2  -- Center horizontally
     local slotY = panelY + 38
-    local slotWidth = panelWidth - 16
-    local slotHeight = 80
-    local slotX = panelX + 8
+    local slotWidth = slotSize
+    local slotHeight = slotSize
     
     -- Store slot rect for drag-drop handling
     if not self.turretSlotRect then self.turretSlotRect = {} end
@@ -246,10 +247,6 @@ function CargoWindow:drawTurretPanel(windowX, windowY, cargo, alpha)
             love.graphics.setColor(0.5, 0.5, 0.8, alpha)
             love.graphics.circle("fill", slotX + slotWidth / 2, slotY + slotHeight / 2, 20)
         end
-    else
-        love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha * 0.7)
-        love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-        love.graphics.printf("Drag module here", slotX + 8, slotY + 30, slotWidth - 16, "center")
     end
 end
 
