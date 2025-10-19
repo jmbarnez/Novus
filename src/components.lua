@@ -294,6 +294,16 @@ Components.Wreckage = function(sourceShip)
     }
 end
 
+-- LootDrop component - Marks whether entity drops loot when destroyed
+-- @field dropsScrap boolean: Whether this wreckage drops scrap
+-- @field droppedScrap boolean: Whether scrap has already been dropped
+Components.LootDrop = function(dropsScrap)
+    return {
+        dropsScrap = dropsScrap or false,
+        droppedScrap = false
+    }
+end
+
 -- Collidable component - Marks entity for collision detection
 -- @field radius number: Bounding circle radius for broad-phase collision
 Components.Collidable = function(radius)
@@ -409,6 +419,12 @@ Components.Skills = function()
     return {
         skills = {
             mining = {
+                level = 1,
+                experience = 0,
+                requiredXp = 100,  -- XP needed for next level
+                totalXp = 0        -- Total XP earned (for history)
+            },
+            salvaging = {
                 level = 1,
                 experience = 0,
                 requiredXp = 100,  -- XP needed for next level

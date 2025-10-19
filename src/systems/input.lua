@@ -126,12 +126,26 @@ function InputSystem.update(dt)
             -- Apply beam effects every frame (damage, debris, beam positioning)
             local turretModule = TurretSystem.turretModules[turret.moduleName]
                 if turretModule and turretModule.applyBeam then
-                local beamResult = turretModule.applyBeam(turretOwner, playerPos.x, playerPos.y, mouseX, mouseY, dt)
+                -- Offset laser start position away from ship to avoid self-collision
+                local laserStartX = playerPos.x
+                local laserStartY = playerPos.y
+                local collider = ECS.getComponent(turretOwner, "Collidable")
+                if collider then
+                    local dx = mouseX - playerPos.x
+                    local dy = mouseY - playerPos.y
+                    local dist = math.sqrt(dx * dx + dy * dy)
+                    if dist > 0 then
+                        laserStartX = playerPos.x + (dx / dist) * (collider.radius + 5)
+                        laserStartY = playerPos.y + (dy / dist) * (collider.radius + 5)
+                    end
+                end
+                
+                local beamResult = turretModule.applyBeam(turretOwner, laserStartX, laserStartY, mouseX, mouseY, dt)
                 -- Also update the laser beam position on the entity
                 if turretModule.laserEntity and turretModule.laserEntity > 0 then
                     local laserBeam = ECS.getComponent(turretModule.laserEntity, "LaserBeam")
                     if laserBeam then
-                        laserBeam.start = {x = playerPos.x, y = playerPos.y}
+                        laserBeam.start = {x = laserStartX, y = laserStartY}
                         -- Use collision point if hit, otherwise use mouse position
                         if beamResult and beamResult.hit and beamResult.intersection then
                             laserBeam.endPos = {x = beamResult.intersection.x, y = beamResult.intersection.y}

@@ -46,6 +46,8 @@ function DestructionSystem.update(dt)
             local asteroid = ECS.getComponent(entityId, "Asteroid")
             local hull = ECS.getComponent(entityId, "Hull")
             local aiController = ECS.getComponent(entityId, "AIController")
+            local wreckage = ECS.getComponent(entityId, "Wreckage")
+            local lootDrop = ECS.getComponent(entityId, "LootDrop")
 
             -- Spawn loot appropriate to entity type
             if asteroid and pos then
@@ -54,6 +56,10 @@ function DestructionSystem.update(dt)
                 DestructionSystem.spawnItemDrops(pos.x, pos.y, "ship")
                 -- Spawn wreckage for destroyed ships
                 WrackageSystem.spawnWrackage(pos.x, pos.y, "destroyed_ship")
+            elseif wreckage and lootDrop and lootDrop.dropsScrap and not lootDrop.droppedScrap and pos then
+                -- Wreckage drops scrap (1-2 pieces)
+                DestructionSystem.spawnScrapDrop(pos.x, pos.y)
+                lootDrop.droppedScrap = true
             end
 
             ECS.destroyEntity(entityId)
@@ -112,6 +118,37 @@ function DestructionSystem.spawnItemDrops(x, y, entityType)
             ECS.addComponent(itemId, "Physics", Components.Physics(0.95, 0.5))  -- Friction, mass
             ECS.addComponent(itemId, "Item", {id = itemType, def = itemDef})
             ECS.addComponent(itemId, "Stack", Components.Stack(quantity))  -- Add stack with quantity
+            ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
+        end
+    end
+end
+
+-- Spawn scrap from destroyed wreckage (1-2 pieces)
+function DestructionSystem.spawnScrapDrop(x, y)
+    local dropCount = math.random(1, 2)
+    
+    for i = 1, dropCount do
+        local itemDef = ItemDefs["scrap"]
+        if itemDef then
+            -- Spawn item in random direction around wreckage
+            local angle = math.random() * math.pi * 2  -- Random angle 0-2π
+            local distance = math.random(30, 60)  -- Distance from wreckage center
+            
+            local itemX = x + math.cos(angle) * distance
+            local itemY = y + math.sin(angle) * distance
+            
+            -- Random velocity away from wreckage
+            local speed = math.random(20, 50)
+            local vx = math.cos(angle) * speed
+            local vy = math.sin(angle) * speed
+            
+            -- Create item entity
+            local itemId = ECS.createEntity()
+            ECS.addComponent(itemId, "Position", Components.Position(itemX, itemY))
+            ECS.addComponent(itemId, "Velocity", Components.Velocity(vx, vy))
+            ECS.addComponent(itemId, "Physics", Components.Physics(0.95, 0.5))  -- Friction, mass
+            ECS.addComponent(itemId, "Item", {id = "scrap", def = itemDef})
+            ECS.addComponent(itemId, "Stack", Components.Stack(1))  -- Stack of 1
             ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
         end
     end

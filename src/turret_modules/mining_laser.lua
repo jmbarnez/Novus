@@ -23,10 +23,24 @@ function MiningLaser.fire(ownerId, startX, startY, endX, endY)
         end
     end
     
+    -- Offset start position away from owner ship to avoid self-collision
+    local offsetStartX = startX
+    local offsetStartY = startY
+    local ownerCollidable = ECS.getComponent(ownerId, "Collidable")
+    if ownerCollidable then
+        local dx = endX - startX
+        local dy = endY - startY
+        local dist = math.sqrt(dx * dx + dy * dy)
+        if dist > 0 then
+            offsetStartX = startX + (dx / dist) * (ownerCollidable.radius + 5)
+            offsetStartY = startY + (dy / dist) * (ownerCollidable.radius + 5)
+        end
+    end
+    
     -- Create new laser beam entity
     MiningLaser.laserEntity = ECS.createEntity()
     ECS.addComponent(MiningLaser.laserEntity, "LaserBeam", {
-        start = {x = startX, y = startY},
+        start = {x = offsetStartX, y = offsetStartY},
         endPos = {x = endX, y = endY},
         color = {1, 1, 0, 1}  -- Yellow
     })

@@ -37,6 +37,9 @@ function WrackageSystem.spawnWrackage(x, y, sourceShip)
         -- Random rotation
         local rotationSpeed = (math.random() - 0.5) * 2 * math.pi  -- -π to π radians per second
         
+        -- 50% chance to drop scrap when salvaged
+        local dropsScrap = math.random() < 0.5
+        
         -- Create wreckage entity
         local wreckageId = ECS.createEntity()
         
@@ -56,6 +59,9 @@ function WrackageSystem.spawnWrackage(x, y, sourceShip)
         -- Visual representation - angular metal shards
         ECS.addComponent(wreckageId, "PolygonShape", Components.PolygonShape(WrackageSystem.generateWreckageShape(size), 0))
         ECS.addComponent(wreckageId, "Renderable", Components.Renderable("polygon", nil, nil, nil, {0.4, 0.4, 0.45, 1}))  -- Dark gray metal
+        
+        -- Store whether this wreckage drops scrap
+        ECS.addComponent(wreckageId, "LootDrop", {dropsScrap = dropsScrap, droppedScrap = false})
     end
 end
 

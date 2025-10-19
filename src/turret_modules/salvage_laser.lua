@@ -24,10 +24,24 @@ function SalvageLaser.fire(ownerId, startX, startY, endX, endY)
         end
     end
     
+    -- Offset start position away from owner ship to avoid self-collision
+    local offsetStartX = startX
+    local offsetStartY = startY
+    local ownerCollidable = ECS.getComponent(ownerId, "Collidable")
+    if ownerCollidable then
+        local dx = endX - startX
+        local dy = endY - startY
+        local dist = math.sqrt(dx * dx + dy * dy)
+        if dist > 0 then
+            offsetStartX = startX + (dx / dist) * (ownerCollidable.radius + 5)
+            offsetStartY = startY + (dy / dist) * (ownerCollidable.radius + 5)
+        end
+    end
+    
     -- Create new laser beam entity
     SalvageLaser.laserEntity = ECS.createEntity()
     ECS.addComponent(SalvageLaser.laserEntity, "LaserBeam", {
-        start = {x = startX, y = startY},
+        start = {x = offsetStartX, y = offsetStartY},
         endPos = {x = endX, y = endY},
         color = {0, 1, 0, 1}  -- Green
     })
@@ -66,7 +80,16 @@ function SalvageLaser.applyBeam(ownerId, startX, startY, endX, endY, dt)
             durability.current = durability.current - damageApplied
             -- Only grant XP if wreckage is destroyed this frame
             if durability.current <= 0 then
-                UISystem.addSkillExperience("salvage", 5)
+                -- Get player's salvaging level for XP bonus
+                local playerEntities = ECS.getEntitiesWith({"Player", "Skills"})
+                local xpGain = 10
+                if #playerEntities > 0 then
+                    local skills = ECS.getComponent(playerEntities[1], "Skills")
+                    if skills and skills.skills.salvaging then
+                        xpGain = 5 + (skills.skills.salvaging.level * 2)
+                    end
+                end
+                UISystem.addSkillExperience("salvage", xpGain)
             end
         end
         -- Store color of hit wreckage
