@@ -26,6 +26,7 @@ return {
     turretSlots = 1,
     defaultTurret = "",  -- No default; turret will be set dynamically by spawning logic
     turretCooldown = 0.6,
+    defensiveSlots = 1,
     
     -- AI settings (only used when AI-controlled)
     aiType = "patrol",

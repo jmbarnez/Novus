@@ -122,6 +122,11 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
         ))
     end
     
+    -- Defensive slots
+    if design.defensiveSlots and design.defensiveSlots > 0 then
+        ECS.addComponent(shipId, "DefensiveSlots", Components.DefensiveSlots(design.defensiveSlots))
+    end
+    
     -- Trail emitter (for player-controlled ships typically)
     if design.hasTrail then
         ECS.addComponent(shipId, "TrailEmitter", Components.TrailEmitter(

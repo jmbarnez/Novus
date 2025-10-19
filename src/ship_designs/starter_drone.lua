@@ -28,6 +28,7 @@ return {
     turretSlots = 1,
     defaultTurret = "",
     turretCooldown = 0.4,
+    defensiveSlots = 1,
     cargoCapacity = 10,
     
     -- Abilities

@@ -391,6 +391,15 @@ Components.TurretSlots = function(maxSlots)
     }
 end
 
+-- DefensiveSlots component - Holds equipped defensive modules
+-- @field slots table: Array of defensive module names/IDs (max 1 for drone)
+Components.DefensiveSlots = function(maxSlots)
+    return {
+        slots = {},
+        maxSlots = maxSlots or 1
+    }
+end
+
 -- Cargo component - Represents inventory or cargo bay for the drone/player
 -- @field items table: List or map of items and their amounts
 -- @field capacity number: Maximum cargo capacity

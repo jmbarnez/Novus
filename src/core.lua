@@ -90,6 +90,7 @@ function Core.init()
         pilotCargo.items[basicCannonId] = 1
         pilotCargo.items[combatLaserId] = 1
         pilotCargo.items[salvageLaserId] = 1
+        pilotCargo.items["basic_shield_module"] = 1  -- Add starting defensive module
     end
 
     -- Load sound assets
@@ -137,22 +138,24 @@ function Core.init()
     local parallaxObject = Parallax.new(starLayers, 10000)
     ECS.addComponent(starFieldId, "StarField", parallaxObject)
 
-    -- Create asteroid field line extending across the world boundaries
-    local asteroidLineCount = 80
-    local lineStartX = Constants.world_min_x
-    local lineEndX = Constants.world_max_x
-    local lineY = 0  -- Y position of the line
+    -- Create thick asteroid field band extending across the world boundaries
+    local asteroidFieldDensity = 500  -- Total number of asteroids
+    local fieldCenterY = 0
+    local fieldThickness = 3000  -- Y-axis thickness of the field (±1500 from center)
     
-    for i = 1, asteroidLineCount do
-        local x = lineStartX + ((i - 1) / (asteroidLineCount - 1)) * (lineEndX - lineStartX)
-        -- Add some vertical variation to make it less perfectly straight (constrained within world bounds)
-        local y = lineY + math.sin(i * 0.5) * 100 + (math.random() - 0.5) * 150
+    for i = 1, asteroidFieldDensity do
+        -- Randomly distribute asteroids across X and Y within the band
+        local x = Constants.world_min_x + math.random() * (Constants.world_max_x - Constants.world_min_x)
+        local y = fieldCenterY + (math.random() - 0.5) * fieldThickness
+        
+        -- Constrain to world bounds
+        x = math.max(Constants.world_min_x, math.min(Constants.world_max_x, x))
         y = math.max(Constants.world_min_y, math.min(Constants.world_max_y, y))
         
         local size = Procedural.randomRange(Constants.asteroid_size_min, Constants.asteroid_size_max)
         local vertexCount = math.random(Constants.asteroid_vertices_min, Constants.asteroid_vertices_max)
         local vertices = Procedural.generatePolygonVertices(vertexCount, size / 2)
-        local velocity = Procedural.randomVelocity(5, 15)  -- Slower movement for line asteroids
+        local velocity = Procedural.randomVelocity(5, 15)  -- Slower movement for field asteroids
         local angularVelocity = Procedural.randomRange(Constants.asteroid_rotation_min, Constants.asteroid_rotation_max)
         
         local asteroidMass = size * size * 0.5
@@ -250,7 +253,7 @@ function Core.init()
 
     print("Game entities created and systems initialized")
     print("Pilot and starting drone spawned at world center (0, 0)")
-    print("Asteroid field line spawned: 80 asteroids extending across world boundaries")
+    print("Asteroid field spawned: 500 asteroids in thick band across world")
     print("Enemy ships spawned: 5 mining lasers + 10 cannons = 15 total enemies distributed across the map")
     print("Player controls: WASD for thrust, ESC to quit")
 end

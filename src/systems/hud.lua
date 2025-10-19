@@ -60,13 +60,6 @@ local function drawHullShieldBar(viewportWidth, viewportHeight)
         x - skew, y + barHeight
     )
 
-    -- Shield (if present) - draw above hull in blue
-    if shield and shield.max > 0 then
-        local sRatio = math.min((shield.current or 0) / shield.max, 1.0)
-        local sFill = barWidth * sRatio
-        love.graphics.setColor(0.2, 0.6, 1, 0.9)
-        love.graphics.polygon("fill", x, y - barHeight - 4, x + sFill + skew, y - barHeight - 4, x + sFill, y - 4, x - skew, y - 4)
-    end
     -- Hull fill parallelogram
     local hullRatio = math.min((hull.current or 0) / hull.max, 1.0)
     local fillWidth = barWidth * hullRatio
@@ -77,6 +70,14 @@ local function drawHullShieldBar(viewportWidth, viewportHeight)
         x + fillWidth, y + barHeight, 
         x - skew, y + barHeight
     )
+
+    -- Shield overlay (if present) - draw on top of hull as blue overlay
+    if shield and shield.max > 0 then
+        local sRatio = math.min((shield.current or 0) / shield.max, 1.0)
+        local sFill = barWidth * sRatio
+        love.graphics.setColor(0.2, 0.6, 1, 1.0)  -- Solid blue
+        love.graphics.polygon("fill", x, y, x + sFill + skew, y, x + sFill, y + barHeight, x - skew, y + barHeight)
+    end
 end
 
 local function drawTurretSlots(viewportWidth, viewportHeight)

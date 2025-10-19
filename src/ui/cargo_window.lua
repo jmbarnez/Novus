@@ -265,6 +265,95 @@ function CargoWindow:drawTurretPanel(windowX, windowY, cargo, alpha)
             love.graphics.circle("fill", slotX + slotWidth / 2, slotY + slotHeight / 2, 20)
         end
     end
+    
+    -- Draw defensive slot panel
+    self:drawDefensiveSlotPanel(panelX, panelY + slotHeight + 60, panelWidth, alpha)
+end
+
+function CargoWindow:drawDefensiveSlotPanel(panelX, panelY, panelWidth, alpha)
+    -- Draw panel background
+    love.graphics.setColor(0.08, 0.08, 0.1, alpha * 0.9)
+    love.graphics.rectangle("fill", panelX, panelY, panelWidth, 140, 8, 8)
+    love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], alpha)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", panelX, panelY, panelWidth, 140)
+    -- Find pilot and their controlled drone's defensive slots
+    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+    if #pilotEntities == 0 then return end
+    local pilotId = pilotEntities[1]
+    local input = ECS.getComponent(pilotId, "InputControlled")
+    if not input or not input.targetEntity then return end
+    local droneId = input.targetEntity
+    local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
+    if not defensiveSlots then return end
+
+    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+    love.graphics.setFont(Scaling.scaleSize(Theme.getFont(Theme.fonts.normal)))
+    love.graphics.printf("Defensive Slot", panelX + 4, panelY + 8, panelWidth - 8, "center")
+    love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], alpha)
+    love.graphics.line(panelX + 8, panelY + 28, panelX + panelWidth - 8, panelY + 28)
+
+    -- Equipment slot for defensive modules (drag and drop)
+    local slotSize = Theme.spacing.iconSize  -- Use same size as cargo slots (48x48)
+    local slotX = panelX + (panelWidth - slotSize) / 2  -- Center horizontally
+    local slotY = panelY + 38
+    local slotWidth = slotSize
+    local slotHeight = slotSize
+    
+    -- Store slot rect for drag-drop handling
+    if not self.defensiveSlotRect then self.defensiveSlotRect = {} end
+    self.defensiveSlotRect = {x = slotX, y = slotY, w = slotWidth, h = slotHeight}
+
+    -- Get mouse in UI space (accounting for canvas offset)
+    local mx, my = Scaling.toUI(love.mouse.getPosition())
+    
+    -- Check if dragging a defensive item over this slot
+    local isDragOverSlot = false
+    if self.draggedItem and string.match(self.draggedItem.itemId, "shield") then
+        if mx >= slotX and mx <= slotX + slotWidth and my >= slotY and my <= slotY + slotHeight then
+            isDragOverSlot = true
+        end
+    end
+    
+    -- Check if hovering for tooltip
+    local isHoveringSlot = mx >= slotX and mx <= slotX + slotWidth and my >= slotY and my <= slotY + slotHeight
+    if isHoveringSlot and defensiveSlots.slots[1] then
+        local ItemDefs = require('src.items.item_loader')
+        self.hoveredDefensiveSlot = {
+            itemId = defensiveSlots.slots[1],
+            itemDef = ItemDefs[defensiveSlots.slots[1]],
+            count = 1,
+            mouseX = mx,
+            mouseY = my
+        }
+    else
+        self.hoveredDefensiveSlot = nil
+    end
+    
+    -- Draw slot background
+    love.graphics.setColor(0.1, 0.1, 0.15, alpha * 0.95)
+    love.graphics.rectangle("fill", slotX, slotY, slotWidth, slotHeight, 8, 8)
+    
+    -- Draw slot border (highlight if dragging over)
+    local borderColor = isDragOverSlot and {0.4, 1, 0.4, 1} or (defensiveSlots.slots[1] and {0.2, 1, 0.5, 1} or {0.5, 0.5, 0.5, 1})
+    love.graphics.setColor(borderColor[1], borderColor[2], borderColor[3], alpha)
+    love.graphics.setLineWidth(isDragOverSlot and 3 or 2)
+    love.graphics.rectangle("line", slotX, slotY, slotWidth, slotHeight, 8, 8)
+    love.graphics.setLineWidth(1)
+    
+    -- Draw equipped module icon or placeholder
+    if defensiveSlots.slots[1] then
+        local ItemDefs = require('src.items.item_loader')
+        local itemDef = ItemDefs[defensiveSlots.slots[1]]
+        if itemDef and itemDef.draw then
+            -- Draw the item icon in the center of the slot
+            itemDef:draw(slotX + slotWidth / 2, slotY + slotHeight / 2)
+        else
+            -- Fallback: draw a circle if no draw method
+            love.graphics.setColor(0.3, 0.8, 0.5, alpha)
+            love.graphics.circle("fill", slotX + slotWidth / 2, slotY + slotHeight / 2, 20)
+        end
+    end
 end
 
 function CargoWindow:drawCloseButton(x, y, alpha)
@@ -469,6 +558,69 @@ function CargoWindow:mousereleased(x, y, button)
                 self.draggedItem = nil
                 return
             end
+        end
+        -- Dragging defensive item to defensive slot
+        if self.isOpen and button == 1 and self.draggedItem and string.match(self.draggedItem.itemId, "shield") then
+            if self.defensiveSlotRect and mx >= self.defensiveSlotRect.x and mx <= self.defensiveSlotRect.x + self.defensiveSlotRect.w
+               and my >= self.defensiveSlotRect.y and my <= self.defensiveSlotRect.y + self.defensiveSlotRect.h then
+                local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+                if #pilotEntities > 0 then
+                    local pilotId = pilotEntities[1]
+                    local input = ECS.getComponent(pilotId, "InputControlled")
+                    if input and input.targetEntity then
+                        local droneId = input.targetEntity
+                        local playerDefensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
+                        local playerCargo = ECS.getComponent(pilotId, "Cargo")
+                        if playerDefensiveSlots and playerCargo then
+                            -- If there's an old module in the slot, swap it back to inventory
+                            local oldModuleId = playerDefensiveSlots.slots[1]
+                            if oldModuleId then
+                                playerCargo.items[oldModuleId] = (playerCargo.items[oldModuleId] or 0) + 1
+                                -- Unequip the old module
+                                local ItemDefs = require('src.items.item_loader')
+                                local oldItemDef = ItemDefs[oldModuleId]
+                                if oldItemDef and oldItemDef.module and oldItemDef.module.unequip then
+                                    oldItemDef.module.unequip(droneId)
+                                end
+                            end
+                            
+                            -- Equip the new module
+                            playerDefensiveSlots.slots[1] = self.draggedItem.itemId
+                            local ItemDefs = require('src.items.item_loader')
+                            local newItemDef = ItemDefs[self.draggedItem.itemId]
+                            if newItemDef and newItemDef.module and newItemDef.module.equip then
+                                newItemDef.module.equip(droneId)
+                            end
+                            
+                            -- Remove the new module from inventory
+                            if playerCargo.items[self.draggedItem.itemId] then
+                                playerCargo.items[self.draggedItem.itemId] = playerCargo.items[self.draggedItem.itemId] - 1
+                                if playerCargo.items[self.draggedItem.itemId] <= 0 then
+                                    playerCargo.items[self.draggedItem.itemId] = nil
+                                end
+                            end
+                        end
+                    end
+                end
+                self.draggedItem = nil
+                return
+            end
+        end
+        -- Dragging defensive module out of defensive slot to inventory
+        if self.isOpen and button == 1 and self.draggedItem and self.draggedItem.slotIndex == "defensive" then
+            -- If dropped onto cargo grid, add to inventory
+            if self.hoveredGridSlot then
+                local itemId = self.draggedItem.itemId
+                if cargo and not cargo.items then cargo.items = {} end
+                if cargo and itemId then
+                    cargo.items[itemId] = (cargo.items[itemId] or 0) + 1
+                end
+                self.draggedItem = nil
+                return
+            end
+            -- If dropped elsewhere, just clear draggedItem (module already removed from slot)
+            self.draggedItem = nil
+            return
         end
         -- Dragging turret module out of turret slot to inventory
         if self.isOpen and button == 1 and self.draggedItem and self.draggedItem.slotIndex == "turret" then
