@@ -46,6 +46,15 @@ function ProjectileSystem.update(dt)
                     -- Only allow mining laser projectiles to damage asteroids
                     if projectile.isMiningLaser then
                         durability.current = durability.current - (projectile.damage or 10)
+                    else
+                        -- Regular projectiles from player cannons also damage asteroids
+                        durability.current = durability.current - (projectile.damage or 10)
+                        
+                        -- Track who is damaging this asteroid
+                        local ownerEntity = ECS.getComponent(projectile.ownerId, "ControlledBy")
+                        if ownerEntity and ownerEntity.pilotId then
+                            ECS.addComponent(astId, "LastDamager", Components.LastDamager(ownerEntity.pilotId, "cannon"))
+                        end
                     end
                 end
                 

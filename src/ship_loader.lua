@@ -30,15 +30,19 @@ function ShipLoader.loadAllDesigns(directory)
     local knownDesigns = {
         "starter_drone",
         "red_scout",
-        "standard_combat"
+        "standard_combat",
+        "starter_hexagon"
     }
     
+    local loadedCount = 0
     for _, designId in ipairs(knownDesigns) do
         local filepath = directory .. "." .. designId
-        ShipLoader.loadDesign(designId, filepath)
+        if ShipLoader.loadDesign(designId, filepath) then
+            loadedCount = loadedCount + 1
+        end
     end
     
-    print("[ShipLoader] Loaded " .. #knownDesigns .. " ship designs")
+    print("[ShipLoader] Loaded " .. loadedCount .. " out of " .. #knownDesigns .. " ship designs")
 end
 
 -- Create a ship entity from a design
@@ -143,7 +147,7 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
         -- Player-controlled ship
         ECS.addComponent(shipId, "ControlledBy", Components.ControlledBy(controllerId))
         ECS.addComponent(shipId, "CameraTarget", Components.CameraTarget())
-        ECS.addComponent(shipId, "Boundary", Components.Boundary(-5000, 5000, -5000, 5000))
+        ECS.addComponent(shipId, "Boundary", Components.Boundary(Constants.world_min_x, Constants.world_max_x, Constants.world_min_y, Constants.world_max_y))
         
         -- Link the pilot's InputControlled to this ship
         local inputComp = ECS.getComponent(controllerId, "InputControlled")
@@ -161,6 +165,17 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
                 design.detectionRange or 400,
                 design.engageRange or 240
             ))
+        end
+        -- Auto-tag AI type based on turret when available
+        local t = ECS.getComponent(shipId, "Turret")
+        if t and t.moduleName and t.moduleName ~= "" and t.moduleName ~= "default" then
+            if t.moduleName == "mining_laser" or t.moduleName == "salvage_laser" then
+                ECS.addComponent(shipId, "MiningAI", Components.MiningAI())
+                local ai = ECS.getComponent(shipId, "AIController")
+                if ai then ai.state = "mining" end
+            else
+                ECS.addComponent(shipId, "CombatAI", Components.CombatAI())
+            end
         end
     end
     

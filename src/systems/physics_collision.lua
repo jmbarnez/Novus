@@ -614,8 +614,8 @@ local PhysicsCollisionSystem = {
                         -- Prevent projectile from colliding with its owner (if immunity still active)
                         local proj1 = ECS.getComponent(entity1Id, "Projectile")
                         local proj2 = ECS.getComponent(entity2Id, "Projectile")
-                        if proj1 and proj1.ownerId == entity2Id and proj1.ownerImmunityTime > 0 then goto continue_nearby end
-                        if proj2 and proj2.ownerId == entity1Id and proj2.ownerImmunityTime > 0 then goto continue_nearby end
+                        if proj1 and proj1.ownerId == entity2Id and proj1.ownerImmunityTime and proj1.ownerImmunityTime > 0 then goto continue_nearby end
+                        if proj2 and proj2.ownerId == entity1Id and proj2.ownerImmunityTime and proj2.ownerImmunityTime > 0 then goto continue_nearby end
                         
                         -- Skip projectile-to-projectile collisions entirely
                         if proj1 and proj2 then goto continue_nearby end

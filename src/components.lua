@@ -195,12 +195,12 @@ Components.TrailEmitter = function(emitRate, maxParticles, particleLife, spreadA
 end
 
 -- AIController component - Basic AI state for enemies
--- @field state string: "patrol" or "chase"
--- @field patrolPoints table: array of {x,y} waypoints
--- @field currentPoint number: index of current patrol point
--- @field speed number: movement speed
--- @field detectionRadius number: distance to detect the player (will be further if turret module allows)
--- @field fireRange number: fallback range (actual range is calculated from turret module)
+-- @field state string: Current AI behavior state ("patrol", "chase", "mining", etc.)
+-- @field patrolPoints table: Array of waypoints for patrol behavior
+-- @field currentPoint number: Index of current patrol point
+-- @field speed number: Movement speed for this AI
+-- @field detectionRadius number: Radius to detect player
+-- @field fireRange number: Maximum range to fire turret
 Components.AIController = function(state, patrolPoints, speed, detectionRadius, fireRange)
     return {
         state = state or "patrol",
@@ -209,6 +209,22 @@ Components.AIController = function(state, patrolPoints, speed, detectionRadius, 
         speed = speed or 80,
         detectionRadius = detectionRadius or 1200,  -- Much larger detection radius (1200 pixels)
         fireRange = fireRange or 2500  -- Fallback fire range, will be overridden by turret specs
+    }
+end
+
+-- MiningAI component - Marks an entity as a mining AI ship
+-- Purely a marker component to identify mining AI ships for ECS queries
+Components.MiningAI = function()
+    return {
+        isMiner = true
+    }
+end
+
+-- CombatAI component - Marks an entity as a combat AI ship
+-- Purely a marker component to identify combat AI ships for ECS queries
+Components.CombatAI = function()
+    return {
+        isCombat = true
     }
 end
 
@@ -445,6 +461,16 @@ Components.Projectile = function(data)
         damage = data.damage or 10,
         brittle = data.brittle or false,
         ownerImmunityTime = data.ownerImmunityTime or 0.2  -- 0.2 seconds of immunity to owner collision
+    }
+end
+
+-- LastDamager component - Tracks who last damaged an entity
+-- @field pilotId number: The pilot ID of whoever dealt the last damage
+-- @field weaponType string: The type of weapon used (e.g. "mining_laser", "basic_cannon")
+Components.LastDamager = function(pilotId, weaponType)
+    return {
+        pilotId = pilotId or 0,
+        weaponType = weaponType or "unknown"
     }
 end
 

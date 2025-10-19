@@ -24,12 +24,12 @@ return {
     
     -- Equipment
     turretSlots = 1,
-    defaultTurret = "basic_cannon",
+    defaultTurret = "",  -- No default; turret will be set dynamically by spawning logic
     turretCooldown = 0.6,
     
     -- AI settings (only used when AI-controlled)
     aiType = "patrol",
-    patrolPoints = {{x=300,y=-200},{x=500,y=-300}},
+    patrolPoints = {{x=0,y=0}},  -- Will patrol around spawn location
     detectionRange = 400,
     engageRange = 240,
     patrolSpeed = 60

@@ -38,7 +38,19 @@ function AI.update(dt)
         local pos = ECS.getComponent(eid, "Position")
         local vel = ECS.getComponent(eid, "Velocity")
         local turret = ECS.getComponent(eid, "Turret")
+        local miningAI = ECS.getComponent(eid, "MiningAI")
+        local combatAI = ECS.getComponent(eid, "CombatAI")
         if not (ai and pos and vel) then goto continue end
+
+        -- Skip ALL AI processing for mining AI ships - they are handled by EnemyMiningSystem
+        -- Check for MiningAI component FIRST to avoid any state changes
+        if miningAI then
+            print("[AISystem] Skipping miner " .. eid .. " - has MiningAI component")
+            goto continue
+        end
+
+        -- Combat AI ships use this system for patrol/chase behavior
+        -- CombatAI component is optional marker for clarity but not required for processing
 
         -- Calculate firing range based on turret module's projectile properties
         local fireRange = ai.fireRange

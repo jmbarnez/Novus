@@ -23,5 +23,6 @@ Systems.TurretSystem = require('src.systems.turret')
 Systems.ProjectileSystem = require('src.systems.projectile')
 Systems.SoundSystem = require('src.systems.sound')
 Systems.WrackageSystem = require('src.systems.wreckage')
+Systems.AIArbiterSystem = require('src.systems.ai_arbiter')
 
 return Systems

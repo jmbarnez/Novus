@@ -37,6 +37,18 @@ function DestructionSystem.update(dt)
                 print(string.format("[Destruction] Destroying projectile %d", entityId))
             end
             
+            -- Check if this is the player's drone - if so, respawn instead of destroying
+            local controlledBy = ECS.getComponent(entityId, "ControlledBy")
+            if controlledBy and controlledBy.pilotId then
+                local pilot = ECS.getComponent(controlledBy.pilotId, "Player")
+                if pilot then
+                    -- This is the player's drone - respawn it
+                    print("[Destruction] Player drone destroyed! Respawning...")
+                    DestructionSystem.respawnPlayer(entityId, controlledBy.pilotId)
+                    goto continue_entity
+                end
+            end
+            
             -- Call DebrisSystem to create debris particles
             if pos then
                 DebrisSystem.createDebris(pos.x, pos.y, nil, color)
@@ -51,7 +63,16 @@ function DestructionSystem.update(dt)
 
             -- Spawn loot appropriate to entity type
             if asteroid and pos then
-                DestructionSystem.spawnItemDrops(pos.x, pos.y, "asteroid")
+                -- Only spawn loot if killed by player (check for lastDamager component)
+                local lastDamager = ECS.getComponent(entityId, "LastDamager")
+                if lastDamager and lastDamager.pilotId then
+                    -- Check if the damager belongs to the player
+                    local pilot = ECS.getComponent(lastDamager.pilotId, "Player")
+                    if pilot then
+                        DestructionSystem.spawnItemDrops(pos.x, pos.y, "asteroid")
+                    end
+                end
+                -- Otherwise, no drops from enemy mining
             elseif (hull or aiController) and pos then
                 DestructionSystem.spawnItemDrops(pos.x, pos.y, "ship")
                 -- Spawn wreckage for destroyed ships
@@ -63,8 +84,44 @@ function DestructionSystem.update(dt)
             end
 
             ECS.destroyEntity(entityId)
+            ::continue_entity::
         end
     end
+end
+
+-- Respawn the player's drone at the start position with full hull
+function DestructionSystem.respawnPlayer(droneId, pilotId)
+    -- Reset drone position to start
+    local pos = ECS.getComponent(droneId, "Position")
+    if pos then
+        pos.x = 0
+        pos.y = 0
+        pos.prevX = 0
+        pos.prevY = 0
+    end
+    
+    -- Reset velocity
+    local vel = ECS.getComponent(droneId, "Velocity")
+    if vel then
+        vel.vx = 0
+        vel.vy = 0
+    end
+    
+    -- Restore full hull
+    local hull = ECS.getComponent(droneId, "Hull")
+    if hull then
+        hull.current = hull.max
+        print("[Destruction] Player hull restored to full: " .. hull.current .. "/" .. hull.max)
+    end
+    
+    -- Restore shield to full if present
+    local shield = ECS.getComponent(droneId, "Shield")
+    if shield then
+        shield.current = shield.max
+        shield.lastDamageTime = 0  -- Reset shield regen timer
+    end
+    
+    print("[Destruction] Player respawned at (0, 0)")
 end
 
 -- Spawn item drops around the destruction point

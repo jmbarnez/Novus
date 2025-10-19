@@ -78,6 +78,13 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt)
         if durability then
             local damageApplied = math.min(MiningLaser.LASER_DPS * dt, durability.current)
             durability.current = durability.current - damageApplied
+            
+            -- Track who is damaging this asteroid
+            local ownerEntity = ECS.getComponent(ownerId, "ControlledBy")
+            if ownerEntity and ownerEntity.pilotId then
+                ECS.addComponent(hitAsteroidId, "LastDamager", Components.LastDamager(ownerEntity.pilotId, "mining_laser"))
+            end
+            
             -- Only grant XP if asteroid is destroyed this frame
             if durability.current <= 0 then
                 SkillXP.awardXp("mining")

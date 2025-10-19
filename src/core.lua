@@ -39,9 +39,12 @@ function Core.init()
     ECS.registerSystem("UISystem", Systems.UISystem)
     ECS.registerSystem("HUDSystem", Systems.HUDSystem)
     ECS.registerSystem("TrailSystem", Systems.TrailSystem)
+    ECS.registerSystem("CombatAlertSystem", require('src.systems.combat_alert'))
+    ECS.registerSystem("AIArbiterSystem", Systems.AIArbiterSystem)
     ECS.registerSystem("AISystem", Systems.AISystem)
     ECS.registerSystem("CollisionSystem", Systems.CollisionSystem)
     ECS.registerSystem("MagnetSystem", Systems.MagnetSystem)
+    ECS.registerSystem("EnemyMiningSystem", require('src.systems.enemy_mining'))
     ECS.registerSystem("DestructionSystem", Systems.DestructionSystem)
     ECS.registerSystem("DebrisSystem", Systems.DebrisSystem)
     ECS.registerSystem("TurretSystem", Systems.TurretSystem)
@@ -134,25 +137,7 @@ function Core.init()
     local parallaxObject = Parallax.new(starLayers, 10000)
     ECS.addComponent(starFieldId, "StarField", parallaxObject)
 
-    -- Create enemy ship using red_scout design (will be red)
-    local enemyId = ShipLoader.createShip("red_scout", 300, -200, "ai")
-
-    -- Spawn asteroid cluster around the start area
-    local asteroidCluster = Procedural.spawnMultiple("asteroid", Constants.asteroid_cluster_count, "cluster", {
-        centerX = 0,
-        centerY = 0,
-        radius = Constants.asteroid_cluster_radius
-    })
-    
-    -- Create asteroid entities from generated data
-    for _, asteroidData in ipairs(asteroidCluster) do
-        local asteroidId = ECS.createEntity()
-        for componentType, componentData in pairs(asteroidData) do
-            ECS.addComponent(asteroidId, componentType, componentData)
-        end
-    end
-
-    -- Create asteroid field line extending across the map
+    -- Create asteroid field line extending across the world boundaries
     local asteroidLineCount = 80
     local lineStartX = Constants.world_min_x
     local lineEndX = Constants.world_max_x
@@ -160,8 +145,9 @@ function Core.init()
     
     for i = 1, asteroidLineCount do
         local x = lineStartX + ((i - 1) / (asteroidLineCount - 1)) * (lineEndX - lineStartX)
-        -- Add some vertical variation to make it less perfectly straight
-        local y = lineY + math.sin(i * 0.5) * 200 + (math.random() - 0.5) * 300
+        -- Add some vertical variation to make it less perfectly straight (constrained within world bounds)
+        local y = lineY + math.sin(i * 0.5) * 100 + (math.random() - 0.5) * 150
+        y = math.max(Constants.world_min_y, math.min(Constants.world_max_y, y))
         
         local size = Procedural.randomRange(Constants.asteroid_size_min, Constants.asteroid_size_max)
         local vertexCount = math.random(Constants.asteroid_vertices_min, Constants.asteroid_vertices_max)
@@ -186,30 +172,86 @@ function Core.init()
     end
 
     -- Spawn enemy ships across the map
-    local enemyCount = 12
-    local enemySpacing = (Constants.world_max_x - Constants.world_min_x) / (enemyCount + 1)
+    -- 5 mining laser drones + 10 cannon drones = 15 total
+    local miningCount = 5
+    local cannonCount = 10
+    local totalEnemies = miningCount + cannonCount
+    local enemySpacing = (Constants.world_max_x - Constants.world_min_x) / (totalEnemies + 1)
     
-    for i = 1, enemyCount do
-        local x = Constants.world_min_x + i * enemySpacing + (math.random() - 0.5) * 500
+    local enemyIndex = 1
+    
+    -- Spawn mining laser drones first
+    for i = 1, miningCount do
+        local x = Constants.world_min_x + enemyIndex * enemySpacing + (math.random() - 0.5) * 500
         local y = (math.random() - 0.5) * 4000  -- Random Y position
+        x = math.max(Constants.world_min_x, math.min(Constants.world_max_x, x))
+        y = math.max(Constants.world_min_y, math.min(Constants.world_max_y, y))
         
-        -- Vary enemy designs
-        local designChoice = math.random(1, 3)
         local designId = "red_scout"
-        if designChoice == 2 then
-            designId = "standard_combat"
-        elseif designChoice == 3 then
-            designId = "starter_hexagon"
+        local turretModule = "mining_laser"
+        
+        local shipId = ShipLoader.createShip(designId, x, y, "ai")
+        
+        if shipId then
+            local design = ShipLoader.getDesign(designId)
+            local cargoCapacity = design and design.cargoCapacity or 20
+            ECS.addComponent(shipId, "Cargo", Components.Cargo({}, cargoCapacity))
+            
+            -- Set turret module
+            local turret = ECS.getComponent(shipId, "Turret")
+            if turret then
+                turret.moduleName = turretModule
+            end
+            
+            -- Mining AI ships get slower speed and mining state
+            local ai = ECS.getComponent(shipId, "AIController")
+            if ai then
+                ai.state = "mining"
+                ai.speed = 40
+                ai.detectionRadius = 600
+            end
+            
+            -- Mark as mining AI for ECS queries
+            ECS.addComponent(shipId, "MiningAI", Components.MiningAI())
         end
         
-        ShipLoader.createShip(designId, x, y, "ai")
+        enemyIndex = enemyIndex + 1
+    end
+    
+    -- Spawn cannon drones second
+    for i = 1, cannonCount do
+        local x = Constants.world_min_x + enemyIndex * enemySpacing + (math.random() - 0.5) * 500
+        local y = (math.random() - 0.5) * 4000  -- Random Y position
+        x = math.max(Constants.world_min_x, math.min(Constants.world_max_x, x))
+        y = math.max(Constants.world_min_y, math.min(Constants.world_max_y, y))
+        
+        local designId = "red_scout"
+        local turretModule = "basic_cannon"
+        
+        local shipId = ShipLoader.createShip(designId, x, y, "ai")
+        
+        if shipId then
+            local design = ShipLoader.getDesign(designId)
+            local cargoCapacity = design and design.cargoCapacity or 20
+            ECS.addComponent(shipId, "Cargo", Components.Cargo({}, cargoCapacity))
+            
+            -- Set turret module
+            local turret = ECS.getComponent(shipId, "Turret")
+            if turret then
+                turret.moduleName = turretModule
+            end
+            
+            -- Mark as combat AI for ECS queries
+            ECS.addComponent(shipId, "CombatAI", Components.CombatAI())
+        end
+        
+        enemyIndex = enemyIndex + 1
     end
 
     print("Game entities created and systems initialized")
     print("Pilot and starting drone spawned at world center (0, 0)")
-    print("Asteroids spawned: " .. Constants.asteroid_cluster_count .. " in cluster around center")
-    print("Asteroid field line spawned: 80 asteroids extending across map")
-    print("Enemy ships spawned: 12 enemies distributed across the map")
+    print("Asteroid field line spawned: 80 asteroids extending across world boundaries")
+    print("Enemy ships spawned: 5 mining lasers + 10 cannons = 15 total enemies distributed across the map")
     print("Player controls: WASD for thrust, ESC to quit")
 end
 
