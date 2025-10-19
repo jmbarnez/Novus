@@ -5,7 +5,7 @@ local ECS = require('src.ecs')
 local Components = require('src.components')
 local CollisionSystem = require('src.systems.collision')
 local DebrisSystem = require('src.systems.debris')
-local UISystem = require('src.systems.ui')
+local SkillXP = require('src.systems.skill_xp')
 
 local MiningLaser = {
     name = "mining_laser",
@@ -80,7 +80,7 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt)
             durability.current = durability.current - damageApplied
             -- Only grant XP if asteroid is destroyed this frame
             if durability.current <= 0 then
-                UISystem.addSkillExperience("mining", 10)
+                SkillXP.awardXp("mining")
             end
         end
         -- Store color of hit asteroid

@@ -199,16 +199,16 @@ end
 -- @field patrolPoints table: array of {x,y} waypoints
 -- @field currentPoint number: index of current patrol point
 -- @field speed number: movement speed
--- @field detectionRadius number: distance to detect the player
--- @field fireRange number: range at which the turret will fire
+-- @field detectionRadius number: distance to detect the player (will be further if turret module allows)
+-- @field fireRange number: fallback range (actual range is calculated from turret module)
 Components.AIController = function(state, patrolPoints, speed, detectionRadius, fireRange)
     return {
         state = state or "patrol",
         patrolPoints = patrolPoints or {},
         currentPoint = 1,
         speed = speed or 80,
-        detectionRadius = detectionRadius or 300,
-        fireRange = fireRange or 250
+        detectionRadius = detectionRadius or 1200,  -- Much larger detection radius (1200 pixels)
+        fireRange = fireRange or 2500  -- Fallback fire range, will be overridden by turret specs
     }
 end
 

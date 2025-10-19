@@ -6,7 +6,7 @@ local ECS = require('src.ecs')
 local Components = require('src.components')
 local CollisionSystem = require('src.systems.collision')
 local DebrisSystem = require('src.systems.debris')
-local UISystem = require('src.systems.ui')
+local SkillXP = require('src.systems.skill_xp')
 
 local SalvageLaser = {
     name = "salvage_laser",
@@ -80,16 +80,7 @@ function SalvageLaser.applyBeam(ownerId, startX, startY, endX, endY, dt)
             durability.current = durability.current - damageApplied
             -- Only grant XP if wreckage is destroyed this frame
             if durability.current <= 0 then
-                -- Get player's salvaging level for XP bonus
-                local playerEntities = ECS.getEntitiesWith({"Player", "Skills"})
-                local xpGain = 10
-                if #playerEntities > 0 then
-                    local skills = ECS.getComponent(playerEntities[1], "Skills")
-                    if skills and skills.skills.salvaging then
-                        xpGain = 5 + (skills.skills.salvaging.level * 2)
-                    end
-                end
-                UISystem.addSkillExperience("salvage", xpGain)
+                SkillXP.awardXp("salvaging")
             end
         end
         -- Store color of hit wreckage

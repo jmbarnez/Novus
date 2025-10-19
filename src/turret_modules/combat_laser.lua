@@ -5,7 +5,7 @@ local ECS = require('src.ecs')
 local Components = require('src.components')
 local CollisionSystem = require('src.systems.collision')
 local DebrisSystem = require('src.systems.debris')
-local UISystem = require('src.systems.ui')
+local SkillXP = require('src.systems.skill_xp')
 
 local CombatLaser = {
     name = "combat_laser",
@@ -79,7 +79,7 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt)
             hull.current = hull.current - damageApplied
             -- Only grant XP if ship is destroyed this frame
             if hull.current <= 0 then
-                UISystem.addSkillExperience("combat", 20)
+                SkillXP.awardXp("combat")
             end
         end
         -- Store color of hit ship

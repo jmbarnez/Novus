@@ -152,9 +152,64 @@ function Core.init()
         end
     end
 
+    -- Create asteroid field line extending across the map
+    local asteroidLineCount = 80
+    local lineStartX = Constants.world_min_x
+    local lineEndX = Constants.world_max_x
+    local lineY = 0  -- Y position of the line
+    
+    for i = 1, asteroidLineCount do
+        local x = lineStartX + ((i - 1) / (asteroidLineCount - 1)) * (lineEndX - lineStartX)
+        -- Add some vertical variation to make it less perfectly straight
+        local y = lineY + math.sin(i * 0.5) * 200 + (math.random() - 0.5) * 300
+        
+        local size = Procedural.randomRange(Constants.asteroid_size_min, Constants.asteroid_size_max)
+        local vertexCount = math.random(Constants.asteroid_vertices_min, Constants.asteroid_vertices_max)
+        local vertices = Procedural.generatePolygonVertices(vertexCount, size / 2)
+        local velocity = Procedural.randomVelocity(5, 15)  -- Slower movement for line asteroids
+        local angularVelocity = Procedural.randomRange(Constants.asteroid_rotation_min, Constants.asteroid_rotation_max)
+        
+        local asteroidMass = size * size * 0.5
+        local rotationalInertia = size * size * size * 2
+        
+        local asteroidId = ECS.createEntity()
+        ECS.addComponent(asteroidId, "Position", Components.Position(x, y))
+        ECS.addComponent(asteroidId, "Velocity", Components.Velocity(velocity.vx, velocity.vy))
+        ECS.addComponent(asteroidId, "Physics", Components.Physics(0.999, asteroidMass))
+        ECS.addComponent(asteroidId, "PolygonShape", Components.PolygonShape(vertices, math.random() * 2 * math.pi))
+        ECS.addComponent(asteroidId, "AngularVelocity", Components.AngularVelocity(angularVelocity))
+        ECS.addComponent(asteroidId, "RotationalMass", Components.RotationalMass(rotationalInertia))
+        ECS.addComponent(asteroidId, "Collidable", Components.Collidable(size / 2))
+        ECS.addComponent(asteroidId, "Durability", Components.Durability(size * 2, size * 2))
+        ECS.addComponent(asteroidId, "Asteroid", Components.Asteroid())
+        ECS.addComponent(asteroidId, "Renderable", Components.Renderable("polygon", nil, nil, nil, {0.6, 0.4, 0.2, 1}))
+    end
+
+    -- Spawn enemy ships across the map
+    local enemyCount = 12
+    local enemySpacing = (Constants.world_max_x - Constants.world_min_x) / (enemyCount + 1)
+    
+    for i = 1, enemyCount do
+        local x = Constants.world_min_x + i * enemySpacing + (math.random() - 0.5) * 500
+        local y = (math.random() - 0.5) * 4000  -- Random Y position
+        
+        -- Vary enemy designs
+        local designChoice = math.random(1, 3)
+        local designId = "red_scout"
+        if designChoice == 2 then
+            designId = "standard_combat"
+        elseif designChoice == 3 then
+            designId = "starter_hexagon"
+        end
+        
+        ShipLoader.createShip(designId, x, y, "ai")
+    end
+
     print("Game entities created and systems initialized")
     print("Pilot and starting drone spawned at world center (0, 0)")
     print("Asteroids spawned: " .. Constants.asteroid_cluster_count .. " in cluster around center")
+    print("Asteroid field line spawned: 80 asteroids extending across map")
+    print("Enemy ships spawned: 12 enemies distributed across the map")
     print("Player controls: WASD for thrust, ESC to quit")
 end
 

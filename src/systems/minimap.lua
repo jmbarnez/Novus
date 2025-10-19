@@ -124,6 +124,31 @@ function Minimap.draw()
         end
     end
 
+    -- Draw enemies (entities with Hull component) with actual size
+    local enemies = ECS.getEntitiesWith({'Hull', 'Position'})
+    love.graphics.setColor(1, 0.2, 0.2, 1)  -- Red for enemies
+    for _, id in ipairs(enemies) do
+        local pos = ECS.getComponent(id, 'Position')
+        local coll = ECS.getComponent(id, 'Collidable')
+        local renderable = ECS.getComponent(id, 'Renderable')
+        local controlledBy = ECS.getComponent(id, 'ControlledBy')
+        
+        -- Skip if this is the player's controlled entity
+        if controlledBy and controlledBy.pilotId and ECS.hasComponent(controlledBy.pilotId, 'Player') then
+            goto skip_enemy
+        end
+        
+        local radius = (coll and coll.radius) or (renderable and renderable.radius) or 10
+        if pos then
+            local mx, my = worldToMinimap(pos.x, pos.y)
+            local blipRadius = math.max(2, radius * combinedScale)
+            if ((mx - minimapX)^2 + (my - minimapY)^2) <= (minimapRadius-blipRadius)^2 then
+                love.graphics.circle('fill', mx, my, blipRadius)
+            end
+        end
+        ::skip_enemy::
+    end
+
     -- Draw player with actual size
     local trackedEntityId = nil
     if #controllers > 0 then

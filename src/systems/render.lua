@@ -294,9 +294,9 @@ local RenderSystem = {
             end
         end
         for _, id in ipairs(asteroidEntities) do
-            local pos = ECS.getComponent(id, "Position")
-            local coll = ECS.getComponent(id, "Collidable")
-            local durability = ECS.getComponent(id, "Durability")
+            local pos = ECS.getComponent(id, 'Position')
+            local coll = ECS.getComponent(id, 'Collidable')
+            local durability = ECS.getComponent(id, 'Durability')
             if pos and durability and durability.current and durability.max then
                 local shouldShowBar = (id == hoveredAsteroidId) or (durability.current < durability.max)
                 if shouldShowBar then
@@ -313,6 +313,30 @@ local RenderSystem = {
                 end
             end
         end
+
+        -- Draw wreckage durability bars (green)
+        local wreckageEntities = ECS.getEntitiesWith({"Wreckage", "Position", "Durability", "Collidable"})
+        for _, id in ipairs(wreckageEntities) do
+            local pos = ECS.getComponent(id, 'Position')
+            local coll = ECS.getComponent(id, 'Collidable')
+            local durability = ECS.getComponent(id, 'Durability')
+            if pos and durability and durability.current and durability.max then
+                local shouldShowBar = durability.current < durability.max  -- Only show when damaged
+                if shouldShowBar then
+                    local barW = 24
+                    local barH = 3
+                    local pad = coll and (coll.radius + 6) or 14
+                    local frac = math.max(0, math.min(1, durability.current / durability.max))
+                    love.graphics.setColor(0.15, 0.25, 0.15, 0.85)  -- Dark green background
+                    love.graphics.rectangle("fill", pos.x - barW/2, pos.y - pad, barW, barH)
+                    love.graphics.setColor(0.4, 0.8, 0.4, 1)  -- Muted green fill
+                    love.graphics.rectangle("fill", pos.x - barW/2, pos.y - pad, barW * frac, barH)
+                    love.graphics.setColor(0,0,0,1)  -- Black outline
+                    love.graphics.rectangle("line", pos.x - barW/2, pos.y - pad, barW, barH)
+                end
+            end
+        end
+
         if CameraSystem and CameraSystem.resetTransform then
             CameraSystem.resetTransform()
         end

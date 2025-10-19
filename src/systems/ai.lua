@@ -3,6 +3,7 @@
 
 local ECS = require('src.ecs')
 local Components = require('src.components')
+local TurretRange = require('src.systems.turret_range')
 local Systems = {}
 
 local AI = {
@@ -39,14 +40,23 @@ function AI.update(dt)
         local turret = ECS.getComponent(eid, "Turret")
         if not (ai and pos and vel) then goto continue end
 
+        -- Calculate firing range based on turret module's projectile properties
+        local fireRange = ai.fireRange
+        if turret and turret.moduleName then
+            fireRange = TurretRange.getMaxRange(turret.moduleName)
+        end
+
         -- If player exists, check detection
         if playerPos then
             local dsq = distSq(pos.x, pos.y, playerPos.x, playerPos.y)
-            if dsq < (ai.detectionRadius * ai.detectionRadius) then
+            -- Use much larger detection radius (further away), default 1000+ pixels
+            local detectionRadiusSq = (ai.detectionRadius * ai.detectionRadius)
+            
+            if dsq < detectionRadiusSq then
                 -- Switch to aggressive/chase state
                 ai.state = "chase"
             else
-                -- Return to patrol if not recently aggravated
+                -- Return to patrol if not in detection range
                 if ai.state == "chase" then
                     ai.state = "patrol"
                 end
@@ -74,12 +84,15 @@ function AI.update(dt)
             local dx = playerPos.x - pos.x
             local dy = playerPos.y - pos.y
             local dist = math.sqrt(dx*dx + dy*dy)
+            
+            -- Always move toward player when in chase state
             if dist > 0 then
                 vel.vx = (dx / dist) * ai.speed
                 vel.vy = (dy / dist) * ai.speed
             end
+            
             -- Aim and fire turret at player if within firing range
-            if turret and turret.moduleName and dist < ai.fireRange then
+            if turret and turret.moduleName and dist < fireRange then
                 local TurretSystem = ECS.getSystem("TurretSystem")
                 if TurretSystem and TurretSystem.fireTurret then
                     TurretSystem.fireTurret(eid, playerPos.x, playerPos.y)

@@ -148,6 +148,33 @@ function CargoWindow:drawSkillsPanel(windowX, windowY, cargo, alpha)
         love.graphics.setColor(0.2, 0.6, 1.0, alpha)
         love.graphics.rectangle("fill", barX + 1, barY + 1, fillWidth, barHeight - 2)
     end
+
+    -- Draw salvaging skill
+    local salvagingSkill = skills.skills.salvaging
+    if salvagingSkill then
+        local skillY = panelY + 38 + 58  -- Offset below mining skill
+        -- Skill name
+        love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+        love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+        love.graphics.print("Salvaging", panelX + 8, skillY)
+        -- Skill level
+        love.graphics.printf("Lvl " .. salvagingSkill.level, panelX + 8, skillY + 12, panelWidth - 16, "right")
+        -- Experience bar background
+        local barX = panelX + 8
+        local barY = skillY + 28
+        local barWidth = panelWidth - 16
+        local barHeight = 12
+        love.graphics.setColor(0.1, 0.1, 0.1, alpha)
+        love.graphics.rectangle("fill", barX, barY, barWidth, barHeight)
+        -- Experience bar border
+        love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha)
+        love.graphics.rectangle("line", barX, barY, barWidth, barHeight)
+        -- Experience bar fill (gradient green)
+        local xpRatio = math.min(1, salvagingSkill.experience / salvagingSkill.requiredXp)
+        local fillWidth = math.max(0, math.min(barWidth - 2, (barWidth - 2) * xpRatio))
+        love.graphics.setColor(0.2, 1.0, 0.2, alpha)  -- Green for salvaging
+        love.graphics.rectangle("fill", barX + 1, barY + 1, fillWidth, barHeight - 2)
+    end
 end
 
 function CargoWindow:drawTurretPanel(windowX, windowY, cargo, alpha)
