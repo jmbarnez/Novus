@@ -70,12 +70,10 @@ end
 
 -- Physics component - Physics properties
 -- @field friction number: Air/space resistance (0-1)
--- @field maxSpeed number: Maximum speed limit
 -- @field mass number: Mass for physics calculations
-Components.Physics = function(friction, maxSpeed, mass)
+Components.Physics = function(friction, mass)
     return {
         friction = friction or Constants.player_friction,
-        maxSpeed = maxSpeed or Constants.player_max_speed,
         mass = mass or 1
     }
 end
@@ -196,6 +194,24 @@ Components.TrailEmitter = function(emitRate, maxParticles, particleLife, spreadA
     } -- Close the table definition properly
 end
 
+-- AIController component - Basic AI state for enemies
+-- @field state string: "patrol" or "chase"
+-- @field patrolPoints table: array of {x,y} waypoints
+-- @field currentPoint number: index of current patrol point
+-- @field speed number: movement speed
+-- @field detectionRadius number: distance to detect the player
+-- @field fireRange number: range at which the turret will fire
+Components.AIController = function(state, patrolPoints, speed, detectionRadius, fireRange)
+    return {
+        state = state or "patrol",
+        patrolPoints = patrolPoints or {},
+        currentPoint = 1,
+        speed = speed or 80,
+        detectionRadius = detectionRadius or 300,
+        fireRange = fireRange or 250
+    }
+end
+
 -- Canvas component - For off-screen rendering
 -- @field canvas love.Canvas: The canvas to draw to
 -- @field width number: The width of the canvas
@@ -219,13 +235,29 @@ Components.UITag = function()
     return {}
 end
 
--- Health component - Represents the health of an entity
--- @field current number: The current health of the entity
--- @field max number: The maximum health of the entity
-Components.Health = function(current, max)
+-- Hull component - Represents the hull integrity of an entity (hitpoints)
+-- @field current number: The current hull value of the entity
+-- @field max number: The maximum hull value of the entity
+Components.Hull = function(current, max)
     return {
         current = current or 100,
         max = max or 100
+    }
+end
+
+-- Shield component - Represents shield energy for an entity
+-- @field current number: Current shield value
+-- @field max number: Maximum shield value
+-- @field regen number: Shield regeneration rate (units per second)
+-- @field regenDelay number: Seconds to wait after taking damage before regen
+-- @field regenTimer number: Internal timer for managing regen delays
+Components.Shield = function(current, max, regen, regenDelay)
+    return {
+        current = current or 0,
+        max = max or 0,
+        regen = regen or 0,
+        regenDelay = regenDelay or 0,
+        regenTimer = 0
     }
 end
 

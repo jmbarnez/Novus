@@ -582,9 +582,23 @@ local PhysicsCollisionSystem = {
                             local proj1 = ECS.getComponent(entity1Id, "Projectile")
                             local proj2 = ECS.getComponent(entity2Id, "Projectile")
                             if proj1 then
+                                local damage = proj1.damage or 10
+                                -- Apply to Shield first, then Hull
+                                local shield2 = ECS.getComponent(entity2Id, "Shield")
+                                local hull2 = ECS.getComponent(entity2Id, "Hull")
+                                if shield2 and shield2.current > 0 then
+                                    local remaining = shield2.current - damage
+                                    shield2.current = math.max(0, remaining)
+                                    damage = math.max(0, -remaining)
+                                    shield2.regenTimer = shield2.regenDelay or 0
+                                end
+                                if damage > 0 and hull2 then
+                                    hull2.current = math.max(0, hull2.current - damage)
+                                end
+                                -- Also apply to Durability if present (asteroids and hull)
                                 local durability2 = ECS.getComponent(entity2Id, "Durability")
                                 if durability2 then
-                                    durability2.current = durability2.current - (proj1.damage or 10)
+                                    durability2.current = durability2.current - damage
                                 end
                                 -- If projectile is brittle, mark it for destruction
                                 if proj1.brittle then
@@ -593,9 +607,23 @@ local PhysicsCollisionSystem = {
                                 end
                             end
                             if proj2 then
+                                local damage = proj2.damage or 10
+                                -- Apply to Shield first, then Hull
+                                local shield1 = ECS.getComponent(entity1Id, "Shield")
+                                local hull1 = ECS.getComponent(entity1Id, "Hull")
+                                if shield1 and shield1.current > 0 then
+                                    local remaining = shield1.current - damage
+                                    shield1.current = math.max(0, remaining)
+                                    damage = math.max(0, -remaining)
+                                    shield1.regenTimer = shield1.regenDelay or 0
+                                end
+                                if damage > 0 and hull1 then
+                                    hull1.current = math.max(0, hull1.current - damage)
+                                end
+                                -- Also apply to Durability if present
                                 local durability1 = ECS.getComponent(entity1Id, "Durability")
                                 if durability1 then
-                                    durability1.current = durability1.current - (proj2.damage or 10)
+                                    durability1.current = durability1.current - damage
                                 end
                                 if proj2.brittle then
                                     local pDur = ECS.getComponent(entity2Id, "Durability")

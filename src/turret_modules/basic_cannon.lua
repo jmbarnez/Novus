@@ -34,7 +34,7 @@ function BasicCannon.fire(ownerId, startX, startY, endX, endY)
     ECS.addComponent(ballId, "Renderable", Components.Renderable("circle", nil, nil, BasicCannon.BALL_RADIUS, BasicCannon.BALL_COLOR))
     ECS.addComponent(ballId, "Collidable", Components.Collidable(BasicCannon.BALL_RADIUS))
     -- Give projectile physics so it participates naturally in collisions
-    ECS.addComponent(ballId, "Physics", Components.Physics(1, 500, 0.01)) -- zero friction, very small mass
+    ECS.addComponent(ballId, "Physics", Components.Physics(1, 0.01)) -- no friction, low mass
     -- Small durability so it breaks upon a strong impact (brittle)
     ECS.addComponent(ballId, "Durability", Components.Durability(1, 1)) -- Destroy on impact
     -- Mark projectile as brittle so collision handling can treat it specially

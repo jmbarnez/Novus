@@ -15,6 +15,7 @@ local Constants = require('src.constants')
 local Procedural = require('src.procedural')
 local UISystem = require('src.systems.ui')
 local Scaling = require('src.scaling')
+local ShipLoader = require('src.ship_loader')
 
 -- Game initialization
 function Core.init()
@@ -38,6 +39,7 @@ function Core.init()
     ECS.registerSystem("UISystem", Systems.UISystem)
     ECS.registerSystem("HUDSystem", Systems.HUDSystem)
     ECS.registerSystem("TrailSystem", Systems.TrailSystem)
+    ECS.registerSystem("AISystem", Systems.AISystem)
     ECS.registerSystem("CollisionSystem", Systems.CollisionSystem)
     ECS.registerSystem("MagnetSystem", Systems.MagnetSystem)
     ECS.registerSystem("DestructionSystem", Systems.DestructionSystem)
@@ -60,45 +62,23 @@ function Core.init()
     local miningLaserId = "mining_laser_turret"
     local basicCannonId = "basic_cannon_turret"
     local combatLaserId = "combat_laser_turret"
+    
+    -- Load turret modules (including basic cannon)
+    Systems.TurretSystem.loadTurretModules("src/turret_modules")
+    
+    -- Load ship designs
+    ShipLoader.loadAllDesigns("src.ship_designs")
+
+    -- Create player's starter drone using modular system (will be blue)
+    local droneId = ShipLoader.createShip("starter_drone", 0, 0, "player", pilotId)
+    
+    -- Add initial items to pilot cargo
     local pilotCargo = ECS.getComponent(pilotId, "Cargo")
     if pilotCargo then
         pilotCargo.items[miningLaserId] = 1
         pilotCargo.items[basicCannonId] = 1
         pilotCargo.items[combatLaserId] = 1
     end
-
-    -- Create Drone Entity (starter ship)
-    local droneId = ECS.createEntity()
-    ECS.addComponent(droneId, "Position", Components.Position(0, 0))
-    ECS.addComponent(droneId, "Velocity", Components.Velocity(0, 0))
-    ECS.addComponent(droneId, "Acceleration", Components.Acceleration(0, 0))
-    ECS.addComponent(droneId, "Physics", Components.Physics(Constants.player_friction, Constants.player_max_speed, 1))
-    ECS.addComponent(droneId, "Boundary", Components.Boundary(-5000, 5000, -5000, 5000))
-    ECS.addComponent(droneId, "CameraTarget", Components.CameraTarget())
-    ECS.addComponent(droneId, "PolygonShape", Components.PolygonShape({
-        -- Main hexagonal body
-        {x = 0, y = -10}, {x = 8.66, y = -5}, {x = 8.66, y = 5}, 
-        {x = 0, y = 10}, {x = -8.66, y = 5}, {x = -8.66, y = -5}
-    }, 0))
-    -- The main Renderable for the hexagonal drone
-    ECS.addComponent(droneId, "Renderable", Components.Renderable("polygon", nil, nil, nil, {0.5, 0.5, 0.5, 1}))
-    ECS.addComponent(droneId, "TrailEmitter", Components.TrailEmitter(Constants.trail_emit_rate, Constants.trail_max_particles, Constants.trail_particle_life, Constants.trail_spread_angle, Constants.trail_speed_multiplier))
-    ECS.addComponent(droneId, "Health", Components.Health(100, 100))
-    ECS.addComponent(droneId, "Collidable", Components.Collidable(10)) -- Bounding radius for hexagon is approx 10
-    ECS.addComponent(droneId, "Turret", Components.Turret("", 0.2)) -- Turret starts empty, only operational when module equipped
-    ECS.addComponent(droneId, "TurretSlots", Components.TurretSlots(1)) -- Add TurretSlots component, max 1 slot for drone
-    ECS.addComponent(droneId, "Magnet", Components.Magnet(200, 120, 24)) -- Attract items within 200 units
-    -- Mark that this drone is controlled by the pilot
-    ECS.addComponent(droneId, "ControlledBy", Components.ControlledBy(pilotId))
-
-    -- Link pilot InputControlled to the drone
-    local inputComp = ECS.getComponent(pilotId, "InputControlled")
-    if inputComp then
-        inputComp.targetEntity = droneId
-    end
-
-    -- Load turret modules (including basic cannon)
-    Systems.TurretSystem.loadTurretModules("src/modules")
 
     -- Load sound assets
     if Systems.SoundSystem and Systems.SoundSystem.loadAll then
@@ -144,6 +124,9 @@ function Core.init()
     }
     local parallaxObject = Parallax.new(starLayers, 10000)
     ECS.addComponent(starFieldId, "StarField", parallaxObject)
+
+    -- Create enemy ship using same design as player (will be red)
+    local enemyId = ShipLoader.createShip("standard_combat", 300, -200, "ai")
 
     -- Spawn asteroid cluster around the start area
     local asteroidCluster = Procedural.spawnMultiple("asteroid", Constants.asteroid_cluster_count, "cluster", {

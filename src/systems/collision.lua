@@ -240,6 +240,8 @@ local function handleCollision(entity1Id, entity2Id, normal, depth)
     if not normal or not normal.x or not normal.y then
         normal = {x = 0, y = 1}
     end
+    -- Ensure depth is never nil
+    depth = depth or 0
     local pos1 = ECS.getComponent(entity1Id, "Position")
     local vel1 = ECS.getComponent(entity1Id, "Velocity")
     local phys1 = ECS.getComponent(entity1Id, "Physics")

@@ -31,7 +31,7 @@ function CombatLaser.fire(ownerId, startX, startY, endX, endY)
     ECS.addComponent(boltId, "Velocity", Components.Velocity(dirX * CombatLaser.BOLT_SPEED, dirY * CombatLaser.BOLT_SPEED))
     ECS.addComponent(boltId, "Renderable", Components.Renderable("rectangle", CombatLaser.BOLT_WIDTH, CombatLaser.BOLT_HEIGHT, nil, CombatLaser.BOLT_COLOR))
     ECS.addComponent(boltId, "Collidable", Components.Collidable(CombatLaser.BOLT_HEIGHT / 2))
-    ECS.addComponent(boltId, "Physics", Components.Physics(1, CombatLaser.BOLT_SPEED, 0.01)) -- No friction, high speed, low mass
+    ECS.addComponent(boltId, "Physics", Components.Physics(1, 0.01)) -- No friction, low mass
     ECS.addComponent(boltId, "Durability", Components.Durability(1, 1)) -- Destroy on impact
     ECS.addComponent(boltId, "Projectile", {ownerId = ownerId, damage = 15, brittle = true, ownerImmunityTime = 0.1})
 end

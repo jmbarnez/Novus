@@ -11,11 +11,21 @@ local DestructionSystem = {
 }
 
 function DestructionSystem.update(dt)
+    -- Entities to check: any with Durability or Hull
     local entities = ECS.getEntitiesWith({"Durability"})
+    local hullEntities = ECS.getEntitiesWith({"Hull"})
+    for _, hid in ipairs(hullEntities) do table.insert(entities, hid) end
 
     for _, entityId in ipairs(entities) do
         local durability = ECS.getComponent(entityId, "Durability")
-        if durability.current <= 0 then
+        local hull = ECS.getComponent(entityId, "Hull")
+        local destroyed = false
+        if durability and durability.current <= 0 then
+            destroyed = true
+        elseif hull and hull.current <= 0 then
+            destroyed = true
+        end
+        if destroyed then
             local pos = ECS.getComponent(entityId, "Position")
             local renderable = ECS.getComponent(entityId, "Renderable") -- Get renderable component for color
             local color = renderable and renderable.color or {0.5, 0.5, 0.5, 1} -- Default grey if no color
@@ -75,7 +85,7 @@ function DestructionSystem.spawnItemDrops(x, y)
             local itemId = ECS.createEntity()
             ECS.addComponent(itemId, "Position", Components.Position(itemX, itemY))
             ECS.addComponent(itemId, "Velocity", Components.Velocity(vx, vy))
-            ECS.addComponent(itemId, "Physics", Components.Physics(0.95, 200, 0.5))  -- Friction, max speed, mass
+            ECS.addComponent(itemId, "Physics", Components.Physics(0.95, 0.5))  -- Friction, mass
             ECS.addComponent(itemId, "Item", {id = itemType, def = itemDef})
             ECS.addComponent(itemId, "Stack", Components.Stack(quantity))  -- Add stack with quantity
             ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))

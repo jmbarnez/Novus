@@ -4,7 +4,7 @@
 
 local ECS = require('src.ecs')
 local Parallax = require('src.parallax')
-local unpack = table.unpack or unpack
+local unpack = unpack
 
 -- Helper function to draw a turret on top of the drone
 local function drawTurret(x, y, color, playerRotation)
@@ -189,6 +189,30 @@ local RenderSystem = {
                         renderable.height)
                 elseif renderable.shape == "circle" and renderable.radius then
                     love.graphics.circle("fill", position.x, position.y, renderable.radius)
+                    -- Draw small health bar for enemies (non-player)
+                    if ECS.hasComponent(entityId, "Hull") and not (ECS.hasComponent(entityId, "ControlledBy") and ECS.hasComponent(ECS.getComponent(entityId, "ControlledBy").pilotId, "Player")) then
+                        local hull = ECS.getComponent(entityId, "Hull")
+                        local shield = ECS.getComponent(entityId, "Shield")
+                        if hull then
+                            local barWidth = 40
+                            local barHeight = 6
+                            local x = position.x - barWidth / 2
+                            local y = position.y - renderable.radius - 10
+                            -- Background
+                            love.graphics.setColor(0.1, 0.1, 0.1, 0.9)
+                            love.graphics.rectangle("fill", x, y, barWidth, barHeight, 3, 3)
+                            -- Fill
+                            local ratio = math.max(0, math.min(1, (hull.current or 0) / (hull.max or 1)))
+                            -- Draw shield bar (if present) above hull with blue color
+                            if shield and shield.max > 0 then
+                                local sRatio = math.max(0, math.min(1, (shield.current or 0) / (shield.max or 1)))
+                                love.graphics.setColor(0.2, 0.6, 1, 0.9)
+                                love.graphics.rectangle("fill", x + 1, y - 8, (barWidth - 2) * sRatio, barHeight - 2, 2, 2)
+                            end
+                            love.graphics.setColor(1, 0.2, 0.2, 0.95)
+                            love.graphics.rectangle("fill", x + 1, y + 1, (barWidth - 2) * ratio, barHeight - 2, 2, 2)
+                        end
+                    end
                 elseif renderable.shape == "polygon" then
                     local polygonShape = ECS.getComponent(entityId, "PolygonShape")
                     if polygonShape then
@@ -207,6 +231,27 @@ local RenderSystem = {
                             drawTurret(position.x, position.y, renderable.color, playerRotation)
                         else
                             drawPolygon(position.x, position.y, polygonShape, renderable.color)
+                            -- Draw small health bar for polygon enemies (non-player)
+                            if ECS.hasComponent(entityId, "Hull") and not (ECS.hasComponent(entityId, "ControlledBy") and ECS.hasComponent(ECS.getComponent(entityId, "ControlledBy").pilotId, "Player")) then
+                                local hull = ECS.getComponent(entityId, "Hull")
+                                local shield = ECS.getComponent(entityId, "Shield")
+                                if hull then
+                                    local barWidth = 48
+                                    local barHeight = 6
+                                    local x = position.x - barWidth / 2
+                                    local y = position.y - 16
+                                    love.graphics.setColor(0.1, 0.1, 0.1, 0.9)
+                                    love.graphics.rectangle("fill", x, y, barWidth, barHeight, 3, 3)
+                                    local ratio = math.max(0, math.min(1, (hull.current or 0) / (hull.max or 1)))
+                                    if shield and shield.max > 0 then
+                                        local sRatio = math.max(0, math.min(1, (shield.current or 0) / (shield.max or 1)))
+                                        love.graphics.setColor(0.2, 0.6, 1, 0.9)
+                                        love.graphics.rectangle("fill", x + 1, y - 8, (barWidth - 2) * sRatio, barHeight - 2, 2, 2)
+                                    end
+                                    love.graphics.setColor(1, 0.2, 0.2, 0.95)
+                                    love.graphics.rectangle("fill", x + 1, y + 1, (barWidth - 2) * ratio, barHeight - 2, 2, 2)
+                                end
+                            end
                         end
                     end
                 end

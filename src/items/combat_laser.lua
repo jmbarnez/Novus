@@ -6,7 +6,7 @@ local CombatLaserItem = {
     name = "Combat Laser",
     description = "Fires a high-velocity laser bolt that deals energy damage.",
     type = "turret",
-    module = "combat_laser", -- Links to the combat_laser.lua module
+    module = require("src.turret_modules.combat_laser"), -- Links to the combat_laser.lua module
     design = {
         color = {1, 0.2, 0.2, 1} -- Red
     },

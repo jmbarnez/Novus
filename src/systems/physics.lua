@@ -14,6 +14,7 @@ local PhysicsSystem = {
         for _, entityId in ipairs(entities) do
             local position = ECS.getComponent(entityId, "Position")
             local velocity = ECS.getComponent(entityId, "Velocity")
+            if not (position and velocity) then goto continue_entity end
             local physics = ECS.getComponent(entityId, "Physics")
             local acceleration = ECS.getComponent(entityId, "Acceleration")
 
@@ -37,14 +38,6 @@ local PhysicsSystem = {
             if physics then
                 velocity.vx = velocity.vx * physics.friction
                 velocity.vy = velocity.vy * physics.friction
-
-                -- Clamp to max speed
-                local speed = math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy)
-                if speed > physics.maxSpeed then
-                    local scale = physics.maxSpeed / speed
-                    velocity.vx = velocity.vx * scale
-                    velocity.vy = velocity.vy * scale
-                end
             end
 
             -- Update position based on velocity
@@ -58,6 +51,7 @@ local PhysicsSystem = {
                     print(string.format("[PhysicsSystem] Projectile %d moved to (%.2f, %.2f)", entityId, position.x, position.y))
                 end
             end
+            ::continue_entity::
         end
         
         -- Update angular velocity for entities with rotation
@@ -65,16 +59,42 @@ local PhysicsSystem = {
         for _, entityId in ipairs(angularEntities) do
             local angularVelocity = ECS.getComponent(entityId, "AngularVelocity")
             local polygonShape = ECS.getComponent(entityId, "PolygonShape")
-            
+            if not (angularVelocity and polygonShape) then goto continue_angular end
             -- Update rotation
-            polygonShape.rotation = polygonShape.rotation + angularVelocity.omega * dt
+            polygonShape.rotation = polygonShape.rotation + (angularVelocity.omega or 0) * dt
+            ::continue_angular::
+        end
+
+        -- Shield regeneration (per-entity)
+        local shieldEntities = ECS.getEntitiesWith({"Shield"})
+        for _, entityId in ipairs(shieldEntities) do
+            local shield = ECS.getComponent(entityId, "Shield")
+            if not shield then goto continue_shield end
+            -- Count down regen delay
+            if shield.regenTimer and shield.regenTimer > 0 then
+                shield.regenTimer = shield.regenTimer - dt
+            else
+                if shield.regen and shield.regen > 0 and shield.current < shield.max then
+                    shield.current = math.min(shield.max, shield.current + shield.regen * dt)
+                end
+            end
+            ::continue_shield::
         end
     end,
 
     takeDamage = function(entityId, amount)
-        local health = ECS.getComponent(entityId, "Health")
-        if health then
-            health.current = math.max(0, health.current - amount)
+        -- Apply damage to shield first, then hull
+        local shield = ECS.getComponent(entityId, "Shield")
+        local hull = ECS.getComponent(entityId, "Hull")
+        local damage = amount
+        if shield and shield.current > 0 then
+            local remaining = shield.current - damage
+            shield.current = math.max(0, remaining)
+            damage = math.max(0, -remaining)
+            shield.regenTimer = shield.regenDelay or 0
+        end
+        if damage > 0 and hull then
+            hull.current = math.max(0, hull.current - damage)
         end
     end
 }

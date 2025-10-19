@@ -1,5 +1,5 @@
 ---@diagnostic disable: undefined-global
--- HUD System - Always-on HUD elements (speed, health)
+-- HUD System - Always-on HUD elements (speed, hull/shield)
 
 local ECS = require('src.ecs')
 local Constants = require('src.constants')
@@ -33,14 +33,15 @@ local function drawSpeedText(viewportWidth, viewportHeight)
     love.graphics.printf(string.format("%.1f u/s", speed), x, y, minimapSize, "center")
 end
 
-local function drawHealthBar(viewportWidth, viewportHeight)
+local function drawHullShieldBar(viewportWidth, viewportHeight)
     local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
     if #playerEntities == 0 then return end
     local pilotId = playerEntities[1]
     local input = ECS.getComponent(pilotId, "InputControlled")
     if not input or not input.targetEntity then return end
-    local health = ECS.getComponent(input.targetEntity, "Health")
-    if not health then return end
+    local hull = ECS.getComponent(input.targetEntity, "Hull")
+    local shield = ECS.getComponent(input.targetEntity, "Shield")
+    if not hull then return end
 
     local barWidth = Scaling.scaleSize(Constants.ui_health_bar_width)
     local barHeight = Scaling.scaleSize(Constants.ui_health_bar_height)
@@ -57,9 +58,16 @@ local function drawHealthBar(viewportWidth, viewportHeight)
         x - skew, y + barHeight
     )
 
-    -- Health fill parallelogram
-    local healthRatio = math.min(health.current / health.max, 1.0)
-    local fillWidth = barWidth * healthRatio
+    -- Shield (if present) - draw above hull in blue
+    if shield and shield.max > 0 then
+        local sRatio = math.min((shield.current or 0) / shield.max, 1.0)
+        local sFill = barWidth * sRatio
+        love.graphics.setColor(0.2, 0.6, 1, 0.9)
+        love.graphics.polygon("fill", x, y - barHeight - 4, x + sFill + skew, y - barHeight - 4, x + sFill, y - 4, x - skew, y - 4)
+    end
+    -- Hull fill parallelogram
+    local hullRatio = math.min((hull.current or 0) / hull.max, 1.0)
+    local fillWidth = barWidth * hullRatio
     love.graphics.setColor(1.0, 0.2, 0.2, 0.9)
     love.graphics.polygon("fill", 
         x, y, 
@@ -83,7 +91,7 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     if not HUDSystem.visible then return end
     viewportWidth = viewportWidth or (love.graphics and love.graphics.getWidth and love.graphics.getWidth()) or 1920
     viewportHeight = viewportHeight or (love.graphics and love.graphics.getHeight and love.graphics.getHeight()) or 1080
-    drawHealthBar(viewportWidth, viewportHeight)
+    drawHullShieldBar(viewportWidth, viewportHeight)
     -- Draw minimap as part of HUD
     if Minimap and Minimap.draw then
         Minimap.draw()

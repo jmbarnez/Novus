@@ -191,7 +191,7 @@ function Procedural.registerAsteroidTemplate()
         return {
             Position = Components.Position(spawnData.x, spawnData.y),
             Velocity = Components.Velocity(velocity.vx, velocity.vy),
-            Physics = Components.Physics(0.999, 100, asteroidMass), -- Low friction, moderate max speed, HEAVY mass
+            Physics = Components.Physics(0.999, asteroidMass), -- Low friction, HEAVY mass
             PolygonShape = Components.PolygonShape(vertices, spawnData.angle or 0),
             AngularVelocity = Components.AngularVelocity(angularVelocity),
             RotationalMass = Components.RotationalMass(rotationalInertia), -- Huge rotational inertia - hard to spin

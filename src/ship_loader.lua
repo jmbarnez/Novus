@@ -1,0 +1,186 @@
+-- Ship Design Loader
+-- Loads ship designs from ship_designs/ directory and provides factory function
+
+local ECS = require('src.ecs')
+local Components = require('src.components')
+local Constants = require('src.constants')
+
+local ShipLoader = {
+    designs = {}
+}
+
+-- Load a single ship design file
+function ShipLoader.loadDesign(designId, filepath)
+    local success, design = pcall(require, filepath)
+    if success and design then
+        ShipLoader.designs[designId] = design
+        print("[ShipLoader] Loaded ship design: " .. designId)
+        return true
+    else
+        print("[ShipLoader] Failed to load ship design: " .. designId .. " - " .. tostring(design))
+        return false
+    end
+end
+
+-- Load all ship designs from a directory
+function ShipLoader.loadAllDesigns(directory)
+    directory = directory or "src.ship_designs"
+    
+    -- Known ship designs to load
+    local knownDesigns = {
+        "starter_drone",
+        "starter_hexagon",
+        "red_scout",
+        "standard_combat"
+    }
+    
+    for _, designId in ipairs(knownDesigns) do
+        local filepath = directory .. "." .. designId
+        ShipLoader.loadDesign(designId, filepath)
+    end
+    
+    print("[ShipLoader] Loaded " .. #knownDesigns .. " ship designs")
+end
+
+-- Create a ship entity from a design
+function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
+    local design = ShipLoader.designs[designId]
+    if not design then
+        print("[ShipLoader] Error: Unknown ship design: " .. tostring(designId))
+        return nil
+    end
+    
+    -- Create entity
+    local shipId = ECS.createEntity()
+    
+    -- Core components
+    ECS.addComponent(shipId, "Position", Components.Position(x or 0, y or 0))
+    ECS.addComponent(shipId, "Velocity", Components.Velocity(0, 0))
+    ECS.addComponent(shipId, "Acceleration", Components.Acceleration(0, 0))
+    
+    -- Physics
+    ECS.addComponent(shipId, "Physics", Components.Physics(
+        design.friction or 0.95,
+        design.mass or 1
+    ))
+    
+    -- Determine color based on controller type
+    local shipColor = design.color
+    if not shipColor then
+        -- If no color specified in design, use controller-based colors
+        if controllerType == "player" then
+            shipColor = {0.2, 0.5, 1, 1} -- Blue for player
+        elseif controllerType == "ai" then
+            shipColor = {1, 0.15, 0.15, 1} -- Red for AI
+        else
+            shipColor = {0.5, 0.5, 0.5, 1} -- Gray for uncontrolled
+        end
+    end
+    
+    -- Visual
+    if design.polygon then
+        ECS.addComponent(shipId, "PolygonShape", Components.PolygonShape(design.polygon, 0))
+        ECS.addComponent(shipId, "Renderable", Components.Renderable(
+            "polygon", nil, nil, nil, shipColor
+        ))
+    end
+    
+    -- Collision
+    if design.collisionRadius then
+        ECS.addComponent(shipId, "Collidable", Components.Collidable(design.collisionRadius))
+    end
+    
+    -- Hull/Shield
+    if design.hull then
+        ECS.addComponent(shipId, "Hull", Components.Hull(design.hull.current, design.hull.max))
+    end
+    if design.shield then
+        ECS.addComponent(shipId, "Shield", Components.Shield(
+            design.shield.current,
+            design.shield.max,
+            design.shield.regenRate or 5,
+            design.shield.regenDelay or 3
+        ))
+    end
+    
+    -- Hull/Shield only - no durability component
+    
+    -- Turret
+    if design.turretSlots and design.turretSlots > 0 then
+        ECS.addComponent(shipId, "TurretSlots", Components.TurretSlots(design.turretSlots))
+        -- For player ships, don't equip a default turret; for AI, use the design's default
+        local turretModule = ""
+        if controllerType == "ai" then
+            turretModule = design.defaultTurret or ""
+        end
+        ECS.addComponent(shipId, "Turret", Components.Turret(
+            turretModule,
+            design.turretCooldown or 0.2
+        ))
+    end
+    
+    -- Trail emitter (for player-controlled ships typically)
+    if design.hasTrail then
+        ECS.addComponent(shipId, "TrailEmitter", Components.TrailEmitter(
+            Constants.trail_emit_rate,
+            Constants.trail_max_particles,
+            Constants.trail_particle_life,
+            Constants.trail_spread_angle,
+            Constants.trail_speed_multiplier
+        ))
+    end
+    
+    -- Magnet (for item collection)
+    if design.hasMagnet then
+        ECS.addComponent(shipId, "Magnet", Components.Magnet(
+            design.magnetRadius or 200,
+            design.magnetPullSpeed or 120,
+            design.magnetMaxItems or 24
+        ))
+    end
+    
+    -- Controller setup
+    if controllerType == "player" and controllerId then
+        -- Player-controlled ship
+        ECS.addComponent(shipId, "ControlledBy", Components.ControlledBy(controllerId))
+        ECS.addComponent(shipId, "CameraTarget", Components.CameraTarget())
+        ECS.addComponent(shipId, "Boundary", Components.Boundary(-5000, 5000, -5000, 5000))
+        
+        -- Link the pilot's InputControlled to this ship
+        local inputComp = ECS.getComponent(controllerId, "InputControlled")
+        if inputComp then
+            inputComp.targetEntity = shipId
+        end
+        
+    elseif controllerType == "ai" then
+        -- AI-controlled ship
+        if design.aiType then
+            ECS.addComponent(shipId, "AIController", Components.AIController(
+                design.aiType or "patrol",
+                design.patrolPoints or {{x=0,y=0}},
+                design.patrolSpeed or 60,
+                design.detectionRange or 400,
+                design.engageRange or 240
+            ))
+        end
+    end
+    
+    print("[ShipLoader] Created ship: " .. design.name .. " (ID: " .. shipId .. ", Controller: " .. (controllerType or "none") .. ")")
+    return shipId
+end
+
+-- Get design info
+function ShipLoader.getDesign(designId)
+    return ShipLoader.designs[designId]
+end
+
+-- List all loaded designs
+function ShipLoader.listDesigns()
+    local list = {}
+    for id, design in pairs(ShipLoader.designs) do
+        table.insert(list, {id = id, name = design.name, description = design.description})
+    end
+    return list
+end
+
+return ShipLoader
