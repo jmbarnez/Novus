@@ -62,7 +62,7 @@ end
 Components.InputControlled = function(controlType, speed)
     return {
         controlType = controlType or "drone",
-        speed = speed or 300,
+        speed = speed or Constants.player_max_speed,
         -- targetEntity: optionally references the entity id this controller is piloting
         targetEntity = nil
     }

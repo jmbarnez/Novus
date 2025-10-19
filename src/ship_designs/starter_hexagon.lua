@@ -18,7 +18,7 @@ return {
     shield = nil, -- No shield for starter
     
     -- Physics
-    friction = 0.98, -- High friction = less deceleration, more drift
+    friction = 0.9999, -- Space has no air resistance, nearly 1.0 for realistic coasting
     mass = 1,
     
     -- Equipment slots

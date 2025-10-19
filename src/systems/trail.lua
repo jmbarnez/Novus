@@ -53,7 +53,8 @@ local TrailSystem = {
 
             -- Calculate ship speed
             local speed = math.sqrt((velocity.vx or 0)^2 + (velocity.vy or 0)^2)
-            local speedFactor = math.min(speed / 300, 1) -- 0 to 1, assuming 300 is max speed
+            local Constants = require('src.constants')
+            local speedFactor = math.min(speed / Constants.player_max_speed, 1) -- 0 to 1
 
             -- Scale emission rate and particle life with speed
             local minEmitRate = emitter.emitRate * 0.5

@@ -6,9 +6,17 @@ local Constants = {}
 Constants.screen_width = 1920
 Constants.screen_height = 1080
 
+-- World dimensions (much larger than screen for exploration)
+Constants.world_width = 20000
+Constants.world_height = 20000
+Constants.world_min_x = -10000
+Constants.world_max_x = 10000
+Constants.world_min_y = -10000
+Constants.world_max_y = 10000
+
 -- Player physics
-Constants.player_friction = 0.9995
-Constants.player_max_speed = 300
+Constants.player_friction = 0.9999  -- Near-zero friction for space (nearly no deceleration)
+Constants.player_max_speed = 1200
 
 -- Trail settings
 Constants.trail_emit_rate = 25

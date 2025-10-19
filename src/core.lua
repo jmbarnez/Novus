@@ -72,6 +72,13 @@ function Core.init()
     -- Create player's starter drone using modular system (will be blue)
     local droneId = ShipLoader.createShip("starter_drone", 0, 0, "player", pilotId)
     
+    -- Apply ship-specific thrust multiplier if defined
+    local droneDesign = ShipLoader.getDesign("starter_drone")
+    local inputComp = ECS.getComponent(pilotId, "InputControlled")
+    if droneDesign and droneDesign.thrustMultiplier and inputComp then
+        inputComp.speed = Constants.player_max_speed * droneDesign.thrustMultiplier
+    end
+    
     -- Add initial items to pilot cargo
     local pilotCargo = ECS.getComponent(pilotId, "Cargo")
     if pilotCargo then
@@ -125,8 +132,8 @@ function Core.init()
     local parallaxObject = Parallax.new(starLayers, 10000)
     ECS.addComponent(starFieldId, "StarField", parallaxObject)
 
-    -- Create enemy ship using same design as player (will be red)
-    local enemyId = ShipLoader.createShip("standard_combat", 300, -200, "ai")
+    -- Create enemy ship using red_scout design (will be red)
+    local enemyId = ShipLoader.createShip("red_scout", 300, -200, "ai")
 
     -- Spawn asteroid cluster around the start area
     local asteroidCluster = Procedural.spawnMultiple("asteroid", Constants.asteroid_cluster_count, "cluster", {

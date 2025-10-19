@@ -3,6 +3,8 @@
 
 
 local ECS = require('src.ecs')
+local Constants = require('src.constants')
+local Quadtree = require('src.systems.quadtree')
 
 -- Frame counter for optimization
 local frameCounter = 0
@@ -35,10 +37,6 @@ local function checkSweptCircleCircle(oldPos, newPos, radius1, staticPos, radius
     local a = dx * dx + dy * dy
     local b = 2 * (fx * dx + fy * dy)
     local c = (fx * fx + fy * fy) - (minDist * minDist)
-local PhysicsCollisionSystem = {
-     name = "PhysicsCollisionSystem",
-     priority = 3
-}
     
     if a < 0.0001 then
         -- Movement is negligible, do static check
@@ -459,20 +457,61 @@ local PhysicsCollisionSystem = {
         -- Get all entities with physics colliders
         local physicsEntities = ECS.getEntitiesWith({"Position", "Velocity", "Physics", "Collidable"})
         
+        -- Build quadtree for spatial partitioning
+        local quadtree = Quadtree.create(
+            Constants.world_min_x,
+            Constants.world_min_y,
+            Constants.world_width,
+            Constants.world_height,
+            0
+        )
+        
+        -- Insert all entities into quadtree
+        for _, entityId in ipairs(physicsEntities) do
+            local pos = ECS.getComponent(entityId, "Position")
+            local coll = ECS.getComponent(entityId, "Collidable")
+            if pos and coll then
+                Quadtree.insert(quadtree, entityId, pos, coll.radius)
+            end
+        end
+        
         -- Calculate max velocity for CCD threshold (half bounding radius per frame is threshold)
         local maxVelocityThreshold = 50  -- u/s - if faster, use sub-frame checks
         
-        -- Check collisions between all physics entities
-        for i = 1, #physicsEntities do
-            for j = i + 1, #physicsEntities do
-                local entity1Id = physicsEntities[i]
-                local entity2Id = physicsEntities[j]
+        -- Track processed pairs to avoid duplicate checks
+        local processedPairs = {}
+        
+        -- Check collisions using quadtree (only check nearby entities)
+        for _, entity1Id in ipairs(physicsEntities) do
+            local pos1 = ECS.getComponent(entity1Id, "Position")
+            local vel1 = ECS.getComponent(entity1Id, "Velocity")
+            local phys1 = ECS.getComponent(entity1Id, "Physics")
+            local coll1 = ECS.getComponent(entity1Id, "Collidable")
+            local poly1 = ECS.getComponent(entity1Id, "PolygonShape")
+            
+            if not (pos1 and vel1 and phys1 and coll1) then
+                goto continue_entity1
+            end
+            
+            -- Get nearby entities from quadtree (search radius = entity radius * 3 for swept checks)
+            local searchRadius = coll1.radius * 3
+            local nearbyEntities = Quadtree.getNearby(quadtree, pos1.x, pos1.y, searchRadius)
+            
+            -- Check collisions with nearby entities only
+            for _, nearbyEntity in ipairs(nearbyEntities) do
+                local entity2Id = nearbyEntity.id
                 
-                local pos1 = ECS.getComponent(entity1Id, "Position")
-                local vel1 = ECS.getComponent(entity1Id, "Velocity")
-                local phys1 = ECS.getComponent(entity1Id, "Physics")
-                local coll1 = ECS.getComponent(entity1Id, "Collidable")
-                local poly1 = ECS.getComponent(entity1Id, "PolygonShape")
+                -- Skip self-collision
+                if entity1Id == entity2Id then
+                    goto continue_nearby
+                end
+                
+                -- Skip if already processed this pair
+                local pairKey1 = entity1Id < entity2Id and (entity1Id .. "_" .. entity2Id) or (entity2Id .. "_" .. entity1Id)
+                if processedPairs[pairKey1] then
+                    goto continue_nearby
+                end
+                processedPairs[pairKey1] = true
                 
                 local pos2 = ECS.getComponent(entity2Id, "Position")
                 local vel2 = ECS.getComponent(entity2Id, "Velocity")
@@ -480,41 +519,40 @@ local PhysicsCollisionSystem = {
                 local coll2 = ECS.getComponent(entity2Id, "Collidable")
                 local poly2 = ECS.getComponent(entity2Id, "PolygonShape")
                 
-                if pos1 and pos2 and coll1 and coll2 then
-                    -- Use previous position for CCD if available, else use current position
-                    local prevPos1 = pos1.prevX and {x = pos1.prevX, y = pos1.prevY} or pos1
-                    local prevPos2 = pos2.prevX and {x = pos2.prevX, y = pos2.prevY} or pos2
+                if not (pos2 and vel2 and phys2 and coll2) then
+                    goto continue_nearby
+                end
+                
+                -- Use previous position for CCD if available, else use current position
+                local prevPos1 = pos1.prevX and {x = pos1.prevX, y = pos1.prevY} or pos1
+                local prevPos2 = pos2.prevX and {x = pos2.prevX, y = pos2.prevY} or pos2
+                
+                -- Calculate velocities for sub-frame detection
+                local vel1Mag = math.sqrt(vel1.vx * vel1.vx + vel1.vy * vel1.vy)
+                local vel2Mag = math.sqrt(vel2.vx * vel2.vx + vel2.vy * vel2.vy)
+                local maxVel = math.max(vel1Mag, vel2Mag)
+                
+                -- Broad-phase: check swept bounding circles
+                local bboxCheck1 = checkBoundingCircles(pos1, coll1, pos2, coll2)
+                local bboxCheck2 = checkBoundingCircles(prevPos1, coll1, pos2, coll2)
+                local bboxCheck3 = checkBoundingCircles(pos1, coll1, prevPos2, coll2)
+                
+                -- For very fast objects, also check mid-frame position
+                local bboxCheckMid = false
+                if maxVel > maxVelocityThreshold then
+                    -- Check collision at mid-frame for fast-moving objects
+                    local midPos1 = {x = pos1.x - vel1.vx * dt * 0.5, y = pos1.y - vel1.vy * dt * 0.5}
+                    local midPos2 = {x = pos2.x - vel2.vx * dt * 0.5, y = pos2.y - vel2.vy * dt * 0.5}
+                    bboxCheckMid = checkBoundingCircles(midPos1, coll1, midPos2, coll2)
+                end
+                
+                if bboxCheck1 or bboxCheck2 or bboxCheck3 or bboxCheckMid then
+                    local colliding = false
+                    local normal = {x = 0, y = 1}
+                    local depth = 0
                     
-                    -- Ensure we have velocity and physics components
-                    if not (vel1 and vel2 and phys1 and phys2) then
-                        goto continue_pair
-                    end
-                    -- Calculate velocities for sub-frame detection
-                    local vel1Mag = math.sqrt(vel1.vx * vel1.vx + vel1.vy * vel1.vy)
-                    local vel2Mag = math.sqrt(vel2.vx * vel2.vx + vel2.vy * vel2.vy)
-                    local maxVel = math.max(vel1Mag, vel2Mag)
-                    
-                    -- Broad-phase: check swept bounding circles
-                    local bboxCheck1 = checkBoundingCircles(pos1, coll1, pos2, coll2)
-                    local bboxCheck2 = checkBoundingCircles(prevPos1, coll1, pos2, coll2)
-                    local bboxCheck3 = checkBoundingCircles(pos1, coll1, prevPos2, coll2)
-                    
-                    -- For very fast objects, also check mid-frame position
-                    local bboxCheckMid = false
-                            if maxVel > maxVelocityThreshold then
-                        -- Check collision at mid-frame for fast-moving objects
-                                local midPos1 = {x = pos1.x - vel1.vx * dt * 0.5, y = pos1.y - vel1.vy * dt * 0.5}
-                                local midPos2 = {x = pos2.x - vel2.vx * dt * 0.5, y = pos2.y - vel2.vy * dt * 0.5}
-                        bboxCheckMid = checkBoundingCircles(midPos1, coll1, midPos2, coll2)
-                    end
-                    
-                    if bboxCheck1 or bboxCheck2 or bboxCheck3 or bboxCheckMid then
-                        local colliding = false
-                        local normal = {x = 0, y = 1}
-                        local depth = 0
-                        
-                        -- Narrow-phase collision detection
-                        if poly1 and poly2 then
+                    -- Narrow-phase collision detection
+                    if poly1 and poly2 then
                             -- Both polygons - use SAT (expensive, so optimize)
                             -- Check SAT if: rotation changed, broad-phase hit in current frame, or occasionally
                             local rotationChanged = hasRotationChanged(poly1, poly2)
@@ -571,84 +609,84 @@ local PhysicsCollisionSystem = {
                             end
                         end
                         
-                        -- Resolve collision if detected
-                        if colliding and vel1 and vel2 and phys1 and phys2 then
-                           -- Prevent projectile from colliding with its owner (if immunity still active)
-                           local proj1 = ECS.getComponent(entity1Id, "Projectile")
-                           local proj2 = ECS.getComponent(entity2Id, "Projectile")
-                           if proj1 and proj1.ownerId == entity2Id and proj1.ownerImmunityTime > 0 then goto continue_pair end
-                           if proj2 and proj2.ownerId == entity1Id and proj2.ownerImmunityTime > 0 then goto continue_pair end
-                            -- If either entity is a projectile, apply its damage to the other
-                            local proj1 = ECS.getComponent(entity1Id, "Projectile")
-                            local proj2 = ECS.getComponent(entity2Id, "Projectile")
-                            if proj1 then
-                                local damage = proj1.damage or 10
-                                -- Apply to Shield first, then Hull
-                                local shield2 = ECS.getComponent(entity2Id, "Shield")
-                                local hull2 = ECS.getComponent(entity2Id, "Hull")
-                                if shield2 and shield2.current > 0 then
-                                    local remaining = shield2.current - damage
-                                    shield2.current = math.max(0, remaining)
-                                    damage = math.max(0, -remaining)
-                                    shield2.regenTimer = shield2.regenDelay or 0
-                                end
-                                if damage > 0 and hull2 then
-                                    hull2.current = math.max(0, hull2.current - damage)
-                                end
-                                -- Also apply to Durability if present (asteroids and hull)
-                                local durability2 = ECS.getComponent(entity2Id, "Durability")
-                                if durability2 then
-                                    durability2.current = durability2.current - damage
-                                end
-                                -- If projectile is brittle, mark it for destruction
-                                if proj1.brittle then
-                                    local pDur = ECS.getComponent(entity1Id, "Durability")
-                                    if pDur then pDur.current = 0 end
-                                end
+                    -- Resolve collision if detected
+                    if colliding and vel1 and vel2 and phys1 and phys2 then
+                        -- Prevent projectile from colliding with its owner (if immunity still active)
+                        local proj1 = ECS.getComponent(entity1Id, "Projectile")
+                        local proj2 = ECS.getComponent(entity2Id, "Projectile")
+                        if proj1 and proj1.ownerId == entity2Id and proj1.ownerImmunityTime > 0 then goto continue_nearby end
+                        if proj2 and proj2.ownerId == entity1Id and proj2.ownerImmunityTime > 0 then goto continue_nearby end
+                        
+                        -- If either entity is a projectile, apply its damage to the other
+                        if proj1 then
+                            local damage = proj1.damage or 10
+                            -- Apply to Shield first, then Hull
+                            local shield2 = ECS.getComponent(entity2Id, "Shield")
+                            local hull2 = ECS.getComponent(entity2Id, "Hull")
+                            if shield2 and shield2.current > 0 then
+                                local remaining = shield2.current - damage
+                                shield2.current = math.max(0, remaining)
+                                damage = math.max(0, -remaining)
+                                shield2.regenTimer = shield2.regenDelay or 0
                             end
-                            if proj2 then
-                                local damage = proj2.damage or 10
-                                -- Apply to Shield first, then Hull
-                                local shield1 = ECS.getComponent(entity1Id, "Shield")
-                                local hull1 = ECS.getComponent(entity1Id, "Hull")
-                                if shield1 and shield1.current > 0 then
-                                    local remaining = shield1.current - damage
-                                    shield1.current = math.max(0, remaining)
-                                    damage = math.max(0, -remaining)
-                                    shield1.regenTimer = shield1.regenDelay or 0
-                                end
-                                if damage > 0 and hull1 then
-                                    hull1.current = math.max(0, hull1.current - damage)
-                                end
-                                -- Also apply to Durability if present
-                                local durability1 = ECS.getComponent(entity1Id, "Durability")
-                                if durability1 then
-                                    durability1.current = durability1.current - damage
-                                end
-                                if proj2.brittle then
-                                    local pDur = ECS.getComponent(entity2Id, "Durability")
-                                    if pDur then pDur.current = 0 end
-                                end
+                            if damage > 0 and hull2 then
+                                hull2.current = math.max(0, hull2.current - damage)
                             end
-
-                            resolveCollision(
-                                {pos = pos1, vel = vel1, phys = phys1, angularVel = ECS.getComponent(entity1Id, "AngularVelocity"), rotMass = ECS.getComponent(entity1Id, "RotationalMass")},
-                                {pos = pos2, vel = vel2, phys = phys2, angularVel = ECS.getComponent(entity2Id, "AngularVelocity"), rotMass = ECS.getComponent(entity2Id, "RotationalMass")},
-                                normal,
-                                depth
-                            )
+                            -- Also apply to Durability if present (asteroids and hull)
+                            local durability2 = ECS.getComponent(entity2Id, "Durability")
+                            if durability2 then
+                                durability2.current = durability2.current - damage
+                            end
+                            -- If projectile is brittle, mark it for destruction
+                            if proj1.brittle then
+                                local pDur = ECS.getComponent(entity1Id, "Durability")
+                                if pDur then pDur.current = 0 end
+                            end
                         end
+                        if proj2 then
+                            local damage = proj2.damage or 10
+                            -- Apply to Shield first, then Hull
+                            local shield1 = ECS.getComponent(entity1Id, "Shield")
+                            local hull1 = ECS.getComponent(entity1Id, "Hull")
+                            if shield1 and shield1.current > 0 then
+                                local remaining = shield1.current - damage
+                                shield1.current = math.max(0, remaining)
+                                damage = math.max(0, -remaining)
+                                shield1.regenTimer = shield1.regenDelay or 0
+                            end
+                            if damage > 0 and hull1 then
+                                hull1.current = math.max(0, hull1.current - damage)
+                            end
+                            -- Also apply to Durability if present
+                            local durability1 = ECS.getComponent(entity1Id, "Durability")
+                            if durability1 then
+                                durability1.current = durability1.current - damage
+                            end
+                            if proj2.brittle then
+                                local pDur = ECS.getComponent(entity2Id, "Durability")
+                                if pDur then pDur.current = 0 end
+                            end
+                        end
+
+                        resolveCollision(
+                            {pos = pos1, vel = vel1, phys = phys1, angularVel = ECS.getComponent(entity1Id, "AngularVelocity"), rotMass = ECS.getComponent(entity1Id, "RotationalMass")},
+                            {pos = pos2, vel = vel2, phys = phys2, angularVel = ECS.getComponent(entity2Id, "AngularVelocity"), rotMass = ECS.getComponent(entity2Id, "RotationalMass")},
+                            normal,
+                            depth
+                        )
                     end
-                    ::continue_pair::
                 end
+                
+                ::continue_nearby::
             end
+            
+            ::continue_entity1::
         end
         
         -- Increment frame counter for optimization
         frameCounter = frameCounter + 1
     end,
     
-    -- Increment frame counter for optimization
     getFrameCounter = function()
         return frameCounter
     end

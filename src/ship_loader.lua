@@ -29,7 +29,6 @@ function ShipLoader.loadAllDesigns(directory)
     -- Known ship designs to load
     local knownDesigns = {
         "starter_drone",
-        "starter_hexagon",
         "red_scout",
         "standard_combat"
     }
