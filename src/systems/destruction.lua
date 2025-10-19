@@ -11,6 +11,48 @@ local DestructionSystem = {
     priority = 6
 }
 
+-- Generic function to spawn shatter bits
+function DestructionSystem.spawnBits(x, y, params)
+    local count = params.count or 8
+    local color = params.color or {0.7, 0.7, 0.8, 1}
+    local bitType = params.type or "bit"
+    local parentSize = params.parentSize or 20
+    
+    -- Calculate max total size: distribute parent size across all bits
+    -- Each bit gets a fraction of the parent size
+    local maxBitSize = parentSize / math.sqrt(count) * 0.5  -- Tiny fractions
+    local minBitSize = maxBitSize * 0.3
+    
+    for i = 1, count do
+        local angle = math.random() * 2 * math.pi
+        local speed = math.random(40, 120)
+        local vx = math.cos(angle) * speed
+        local vy = math.sin(angle) * speed
+        local bitSize = minBitSize + math.random() * (maxBitSize - minBitSize)
+        
+        -- Create a simple square polygon
+        local halfSize = bitSize / 2
+        local vertices = {
+            {x = -halfSize, y = -halfSize},
+            {x = halfSize, y = -halfSize},
+            {x = halfSize, y = halfSize},
+            {x = -halfSize, y = halfSize}
+        }
+        
+        local bitId = ECS.createEntity()
+        ECS.addComponent(bitId, "Position", Components.Position(x, y))
+        ECS.addComponent(bitId, "Velocity", Components.Velocity(vx, vy))
+        ECS.addComponent(bitId, "Physics", Components.Physics(0.98, bitSize*0.3))
+        ECS.addComponent(bitId, "PolygonShape", Components.PolygonShape(vertices, math.random()*2*math.pi))
+        ECS.addComponent(bitId, "AngularVelocity", Components.AngularVelocity(math.random(-3,3)))
+        ECS.addComponent(bitId, "RotationalMass", Components.RotationalMass(bitSize*bitSize*0.1))
+        ECS.addComponent(bitId, "Collidable", Components.Collidable(bitSize))
+        ECS.addComponent(bitId, "Durability", Components.Durability(bitSize, bitSize))
+        ECS.addComponent(bitId, "Renderable", Components.Renderable("polygon", nil, nil, nil, color))
+        ECS.addComponent(bitId, "ShatterBit", {type = bitType})
+    end
+end
+
 function DestructionSystem.update(dt)
     -- Entities to check: any with Durability or Hull
     local entities = ECS.getEntitiesWith({"Durability"})
@@ -52,6 +94,28 @@ function DestructionSystem.update(dt)
             -- Call DebrisSystem to create debris particles
             if pos then
                 DebrisSystem.createDebris(pos.x, pos.y, nil, color)
+                -- Generic shatter: spawn bits if entity requests it
+                if durability and durability.spawnBits then
+                    DestructionSystem.spawnBits(pos.x, pos.y, durability.spawnBits)
+                end
+                -- Asteroid: default to stone bits if not specified
+                local asteroid = ECS.getComponent(entityId, "Asteroid")
+                if asteroid and (not durability or not durability.spawnBits) then
+                    local collidable = ECS.getComponent(entityId, "Collidable")
+                    local parentSize = collidable and collidable.radius or 20
+                    DestructionSystem.spawnBits(pos.x, pos.y, {
+                        count = math.random(8, 15),
+                        parentSize = parentSize,
+                        color = color,  -- Use the actual asteroid color
+                        type = "stone"
+                    })
+                end
+            end
+            
+            -- Check for shatter effect component (for projectiles that break into pieces)
+            local shatterEffect = ECS.getComponent(entityId, "ShatterEffect")
+            if shatterEffect and pos then
+                DebrisSystem.createDebris(pos.x, pos.y, shatterEffect.numPieces, shatterEffect.color)
             end
 
             -- Determine what type of entity this is for loot drops

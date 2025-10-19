@@ -104,6 +104,14 @@ function InputSystem.update(dt)
         local playerPos = ECS.getComponent(turretOwner, "Position")
         local turret = ECS.getComponent(turretOwner, "Turret")
         
+        -- Check if turret has a valid module installed
+        if not turret or not turret.moduleName or turret.moduleName == "" or turret.moduleName == "default" then
+            -- No module installed, don't fire
+            return
+        end
+        
+        if not playerPos then return end
+        
         if love.mouse.isDown(1) then -- Left mouse button held
             local mouseX, mouseY = love.mouse.getPosition()
             

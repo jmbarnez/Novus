@@ -474,8 +474,13 @@ function CargoWindow:mousepressed(x, y, button)
             if input and input.targetEntity then
                 local droneId = input.targetEntity
                 local turretSlots = ECS.getComponent(droneId, "TurretSlots")
+                local playerTurret = ECS.getComponent(droneId, "Turret")
                 if turretSlots then
                     turretSlots.slots[1] = nil
+                end
+                -- Clear the turret module name so it can't fire
+                if playerTurret then
+                    playerTurret.moduleName = ""
                 end
             end
         end
@@ -491,11 +496,16 @@ function CargoWindow:mousepressed(x, y, button)
                 local droneId = input.targetEntity
                 local turretSlots = ECS.getComponent(droneId, "TurretSlots")
                 local playerCargo = ECS.getComponent(pilotId, "Cargo")
+                local playerTurret = ECS.getComponent(droneId, "Turret")
                 if turretSlots and playerCargo then
                     local moduleId = turretSlots.slots[1]
                     if moduleId then
                         -- Remove from slot
                         turretSlots.slots[1] = nil
+                        -- Clear the turret module name so it can't fire
+                        if playerTurret then
+                            playerTurret.moduleName = ""
+                        end
                         -- Add to inventory
                         playerCargo.items[moduleId] = (playerCargo.items[moduleId] or 0) + 1
                     end

@@ -1,8 +1,9 @@
 -- Basic Cannon Turret Module
--- Fires a yellow ball projectile
+-- Fires a yellow ball projectile that shatters on impact
 
 local ECS = require('src.ecs')
 local Components = require('src.components')
+local DebrisSystem = require('src.systems.debris')
 
 local BasicCannon = {
     name = "basic_cannon",
@@ -39,6 +40,12 @@ function BasicCannon.fire(ownerId, startX, startY, endX, endY)
     ECS.addComponent(ballId, "Durability", Components.Durability(1, 1)) -- Destroy on impact
     -- Mark projectile as brittle so collision handling can treat it specially
     ECS.addComponent(ballId, "Projectile", {ownerId = ownerId, damage = 10, brittle = true, isMiningLaser = false})
+    
+    -- Add shatter effect component to spawn debris particles on destruction
+    ECS.addComponent(ballId, "ShatterEffect", {
+        numPieces = 8,
+        color = BasicCannon.BALL_COLOR
+    })
     
     print(string.format("[Cannon] Created projectile %d | vel: (%.2f, %.2f) | pos: (%.2f, %.2f)", ballId, dirX * BasicCannon.BALL_SPEED, dirY * BasicCannon.BALL_SPEED, spawnX, spawnY))
 end

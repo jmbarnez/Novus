@@ -30,6 +30,7 @@ function TurretSystem.fireTurret(entityId, targetX, targetY)
 
     -- Do nothing if no module is fitted
     if not turret.moduleName or turret.moduleName == "" or turret.moduleName == "default" then
+        print("[TurretSystem] Turret fire blocked: no module installed")
         return
     end
 
@@ -37,8 +38,11 @@ function TurretSystem.fireTurret(entityId, targetX, targetY)
     if currentTime - turret.lastFireTime >= turret.cooldown then
         local module = TurretSystem.turretModules[turret.moduleName]
         if module and module.fire then
+            print("[TurretSystem] Firing turret module: " .. turret.moduleName)
             module.fire(entityId, position.x, position.y, targetX, targetY)
             turret.lastFireTime = currentTime
+        else
+            print("[TurretSystem] Module not found or has no fire method: " .. (turret.moduleName or "nil"))
         end
     end
 end

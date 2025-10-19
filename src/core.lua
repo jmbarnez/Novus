@@ -92,6 +92,27 @@ function Core.init()
         pilotCargo.items[salvageLaserId] = 1
         pilotCargo.items["basic_shield_module"] = 1  -- Add starting defensive module
     end
+    
+    -- Equip default turret on the drone (Basic Cannon!)
+    local droneId = ECS.getEntitiesWith({"ControlledBy"})[1]
+    if droneId then
+        local droneTurret = ECS.getComponent(droneId, "Turret")
+        local turretSlots = ECS.getComponent(droneId, "TurretSlots")
+        if turretSlots and turretSlots.slots[1] then
+            -- If slot is filled, equip the module
+            if droneTurret then
+                droneTurret.moduleName = "basic_cannon"
+            end
+            turretSlots.slots[1] = basicCannonId
+            print("[Core] Equipped default turret: Basic Cannon")
+        else
+            -- If slot is empty, make sure moduleName is empty too
+            if droneTurret then
+                droneTurret.moduleName = ""
+            end
+            print("[Core] No turret module equipped at start")
+        end
+    end
 
     -- Load sound assets
     if Systems.SoundSystem and Systems.SoundSystem.loadAll then
