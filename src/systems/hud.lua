@@ -5,11 +5,13 @@ local ECS = require('src.ecs')
 local Constants = require('src.constants')
 local Theme = require('src.ui.theme')
 local Scaling = require('src.scaling')
+local Tooltips = require('src.ui.tooltips')
 
 local HUDSystem = {
     name = "HUDSystem",
     -- HUD should be drawn inside the canvas (screen-space overlay)
-    visible = true -- HUD is visible by default, force true on load
+    visible = true, -- HUD is visible by default, force true on load
+    hoveredTurretSlot = nil -- Track which turret slot is being hovered
 }
 
 local function drawSpeedText(viewportWidth, viewportHeight)
@@ -77,6 +79,82 @@ local function drawHullShieldBar(viewportWidth, viewportHeight)
     )
 end
 
+local function drawTurretSlots(viewportWidth, viewportHeight)
+    local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+    if #playerEntities == 0 then return end
+    local pilotId = playerEntities[1]
+    local input = ECS.getComponent(pilotId, "InputControlled")
+    if not input or not input.targetEntity then return end
+    
+    local droneId = input.targetEntity
+    local turretSlots = ECS.getComponent(droneId, "TurretSlots")
+    if not turretSlots then return end
+    
+    -- Position slots below the hull bar
+    local slotSize = Scaling.scaleSize(48)
+    local slotSpacing = Scaling.scaleSize(8)
+    local startX = Scaling.scaleX(20)
+    local startY = Scaling.scaleY(20) + Scaling.scaleSize(Constants.ui_health_bar_height) + Scaling.scaleY(12)
+    
+    local ItemDefs = require('src.items.item_loader')
+    local mx, my = Scaling.toUI(love.mouse.getPosition())
+    
+    -- Reset hover tracking
+    HUDSystem.hoveredTurretSlot = nil
+    
+    -- Draw up to 3 slots
+    for slotIndex = 1, 3 do
+        local slotX = startX + (slotIndex - 1) * (slotSize + slotSpacing)
+        local slotY = startY
+        
+        -- Check if hovering
+        local isHovering = mx >= slotX and mx <= slotX + slotSize and my >= slotY and my <= slotY + slotSize
+        
+        -- Draw slot background
+        local bgColor = isHovering and {0.15, 0.15, 0.2, 0.95} or {0.1, 0.1, 0.15, 0.9}
+        love.graphics.setColor(bgColor[1], bgColor[2], bgColor[3], bgColor[4])
+        love.graphics.rectangle("fill", slotX, slotY, slotSize, slotSize, 4, 4)
+        
+        -- Draw slot border
+        local borderColor = {0.4, 0.4, 0.5, 0.8}
+        if turretSlots.slots[slotIndex] then
+            borderColor = {0.2, 0.8, 1.0, 1.0} -- Cyan for equipped
+        end
+        love.graphics.setColor(borderColor[1], borderColor[2], borderColor[3], borderColor[4])
+        love.graphics.setLineWidth(2)
+        love.graphics.rectangle("line", slotX, slotY, slotSize, slotSize, 4, 4)
+        love.graphics.setLineWidth(1)
+        
+        -- Draw equipped module icon or placeholder
+        if turretSlots.slots[slotIndex] then
+            local itemId = turretSlots.slots[slotIndex]
+            local itemDef = ItemDefs[itemId]
+            
+            if isHovering then
+                HUDSystem.hoveredTurretSlot = {
+                    itemId = itemId,
+                    itemDef = itemDef,
+                    mouseX = mx,
+                    mouseY = my
+                }
+            end
+            
+            if itemDef and itemDef.draw then
+                love.graphics.setColor(1, 1, 1, 1)
+                itemDef:draw(slotX + slotSize / 2, slotY + slotSize / 2)
+            else
+                -- Fallback: draw a circle
+                love.graphics.setColor(0.5, 0.5, 0.8, 1)
+                love.graphics.circle("fill", slotX + slotSize / 2, slotY + slotSize / 2, slotSize / 3)
+            end
+        else
+            -- Empty slot - draw placeholder
+            love.graphics.setColor(0.3, 0.3, 0.35, 0.5)
+            love.graphics.circle("line", slotX + slotSize / 2, slotY + slotSize / 2, slotSize / 4)
+        end
+    end
+end
+
 
 local Minimap = require('src.systems.minimap')
 
@@ -92,6 +170,7 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     viewportWidth = viewportWidth or (love.graphics and love.graphics.getWidth and love.graphics.getWidth()) or 1920
     viewportHeight = viewportHeight or (love.graphics and love.graphics.getHeight and love.graphics.getHeight()) or 1080
     drawHullShieldBar(viewportWidth, viewportHeight)
+    drawTurretSlots(viewportWidth, viewportHeight)
     -- Draw minimap as part of HUD
     if Minimap and Minimap.draw then
         Minimap.draw()
@@ -103,6 +182,17 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     local SkillNotifications = require('src.ui.skill_notifications')
     Notifications.draw(0, 0, 1)
     SkillNotifications.draw()
+    
+    -- Draw turret slot tooltip if hovering
+    if HUDSystem.hoveredTurretSlot and HUDSystem.hoveredTurretSlot.itemDef then
+        Tooltips.drawItemTooltip(
+            HUDSystem.hoveredTurretSlot.itemId,
+            HUDSystem.hoveredTurretSlot.itemDef,
+            1,
+            HUDSystem.hoveredTurretSlot.mouseX,
+            HUDSystem.hoveredTurretSlot.mouseY
+        )
+    end
 end
 
 return HUDSystem
