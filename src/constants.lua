@@ -7,7 +7,7 @@ Constants.screen_width = 1920
 Constants.screen_height = 1080
 
 -- Player physics
-Constants.player_friction = 0.9999
+Constants.player_friction = 0.9995
 Constants.player_max_speed = 300
 
 -- Trail settings

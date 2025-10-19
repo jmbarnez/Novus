@@ -47,21 +47,37 @@ local TrailSystem = {
             local emitter = ECS.getComponent(entityId, "TrailEmitter")
             local renderable = ECS.getComponent(entityId, "Renderable")
 
+            if not (position and velocity and emitter and renderable) then goto continue_emitter end
+            if not emitter.emitRate or not emitter.particleLife or not emitter.maxParticles or not emitter.spreadAngle or not emitter.speedMultiplier then goto continue_emitter end
+            if not renderable.radius then goto continue_emitter end
+
             -- Calculate ship speed
-            local speed = math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy)
+            local speed = math.sqrt((velocity.vx or 0)^2 + (velocity.vy or 0)^2)
+            local speedFactor = math.min(speed / 300, 1) -- 0 to 1, assuming 300 is max speed
+
+            -- Scale emission rate and particle life with speed
+            local minEmitRate = emitter.emitRate * 0.5
+            local maxEmitRate = emitter.emitRate * 2.0
+            local scaledEmitRate = minEmitRate + (maxEmitRate - minEmitRate) * speedFactor
+            local minLife = emitter.particleLife * 0.5
+            local maxLife = emitter.particleLife * 1.5
+            local scaledLife = minLife + (maxLife - minLife) * speedFactor
+            local minAlpha = 0.3
+            local maxAlpha = 0.9
+            local scaledAlpha = minAlpha + (maxAlpha - minAlpha) * speedFactor
 
             -- Only emit if moving (minimum speed threshold)
             if speed > 10 then
-                emitter.lastEmit = emitter.lastEmit + dt
+                emitter.lastEmit = (emitter.lastEmit or 0) + dt
 
                 -- Check if we should emit a particle
-                if emitter.lastEmit >= (1.0 / emitter.emitRate) then
+                if emitter.lastEmit >= (1.0 / scaledEmitRate) then
                     emitter.lastEmit = 0
 
                     -- Use efficient particle count
                     if particleCount < emitter.maxParticles then
                         -- Calculate emission position (behind the ship)
-                        local angle = math.atan2(velocity.vy, velocity.vx)
+                        local angle = math.atan(velocity.vy, velocity.vx)
                         local offsetDistance = renderable.radius + 2 -- Distance behind ship
                         local emitX = position.x - math.cos(angle) * offsetDistance
                         local emitY = position.y - math.sin(angle) * offsetDistance
@@ -81,17 +97,17 @@ local TrailSystem = {
                             Components.TrailParticle(
                                 emitX, emitY, -- position
                                 particleVx, particleVy, -- velocity
-                                emitter.particleLife, -- lifetime
+                                scaledLife, -- lifetime
                                 Constants.trail_particle_size_min + math.random() * (Constants.trail_particle_size_max - Constants.trail_particle_size_min), -- size (0.5-1.0)
-                                {0.3, 0.7, 1.0, 0.9} -- blue-white color
+                                {0.3, 0.7, 1.0, scaledAlpha} -- blue-white color, alpha scales with speed
                             )
                         )
-                        
                         -- Increment particle count
                         particleCount = particleCount + 1
                     end
                 end
             end
+            ::continue_emitter::
         end
     end
 }

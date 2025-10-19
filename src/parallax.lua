@@ -24,7 +24,7 @@ function Parallax.new(layers, worldSize)
                 x = love.math.random(0, starXMax),
                 y = love.math.random(0, starYMax),
                 size = love.math.random(1, 2), -- Tiny specks
-                brightness = love.math.random(layer.brightness * 0.7, layer.brightness)
+                brightness = love.math.random(layer.brightness * 0.7, layer.brightness * 0.85)
             })
         end
     end

@@ -138,9 +138,9 @@ function Core.init()
     local starFieldId = ECS.createEntity()
     local starLayers = {
         {count = 80, brightness = 0.9, parallaxFactor = 0},      -- Static twinkling stars
-        {count = 800, brightness = 0.9, parallaxFactor = 0.01},  -- Very far distant stars
-        {count = 600, brightness = 1.0, parallaxFactor = 0.03},  -- Far distant stars
-        {count = 400, brightness = 1.0, parallaxFactor = 0.08}   -- Medium distant stars
+        {count = 800, brightness = 0.7, parallaxFactor = 0.01},  -- Very far distant stars
+        {count = 600, brightness = 0.5, parallaxFactor = 0.03},  -- Far distant stars
+        {count = 400, brightness = 0.35, parallaxFactor = 0.08}  -- Medium distant stars
     }
     local parallaxObject = Parallax.new(starLayers, 10000)
     ECS.addComponent(starFieldId, "StarField", parallaxObject)
