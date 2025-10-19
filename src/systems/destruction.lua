@@ -3,6 +3,7 @@
 local ECS = require('src.ecs')
 local Components = require('src.components')
 local DebrisSystem = require('src.systems.debris') -- Import DebrisSystem
+local WrackageSystem = require('src.systems.wreckage') -- Import WrackageSystem
 local ItemDefs = require('src.items.item_loader')
 
 local DestructionSystem = {
@@ -41,10 +42,18 @@ function DestructionSystem.update(dt)
                 DebrisSystem.createDebris(pos.x, pos.y, nil, color)
             end
 
-            -- Spawn items if this is an asteroid
+            -- Determine what type of entity this is for loot drops
             local asteroid = ECS.getComponent(entityId, "Asteroid")
+            local hull = ECS.getComponent(entityId, "Hull")
+            local aiController = ECS.getComponent(entityId, "AIController")
+
+            -- Spawn loot appropriate to entity type
             if asteroid and pos then
-                DestructionSystem.spawnItemDrops(pos.x, pos.y)
+                DestructionSystem.spawnItemDrops(pos.x, pos.y, "asteroid")
+            elseif (hull or aiController) and pos then
+                DestructionSystem.spawnItemDrops(pos.x, pos.y, "ship")
+                -- Spawn wreckage for destroyed ships
+                WrackageSystem.spawnWrackage(pos.x, pos.y, "destroyed_ship")
             end
 
             ECS.destroyEntity(entityId)
@@ -52,11 +61,26 @@ function DestructionSystem.update(dt)
     end
 end
 
--- Spawn item drops around the asteroid destruction point
-function DestructionSystem.spawnItemDrops(x, y)
-    local itemTypes = {"stone", "iron"}
-    local dropCount = math.random(2, 4) -- Spawn 2-4 items
-    -- ...existing code...
+-- Spawn item drops around the destruction point
+function DestructionSystem.spawnItemDrops(x, y, entityType)
+    entityType = entityType or "asteroid"
+    
+    local itemTypes
+    local dropCountMin, dropCountMax
+    
+    if entityType == "asteroid" then
+        itemTypes = {"stone", "iron"}
+        dropCountMin, dropCountMax = 2, 4
+    elseif entityType == "ship" then
+        -- Ships always drop 1-2 scrap
+        itemTypes = {"scrap"}
+        dropCountMin, dropCountMax = 1, 2
+    else
+        itemTypes = {"stone", "iron"}
+        dropCountMin, dropCountMax = 2, 4
+    end
+    
+    local dropCount = math.random(dropCountMin, dropCountMax)
     
     -- Group items by type for stacking
     local itemsByType = {}
@@ -69,14 +93,14 @@ function DestructionSystem.spawnItemDrops(x, y)
     for itemType, quantity in pairs(itemsByType) do
         local itemDef = ItemDefs[itemType]
         if itemDef then
-            -- Spawn item in random direction around asteroid
+            -- Spawn item in random direction around destruction point
             local angle = math.random() * math.pi * 2  -- Random angle 0-2π
-            local distance = math.random(70, 120)  -- Distance from asteroid center (further to avoid overlap)
+            local distance = math.random(70, 120)  -- Distance from center (further to avoid overlap)
             
             local itemX = x + math.cos(angle) * distance
             local itemY = y + math.sin(angle) * distance
             
-            -- Random velocity away from asteroid
+            -- Random velocity away from destruction point
             local speed = math.random(30, 80)
             local vx = math.cos(angle) * speed
             local vy = math.sin(angle) * speed
@@ -89,7 +113,6 @@ function DestructionSystem.spawnItemDrops(x, y)
             ECS.addComponent(itemId, "Item", {id = itemType, def = itemDef})
             ECS.addComponent(itemId, "Stack", Components.Stack(quantity))  -- Add stack with quantity
             ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
-            -- (REMOVED) No collider for dropped items!
         end
     end
 end

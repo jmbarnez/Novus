@@ -617,6 +617,9 @@ local PhysicsCollisionSystem = {
                         if proj1 and proj1.ownerId == entity2Id and proj1.ownerImmunityTime > 0 then goto continue_nearby end
                         if proj2 and proj2.ownerId == entity1Id and proj2.ownerImmunityTime > 0 then goto continue_nearby end
                         
+                        -- Skip projectile-to-projectile collisions entirely
+                        if proj1 and proj2 then goto continue_nearby end
+                        
                         -- If either entity is a projectile, apply its damage to the other
                         if proj1 then
                             local damage = proj1.damage or 10

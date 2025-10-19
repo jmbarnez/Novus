@@ -283,9 +283,9 @@ function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
         local iconX = gridLeftX + padding + col * (iconSize + padding)
         local iconY = gridTop + row * (iconSize + padding)
         love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-    -- Convert icon position to UI space for hit testing
-    local uiIconX, uiIconY = iconX, iconY
-    local uiIconSize = iconSize
+        
+        local uiIconX, uiIconY = iconX, iconY
+        local uiIconSize = iconSize
         
         local isHovering = mx >= uiIconX and mx <= uiIconX + uiIconSize and my >= uiIconY and my <= uiIconY + uiIconSize
         
@@ -299,6 +299,27 @@ function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
             love.graphics.setColor(color[1] * 1.5, color[2] * 1.5, color[3] * 1.5, 0.3 * alpha)
             love.graphics.rectangle("fill", iconX, iconY, iconSize, iconSize, 4, 4)
         end
+        
+        -- Draw item using its draw method
+        if itemDef and itemDef.draw then
+            itemDef:draw(iconX + iconSize / 2, iconY + iconSize / 2)
+        else
+            -- Fallback to circle if no draw method
+            local color = itemDef and itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}
+            love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha)
+            love.graphics.circle("fill", iconX + iconSize / 2, iconY + iconSize / 2, iconSize / 2)
+        end
+        
+        if count > 1 then
+            love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+            love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+            love.graphics.printf(tostring(count), iconX, iconY + iconSize - 8, iconSize, "center")
+        end
+        
+        i = i + 1
+    end
+end
+
 -- Drag and drop logic for cargo items
 function CargoWindow:mousepressed(x, y, button)
     if not self.isOpen or not self.position then return end
@@ -392,6 +413,13 @@ function CargoWindow:mousereleased(x, y, button)
                         local playerCargo = ECS.getComponent(pilotId, "Cargo")
                         local playerTurret = ECS.getComponent(droneId, "Turret")
                         if playerTurretSlots and playerCargo and playerTurret then
+                            -- If there's an old module in the slot, swap it back to inventory
+                            local oldModuleId = playerTurretSlots.slots[1]
+                            if oldModuleId then
+                                playerCargo.items[oldModuleId] = (playerCargo.items[oldModuleId] or 0) + 1
+                            end
+                            
+                            -- Equip the new module
                             playerTurretSlots.slots[1] = self.draggedItem.itemId
                             local turretModuleMap = {
                                 mining_laser_turret = "mining_laser",
@@ -399,6 +427,8 @@ function CargoWindow:mousereleased(x, y, button)
                                 combat_laser_turret = "combat_laser"
                             }
                             playerTurret.moduleName = turretModuleMap[self.draggedItem.itemId] or self.draggedItem.itemId
+                            
+                            -- Remove the new module from inventory
                             if playerCargo.items[self.draggedItem.itemId] then
                                 playerCargo.items[self.draggedItem.itemId] = playerCargo.items[self.draggedItem.itemId] - 1
                                 if playerCargo.items[self.draggedItem.itemId] <= 0 then
@@ -449,28 +479,5 @@ end
 function CargoWindow:mousemoved(x, y, dx, dy)
     WindowBase.mousemoved(self, x, y, dx, dy)
 end
-        
-        -- Draw item using its draw method
-        if itemDef and itemDef.draw then
-            itemDef:draw(iconX + iconSize / 2, iconY + iconSize / 2)
-        else
-            -- Fallback to circle if no draw method
-            local color = itemDef and itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}
-            love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha)
-            love.graphics.circle("fill", iconX + iconSize / 2, iconY + iconSize / 2, iconSize / 2)
-        end
-        
-        if count > 1 then
-            love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-            love.graphics.setFont(Scaling.scaleSize(Theme.getFont(Theme.fonts.small)))
-            love.graphics.printf(tostring(count), iconX, iconY + iconSize - 8, iconSize, "center")
-            love.graphics.setFont(Scaling.scaleSize(Theme.getFont(Theme.fonts.title)))
-        end
-        
-        i = i + 1
-    end
-end
-
--- Handle mouse events (delegate to base, handle cargo-specific actions)
 
 return CargoWindow

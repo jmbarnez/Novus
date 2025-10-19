@@ -22,5 +22,6 @@ Systems.DebrisSystem = require('src.systems.debris')
 Systems.TurretSystem = require('src.systems.turret')
 Systems.ProjectileSystem = require('src.systems.projectile')
 Systems.SoundSystem = require('src.systems.sound')
+Systems.WrackageSystem = require('src.systems.wreckage')
 
 return Systems

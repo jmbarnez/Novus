@@ -231,6 +231,7 @@ local RenderSystem = {
                             drawTurret(position.x, position.y, renderable.color, playerRotation)
                         else
                             drawPolygon(position.x, position.y, polygonShape, renderable.color)
+                            
                             -- Draw small health bar for polygon enemies (non-player)
                             if ECS.hasComponent(entityId, "Hull") and not (ECS.hasComponent(entityId, "ControlledBy") and ECS.hasComponent(ECS.getComponent(entityId, "ControlledBy").pilotId, "Player")) then
                                 local hull = ECS.getComponent(entityId, "Hull")

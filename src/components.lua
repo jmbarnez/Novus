@@ -286,6 +286,14 @@ Components.Asteroid = function()
     return {}
 end
 
+-- Wreckage component - Marks entity as salvageable wreckage from destroyed ships
+-- @field sourceShip string: Type or name of the source ship
+Components.Wreckage = function(sourceShip)
+    return {
+        sourceShip = sourceShip or "unknown"
+    }
+end
+
 -- Collidable component - Marks entity for collision detection
 -- @field radius number: Bounding circle radius for broad-phase collision
 Components.Collidable = function(radius)

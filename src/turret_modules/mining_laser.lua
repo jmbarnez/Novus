@@ -43,8 +43,9 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt)
     local closestDistSq = math.huge
     local hitAsteroidId = nil
 
-    local asteroidEntities = ECS.getEntitiesWith({"Asteroid", "Collidable", "Position", "PolygonShape", "Durability"})
-    for _, asteroidId in ipairs(asteroidEntities) do
+    -- Check for asteroid hits
+    local asteroidHitEntities = ECS.getEntitiesWith({"Asteroid", "Collidable", "Position", "PolygonShape", "Durability"})
+    for _, asteroidId in ipairs(asteroidHitEntities) do
         local intersection = CollisionSystem.linePolygonIntersect(startX, startY, endX, endY, asteroidId)
         if intersection then
             local distSq = (intersection.x - startX)^2 + (intersection.y - startY)^2
@@ -57,7 +58,7 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt)
     end
 
     if closestIntersection and hitAsteroidId then
-        -- Apply per-frame DPS
+        -- Apply per-frame DPS to asteroid
         local durability = ECS.getComponent(hitAsteroidId, "Durability")
         if durability then
             local damageApplied = math.min(MiningLaser.LASER_DPS * dt, durability.current)

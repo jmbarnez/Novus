@@ -33,6 +33,9 @@ function linePolygonIntersect(x1, y1, x2, y2, entityId)
     end
 
     local transformedVertices = getTransformedVertices(pos, vertices, rotation)
+    
+    local closestIntersection = nil
+    local closestDistSq = math.huge
 
     for i = 1, #transformedVertices do
         local p1 = transformedVertices[i]
@@ -48,12 +51,18 @@ function linePolygonIntersect(x1, y1, x2, y2, entityId)
                 -- Calculate the intersection point
                 local intersectionX = x1 + t * (x2 - x1)
                 local intersectionY = y1 + t * (y2 - y1)
-                return {x = intersectionX, y = intersectionY}
+                
+                -- Find the closest intersection to the laser origin (x1, y1)
+                local distSq = (intersectionX - x1)^2 + (intersectionY - y1)^2
+                if distSq < closestDistSq then
+                    closestDistSq = distSq
+                    closestIntersection = {x = intersectionX, y = intersectionY}
+                end
             end
         end
     end
 
-    return nil
+    return closestIntersection
 end
 local function checkBoundingCircles(pos1, coll1, pos2, coll2)
     local dx = pos2.x - pos1.x
