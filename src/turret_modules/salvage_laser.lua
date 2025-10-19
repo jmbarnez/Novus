@@ -28,7 +28,8 @@ function SalvageLaser.fire(ownerId, startX, startY, endX, endY)
     SalvageLaser.laserEntity = ECS.createEntity()
     ECS.addComponent(SalvageLaser.laserEntity, "LaserBeam", {
         start = {x = startX, y = startY},
-        endPos = {x = endX, y = endY}
+        endPos = {x = endX, y = endY},
+        color = {0, 1, 0, 1}  -- Green
     })
     -- Mark this entity as a salvage laser projectile for wreckage harvesting
     ECS.addComponent(SalvageLaser.laserEntity, "Projectile", {ownerId = ownerId, damage = SalvageLaser.LASER_DPS, brittle = false, isSalvageLaser = true})

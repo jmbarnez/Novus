@@ -424,7 +424,8 @@ function CargoWindow:mousereleased(x, y, button)
                             local turretModuleMap = {
                                 mining_laser_turret = "mining_laser",
                                 basic_cannon_turret = "basic_cannon",
-                                combat_laser_turret = "combat_laser"
+                                combat_laser_turret = "combat_laser",
+                                salvage_laser_turret = "salvage_laser"
                             }
                             playerTurret.moduleName = turretModuleMap[self.draggedItem.itemId] or self.draggedItem.itemId
                             

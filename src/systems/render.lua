@@ -75,7 +75,9 @@ local function drawLaser()
         local laser = ECS.getComponent(entityId, "LaserBeam")
         if laser then
             -- ...existing code...
-            love.graphics.setColor(1, 0, 0, 1) -- Red
+            -- Use laser color if available, default to yellow for mining laser
+            local color = laser.color or {1, 1, 0, 1}
+            love.graphics.setColor(color[1], color[2], color[3], color[4])
             love.graphics.setLineWidth(2)
             love.graphics.line(laser.start.x, laser.start.y, laser.endPos.x, laser.endPos.y)
             love.graphics.setLineWidth(1)

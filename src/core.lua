@@ -62,6 +62,7 @@ function Core.init()
     local miningLaserId = "mining_laser_turret"
     local basicCannonId = "basic_cannon_turret"
     local combatLaserId = "combat_laser_turret"
+    local salvageLaserId = "salvage_laser_turret"
     
     -- Load turret modules (including basic cannon)
     Systems.TurretSystem.loadTurretModules("src/turret_modules")
@@ -85,6 +86,7 @@ function Core.init()
         pilotCargo.items[miningLaserId] = 1
         pilotCargo.items[basicCannonId] = 1
         pilotCargo.items[combatLaserId] = 1
+        pilotCargo.items[salvageLaserId] = 1
     end
 
     -- Load sound assets
