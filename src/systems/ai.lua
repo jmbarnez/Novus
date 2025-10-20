@@ -11,6 +11,8 @@ local AI = {
     priority = 9,
 }
 
+local STEERING = 8.0 -- Steering responsiveness for AI (how quickly they reach desired velocity)
+
 -- Simple helper for distance squared
 local function distSq(x1, y1, x2, y2)
     local dx = x2 - x1
@@ -113,9 +115,14 @@ function AI.update(dt)
                 if dist < 10 then
                     ai.currentPoint = ai.currentPoint % #ai.patrolPoints + 1
                 else
-                    -- Normalize and set velocity toward point (simple behavior)
-                    vel.vx = (dx / dist) * ai.speed
-                    vel.vy = (dy / dist) * ai.speed
+                        -- Normalize and set desired velocity toward point (simple behavior)
+                        local desiredVx = (dx / dist) * ai.speed
+                        local desiredVy = (dy / dist) * ai.speed
+                        local acc = ECS.getComponent(eid, "Acceleration")
+                        if acc then
+                            acc.ax = (desiredVx - vel.vx) * STEERING
+                            acc.ay = (desiredVy - vel.vy) * STEERING
+                        end
                 end
             else
                 -- NO VALID PATROL POINTS: gentle wandering near spawn
@@ -148,8 +155,13 @@ function AI.update(dt)
             
             -- Always move toward player when in chase state
             if dist > 0 then
-                vel.vx = (dx / dist) * ai.speed
-                vel.vy = (dy / dist) * ai.speed
+                    local desiredVx = (dx / dist) * ai.speed
+                    local desiredVy = (dy / dist) * ai.speed
+                    local acc = ECS.getComponent(eid, "Acceleration")
+                    if acc then
+                        acc.ax = (desiredVx - vel.vx) * STEERING
+                        acc.ay = (desiredVy - vel.vy) * STEERING
+                    end
             end
             
             -- Aim and fire turret at player if within firing range
@@ -191,12 +203,22 @@ function AI.update(dt)
                 
                 if distanceError > 0 then
                     -- Too far - move closer
-                    vel.vx = orbitX - correctionX
-                    vel.vy = orbitY - correctionY
+                        local desiredVx = orbitX - correctionX
+                        local desiredVy = orbitY - correctionY
+                        local acc = ECS.getComponent(eid, "Acceleration")
+                        if acc then
+                            acc.ax = (desiredVx - vel.vx) * STEERING
+                            acc.ay = (desiredVy - vel.vy) * STEERING
+                        end
                 else
                     -- Too close - move away
-                    vel.vx = orbitX + correctionX
-                    vel.vy = orbitY + correctionY
+                        local desiredVx = orbitX + correctionX
+                        local desiredVy = orbitY + correctionY
+                        local acc = ECS.getComponent(eid, "Acceleration")
+                        if acc then
+                            acc.ax = (desiredVx - vel.vx) * STEERING
+                            acc.ay = (desiredVy - vel.vy) * STEERING
+                        end
                 end
                 
                 -- Fire turret at player while orbiting

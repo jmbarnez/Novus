@@ -71,7 +71,7 @@ function CombatLaser.fire(ownerId, startX, startY, endX, endY)
     ECS.addComponent(CombatLaser.laserEntity, "LaserBeam", {
         start = {x = offsetStartX, y = offsetStartY},
         endPos = {x = endX, y = endY},
-        color = CombatLaser.design.beamColor,
+        color = {0, 0.8, 1, 1},  -- Blue laser color
     })
     -- Mark this entity as a combat laser projectile for ship damage
     ECS.addComponent(CombatLaser.laserEntity, "Projectile", {ownerId = ownerId, damage = CombatLaser.DPS, brittle = false, isCombatLaser = true})
@@ -86,10 +86,20 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt)
     local closestDistSq = math.huge
     local hitShipId = nil
 
-    -- Check for ship hull hits
-    local shipEntities = ECS.getEntitiesWith({"Hull", "Collidable", "Position", "PolygonShape"})
+    -- Check for ship hull hits - look for all entities with Hull component
+    local shipEntities = ECS.getEntitiesWith({"Hull", "Position"})
     for _, shipId in ipairs(shipEntities) do
-        local intersection = CollisionSystem.linePolygonIntersect(startX, startY, endX, endY, shipId)
+        -- Skip hitting ourselves
+        if shipId == ownerId then goto skip_ship end
+        
+        local polygonShape = ECS.getComponent(shipId, "PolygonShape")
+        local intersection = nil
+        
+        if polygonShape then
+            -- Use polygon collision for ships with polygon shapes
+            intersection = CollisionSystem.linePolygonIntersect(startX, startY, endX, endY, shipId)
+        end
+        
         if intersection then
             local distSq = (intersection.x - startX)^2 + (intersection.y - startY)^2
             if distSq < closestDistSq then
@@ -98,6 +108,8 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt)
                 hitShipId = shipId
             end
         end
+        
+        ::skip_ship::
     end
 
     if closestIntersection and hitShipId then

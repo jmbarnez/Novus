@@ -51,7 +51,8 @@ local Theme = {
         padding = 6,           -- Standard padding inside elements
         margin = 8,            -- Standard margin between elements
         windowBorder = 1,      -- Border thickness
-        iconSize = 48,         -- Standard icon size (2x larger)
+        slotSize = 96,         -- Cargo/turret/defensive slot size
+        iconSize = 48,         -- Base icon size (icons are scaled 2x to fit 96px slots)
         iconGridPadding = 12,  -- Grid spacing for icon layout
     },
     

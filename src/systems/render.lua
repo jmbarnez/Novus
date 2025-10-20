@@ -4,7 +4,7 @@
 
 local ECS = require('src.ecs')
 local Parallax = require('src.parallax')
-local unpack = unpack
+local unpack = table.unpack
 
 -- Helper function to draw a turret on top of the drone
 local function drawTurret(x, y, color, playerRotation)
@@ -189,19 +189,12 @@ local RenderSystem = {
             local item = ECS.getComponent(entityId, "Item")
             local stack = ECS.getComponent(entityId, "Stack")
             if renderable.shape == "item" and item and item.def and item.def.draw then
-                -- Check if this is a dropped item (has Collidable) - render tiny
-                local coll = ECS.getComponent(entityId, "Collidable")
-                if coll and coll.radius and coll.radius < 5 then
-                    -- Tiny dropped item - scale down the draw
-                    love.graphics.push()
-                    love.graphics.translate(position.x, position.y)
-                    love.graphics.scale(0.3, 0.3)  -- Draw at 30% size
-                    item.def:draw(0, 0)
-                    love.graphics.pop()
-                else
-                    -- Normal item drop - full size
-                    item.def:draw(position.x, position.y)
-                end
+                -- All dropped items render tiny (small scale in space)
+                love.graphics.push()
+                love.graphics.translate(position.x, position.y)
+                love.graphics.scale(0.2, 0.2)  -- Draw at 20% size
+                item.def:draw(0, 0)
+                love.graphics.pop()
                 if stack and stack.quantity and stack.quantity > 1 then
                     love.graphics.setColor(1, 1, 1, 0.9)
                     local Theme = require('src.ui.theme')

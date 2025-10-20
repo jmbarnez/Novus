@@ -12,31 +12,84 @@ local DestructionSystem = {
     priority = 6
 }
 
--- Generic function to spawn item bits (tiny items that scatter)
-function DestructionSystem.spawnBits(x, y, params)
-    local count = params.count or 8
-    local itemType = params.type or "stone"
-    local parentSize = params.parentSize or 20
+-- Unified function to spawn item drops from destroyed entities
+-- params: { count, itemType, distance, speed, stackItems } or simple values
+function DestructionSystem.spawnItems(x, y, params)
+    params = params or {}
     
-    -- Get item definition
-    local itemDef = ItemDefs[itemType]
-    if not itemDef then return end
+    local count = params.count or 1
+    local itemType = params.itemType or "stone"
+    local distance = params.distance or 0  -- 0 = spawn at center, otherwise random distance
+    local speed = params.speed  -- speed range: {min, max} or single value
+    local stackItems = params.stackItems or false  -- if true, group items into stacks
     
-    for i = 1, count do
-        local angle = math.random() * 2 * math.pi
-        local speed = Constants.bit_spawn_speed_asteroid_min + math.random() * 
-                      (Constants.bit_spawn_speed_asteroid_max - Constants.bit_spawn_speed_asteroid_min)
-        local vx = math.cos(angle) * speed
-        local vy = math.sin(angle) * speed
+    -- Default speed ranges based on context
+    if not speed then
+        speed = {Constants.bit_spawn_speed_asteroid_min or 40, Constants.bit_spawn_speed_asteroid_max or 120}
+    elseif type(speed) == "number" then
+        speed = {speed, speed}
+    end
+    
+    if stackItems then
+        -- Group items by type and create stacked items
+        local itemsByType = {}
+        for i = 1, count do
+            local type_ = itemType
+            if type(itemType) == "table" then
+                type_ = itemType[math.random(#itemType)]
+            end
+            itemsByType[type_] = (itemsByType[type_] or 0) + 1
+        end
         
-        local itemId = ECS.createEntity()
-        ECS.addComponent(itemId, "Position", Components.Position(x, y))
-        ECS.addComponent(itemId, "Velocity", Components.Velocity(vx, vy))
-        ECS.addComponent(itemId, "Physics", Components.Physics(0.98, 0.05))  -- Very light
-        ECS.addComponent(itemId, "Item", {id = itemType, def = itemDef})
-        ECS.addComponent(itemId, "Stack", Components.Stack(1))
-        ECS.addComponent(itemId, "Collidable", Components.Collidable(3))  -- Tiny collision radius for magnet
-        ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
+        for type_, quantity in pairs(itemsByType) do
+            local itemDef = ItemDefs[type_]
+            if itemDef then
+                local angle = math.random() * 2 * math.pi
+                local dist = distance > 0 and math.random(distance * 0.5, distance) or 0
+                local itemX = x + math.cos(angle) * dist
+                local itemY = y + math.sin(angle) * dist
+                
+                local spd = speed[1] + math.random() * (speed[2] - speed[1])
+                local vx = math.cos(angle) * spd
+                local vy = math.sin(angle) * spd
+                
+                local itemId = ECS.createEntity()
+                ECS.addComponent(itemId, "Position", Components.Position(itemX, itemY))
+                ECS.addComponent(itemId, "Velocity", Components.Velocity(vx, vy))
+                ECS.addComponent(itemId, "Physics", Components.Physics(0.95, 0.5))
+                ECS.addComponent(itemId, "Item", {id = type_, def = itemDef})
+                ECS.addComponent(itemId, "Stack", Components.Stack(quantity))
+                ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
+            end
+        end
+    else
+        -- Spawn individual items
+        for i = 1, count do
+            local type_ = itemType
+            if type(itemType) == "table" then
+                type_ = itemType[math.random(#itemType)]
+            end
+            
+            local itemDef = ItemDefs[type_]
+            if itemDef then
+                local angle = math.random() * 2 * math.pi
+                local dist = distance > 0 and math.random(distance * 0.5, distance) or 0
+                local itemX = x + math.cos(angle) * dist
+                local itemY = y + math.sin(angle) * dist
+                
+                local spd = speed[1] + math.random() * (speed[2] - speed[1])
+                local vx = math.cos(angle) * spd
+                local vy = math.sin(angle) * spd
+                
+                local itemId = ECS.createEntity()
+                ECS.addComponent(itemId, "Position", Components.Position(itemX, itemY))
+                ECS.addComponent(itemId, "Velocity", Components.Velocity(vx, vy))
+                ECS.addComponent(itemId, "Physics", Components.Physics(0.95, 0.5))
+                ECS.addComponent(itemId, "Item", {id = type_, def = itemDef})
+                ECS.addComponent(itemId, "Stack", Components.Stack(1))
+                ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
+            end
+        end
     end
 end
 
@@ -81,20 +134,20 @@ function DestructionSystem.update(dt)
             -- Call DebrisSystem to create debris particles
             if pos then
                 DebrisSystem.createDebris(pos.x, pos.y, nil, color)
-                -- Generic shatter: spawn bits if entity requests it
+                -- Spawn items if entity requests it
                 if durability and durability.spawnBits then
-                    DestructionSystem.spawnBits(pos.x, pos.y, durability.spawnBits)
+                    DestructionSystem.spawnItems(pos.x, pos.y, durability.spawnBits)
                 end
-                -- Asteroid: default to stone bits if not specified (only if not destroyed by enemy)
+                -- Asteroid: default to stone items if not specified
                 local asteroid = ECS.getComponent(entityId, "Asteroid")
-                if asteroid and (not durability or not durability.spawnBits) and not wasDestroyedByEnemy then
+                if asteroid and (not durability or not durability.spawnBits) then
                     local collidable = ECS.getComponent(entityId, "Collidable")
                     local parentSize = collidable and collidable.radius or 20
-                    DestructionSystem.spawnBits(pos.x, pos.y, {
+                    DestructionSystem.spawnItems(pos.x, pos.y, {
                         count = math.random(8, 15),
-                        parentSize = parentSize,
-                        color = color,  -- Use the actual asteroid color
-                        type = "stone"
+                        itemType = "stone",
+                        distance = 0,
+                        speed = {Constants.bit_spawn_speed_asteroid_min or 40, Constants.bit_spawn_speed_asteroid_max or 120}
                     })
                 end
             end
@@ -127,13 +180,11 @@ function DestructionSystem.update(dt)
             if wreckage and pos then
                 local collidable = ECS.getComponent(entityId, "Collidable")
                 local parentSize = collidable and collidable.radius or 15
-                -- Use gray/metallic color for scrap bits
-                local scrapColor = {0.5, 0.5, 0.5, 1}
-                DestructionSystem.spawnBits(pos.x, pos.y, {
+                DestructionSystem.spawnItems(pos.x, pos.y, {
                     count = math.random(5, 10),
-                    parentSize = parentSize,
-                    color = scrapColor,
-                    type = "scrap"
+                    itemType = "scrap",
+                    distance = 50,
+                    speed = {30, 80}
                 })
             end
 
@@ -176,93 +227,6 @@ function DestructionSystem.respawnPlayer(droneId, pilotId)
     end
     
     print("[Destruction] Player respawned at (0, 0)")
-end
-
--- Spawn item drops around the destruction point
-function DestructionSystem.spawnItemDrops(x, y, entityType)
-    entityType = entityType or "asteroid"
-    
-    local itemTypes
-    local dropCountMin, dropCountMax
-    
-    if entityType == "asteroid" then
-        itemTypes = {"stone", "iron"}
-        dropCountMin, dropCountMax = 2, 4
-    elseif entityType == "ship" then
-        -- Ships always drop 1-2 scrap
-        itemTypes = {"scrap"}
-        dropCountMin, dropCountMax = 1, 2
-    else
-        itemTypes = {"stone", "iron"}
-        dropCountMin, dropCountMax = 2, 4
-    end
-    
-    local dropCount = math.random(dropCountMin, dropCountMax)
-    
-    -- Group items by type for stacking
-    local itemsByType = {}
-    for i = 1, dropCount do
-        local itemType = itemTypes[math.random(#itemTypes)]
-        itemsByType[itemType] = (itemsByType[itemType] or 0) + 1
-    end
-    
-    -- Spawn one entity per item type with stack quantity
-    for itemType, quantity in pairs(itemsByType) do
-        local itemDef = ItemDefs[itemType]
-        if itemDef then
-            -- Spawn item in random direction around destruction point
-            local angle = math.random() * math.pi * 2  -- Random angle 0-2π
-            local distance = math.random(70, 120)  -- Distance from center (further to avoid overlap)
-            
-            local itemX = x + math.cos(angle) * distance
-            local itemY = y + math.sin(angle) * distance
-            
-            -- Random velocity away from destruction point
-            local speed = math.random(30, 80)
-            local vx = math.cos(angle) * speed
-            local vy = math.sin(angle) * speed
-            
-            -- Create item entity
-            local itemId = ECS.createEntity()
-            ECS.addComponent(itemId, "Position", Components.Position(itemX, itemY))
-            ECS.addComponent(itemId, "Velocity", Components.Velocity(vx, vy))
-            ECS.addComponent(itemId, "Physics", Components.Physics(0.95, 0.5))  -- Friction, mass
-            ECS.addComponent(itemId, "Item", {id = itemType, def = itemDef})
-            ECS.addComponent(itemId, "Stack", Components.Stack(quantity))  -- Add stack with quantity
-            ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
-        end
-    end
-end
-
--- Spawn scrap from destroyed wreckage (1-2 pieces)
-function DestructionSystem.spawnScrapDrop(x, y)
-    local dropCount = math.random(1, 2)
-    
-    for i = 1, dropCount do
-        local itemDef = ItemDefs["scrap"]
-        if itemDef then
-            -- Spawn item in random direction around wreckage
-            local angle = math.random() * math.pi * 2  -- Random angle 0-2π
-            local distance = math.random(30, 60)  -- Distance from wreckage center
-            
-            local itemX = x + math.cos(angle) * distance
-            local itemY = y + math.sin(angle) * distance
-            
-            -- Random velocity away from wreckage
-            local speed = math.random(20, 50)
-            local vx = math.cos(angle) * speed
-            local vy = math.sin(angle) * speed
-            
-            -- Create item entity
-            local itemId = ECS.createEntity()
-            ECS.addComponent(itemId, "Position", Components.Position(itemX, itemY))
-            ECS.addComponent(itemId, "Velocity", Components.Velocity(vx, vy))
-            ECS.addComponent(itemId, "Physics", Components.Physics(0.95, 0.5))  -- Friction, mass
-            ECS.addComponent(itemId, "Item", {id = "scrap", def = itemDef})
-            ECS.addComponent(itemId, "Stack", Components.Stack(1))  -- Stack of 1
-            ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
-        end
-    end
 end
 
 return DestructionSystem

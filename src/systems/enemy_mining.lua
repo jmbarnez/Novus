@@ -83,22 +83,35 @@ function EnemyMiningSystem.update(dt)
                     local targetDistance = 150
                     if distToAsteroid > targetDistance then
                         if distToAsteroid > 0 then
-                            vel.vx = (dx / distToAsteroid) * ai.speed
-                            vel.vy = (dy / distToAsteroid) * ai.speed
+                            local desiredVx = (dx / distToAsteroid) * ai.speed
+                            local desiredVy = (dy / distToAsteroid) * ai.speed
+                            local acc = ECS.getComponent(minerId, "Acceleration")
+                            if acc then
+                                acc.ax = (desiredVx - vel.vx) * 6.0
+                                acc.ay = (desiredVy - vel.vy) * 6.0
+                            end
                         end
                     else
                         local time = love.timer.getTime()
                         local orbitAngle = time * 2
-                        vel.vx = math.cos(orbitAngle) * ai.speed * 0.3
-                        vel.vy = math.sin(orbitAngle) * ai.speed * 0.3
+                        local desiredVx = math.cos(orbitAngle) * ai.speed * 0.3
+                        local desiredVy = math.sin(orbitAngle) * ai.speed * 0.3
+                        local acc = ECS.getComponent(minerId, "Acceleration")
+                        if acc then
+                            acc.ax = (desiredVx - vel.vx) * 6.0
+                            acc.ay = (desiredVy - vel.vy) * 6.0
+                        end
                     end
                     EnemyMiningSystem.updateMinerLaser(minerId, pos.x, pos.y, asteroidPos.x, asteroidPos.y)
                     EnemyMiningSystem.applyMinerDamage(minerId, closestAsteroid, asteroidPos.x, asteroidPos.y, dt)
                 end
             else
-                -- No asteroid found: miners stop completely, never drift toward player
-                vel.vx = 0
-                vel.vy = 0
+                -- No asteroid found: miners stop thrusting, allow friction to slow them
+                local acc = ECS.getComponent(minerId, "Acceleration")
+                if acc then
+                    acc.ax = 0
+                    acc.ay = 0
+                end
                 EnemyMiningSystem.destroyMinerLaser(minerId)
             end
         end

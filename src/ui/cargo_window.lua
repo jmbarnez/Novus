@@ -28,6 +28,7 @@ function CargoWindow:getOpen()
 end
 
 -- Override draw to add cargo-specific content on top of universal window
+---@diagnostic disable-next-line: duplicate-set-field
 function CargoWindow:draw(viewportWidth, viewportHeight)
     -- Draw base window (background, top/bottom bars, dividers)
     WindowBase.draw(self)
@@ -91,18 +92,22 @@ function CargoWindow:draw(viewportWidth, viewportHeight)
         love.graphics.setColor(1, 1, 1, 0.8 * alpha)
         
         local itemDef = self.draggedItem.itemDef
+        love.graphics.push()
+        love.graphics.translate(mx, my)
+        love.graphics.scale(2, 2)
         if itemDef.module and itemDef.module.draw then
             -- If it's a turret, draw from the module
-            itemDef.module.draw(itemDef.module, mx, my)
+            itemDef.module.draw(itemDef.module, 0, 0)
         elseif itemDef.draw then
             -- For non-turret items, use their itemDef.draw
-            itemDef:draw(mx, my)
+            itemDef:draw(0, 0)
         else
             -- Fallback if no draw function exists anywhere
             local color = itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}
             love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * 0.8 * alpha)
-            love.graphics.circle("fill", mx, my, 20)
+            love.graphics.circle("fill", 0, 0, 10)
         end
+        love.graphics.pop()
         love.graphics.setColor(1, 1, 1, 1) -- reset color
     end
 end
@@ -222,7 +227,7 @@ function CargoWindow:drawTurretPanel(windowX, windowY, cargo, alpha)
     love.graphics.line(panelX + 8, panelY + 28, panelX + panelWidth - 8, panelY + 28)
 
     -- Equipment slot for turret modules (drag and drop)
-    local slotSize = Theme.spacing.iconSize  -- Use same size as cargo slots (48x48)
+    local slotSize = Theme.spacing.slotSize  -- Cargo/turret/defensive slot size
     local slotX = panelX + (panelWidth - slotSize) / 2  -- Center horizontally
     local slotY = panelY + 38
     local slotWidth = slotSize
@@ -275,18 +280,22 @@ function CargoWindow:drawTurretPanel(windowX, windowY, cargo, alpha)
         local ItemDefs = require('src.items.item_loader')
         local itemDef = ItemDefs[itemId]
 
+        love.graphics.push()
+        love.graphics.translate(slotX + slotWidth / 2, slotY + slotHeight / 2)
+        love.graphics.scale(2, 2)
         if itemDef and itemDef.module and itemDef.module.draw then
             -- Draw using the module's draw function
             love.graphics.setColor(1, 1, 1, alpha)
-            itemDef.module.draw(itemDef.module, slotX + slotWidth / 2, slotY + slotHeight / 2)
+            itemDef.module.draw(itemDef.module, 0, 0)
         elseif itemDef and itemDef.draw then
             love.graphics.setColor(1, 1, 1, alpha)
-            itemDef:draw(slotX + slotWidth / 2, slotY + slotHeight / 2)
+            itemDef:draw(0, 0)
         else
             -- Fallback placeholder
             love.graphics.setColor(0.5, 0.5, 0.8, alpha)
-            love.graphics.circle("fill", slotX + slotWidth / 2, slotY + slotHeight / 2, 20)
+            love.graphics.circle("fill", 0, 0, 10)
         end
+        love.graphics.pop()
     end
     
     -- Draw defensive slot panel
@@ -317,7 +326,7 @@ function CargoWindow:drawDefensiveSlotPanel(panelX, panelY, panelWidth, alpha)
     love.graphics.line(panelX + 8, panelY + 28, panelX + panelWidth - 8, panelY + 28)
 
     -- Equipment slot for defensive modules (drag and drop)
-    local slotSize = Theme.spacing.iconSize  -- Use same size as cargo slots (48x48)
+    local slotSize = Theme.spacing.slotSize  -- Cargo/turret/defensive slot size
     local slotX = panelX + (panelWidth - slotSize) / 2  -- Center horizontally
     local slotY = panelY + 38
     local slotWidth = slotSize
@@ -370,32 +379,36 @@ function CargoWindow:drawDefensiveSlotPanel(panelX, panelY, panelWidth, alpha)
         local ItemDefs = require('src.items.item_loader')
         local itemDef = ItemDefs[itemId]
 
+        love.graphics.push()
+        love.graphics.translate(slotX + slotWidth / 2, slotY + slotHeight / 2)
+        love.graphics.scale(2, 2)
         if itemDef and itemDef.module and itemDef.module.draw then
             -- If it's a defensive module, draw from its module
             love.graphics.setColor(1, 1, 1, alpha)
-            itemDef.module.draw(itemDef.module, slotX + slotWidth / 2, slotY + slotHeight / 2)
+            itemDef.module.draw(itemDef.module, 0, 0)
         elseif itemDef and itemDef.draw then
             -- For other defensive items, use their itemDef.draw
             love.graphics.setColor(1, 1, 1, alpha)
-            itemDef:draw(slotX + slotWidth / 2, slotY + slotHeight / 2)
+            itemDef:draw(0, 0)
         else
             -- Fallback: draw a circle if no draw function exists anywhere
             love.graphics.setColor(0.3, 0.8, 0.5, alpha)
-            love.graphics.circle("fill", slotX + slotWidth / 2, slotY + slotHeight / 2, 20)
+            love.graphics.circle("fill", 0, 0, 10)
         end
+        love.graphics.pop()
     end
 end
 
 -- Close button is handled by WindowBase:drawCloseButton
 
 function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
-    local iconSize = Theme.spacing.iconSize
+    local slotSize = Theme.spacing.slotSize  -- Cargo slot size
     local padding = Theme.spacing.iconGridPadding
     local gridTop = windowY + Theme.window.topBarHeight + padding
     local skillsPanelWidth = 130 + 6
     local turretPanelWidth = 130 + 6
     local availableWidth = self.width - skillsPanelWidth - turretPanelWidth - padding * 3
-    local cols = math.max(1, math.floor(availableWidth / (iconSize + padding)))
+    local cols = math.max(1, math.floor(availableWidth / (slotSize + padding)))
     
     local mx, my = Scaling.toUI(love.mouse.getPosition())
     self.hoveredItemSlot = nil
@@ -410,12 +423,12 @@ function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
     for itemId, count in pairs(cargo.items) do
         local row = math.floor(i / cols)
         local col = i % cols
-        local iconX = gridLeftX + padding + col * (iconSize + padding)
-        local iconY = gridTop + row * (iconSize + padding)
+        local iconX = gridLeftX + padding + col * (slotSize + padding)
+        local iconY = gridTop + row * (slotSize + padding)
         love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
         
         local uiIconX, uiIconY = iconX, iconY
-        local uiIconSize = iconSize
+        local uiIconSize = slotSize
         
         local isHovering = mx >= uiIconX and mx <= uiIconX + uiIconSize and my >= uiIconY and my <= uiIconY + uiIconSize
         
@@ -431,26 +444,30 @@ function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
             -- Draw hover highlight
             local color = (TurretModule and TurretModule.design and TurretModule.design.color) or (itemDef and itemDef.design and itemDef.design.color) or {0.7, 0.7, 0.8, 1}
             love.graphics.setColor(color[1] * 1.5, color[2] * 1.5, color[3] * 1.5, 0.3 * alpha)
-            love.graphics.rectangle("fill", iconX, iconY, iconSize, iconSize, 4, 4)
+            love.graphics.rectangle("fill", iconX, iconY, slotSize, slotSize, 4, 4)
         end
         
-        -- Draw item using its draw method
+        -- Draw item using its draw method, scaled to slot size
+        love.graphics.push()
+        love.graphics.translate(iconX + slotSize / 2, iconY + slotSize / 2)
+        love.graphics.scale(2, 2)  -- Scale icons 2x to fill the larger slots
         if TurretModule and TurretModule.draw then
             love.graphics.setColor(1, 1, 1, alpha)
-            TurretModule.draw(TurretModule, iconX + iconSize / 2, iconY + iconSize / 2)
+            TurretModule.draw(TurretModule, 0, 0)
         elseif itemDef and itemDef.draw then
-            itemDef:draw(iconX + iconSize / 2, iconY + iconSize / 2)
+            itemDef:draw(0, 0)
         else
             -- Fallback to circle if no draw method
             local color = (TurretModule and TurretModule.design and TurretModule.design.color) or (itemDef and itemDef.design and itemDef.design.color) or {0.7, 0.7, 0.8, 1}
             love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha)
-            love.graphics.circle("fill", iconX + iconSize / 2, iconY + iconSize / 2, iconSize / 2)
+            love.graphics.circle("fill", 0, 0, slotSize / 4)
         end
+        love.graphics.pop()
         
         if count > 1 then
             love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
             love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-            love.graphics.printf(tostring(count), iconX, iconY + iconSize - 8, iconSize, "center")
+            love.graphics.printf(tostring(count), iconX, iconY + slotSize - 8, slotSize, "center")
         end
         
         i = i + 1
@@ -458,6 +475,7 @@ function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
 end
 
 -- Drag and drop logic for cargo items
+---@diagnostic disable-next-line: duplicate-set-field
 function CargoWindow:mousepressed(x, y, button)
     if not self.isOpen or not self.position then return end
     local mx, my = x, y
@@ -530,6 +548,7 @@ function CargoWindow:mousepressed(x, y, button)
     WindowBase.mousepressed(self, x, y, button)
 end
 
+---@diagnostic disable-next-line: duplicate-set-field
 function CargoWindow:mousereleased(x, y, button)
     if button == 1 then
         self.isDragging = false
@@ -698,6 +717,7 @@ function CargoWindow:mousereleased(x, y, button)
     WindowBase.mousereleased(self, x, y, button)
 end
 
+---@diagnostic disable-next-line: duplicate-set-field
 function CargoWindow:mousemoved(x, y, dx, dy)
     WindowBase.mousemoved(self, x, y, dx, dy)
 end
