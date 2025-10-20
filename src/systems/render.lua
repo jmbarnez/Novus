@@ -294,6 +294,12 @@ local RenderSystem = {
             ::continue_entity::
         end
 
+        -- Draw shield impact effects
+        local ShieldImpactSystem = ECS.getSystem("ShieldImpactSystem")
+        if ShieldImpactSystem and ShieldImpactSystem.draw then
+            ShieldImpactSystem.draw()
+        end
+
         local mouseX, mouseY = love.mouse.getPosition()
         local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
         if #cameraEntities > 0 then

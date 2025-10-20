@@ -627,6 +627,15 @@ local PhysicsCollisionSystem = {
                             local shield2 = ECS.getComponent(entity2Id, "Shield")
                             local hull2 = ECS.getComponent(entity2Id, "Hull")
                             if shield2 and shield2.current > 0 then
+                                -- Shield absorbed damage - create impact effect
+                                local ShieldImpactSystem = ECS.getSystem("ShieldImpactSystem")
+                                if ShieldImpactSystem and ShieldImpactSystem.createImpact then
+                                    local pos1 = ECS.getComponent(entity1Id, "Position")
+                                    if pos1 then
+                                        ShieldImpactSystem.createImpact(pos1.x, pos1.y, entity2Id)
+                                    end
+                                end
+                                
                                 local remaining = shield2.current - damage
                                 shield2.current = math.max(0, remaining)
                                 damage = math.max(0, -remaining)
@@ -652,6 +661,15 @@ local PhysicsCollisionSystem = {
                             local shield1 = ECS.getComponent(entity1Id, "Shield")
                             local hull1 = ECS.getComponent(entity1Id, "Hull")
                             if shield1 and shield1.current > 0 then
+                                -- Shield absorbed damage - create impact effect
+                                local ShieldImpactSystem = ECS.getSystem("ShieldImpactSystem")
+                                if ShieldImpactSystem and ShieldImpactSystem.createImpact then
+                                    local pos2 = ECS.getComponent(entity2Id, "Position")
+                                    if pos2 then
+                                        ShieldImpactSystem.createImpact(pos2.x, pos2.y, entity1Id)
+                                    end
+                                end
+                                
                                 local remaining = shield1.current - damage
                                 shield1.current = math.max(0, remaining)
                                 damage = math.max(0, -remaining)

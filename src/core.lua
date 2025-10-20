@@ -49,6 +49,7 @@ function Core.init()
     ECS.registerSystem("DebrisSystem", Systems.DebrisSystem)
     ECS.registerSystem("TurretSystem", Systems.TurretSystem)
     ECS.registerSystem("ProjectileSystem", Systems.ProjectileSystem)
+    ECS.registerSystem("ShieldImpactSystem", Systems.ShieldImpactSystem)
 
     -- Create Canvas Entity
     local canvasId = ECS.createEntity()

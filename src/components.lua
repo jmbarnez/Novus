@@ -483,4 +483,20 @@ Components.LastDamager = function(pilotId, weaponType)
     }
 end
 
+-- ShieldImpact component - Visual effect for shield impacts
+-- @field x number: Impact point X position (world space)
+-- @field y number: Impact point Y position (world space)
+-- @field shipId number: ID of the ship that was hit
+-- @field life number: Time remaining for effect
+-- @field maxLife number: Total lifetime of effect
+Components.ShieldImpact = function(x, y, shipId)
+    return {
+        x = x or 0,
+        y = y or 0,
+        shipId = shipId or 0,
+        life = 0.6, -- Effect lasts 0.6 seconds
+        maxLife = 0.6
+    }
+end
+
 return Components
