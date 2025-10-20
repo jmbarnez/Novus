@@ -38,8 +38,13 @@ function TurretSystem.fireTurret(entityId, targetX, targetY, dt)
     local module = TurretSystem.turretModules[turret.moduleName]
     -- If module is continuous (laser), bypass simple cooldown and call fire every frame.
     if module and module.CONTINUOUS then
-        -- If turret overheated, do not fire
+        -- If turret overheated, do not fire and destroy any existing laser
         if turret.overheated then
+            -- Destroy the laser entity if it exists to stop invisible firing
+            if module.laserEntity then
+                ECS.destroyEntity(module.laserEntity)
+                module.laserEntity = nil
+            end
             return
         end
         if module and module.fire then
@@ -86,17 +91,12 @@ function TurretSystem.update(dt)
                 if t.overheated and t.heat < (module.MAX_HEAT or 10) * 0.5 then
                     t.overheated = false
                 end
-                else
-                    -- If overheat condition reached and laser entity exists, destroy it to stop continuous firing
-                    if not t.overheated and t.heat >= (module.MAX_HEAT or 10) then
-                        t.overheated = true
-                        t.heat = module.MAX_HEAT or 10
-                        local mod = TurretSystem.turretModules[t.moduleName]
-                        if mod and mod.laserEntity then
-                            ECS.destroyEntity(mod.laserEntity)
-                            mod.laserEntity = nil
-                        end
-                    end
+            else
+                -- Still firing - if overheat threshold reached, mark overheated (will be destroyed in fireTurret)
+                if not t.overheated and t.heat >= (module.MAX_HEAT or 10) then
+                    t.overheated = true
+                    t.heat = module.MAX_HEAT or 10
+                end
             end
         end
         ::cont::

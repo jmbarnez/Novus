@@ -30,7 +30,7 @@ function MagnetSystem.update(dt)
                     local dy = shipPos.y - itemPos.y
                     local dist = math.sqrt(dx*dx + dy*dy)
                     -- Extended attraction: strong pull inside magField.range, weaker pull out to an outer range
-                    local outerRange = magField.range * 4
+                    local outerRange = magField.range * 6
                     if dist < outerRange then
                         local dirX = dx / (dist + 1e-6)
                         local dirY = dy / (dist + 1e-6)

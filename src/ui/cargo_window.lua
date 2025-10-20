@@ -206,7 +206,7 @@ function CargoWindow:drawTurretPanel(windowX, windowY, cargo, alpha)
     local panelHeight = self.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - 6
 
     love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], Theme.colors.bgMedium[3], alpha * 0.9)
-                love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+    love.graphics.rectangle("fill", panelX, panelY, panelWidth, panelHeight, 8, 8)
     love.graphics.setColor(Theme.colors.borderLight[1], Theme.colors.borderLight[2], Theme.colors.borderLight[3], alpha)
     love.graphics.setLineWidth(1)
     love.graphics.rectangle("line", panelX, panelY, panelWidth, panelHeight)

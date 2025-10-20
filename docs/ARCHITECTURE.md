@@ -15,6 +15,7 @@
 - [Dependencies](#dependencies)
 - [Configuration](#configuration)
 - [Scalability Benefits](#scalability-benefits)
+- [**→ Detailed System Dependencies: See `SYSTEM_DEPENDENCIES.md`**](#system-dependencies)
 
 ## Project Structure
 
