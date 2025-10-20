@@ -7,9 +7,26 @@ local DebrisSystem = require('src.systems.debris')
 
 local BasicCannon = {
     name = "basic_cannon",
+    displayName = "Basic Cannon",
     BALL_SPEED = 200,
     BALL_RADIUS = 8,
     BALL_COLOR = {1, 0.9, 0.2, 1},
+    COOLDOWN = 0.7, -- Time between shots in seconds
+    DPS = 10, -- Damage per shot
+    design = {
+        shape = "custom",
+        size = 16,
+        color = {1, 0.9, 0.2, 1}
+    },
+    draw = function(x, y)
+        local size = 16 -- Use design.size if needed
+        love.graphics.setColor(0.3, 0.3, 0.3, 1)
+        love.graphics.rectangle("fill", x - size/4, y - size/2, size/2, size, 4, 4)
+        love.graphics.setColor(1, 0.9, 0.2, 1)
+        love.graphics.circle("fill", x, y + size/2, size/4)
+        love.graphics.setColor(0.2, 0.2, 0.2, 1)
+        love.graphics.rectangle("fill", x - size/2, y + size/3, size, size/3, 4, 4)
+    end
 }
 
 function BasicCannon.fire(ownerId, startX, startY, endX, endY)
@@ -39,7 +56,7 @@ function BasicCannon.fire(ownerId, startX, startY, endX, endY)
     -- Small durability so it breaks upon a strong impact (brittle)
     ECS.addComponent(ballId, "Durability", Components.Durability(1, 1)) -- Destroy on impact
     -- Mark projectile as brittle so collision handling can treat it specially
-    ECS.addComponent(ballId, "Projectile", {ownerId = ownerId, damage = 10, brittle = true, isMiningLaser = false})
+    ECS.addComponent(ballId, "Projectile", {ownerId = ownerId, damage = BasicCannon.DPS, brittle = true, isMiningLaser = false})
     
     -- Add shatter effect component to spawn debris particles on destruction
     ECS.addComponent(ballId, "ShatterEffect", {

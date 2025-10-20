@@ -9,7 +9,33 @@ local SkillXP = require('src.systems.skill_xp')
 
 local MiningLaser = {
     name = "mining_laser",
-    LASER_DPS = 50,
+    displayName = "Mining Laser",
+    COOLDOWN = 1.0,
+    DPS = 50,
+    RANGE = 1350,
+    design = {
+        shape = "custom",
+        size = 16,
+        color = {1.0, 1.0, 0.2, 1}
+    },
+    draw = function(x, y)
+        local size = 16
+        love.graphics.setColor(0.2, 0.15, 0.1, 1)
+        love.graphics.rectangle("fill", x - size/2, y - size/3, size, size * 0.6, 3, 3)
+        love.graphics.setColor(1, 1, 0.2, 1)
+        love.graphics.circle("fill", x, y - size/2.5, size/3)
+        love.graphics.setColor(1, 1, 0.4, 0.9)
+        love.graphics.circle("fill", x, y - size/2.5, size/4.5)
+        love.graphics.setColor(1, 1, 1, 0.6)
+        love.graphics.circle("fill", x - size/6, y - size/2.5, size/6)
+        love.graphics.setColor(1, 0.8, 0.2, 0.8)
+        love.graphics.rectangle("fill", x - size/3, y + size/4, size * 0.65, size/4, 2, 2)
+        love.graphics.setColor(1, 0.9, 0.4, 0.7)
+        love.graphics.rectangle("fill", x - size/3 + 1, y + size/4 + 1, size/3, size/6)
+        love.graphics.setColor(0.12, 0.12, 0.15, 0.9)
+        love.graphics.line(x - size/2 + 2, y, x - size/2 + 2, y + size/3)
+        love.graphics.line(x + size/2 - 2, y, x + size/2 - 2, y + size/3)
+    end,
     laserEntity = nil  -- Track the current laser beam entity
 }
 
@@ -45,7 +71,7 @@ function MiningLaser.fire(ownerId, startX, startY, endX, endY)
         color = {1, 1, 0, 1}  -- Yellow
     })
     -- Mark this entity as a mining laser projectile for asteroid damage
-    ECS.addComponent(MiningLaser.laserEntity, "Projectile", {ownerId = ownerId, damage = MiningLaser.LASER_DPS, brittle = false, isMiningLaser = true})
+    ECS.addComponent(MiningLaser.laserEntity, "Projectile", {ownerId = ownerId, damage = MiningLaser.DPS, brittle = false, isMiningLaser = true})
     -- ...existing code...
 end
 
@@ -76,7 +102,7 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt)
         -- Apply per-frame DPS to asteroid
         local durability = ECS.getComponent(hitAsteroidId, "Durability")
         if durability then
-            local damageApplied = math.min(MiningLaser.LASER_DPS * dt, durability.current)
+            local damageApplied = math.min(MiningLaser.DPS * dt, durability.current)
             durability.current = durability.current - damageApplied
             
             -- Track who is damaging this asteroid

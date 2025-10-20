@@ -256,15 +256,17 @@ function CargoWindow:drawTurretPanel(windowX, windowY, cargo, alpha)
     love.graphics.rectangle("line", slotX, slotY, slotWidth, slotHeight, 8, 8)
     love.graphics.setLineWidth(1)
     
-    -- Draw equipped module icon or placeholder
+    -- Draw equipped module icon or placeholder (TURRET PANEL)
     if turretSlots.slots[1] then
         local ItemDefs = require('src.items.item_loader')
         local itemDef = ItemDefs[turretSlots.slots[1]]
-        if itemDef and itemDef.draw then
-            -- Draw the item icon in the center of the slot
+        if itemDef and itemDef.module and itemDef.module.draw then
+            love.graphics.setColor(1, 1, 1, alpha)
+            itemDef.module.draw(slotX + slotWidth / 2, slotY + slotHeight / 2)
+        elseif itemDef and itemDef.draw then
+            love.graphics.setColor(1, 1, 1, alpha)
             itemDef:draw(slotX + slotWidth / 2, slotY + slotHeight / 2)
         else
-            -- Fallback: draw a circle if no draw method
             love.graphics.setColor(0.5, 0.5, 0.8, alpha)
             love.graphics.circle("fill", slotX + slotWidth / 2, slotY + slotHeight / 2, 20)
         end
@@ -420,8 +422,11 @@ function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
             love.graphics.rectangle("fill", iconX, iconY, iconSize, iconSize, 4, 4)
         end
         
-        -- Draw item using its draw method
-        if itemDef and itemDef.draw then
+        -- Draw item using its draw method (ITEM GRID)
+        if itemDef and itemDef.module and itemDef.module.draw then
+            love.graphics.setColor(1, 1, 1, alpha)
+            itemDef.module.draw(iconX + iconSize / 2, iconY + iconSize / 2)
+        elseif itemDef and itemDef.draw then
             itemDef:draw(iconX + iconSize / 2, iconY + iconSize / 2)
         else
             -- Fallback to circle if no draw method

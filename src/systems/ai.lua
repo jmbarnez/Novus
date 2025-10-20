@@ -53,42 +53,76 @@ function AI.update(dt)
         -- CombatAI component is optional marker for clarity but not required for processing
 
         -- Calculate firing range based on turret module's projectile properties
-        local fireRange = ai.fireRange
+        local fireRange = ai.fireRange -- Start with default from AIController
         if turret and turret.moduleName then
-            fireRange = TurretRange.getMaxRange(turret.moduleName)
+            local moduleRange = TurretRange.getMaxRange(turret.moduleName)
+            if moduleRange then
+                fireRange = moduleRange -- Use module's range if available
+            end
         end
 
-        -- If player exists, check detection
+        -- If player exists, check detection and state transitions
         if playerPos then
             local dsq = distSq(pos.x, pos.y, playerPos.x, playerPos.y)
-            -- Use much larger detection radius (further away), default 1000+ pixels
+            local dist = math.sqrt(dsq)
             local detectionRadiusSq = (ai.detectionRadius * ai.detectionRadius)
             
             if dsq < detectionRadiusSq then
-                -- Switch to aggressive/chase state
-                ai.state = "chase"
+                -- Player detected - determine best behavior based on distance
+                if dist < fireRange * 0.8 then
+                    -- Close enough to orbit and fire effectively
+                    ai.state = "orbit"
+                else
+                    -- Too far - chase to get into range
+                    ai.state = "chase"
+                end
             else
-                -- Return to patrol if not in detection range
-                if ai.state == "chase" then
+                -- Player out of detection range - return to patrol
+                if ai.state == "chase" or ai.state == "orbit" then
                     ai.state = "patrol"
                 end
             end
         end
 
+        -- Patrol and fallback wandering if needed
         if ai.state == "patrol" then
-            -- Move along patrol points
+            -- Store spawn position if not defined
+            ai.spawnX = ai.spawnX or pos.x
+            ai.spawnY = ai.spawnY or pos.y
             if #ai.patrolPoints > 0 then
                 local target = ai.patrolPoints[ai.currentPoint]
                 if not target then goto continue end
                 local dx = target.x - pos.x
                 local dy = target.y - pos.y
-                local dist = math.sqrt(dx*dx + dy*dy)
+                local dist = math.sqrt(dx * dx + dy * dy)
                 if dist < 10 then
                     ai.currentPoint = ai.currentPoint % #ai.patrolPoints + 1
                 else
                     -- Normalize and set velocity toward point (simple behavior)
                     vel.vx = (dx / dist) * ai.speed
                     vel.vy = (dy / dist) * ai.speed
+                end
+            else
+                -- NO VALID PATROL POINTS: gentle wandering near spawn
+                local wanderRadius = 150
+                local speed = ai.speed * 0.3
+                -- Calculate distance from spawn, nudge back if too far
+                local dx = pos.x - ai.spawnX
+                local dy = pos.y - ai.spawnY
+                local distsq = dx*dx + dy*dy
+                if distsq > wanderRadius * wanderRadius then
+                    local dist = math.sqrt(distsq)
+                    vel.vx = (-dx / dist) * speed
+                    vel.vy = (-dy / dist) * speed
+                else
+                    -- Random gentle drift - change direction less frequently for smoother movement
+                    ai._wanderTimer = (ai._wanderTimer or 0) - dt
+                    if not ai._wanderAngle or ai._wanderTimer <= 0 then
+                        ai._wanderAngle = math.random() * 2 * math.pi
+                        ai._wanderTimer = 4 + math.random() * 6  -- Change direction every 4-10 seconds
+                    end
+                    vel.vx = math.cos(ai._wanderAngle) * speed
+                    vel.vy = math.sin(ai._wanderAngle) * speed
                 end
             end
         elseif ai.state == "chase" and playerPos then
@@ -108,6 +142,54 @@ function AI.update(dt)
                 local TurretSystem = ECS.getSystem("TurretSystem")
                 if TurretSystem and TurretSystem.fireTurret then
                     TurretSystem.fireTurret(eid, playerPos.x, playerPos.y)
+                end
+            end
+        elseif ai.state == "orbit" and playerPos then
+            -- Orbit player at optimal turret range
+            local dx = playerPos.x - pos.x
+            local dy = playerPos.y - pos.y
+            local dist = math.sqrt(dx*dx + dy*dy)
+            
+            if dist > 0 then
+                -- Calculate optimal orbit distance (80% of turret range for good firing position)
+                local optimalDistance = fireRange * 0.6
+                local orbitSpeed = ai.speed * 0.7  -- Slightly slower for better control
+                
+                -- Calculate perpendicular direction for orbiting (90 degrees to player direction)
+                local perpX = -dy / dist
+                local perpY = dx / dist
+                
+                -- Add some randomness to orbit direction to make it less predictable
+                if not ai.orbitDirection then
+                    ai.orbitDirection = math.random() > 0.5 and 1 or -1
+                end
+                
+                -- Apply perpendicular movement for orbiting
+                local orbitX = perpX * ai.orbitDirection * orbitSpeed
+                local orbitY = perpY * ai.orbitDirection * orbitSpeed
+                
+                -- Adjust distance to maintain optimal range
+                local distanceError = dist - optimalDistance
+                local correctionFactor = math.min(1.0, math.abs(distanceError) / optimalDistance)
+                local correctionX = (dx / dist) * correctionFactor * orbitSpeed * 0.5
+                local correctionY = (dy / dist) * correctionFactor * orbitSpeed * 0.5
+                
+                if distanceError > 0 then
+                    -- Too far - move closer
+                    vel.vx = orbitX - correctionX
+                    vel.vy = orbitY - correctionY
+                else
+                    -- Too close - move away
+                    vel.vx = orbitX + correctionX
+                    vel.vy = orbitY + correctionY
+                end
+                
+                -- Fire turret at player while orbiting
+                if turret and turret.moduleName and dist < fireRange then
+                    local TurretSystem = ECS.getSystem("TurretSystem")
+                    if TurretSystem and TurretSystem.fireTurret then
+                        TurretSystem.fireTurret(eid, playerPos.x, playerPos.y)
+                    end
                 end
             end
         end

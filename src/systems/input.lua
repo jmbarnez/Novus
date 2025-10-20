@@ -104,9 +104,12 @@ function InputSystem.update(dt)
         local playerPos = ECS.getComponent(turretOwner, "Position")
         local turret = ECS.getComponent(turretOwner, "Turret")
         
-        -- Check if turret has a valid module installed
-        if not turret or not turret.moduleName or turret.moduleName == "" or turret.moduleName == "default" then
-            -- No module installed, don't fire
+        -- Get the module for this turret
+        local turretModule = TurretSystem.turretModules[turret.moduleName]
+
+        -- Check if turret has a valid module installed (moduleName is not nil)
+        if not turret or not turret.moduleName or not turretModule then
+            -- No module installed or module not found, don't fire
             return
         end
         
@@ -132,7 +135,8 @@ function InputSystem.update(dt)
             TurretSystem.fireTurret(turretOwner, mouseX, mouseY)
             
             -- Apply beam effects every frame (damage, debris, beam positioning)
-            local turretModule = TurretSystem.turretModules[turret.moduleName]
+            -- Projectiles apply damage in the CollisionSystem/ProjectileSystem,
+            -- Lasers apply damage in their applyBeam functions (handled in module).
                 if turretModule and turretModule.applyBeam then
                 -- Offset laser start position away from ship to avoid self-collision
                 local laserStartX = playerPos.x

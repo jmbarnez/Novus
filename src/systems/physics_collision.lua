@@ -445,6 +445,10 @@ local PhysicsCollisionSystem = {
     name = "PhysicsCollisionSystem",
 
     update = function(dt)
+        -- [QUADTREE INTEGRATED] Broad-phase collision pairing is now handled exclusively by Quadtree.
+        -- This enables scalability to hundreds of entities. Legacy O(n^2) entity pairing is REMOVED.
+        -- Quadtree covers collision candidates, all narrow-phase checks remain unchanged.
+
         -- First pass: update projectile owner immunity timers
         local projectiles = ECS.getEntitiesWith({"Projectile"})
         for _, projId in ipairs(projectiles) do

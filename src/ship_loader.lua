@@ -111,15 +111,17 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
     -- Turret
     if design.turretSlots and design.turretSlots > 0 then
         ECS.addComponent(shipId, "TurretSlots", Components.TurretSlots(design.turretSlots))
-        -- For player ships, don't equip a default turret; for AI, use the design's default
-        local turretModule = ""
+        
+        local initialTurretModuleName = nil
         if controllerType == "ai" then
-            turretModule = design.defaultTurret or ""
+            -- AI ships get their default turret module if specified in design
+            initialTurretModuleName = design.defaultTurret or nil
+        elseif controllerType == "player" then
+            -- Player ships start with a default turret (e.g., basic_cannon) for convenience
+            initialTurretModuleName = "basic_cannon"
         end
-        ECS.addComponent(shipId, "Turret", Components.Turret(
-            turretModule,
-            design.turretCooldown or 0.2
-        ))
+        
+        ECS.addComponent(shipId, "Turret", Components.Turret(initialTurretModuleName))
     end
     
     -- Defensive slots

@@ -85,9 +85,9 @@ function DestructionSystem.update(dt)
                 if durability and durability.spawnBits then
                     DestructionSystem.spawnBits(pos.x, pos.y, durability.spawnBits)
                 end
-                -- Asteroid: default to stone bits if not specified
+                -- Asteroid: default to stone bits if not specified (only if not destroyed by enemy)
                 local asteroid = ECS.getComponent(entityId, "Asteroid")
-                if asteroid and (not durability or not durability.spawnBits) then
+                if asteroid and (not durability or not durability.spawnBits) and not wasDestroyedByEnemy then
                     local collidable = ECS.getComponent(entityId, "Collidable")
                     local parentSize = collidable and collidable.radius or 20
                     DestructionSystem.spawnBits(pos.x, pos.y, {
@@ -111,6 +111,17 @@ function DestructionSystem.update(dt)
             local aiController = ECS.getComponent(entityId, "AIController")
             local wreckage = ECS.getComponent(entityId, "Wreckage")
             local lootDrop = ECS.getComponent(entityId, "LootDrop")
+            local lastDamager = ECS.getComponent(entityId, "LastDamager")
+
+            -- Check if asteroid was destroyed by enemy (not player)
+            local wasDestroyedByEnemy = false
+            if asteroid and lastDamager then
+                -- Check if the last damager was an AI-controlled entity (enemy)
+                local damagerEntity = ECS.getComponent(lastDamager.pilotId, "AIController")
+                if damagerEntity then
+                    wasDestroyedByEnemy = true
+                end
+            end
 
             -- Wreckage shatters into bits
             if wreckage and pos then

@@ -6,6 +6,7 @@ local Constants = require('src.constants')
 local Theme = require('src.ui.theme')
 local Scaling = require('src.scaling')
 local Tooltips = require('src.ui.tooltips')
+local TurretSystem = require('src.systems.turret')
 
 local HUDSystem = {
     name = "HUDSystem",
@@ -80,6 +81,49 @@ local function drawHullShieldBar(viewportWidth, viewportHeight)
     end
 end
 
+local function drawMagneticFieldStatus(viewportWidth, viewportHeight)
+    local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+    if #playerEntities == 0 then return end
+    local pilotId = playerEntities[1]
+    local input = ECS.getComponent(pilotId, "InputControlled")
+    if not input or not input.targetEntity then return end
+    
+    local droneId = input.targetEntity
+    local magneticField = ECS.getComponent(droneId, "MagneticField")
+    if not magneticField then return end
+    
+    -- Position next to turret slots, under health bar
+    local indicatorSize = Scaling.scaleSize(32)
+    local startX = Scaling.scaleX(20) + Scaling.scaleSize(48) * 3 + Scaling.scaleSize(8) * 3 + Scaling.scaleSize(16) -- After 3 turret slots
+    local startY = Scaling.scaleY(20) + Scaling.scaleSize(Constants.ui_health_bar_height) + Scaling.scaleY(12)
+    
+    -- Draw indicator background
+    local bgColor = magneticField.active and {0.1, 0.3, 0.1, 0.9} or {0.3, 0.1, 0.1, 0.9}
+    love.graphics.setColor(bgColor[1], bgColor[2], bgColor[3], bgColor[4])
+    love.graphics.rectangle("fill", startX, startY, indicatorSize, indicatorSize, 4, 4)
+    
+    -- Draw indicator border
+    local borderColor = magneticField.active and {0.2, 0.8, 0.2, 1.0} or {0.8, 0.2, 0.2, 1.0}
+    love.graphics.setColor(borderColor[1], borderColor[2], borderColor[3], borderColor[4])
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", startX, startY, indicatorSize, indicatorSize, 4, 4)
+    love.graphics.setLineWidth(1)
+    
+    -- Draw magnetic field icon (M symbol)
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+    local text = magneticField.active and "M" or "M"
+    local textWidth = Theme.getFont(Theme.fonts.small):getWidth(text)
+    local textHeight = Theme.getFont(Theme.fonts.small):getHeight()
+    love.graphics.printf(text, startX, startY + (indicatorSize - textHeight) / 2, indicatorSize, "center")
+    
+    -- Draw status text below indicator
+    love.graphics.setColor(Theme.colors.textPrimary)
+    love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
+    local statusText = magneticField.active and "ON" or "OFF"
+    love.graphics.printf(statusText, startX, startY + indicatorSize + 2, indicatorSize, "center")
+end
+
 local function drawTurretSlots(viewportWidth, viewportHeight)
     local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
     if #playerEntities == 0 then return end
@@ -128,23 +172,19 @@ local function drawTurretSlots(viewportWidth, viewportHeight)
         
         -- Draw equipped module icon or placeholder
         if turretSlots.slots[slotIndex] then
-            local itemId = turretSlots.slots[slotIndex]
-            local itemDef = ItemDefs[itemId]
-            
-            if isHovering then
-                HUDSystem.hoveredTurretSlot = {
-                    itemId = itemId,
-                    itemDef = itemDef,
-                    mouseX = mx,
-                    mouseY = my
-                }
-            end
-            
-            if itemDef and itemDef.draw then
+            local moduleName = turretSlots.slots[slotIndex]
+            local TurretModule
+            pcall(function()
+                local itemDef = ItemDefs[moduleName]
+                if itemDef and itemDef.module then
+                    TurretModule = itemDef.module
+                end
+            end)
+            if TurretModule and TurretModule.draw then
                 love.graphics.setColor(1, 1, 1, 1)
-                itemDef:draw(slotX + slotSize / 2, slotY + slotSize / 2)
+                TurretModule.draw(slotX + slotSize / 2, slotY + slotSize / 2)
             else
-                -- Fallback: draw a circle
+                print(string.format("[HUD] Turret slot %d: Failed to load module '%s' or has no draw function. TurretModule=%s, has_draw=%s", slotIndex, moduleName, TurretModule ~= nil, TurretModule and TurretModule.draw ~= nil))
                 love.graphics.setColor(0.5, 0.5, 0.8, 1)
                 love.graphics.circle("fill", slotX + slotSize / 2, slotY + slotSize / 2, slotSize / 3)
             end
@@ -172,6 +212,7 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     viewportHeight = viewportHeight or (love.graphics and love.graphics.getHeight and love.graphics.getHeight()) or 1080
     drawHullShieldBar(viewportWidth, viewportHeight)
     drawTurretSlots(viewportWidth, viewportHeight)
+    drawMagneticFieldStatus(viewportWidth, viewportHeight)
     -- Draw minimap as part of HUD
     if Minimap and Minimap.draw then
         Minimap.draw()

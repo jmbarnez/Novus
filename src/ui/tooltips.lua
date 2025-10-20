@@ -10,12 +10,20 @@ local Tooltips = {}
 -- Draw an item tooltip
 function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
     if not itemDef then return end
-    
+    local module = itemDef.module
+    local isTurret = module and module.displayName and (module.DPS or module.COOLDOWN or module.RANGE)
     -- Build tooltip lines
-    local lines = {
-        itemDef.name,
-        "Count: " .. count,
-    }
+    local lines = {}
+    if isTurret then
+        table.insert(lines, module.displayName)
+        if module.DPS then table.insert(lines, string.format("DPS: %s", module.DPS)) end
+        if module.COOLDOWN then table.insert(lines, string.format("Cooldown: %.2fs", module.COOLDOWN)) end
+        if module.RANGE then table.insert(lines, string.format("Range: %s", module.RANGE)) end
+        table.insert(lines, "")
+    else
+        table.insert(lines, itemDef.name)
+    end
+    table.insert(lines, "Count: " .. count)
     if itemDef.value then
         table.insert(lines, "Value: " .. itemDef.value)
     end

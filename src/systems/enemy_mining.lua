@@ -12,7 +12,7 @@ local EnemyMiningSystem = {
 }
 
 -- Enemy miner DPS - significantly lower than player mining lasers (player = 50 DPS)
-local ENEMY_MINER_DPS = 8  -- 16% of player damage
+local ENEMY_MINER_DPS = 0.8  -- 1.6% of player damage (10x less than before)
 
 -- Range to detect and mine asteroids
 local MINING_DETECTION_RANGE = 800 -- Increased so miners always find asteroids, never players
@@ -156,6 +156,9 @@ function EnemyMiningSystem.applyMinerDamage(minerId, asteroidId, asteroidX, aste
         if durability then
             local damageApplied = math.min(ENEMY_MINER_DPS * dt, durability.current)
             durability.current = durability.current - damageApplied
+            
+            -- Track that this asteroid is being damaged by an enemy miner
+            ECS.addComponent(asteroidId, "LastDamager", {pilotId = minerId, weaponType = "enemy_mining_laser"})
         end
         
         -- Create debris at impact point

@@ -34,9 +34,10 @@ function TurretSystem.fireTurret(entityId, targetX, targetY)
         return
     end
 
+    local module = TurretSystem.turretModules[turret.moduleName]
+    local moduleCooldown = module and module.COOLDOWN or 0.7
     local currentTime = love.timer.getTime()
-    if currentTime - turret.lastFireTime >= turret.cooldown then
-        local module = TurretSystem.turretModules[turret.moduleName]
+    if currentTime - turret.lastFireTime >= moduleCooldown then
         if module and module.fire then
             print("[TurretSystem] Firing turret module: " .. turret.moduleName)
             module.fire(entityId, position.x, position.y, targetX, targetY)

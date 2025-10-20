@@ -374,12 +374,11 @@ end
 
 -- Turret component - Manages active turret module and firing state
 -- @field moduleName string: The name of the currently equipped turret module
--- @field cooldown number: The cooldown duration in seconds
+-- @field cooldown number: The cooldown duration in seconds (now read from module)
 -- @field lastFireTime number: The time (love.timer.getTime()) when the turret last fired
-Components.Turret = function(moduleName, cooldown)
+Components.Turret = function(moduleName)
     return {
-        moduleName = moduleName or "default",
-        cooldown = cooldown or 0.2,
+        moduleName = moduleName or nil, -- No default, must be set by equipping a module
         lastFireTime = 0
     }
 end
