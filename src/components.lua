@@ -183,14 +183,16 @@ end
 -- @field particleLife number: How long particles live
 -- @field spreadAngle number: Random spread angle in radians
 -- @field speedMultiplier number: How fast particles move relative to ship
-Components.TrailEmitter = function(emitRate, maxParticles, particleLife, spreadAngle, speedMultiplier)
+-- @field trailColor table: Color for trail particles {r, g, b}
+Components.TrailEmitter = function(emitRate, maxParticles, particleLife, spreadAngle, speedMultiplier, trailColor)
     return {
         emitRate = emitRate or Constants.trail_emit_rate, -- particles per second
         lastEmit = 0,
         maxParticles = maxParticles or Constants.trail_max_particles,
         particleLife = particleLife or Constants.trail_particle_life, -- seconds
         spreadAngle = spreadAngle or Constants.trail_spread_angle, -- radians
-        speedMultiplier = speedMultiplier or Constants.trail_speed_multiplier
+        speedMultiplier = speedMultiplier or Constants.trail_speed_multiplier,
+        trailColor = trailColor or {0.3, 0.7, 1.0} -- Default blue-white color (RGB only, alpha handled in trail system)
     } -- Close the table definition properly
 end
 

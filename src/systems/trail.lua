@@ -49,6 +49,7 @@ local TrailSystem = {
 
             if not (position and velocity and emitter and renderable) then goto continue_emitter end
             if not emitter.emitRate or not emitter.particleLife or not emitter.maxParticles or not emitter.spreadAngle or not emitter.speedMultiplier then goto continue_emitter end
+            if not emitter.trailColor then emitter.trailColor = {0.3, 0.7, 1.0} end -- Fallback to blue if missing
             if not renderable.radius then goto continue_emitter end
 
             -- Calculate ship speed
@@ -99,8 +100,8 @@ local TrailSystem = {
                                 emitX, emitY, -- position
                                 particleVx, particleVy, -- velocity
                                 scaledLife, -- lifetime
-                                Constants.trail_particle_size_min + math.random() * (Constants.trail_particle_size_max - Constants.trail_particle_size_min), -- size (0.5-1.0)
-                                {0.3, 0.7, 1.0, scaledAlpha} -- blue-white color, alpha scales with speed
+                                Constants.trail_particle_size_min + math.random() * (Constants.trail_particle_size_max - Constants.trail_particle_size_min), -- size
+                                {emitter.trailColor[1], emitter.trailColor[2], emitter.trailColor[3], scaledAlpha} -- Use emitter's trail color with scaled alpha
                             )
                         )
                         -- Increment particle count

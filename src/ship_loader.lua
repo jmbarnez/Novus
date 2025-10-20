@@ -129,12 +129,19 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
     
     -- Trail emitter (for player-controlled ships typically)
     if design.hasTrail then
+        -- Determine trail color based on controller type
+        local trailColor = {0.3, 0.7, 1.0} -- Default blue-white for player
+        if controllerType == "ai" then
+            trailColor = {1.0, 0.1, 0.1} -- Red for AI/enemy
+        end
+        
         ECS.addComponent(shipId, "TrailEmitter", Components.TrailEmitter(
             Constants.trail_emit_rate,
             Constants.trail_max_particles,
             Constants.trail_particle_life,
             Constants.trail_spread_angle,
-            Constants.trail_speed_multiplier
+            Constants.trail_speed_multiplier,
+            trailColor
         ))
     end
     

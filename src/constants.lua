@@ -19,13 +19,13 @@ Constants.player_friction = 0.9999  -- Near-zero friction for space (nearly no d
 Constants.player_max_speed = 1200
 
 -- Trail settings
-Constants.trail_emit_rate = 25
-Constants.trail_max_particles = 40
+Constants.trail_emit_rate = 50
+Constants.trail_max_particles = 100
 Constants.trail_particle_life = 1.5
 Constants.trail_spread_angle = 0.4
 Constants.trail_speed_multiplier = 0.3
-Constants.trail_particle_size_min = 0.5
-Constants.trail_particle_size_max = 1.0
+Constants.trail_particle_size_min = 1.5
+Constants.trail_particle_size_max = 2.5
 
 -- UI settings
 Constants.ui_speed_bar_width = 200

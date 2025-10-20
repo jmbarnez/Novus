@@ -28,6 +28,9 @@ return {
     turretCooldown = 0.6,
     defensiveSlots = 1,
     
+    -- Abilities
+    hasTrail = true,
+    
     -- AI settings (only used when AI-controlled)
     aiType = "patrol",
     patrolPoints = {{x=0,y=0}},  -- Will patrol around spawn location
