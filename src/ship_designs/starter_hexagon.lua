@@ -26,9 +26,5 @@ return {
     cargoCapacity = 10,
     
     -- Abilities
-    hasTrail = true,
-    hasMagnet = true,
-    magnetRadius = 200,
-    magnetPullSpeed = 120,
-    magnetMaxItems = 24
+    hasTrail = true
 }

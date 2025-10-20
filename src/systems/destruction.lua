@@ -2,6 +2,7 @@
 
 local ECS = require('src.ecs')
 local Components = require('src.components')
+local Constants = require('src.constants')
 local DebrisSystem = require('src.systems.debris') -- Import DebrisSystem
 local WrackageSystem = require('src.systems.wreckage') -- Import WrackageSystem
 local ItemDefs = require('src.items.item_loader')
@@ -11,45 +12,31 @@ local DestructionSystem = {
     priority = 6
 }
 
--- Generic function to spawn shatter bits
+-- Generic function to spawn item bits (tiny items that scatter)
 function DestructionSystem.spawnBits(x, y, params)
     local count = params.count or 8
-    local color = params.color or {0.7, 0.7, 0.8, 1}
-    local bitType = params.type or "bit"
+    local itemType = params.type or "stone"
     local parentSize = params.parentSize or 20
     
-    -- Calculate max total size: distribute parent size across all bits
-    -- Each bit gets a fraction of the parent size
-    local maxBitSize = parentSize / math.sqrt(count) * 0.5  -- Tiny fractions
-    local minBitSize = maxBitSize * 0.3
+    -- Get item definition
+    local itemDef = ItemDefs[itemType]
+    if not itemDef then return end
     
     for i = 1, count do
         local angle = math.random() * 2 * math.pi
-        local speed = math.random(40, 120)
+        local speed = Constants.bit_spawn_speed_asteroid_min + math.random() * 
+                      (Constants.bit_spawn_speed_asteroid_max - Constants.bit_spawn_speed_asteroid_min)
         local vx = math.cos(angle) * speed
         local vy = math.sin(angle) * speed
-        local bitSize = minBitSize + math.random() * (maxBitSize - minBitSize)
         
-        -- Create a simple square polygon
-        local halfSize = bitSize / 2
-        local vertices = {
-            {x = -halfSize, y = -halfSize},
-            {x = halfSize, y = -halfSize},
-            {x = halfSize, y = halfSize},
-            {x = -halfSize, y = halfSize}
-        }
-        
-        local bitId = ECS.createEntity()
-        ECS.addComponent(bitId, "Position", Components.Position(x, y))
-        ECS.addComponent(bitId, "Velocity", Components.Velocity(vx, vy))
-        ECS.addComponent(bitId, "Physics", Components.Physics(0.98, bitSize*0.3))
-        ECS.addComponent(bitId, "PolygonShape", Components.PolygonShape(vertices, math.random()*2*math.pi))
-        ECS.addComponent(bitId, "AngularVelocity", Components.AngularVelocity(math.random(-3,3)))
-        ECS.addComponent(bitId, "RotationalMass", Components.RotationalMass(bitSize*bitSize*0.1))
-        ECS.addComponent(bitId, "Collidable", Components.Collidable(bitSize))
-        ECS.addComponent(bitId, "Durability", Components.Durability(bitSize, bitSize))
-        ECS.addComponent(bitId, "Renderable", Components.Renderable("polygon", nil, nil, nil, color))
-        ECS.addComponent(bitId, "ShatterBit", {type = bitType})
+        local itemId = ECS.createEntity()
+        ECS.addComponent(itemId, "Position", Components.Position(x, y))
+        ECS.addComponent(itemId, "Velocity", Components.Velocity(vx, vy))
+        ECS.addComponent(itemId, "Physics", Components.Physics(0.98, 0.05))  -- Very light
+        ECS.addComponent(itemId, "Item", {id = itemType, def = itemDef})
+        ECS.addComponent(itemId, "Stack", Components.Stack(1))
+        ECS.addComponent(itemId, "Collidable", Components.Collidable(3))  -- Tiny collision radius for magnet
+        ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
     end
 end
 
@@ -125,26 +112,18 @@ function DestructionSystem.update(dt)
             local wreckage = ECS.getComponent(entityId, "Wreckage")
             local lootDrop = ECS.getComponent(entityId, "LootDrop")
 
-            -- Spawn loot appropriate to entity type
-            if asteroid and pos then
-                -- Only spawn loot if killed by player (check for lastDamager component)
-                local lastDamager = ECS.getComponent(entityId, "LastDamager")
-                if lastDamager and lastDamager.pilotId then
-                    -- Check if the damager belongs to the player
-                    local pilot = ECS.getComponent(lastDamager.pilotId, "Player")
-                    if pilot then
-                        DestructionSystem.spawnItemDrops(pos.x, pos.y, "asteroid")
-                    end
-                end
-                -- Otherwise, no drops from enemy mining
-            elseif (hull or aiController) and pos then
-                DestructionSystem.spawnItemDrops(pos.x, pos.y, "ship")
-                -- Spawn wreckage for destroyed ships
-                WrackageSystem.spawnWrackage(pos.x, pos.y, "destroyed_ship")
-            elseif wreckage and lootDrop and lootDrop.dropsScrap and not lootDrop.droppedScrap and pos then
-                -- Wreckage drops scrap (1-2 pieces)
-                DestructionSystem.spawnScrapDrop(pos.x, pos.y)
-                lootDrop.droppedScrap = true
+            -- Wreckage shatters into bits
+            if wreckage and pos then
+                local collidable = ECS.getComponent(entityId, "Collidable")
+                local parentSize = collidable and collidable.radius or 15
+                -- Use gray/metallic color for scrap bits
+                local scrapColor = {0.5, 0.5, 0.5, 1}
+                DestructionSystem.spawnBits(pos.x, pos.y, {
+                    count = math.random(5, 10),
+                    parentSize = parentSize,
+                    color = scrapColor,
+                    type = "scrap"
+                })
             end
 
             ECS.destroyEntity(entityId)

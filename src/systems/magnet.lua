@@ -1,68 +1,75 @@
 ---@diagnostic disable: undefined-global
--- Pickup System - Handles item collection on player contact
+-- Magnet System - Handles magnetic collection of bits and items
 
 local ECS = require('src.ecs')
 local Notifications = require('src.ui.notifications')
 local SoundSystem = require('src.systems.sound')
 
 
-local PickupSystem = {
-    name = "MagnetSystem",  -- Keep name for compatibility
+local MagnetSystem = {
+    name = "MagnetSystem",
     priority = 5
 }
 
-function PickupSystem.update(dt)
-    -- Find the pilot and their controlled drone
-    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-    if #pilotEntities == 0 then return end
-    local pilotId = pilotEntities[1]
-    local pilotCargo = ECS.getComponent(pilotId, "Cargo")
-    local input = ECS.getComponent(pilotId, "InputControlled")
-    if not input or not input.targetEntity then return end
-    local droneId = input.targetEntity
-    local dronePos = ECS.getComponent(droneId, "Position")
-    local coll = ECS.getComponent(droneId, "Collidable")
-    local magnet = ECS.getComponent(droneId, "Magnet")
-    if not pilotCargo or not dronePos or not coll or not magnet then return end
+function MagnetSystem.update(dt)
+    -- Find only player ships with active magnetic fields and cargo
+    local ships = ECS.getEntitiesWith({"MagneticField", "Cargo", "Position", "ControlledBy"})
+    
+    for _, shipId in ipairs(ships) do
+        local magField = ECS.getComponent(shipId, "MagneticField")
+        local cargo = ECS.getComponent(shipId, "Cargo")
+        local shipPos = ECS.getComponent(shipId, "Position")
         
-        if pilotCargo and dronePos and coll and magnet then
-            -- Get all items in the world
-            local itemEntities = ECS.getEntitiesWith({"Item", "Position"})
+        if magField and magField.active and cargo and shipPos then
+            -- Collect all Items in range (no ShatterBit needed)
+            local items = ECS.getEntitiesWith({"Item", "Position"})
+            local collectedByType = {}  -- Track collected items by type
             
-            for _, itemId in ipairs(itemEntities) do
-                local itemComp = ECS.getComponent(itemId, "Item")
+            for _, itemId in ipairs(items) do
                 local itemPos = ECS.getComponent(itemId, "Position")
-                local stack = ECS.getComponent(itemId, "Stack")
-                if itemComp and itemPos then
-                    local dx = dronePos.x - itemPos.x
-                    local dy = dronePos.y - itemPos.y
+                local item = ECS.getComponent(itemId, "Item")
+                if itemPos and item then
+                    local dx = shipPos.x - itemPos.x
+                    local dy = shipPos.y - itemPos.y
                     local dist = math.sqrt(dx*dx + dy*dy)
-                    -- Magnet effect: pull item toward drone
-                    if magnet and dist < magnet.range then
-                        local pullStrength = magnet.pullSpeed * (1 - dist / magnet.range)
+                    
+                    if dist < magField.range then
+                        -- Pull item toward ship
+                        local pullSpeed = 500  -- Units per second
+                        local pullStrength = pullSpeed * (1 - dist / magField.range)
                         local dirX = dx / (dist + 1e-6)
                         local dirY = dy / (dist + 1e-6)
                         itemPos.x = itemPos.x + dirX * pullStrength * dt
                         itemPos.y = itemPos.y + dirY * pullStrength * dt
+                        
+                        -- Collect if very close to ship
+                        local collectDistance = 30
+                        local newDist = math.sqrt((shipPos.x - itemPos.x)^2 + (shipPos.y - itemPos.y)^2)
+                        if newDist < collectDistance then
+                            local itemType = item.id or "stone"
+                            local stack = ECS.getComponent(itemId, "Stack")
+                            local quantity = (stack and stack.quantity) or 1
+                            cargo.items[itemType] = (cargo.items[itemType] or 0) + quantity
+                            collectedByType[itemType] = (collectedByType[itemType] or 0) + quantity
+                            ECS.destroyEntity(itemId)
+                        end
                     end
-                    -- Pickup if close enough
-                    if magnet and dist < magnet.collectDistance then
-                        local quantity = stack and stack.quantity or 1
-                        pilotCargo.items[itemComp.id] = (pilotCargo.items[itemComp.id] or 0) + quantity
-                        Notifications.addNotification(itemComp.id, quantity, dronePos.x, dronePos.y)
-                        print("[Pickup] Collected item: " .. tostring(itemComp.id) .. " x" .. tostring(quantity))
-                        -- Play pickup sound (loaded asset)
-                        if SoundSystem and SoundSystem.play then
-                            SoundSystem.play("item_pickup", {volume = 0.9})
-                        end
-                        ECS.destroyEntity(itemId)
-                        if itemComp.def and itemComp.def.onCollect then
-                            itemComp.def:onCollect(pilotId)
-                        end
+                end
+            end
+            
+            -- Show notifications for each item type collected
+            for itemType, count in pairs(collectedByType) do
+                Notifications.addNotification(itemType, count)
+            end
+            
+            -- Play quiet pickup sound if anything was collected
+            if next(collectedByType) then
+                if SoundSystem and SoundSystem.play then
+                    SoundSystem.play("item_pickup", {volume = 0.3})
                 end
             end
         end
     end
 end
 
-return PickupSystem
+return MagnetSystem

@@ -46,14 +46,18 @@ function CargoWindow:draw(viewportWidth, viewportHeight)
 
     -- ...existing code...
     
-    local cargoEntities = ECS.getEntitiesWith({"Player", "Cargo"})
-    if #cargoEntities == 0 then return end
+    -- Get the player's controlled ship
+    local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
+    if #controllers == 0 then return end
+    local pilotId = controllers[1]
+    local inputComp = ECS.getComponent(pilotId, "InputControlled")
+    local shipId = inputComp and inputComp.targetEntity or nil
+    if not shipId then return end
     
-    local playerId = cargoEntities[1]
-    local cargo = ECS.getComponent(playerId, "Cargo")
+    local cargo = ECS.getComponent(shipId, "Cargo")
     if not cargo then return end
     
-    local currency = ECS.getComponent(playerId, "Currency")
+    local currency = ECS.getComponent(pilotId, "Currency")
     
     -- Draw close button
     self:drawCloseButton(x, y, alpha)
@@ -495,9 +499,9 @@ function CargoWindow:mousepressed(x, y, button)
             if input and input.targetEntity then
                 local droneId = input.targetEntity
                 local turretSlots = ECS.getComponent(droneId, "TurretSlots")
-                local playerCargo = ECS.getComponent(pilotId, "Cargo")
+                local shipCargo = ECS.getComponent(droneId, "Cargo")
                 local playerTurret = ECS.getComponent(droneId, "Turret")
-                if turretSlots and playerCargo then
+                if turretSlots and shipCargo then
                     local moduleId = turretSlots.slots[1]
                     if moduleId then
                         -- Remove from slot
@@ -507,7 +511,7 @@ function CargoWindow:mousepressed(x, y, button)
                             playerTurret.moduleName = ""
                         end
                         -- Add to inventory
-                        playerCargo.items[moduleId] = (playerCargo.items[moduleId] or 0) + 1
+                        shipCargo.items[moduleId] = (shipCargo.items[moduleId] or 0) + 1
                     end
                 end
             end
@@ -521,12 +525,29 @@ function CargoWindow:mousereleased(x, y, button)
         self.isDragging = false
     end
     local mx, my = x, y
-    local cargoEntities = ECS.getEntitiesWith({"Player", "Cargo"})
-    if #cargoEntities > 0 then
-        local playerId = cargoEntities[1]
-        local cargo = ECS.getComponent(playerId, "Cargo")
-        -- Dragging turret item to turret slot
-        if self.isOpen and button == 1 and self.draggedItem and string.match(self.draggedItem.itemId, "turret") then
+    
+    -- Get the player's controlled ship for cargo access
+    local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
+    if #controllers == 0 then 
+        WindowBase.mousereleased(self, x, y, button)
+        return 
+    end
+    local pilotId = controllers[1]
+    local inputComp = ECS.getComponent(pilotId, "InputControlled")
+    local shipId = inputComp and inputComp.targetEntity or nil
+    if not shipId then 
+        WindowBase.mousereleased(self, x, y, button)
+        return 
+    end
+    
+    local cargo = ECS.getComponent(shipId, "Cargo")
+    if not cargo then 
+        WindowBase.mousereleased(self, x, y, button)
+        return 
+    end
+    
+    -- Dragging turret item to turret slot
+    if self.isOpen and button == 1 and self.draggedItem and string.match(self.draggedItem.itemId, "turret") then
             if self.turretSlotRect and mx >= self.turretSlotRect.x and mx <= self.turretSlotRect.x + self.turretSlotRect.w
                and my >= self.turretSlotRect.y and my <= self.turretSlotRect.y + self.turretSlotRect.h then
                 local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
@@ -536,13 +557,13 @@ function CargoWindow:mousereleased(x, y, button)
                     if input and input.targetEntity then
                         local droneId = input.targetEntity
                         local playerTurretSlots = ECS.getComponent(droneId, "TurretSlots")
-                        local playerCargo = ECS.getComponent(pilotId, "Cargo")
+                        local shipCargo = ECS.getComponent(droneId, "Cargo")
                         local playerTurret = ECS.getComponent(droneId, "Turret")
-                        if playerTurretSlots and playerCargo and playerTurret then
+                        if playerTurretSlots and shipCargo and playerTurret then
                             -- If there's an old module in the slot, swap it back to inventory
                             local oldModuleId = playerTurretSlots.slots[1]
                             if oldModuleId then
-                                playerCargo.items[oldModuleId] = (playerCargo.items[oldModuleId] or 0) + 1
+                                shipCargo.items[oldModuleId] = (shipCargo.items[oldModuleId] or 0) + 1
                             end
                             
                             -- Equip the new module
@@ -556,10 +577,10 @@ function CargoWindow:mousereleased(x, y, button)
                             playerTurret.moduleName = turretModuleMap[self.draggedItem.itemId] or self.draggedItem.itemId
                             
                             -- Remove the new module from inventory
-                            if playerCargo.items[self.draggedItem.itemId] then
-                                playerCargo.items[self.draggedItem.itemId] = playerCargo.items[self.draggedItem.itemId] - 1
-                                if playerCargo.items[self.draggedItem.itemId] <= 0 then
-                                    playerCargo.items[self.draggedItem.itemId] = nil
+                            if shipCargo.items[self.draggedItem.itemId] then
+                                shipCargo.items[self.draggedItem.itemId] = shipCargo.items[self.draggedItem.itemId] - 1
+                                if shipCargo.items[self.draggedItem.itemId] <= 0 then
+                                    shipCargo.items[self.draggedItem.itemId] = nil
                                 end
                             end
                         end
@@ -580,12 +601,12 @@ function CargoWindow:mousereleased(x, y, button)
                     if input and input.targetEntity then
                         local droneId = input.targetEntity
                         local playerDefensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
-                        local playerCargo = ECS.getComponent(pilotId, "Cargo")
-                        if playerDefensiveSlots and playerCargo then
+                        local shipCargo = ECS.getComponent(droneId, "Cargo")
+                        if playerDefensiveSlots and shipCargo then
                             -- If there's an old module in the slot, swap it back to inventory
                             local oldModuleId = playerDefensiveSlots.slots[1]
                             if oldModuleId then
-                                playerCargo.items[oldModuleId] = (playerCargo.items[oldModuleId] or 0) + 1
+                                shipCargo.items[oldModuleId] = (shipCargo.items[oldModuleId] or 0) + 1
                                 -- Unequip the old module
                                 local ItemDefs = require('src.items.item_loader')
                                 local oldItemDef = ItemDefs[oldModuleId]
@@ -603,10 +624,10 @@ function CargoWindow:mousereleased(x, y, button)
                             end
                             
                             -- Remove the new module from inventory
-                            if playerCargo.items[self.draggedItem.itemId] then
-                                playerCargo.items[self.draggedItem.itemId] = playerCargo.items[self.draggedItem.itemId] - 1
-                                if playerCargo.items[self.draggedItem.itemId] <= 0 then
-                                    playerCargo.items[self.draggedItem.itemId] = nil
+                            if shipCargo.items[self.draggedItem.itemId] then
+                                shipCargo.items[self.draggedItem.itemId] = shipCargo.items[self.draggedItem.itemId] - 1
+                                if shipCargo.items[self.draggedItem.itemId] <= 0 then
+                                    shipCargo.items[self.draggedItem.itemId] = nil
                                 end
                             end
                         end
@@ -662,7 +683,7 @@ function CargoWindow:mousereleased(x, y, button)
             return
         end
         self.draggedItem = nil
-    end
+    
     WindowBase.mousereleased(self, x, y, button)
 end
 

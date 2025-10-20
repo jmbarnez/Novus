@@ -58,10 +58,9 @@ function Core.init()
     local pilotId = ECS.createEntity()
     ECS.addComponent(pilotId, "InputControlled", Components.InputControlled())
     ECS.addComponent(pilotId, "Player", Components.Player())
-    ECS.addComponent(pilotId, "Cargo", Components.Cargo({}, 10))
     ECS.addComponent(pilotId, "Skills", Components.Skills())
 
-    -- Give pilot (player) initial turret items in their cargo
+    -- Give pilot (player) initial turret items in their ship's cargo
     local miningLaserId = "mining_laser_turret"
     local basicCannonId = "basic_cannon_turret"
     local combatLaserId = "combat_laser_turret"
@@ -83,14 +82,14 @@ function Core.init()
         inputComp.speed = Constants.player_max_speed * droneDesign.thrustMultiplier
     end
     
-    -- Add initial items to pilot cargo
-    local pilotCargo = ECS.getComponent(pilotId, "Cargo")
-    if pilotCargo then
-        pilotCargo.items[miningLaserId] = 1
-        pilotCargo.items[basicCannonId] = 1
-        pilotCargo.items[combatLaserId] = 1
-        pilotCargo.items[salvageLaserId] = 1
-        pilotCargo.items["basic_shield_module"] = 1  -- Add starting defensive module
+    -- Add initial items to ship's cargo
+    local shipCargo = ECS.getComponent(droneId, "Cargo")
+    if shipCargo then
+        shipCargo.items[miningLaserId] = 1
+        shipCargo.items[basicCannonId] = 1
+        shipCargo.items[combatLaserId] = 1
+        shipCargo.items[salvageLaserId] = 1
+        shipCargo.items["basic_shield_module"] = 1  -- Add starting defensive module
     end
     
     -- Equip default turret on the drone (Basic Cannon!)
@@ -160,9 +159,9 @@ function Core.init()
     ECS.addComponent(starFieldId, "StarField", parallaxObject)
 
     -- Create thick asteroid field band extending across the world boundaries
-    local asteroidFieldDensity = 500  -- Total number of asteroids
+    local asteroidFieldDensity = Constants.asteroid_field_density
     local fieldCenterY = 0
-    local fieldThickness = 3000  -- Y-axis thickness of the field (±1500 from center)
+    local fieldThickness = Constants.asteroid_field_thickness  -- Y-axis thickness of the field (±1500 from center)
     
     for i = 1, asteroidFieldDensity do
         -- Randomly distribute asteroids across X and Y within the band
@@ -180,7 +179,6 @@ function Core.init()
         local angularVelocity = Procedural.randomRange(Constants.asteroid_rotation_min, Constants.asteroid_rotation_max)
         
         local asteroidMass = size * size * 0.5
-        local rotationalInertia = size * size * size * 2
         
         local asteroidId = ECS.createEntity()
         ECS.addComponent(asteroidId, "Position", Components.Position(x, y))
@@ -188,7 +186,6 @@ function Core.init()
         ECS.addComponent(asteroidId, "Physics", Components.Physics(0.999, asteroidMass))
         ECS.addComponent(asteroidId, "PolygonShape", Components.PolygonShape(vertices, math.random() * 2 * math.pi))
         ECS.addComponent(asteroidId, "AngularVelocity", Components.AngularVelocity(angularVelocity))
-        ECS.addComponent(asteroidId, "RotationalMass", Components.RotationalMass(rotationalInertia))
         ECS.addComponent(asteroidId, "Collidable", Components.Collidable(size / 2))
         ECS.addComponent(asteroidId, "Durability", Components.Durability(size * 2, size * 2))
         ECS.addComponent(asteroidId, "Asteroid", Components.Asteroid())
@@ -217,10 +214,6 @@ function Core.init()
         local shipId = ShipLoader.createShip(designId, x, y, "ai")
         
         if shipId then
-            local design = ShipLoader.getDesign(designId)
-            local cargoCapacity = design and design.cargoCapacity or 20
-            ECS.addComponent(shipId, "Cargo", Components.Cargo({}, cargoCapacity))
-            
             -- Set turret module
             local turret = ECS.getComponent(shipId, "Turret")
             if turret then
@@ -255,10 +248,6 @@ function Core.init()
         local shipId = ShipLoader.createShip(designId, x, y, "ai")
         
         if shipId then
-            local design = ShipLoader.getDesign(designId)
-            local cargoCapacity = design and design.cargoCapacity or 20
-            ECS.addComponent(shipId, "Cargo", Components.Cargo({}, cargoCapacity))
-            
             -- Set turret module
             local turret = ECS.getComponent(shipId, "Turret")
             if turret then
@@ -272,11 +261,33 @@ function Core.init()
         enemyIndex = enemyIndex + 1
     end
 
+    -- Spawn pure collector scouts (no weapons, just magnetic fields)
+    local collectorCount = 3
+    for i = 1, collectorCount do
+        local x = Constants.world_min_x + math.random() * (Constants.world_max_x - Constants.world_min_x)
+        local y = Constants.world_min_y + math.random() * (Constants.world_max_y - Constants.world_min_y)
+        
+        local designId = "red_scout"
+        local shipId = ShipLoader.createShip(designId, x, y, "ai")
+        
+        if shipId then
+            -- Don't equip a turret - these are pure collectors
+            -- The ShipLoader already added Cargo and MagneticField for red_scout
+            local ai = ECS.getComponent(shipId, "AIController")
+            if ai then
+                ai.state = "patrol"
+                ai.speed = 80  -- Slower roaming
+                ai.detectionRadius = 0  -- Don't detect anything
+            end
+        end
+    end
+
     print("Game entities created and systems initialized")
     print("Pilot and starting drone spawned at world center (0, 0)")
     print("Asteroid field spawned: 500 asteroids in thick band across world")
     print("Enemy ships spawned: 5 mining lasers + 10 cannons = 15 total enemies distributed across the map")
-    print("Player controls: WASD for thrust, ESC to quit")
+    print("Collector scouts spawned: 3 autonomous bit collectors with magnetic fields")
+    print("Player controls: WASD for thrust, E to toggle collection, ESC to quit")
 end
 
 -- Main game update loop

@@ -106,6 +106,25 @@ local function drawDebris()
     end
 end
 
+-- Helper function to draw magnetic field indicator
+local function drawMagneticField()
+    local ships = ECS.getEntitiesWith({"MagneticField", "Position", "ControlledBy"})
+    for _, shipId in ipairs(ships) do
+        local magField = ECS.getComponent(shipId, "MagneticField")
+        local position = ECS.getComponent(shipId, "Position")
+        if magField and magField.active and position then
+            -- Draw a subtle pulsing circle around the ship
+            local radius = magField.range
+            local time = love.timer.getTime()
+            local pulse = 0.3 + 0.2 * math.sin(time * 4)
+            love.graphics.setColor(0.4, 0.8, 1, pulse * 0.3)
+            love.graphics.circle("line", position.x, position.y, radius)
+            love.graphics.setColor(0.6, 0.9, 1, pulse * 0.2)
+            love.graphics.circle("line", position.x, position.y, radius * 0.7)
+        end
+    end
+end
+
 local RenderSystem = {
     name = "RenderSystem",
 
@@ -167,10 +186,23 @@ local RenderSystem = {
             local position = ECS.getComponent(entityId, "Position")
             local renderable = ECS.getComponent(entityId, "Renderable")
             if not position or not renderable then goto continue_entity end
+            
             local item = ECS.getComponent(entityId, "Item")
             local stack = ECS.getComponent(entityId, "Stack")
             if renderable.shape == "item" and item and item.def and item.def.draw then
-                item.def:draw(position.x, position.y)
+                -- Check if this is a dropped item (has Collidable) - render tiny
+                local coll = ECS.getComponent(entityId, "Collidable")
+                if coll and coll.radius and coll.radius < 5 then
+                    -- Tiny dropped item - scale down the draw
+                    love.graphics.push()
+                    love.graphics.translate(position.x, position.y)
+                    love.graphics.scale(0.3, 0.3)  -- Draw at 30% size
+                    item.def:draw(0, 0)
+                    love.graphics.pop()
+                else
+                    -- Normal item drop - full size
+                    item.def:draw(position.x, position.y)
+                end
                 if stack and stack.quantity and stack.quantity > 1 then
                     love.graphics.setColor(1, 1, 1, 0.9)
                     local Theme = require('src.ui.theme')
@@ -336,6 +368,9 @@ local RenderSystem = {
                 end
             end
         end
+
+        -- Draw magnetic field indicators
+        drawMagneticField()
 
         if CameraSystem and CameraSystem.resetTransform then
             CameraSystem.resetTransform()

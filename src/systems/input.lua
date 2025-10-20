@@ -180,7 +180,25 @@ end
 
 function InputSystem.keypressed(key)
     -- Tab key handling will be done in core.lua to avoid circular dependency
-    -- Placeholder for key pressed input handling
+    -- E key: toggle magnetic collection field
+    if key == 'e' then
+        local ECS = require('src.ecs')
+        
+        -- Find player's controlled ship
+        local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
+        if #controllers == 0 then return end
+        local pilotId = controllers[1]
+        local input = ECS.getComponent(pilotId, "InputControlled")
+        local playerShip = input and input.targetEntity or pilotId
+        
+        -- Get MagneticField component and toggle it
+        local magField = ECS.getComponent(playerShip, "MagneticField")
+        if magField then
+            magField.active = not magField.active
+            local status = magField.active and "ON" or "OFF"
+            print("[InputSystem] Magnetic collection field toggled: " .. status)
+        end
+    end
 end
 
 function InputSystem.keyreleased(key)

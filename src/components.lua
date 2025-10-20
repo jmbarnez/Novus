@@ -410,15 +410,13 @@ Components.Cargo = function(items, capacity)
     }
 end
 
--- Magnet component - Attracts and collects items within range
--- @field range number: Distance in units to attract items
--- @field pullSpeed number: Speed to pull items toward the magnet
--- @field collectDistance number: Distance to automatically collect items
-Components.Magnet = function(range, pullSpeed, collectDistance)
+-- MagneticField component - Marks entity as having magnetic collection capability
+-- @field active boolean: Whether the magnetic field is currently active
+-- @field range number: Collection radius
+Components.MagneticField = function(range)
     return {
-        range = range or 200,
-        pullSpeed = pullSpeed or 120,
-        collectDistance = collectDistance or 24
+        active = false,
+        range = range or 50
     }
 end
 

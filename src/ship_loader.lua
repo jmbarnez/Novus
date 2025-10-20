@@ -138,14 +138,9 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
         ))
     end
     
-    -- Magnet (for item collection)
-    if design.hasMagnet then
-        ECS.addComponent(shipId, "Magnet", Components.Magnet(
-            design.magnetRadius or 200,
-            design.magnetPullSpeed or 120,
-            design.magnetMaxItems or 24
-        ))
-    end
+    -- All ships get cargo and wreckage components
+    ECS.addComponent(shipId, "Cargo", Components.Cargo({}, design.cargoCapacity or 50))
+    ECS.addComponent(shipId, "Wreckage", Components.Wreckage(designId))
     
     -- Controller setup
     if controllerType == "player" and controllerId then
@@ -153,6 +148,10 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
         ECS.addComponent(shipId, "ControlledBy", Components.ControlledBy(controllerId))
         ECS.addComponent(shipId, "CameraTarget", Components.CameraTarget())
         ECS.addComponent(shipId, "Boundary", Components.Boundary(Constants.world_min_x, Constants.world_max_x, Constants.world_min_y, Constants.world_max_y))
+        
+        -- Player ships get magnetic field
+        local radius = design.collisionRadius and design.collisionRadius * 1.5 or 50
+        ECS.addComponent(shipId, "MagneticField", Components.MagneticField(radius))
         
         -- Link the pilot's InputControlled to this ship
         local inputComp = ECS.getComponent(controllerId, "InputControlled")

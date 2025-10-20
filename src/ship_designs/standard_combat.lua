@@ -33,10 +33,6 @@ return {
     
     -- Abilities
     hasTrail = true, -- Both have engine trails
-    hasMagnet = true, -- Only player uses this
-    magnetRadius = 200,
-    magnetPullSpeed = 120,
-    magnetMaxItems = 24,
     
     -- AI settings (only used when AI-controlled)
     aiType = "patrol",

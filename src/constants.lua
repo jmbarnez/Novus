@@ -46,4 +46,31 @@ Constants.asteroid_rotation_max = 1
 Constants.asteroid_vertices_min = 6
 Constants.asteroid_vertices_max = 10
 
+-- Magnetic collection settings
+Constants.magnet_pull_speed = 500  -- Units per second
+Constants.magnet_collect_distance = 30  -- Distance to collect bits
+Constants.magnet_radius_scale = 1.5  -- Multiplier for collisionRadius to get magnetic field radius
+
+-- AI settings
+Constants.ai_default_speed = 80
+Constants.ai_detection_radius = 1200
+Constants.ai_fire_range = 2500
+Constants.ai_patrol_speed_default = 60
+Constants.ai_detection_range_default = 400
+Constants.ai_engage_range_default = 240
+
+-- World spawning settings
+Constants.asteroid_field_density = 150  -- Reduced further for performance (was 500, then 200)
+Constants.asteroid_field_thickness = 3000
+Constants.mining_drones_count = 5
+Constants.cannon_drones_count = 10
+
+-- Bit spawning speeds (when destroyed)
+Constants.bit_spawn_speed_asteroid_min = 40
+Constants.bit_spawn_speed_asteroid_max = 120
+Constants.bit_spawn_speed_wreckage_min = 30
+Constants.bit_spawn_speed_wreckage_max = 80
+Constants.bit_spawn_speed_debris_min = 20
+Constants.bit_spawn_speed_debris_max = 50
+
 return Constants
