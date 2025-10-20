@@ -4,7 +4,8 @@
 
 local ECS = require('src.ecs')
 local Parallax = require('src.parallax')
-local unpack = table.unpack
+---@diagnostic disable-next-line: deprecated
+local unpack = unpack or table.unpack
 
 -- Helper function to draw a turret on top of the drone
 local function drawTurret(x, y, color, playerRotation)
@@ -25,6 +26,7 @@ local function drawTurret(x, y, color, playerRotation)
     mouseY = (mouseY - canvasComp.offsetY) / canvasComp.scale / cameraComp.zoom + cameraPos.y
 
     -- Calculate angle between drone and mouse relative to the drone's rotation
+    ---@diagnostic disable-next-line: deprecated
     local angle = math.atan2(mouseY - y, mouseX - x) - playerRotation
 
     -- Draw turret (rectangle pointing right, then rotated)

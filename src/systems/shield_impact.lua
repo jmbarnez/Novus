@@ -62,6 +62,7 @@ local ShieldImpactSystem = {
                     -- Calculate angle from ship center to impact point
                     local impactDx = impact.x - shipPos.x
                     local impactDy = impact.y - shipPos.y
+                    ---@diagnostic disable-next-line: deprecated
                     local impactAngle = math.atan2(impactDy, impactDx)
                     
                     -- Draw pulse wave emanating from impact point
