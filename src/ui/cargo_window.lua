@@ -275,11 +275,11 @@ function CargoWindow:drawTurretPanel(windowX, windowY, cargo, alpha)
 end
 
 function CargoWindow:drawDefensiveSlotPanel(panelX, panelY, panelWidth, alpha)
-    -- Draw panel background
-    love.graphics.setColor(0.08, 0.08, 0.1, alpha * 0.9)
+    -- Draw panel background (matching turret panel style)
+    love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], Theme.colors.bgMedium[3], alpha * 0.9)
     love.graphics.rectangle("fill", panelX, panelY, panelWidth, 140, 8, 8)
-    love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], alpha)
-    love.graphics.setLineWidth(2)
+    love.graphics.setColor(Theme.colors.borderLight[1], Theme.colors.borderLight[2], Theme.colors.borderLight[3], alpha)
+    love.graphics.setLineWidth(1)
     love.graphics.rectangle("line", panelX, panelY, panelWidth, 140)
     -- Find pilot and their controlled drone's defensive slots
     local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})

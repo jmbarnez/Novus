@@ -178,7 +178,6 @@ local RenderSystem = {
 
         drawDebris()
 
-        love.graphics.setCanvas(canvasComp.canvas)
         drawLaser()
 
         local renderableEntities = ECS.getEntitiesWith({"Position", "Renderable"})

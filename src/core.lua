@@ -151,10 +151,10 @@ function Core.init()
     -- Create Starfield Entity (background) with static twinkling layer
     local starFieldId = ECS.createEntity()
     local starLayers = {
-        {count = 80, brightness = 0.9, parallaxFactor = 0},      -- Static twinkling stars
-        {count = 800, brightness = 0.7, parallaxFactor = 0.01},  -- Very far distant stars
-        {count = 600, brightness = 0.5, parallaxFactor = 0.03},  -- Far distant stars
-        {count = 400, brightness = 0.35, parallaxFactor = 0.08}  -- Medium distant stars
+        {count = 40, brightness = 0.9, parallaxFactor = 0},      -- Static twinkling stars
+        {count = 400, brightness = 0.7, parallaxFactor = 0.01},  -- Very far distant stars
+        {count = 300, brightness = 0.5, parallaxFactor = 0.03},  -- Far distant stars
+        {count = 200, brightness = 0.35, parallaxFactor = 0.08}  -- Medium distant stars
     }
     local parallaxObject = Parallax.new(starLayers, 10000)
     ECS.addComponent(starFieldId, "StarField", parallaxObject)
@@ -176,17 +176,15 @@ function Core.init()
         local size = Procedural.randomRange(Constants.asteroid_size_min, Constants.asteroid_size_max)
         local vertexCount = math.random(Constants.asteroid_vertices_min, Constants.asteroid_vertices_max)
         local vertices = Procedural.generatePolygonVertices(vertexCount, size / 2)
-        local velocity = Procedural.randomVelocity(5, 15)  -- Slower movement for field asteroids
-        local angularVelocity = Procedural.randomRange(Constants.asteroid_rotation_min, Constants.asteroid_rotation_max)
         
         local asteroidMass = size * size * 0.5
         
         local asteroidId = ECS.createEntity()
         ECS.addComponent(asteroidId, "Position", Components.Position(x, y))
-        ECS.addComponent(asteroidId, "Velocity", Components.Velocity(velocity.vx, velocity.vy))
+        ECS.addComponent(asteroidId, "Velocity", Components.Velocity(0, 0))
         ECS.addComponent(asteroidId, "Physics", Components.Physics(0.999, asteroidMass))
         ECS.addComponent(asteroidId, "PolygonShape", Components.PolygonShape(vertices, math.random() * 2 * math.pi))
-        ECS.addComponent(asteroidId, "AngularVelocity", Components.AngularVelocity(angularVelocity))
+        ECS.addComponent(asteroidId, "AngularVelocity", Components.AngularVelocity(0))
         ECS.addComponent(asteroidId, "Collidable", Components.Collidable(size / 2))
         ECS.addComponent(asteroidId, "Durability", Components.Durability(size * 2, size * 2))
         ECS.addComponent(asteroidId, "Asteroid", Components.Asteroid())
@@ -285,7 +283,7 @@ function Core.init()
 
     print("Game entities created and systems initialized")
     print("Pilot and starting drone spawned at world center (0, 0)")
-    print("Asteroid field spawned: 500 asteroids in thick band across world")
+    print("Asteroid field spawned: 150 asteroids in thick band across world")
     print("Enemy ships spawned: 5 mining lasers + 10 cannons = 15 total enemies distributed across the map")
     print("Collector scouts spawned: 3 autonomous bit collectors with magnetic fields")
     print("Player controls: WASD for thrust, E to toggle collection, ESC to quit")
@@ -301,7 +299,6 @@ end
 function Core.draw()
     love.graphics.clear(0, 0, 0)
     ECS.draw() -- Draw all world and UI systems
-    -- Minimap is now drawn as part of HUD, not separately
 end
 
 

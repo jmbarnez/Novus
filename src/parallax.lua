@@ -58,10 +58,8 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
                 if drawX < 0 then drawX = drawX + parallax.worldSize end
                 local drawY = (star.y - offsetY) % parallax.worldSize
                 if drawY < 0 then drawY = drawY + parallax.worldSize end
-                if drawX >= -50 and drawX <= screenWidth + 50 and drawY >= -50 and drawY <= screenHeight + 50 then
-                    love.graphics.setColor(1, 1, 1, star.brightness)
-                    love.graphics.points(drawX, drawY)
-                end
+                love.graphics.setColor(1, 1, 1, star.brightness)
+                love.graphics.points(drawX, drawY)
             end
         end
         ::continue::

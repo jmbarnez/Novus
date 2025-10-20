@@ -14,7 +14,7 @@ local loadingDuration = 0.8 -- seconds
 -- Love2D callback functions - delegate to core module
 
 function love.load()
-    love.window.setVSync(1)
+    love.window.setVSync(0)
     local Constants = require('src.constants')
     love.window.setMode(Constants.screen_width, Constants.screen_height, {fullscreen = false, resizable = false})
     Scaling.update()
