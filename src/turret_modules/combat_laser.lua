@@ -10,7 +10,7 @@ local SkillXP = require('src.systems.skill_xp')
 local CombatLaser = {
     name = "combat_laser",
     displayName = "Combat Laser",
-    COOLDOWN = 1.25,
+    COOLDOWN = 6,
     DPS = 35,
     RANGE = 1600,
     design = {
@@ -18,8 +18,8 @@ local CombatLaser = {
         size = 16,
         color = {0, 0.8, 1, 1}
     },
-    draw = function(x, y)
-        local size = 16
+    draw = function(self, x, y)
+        local size = self.design.size
         love.graphics.setColor(0.1, 0.15, 0.2, 1)
         love.graphics.rectangle("fill", x - size/2, y - size/3, size, size * 0.6, 3, 3)
         love.graphics.setColor(0, 0.8, 1, 1)

@@ -9,7 +9,7 @@ function TurretRange.getMaxRange(moduleName)
     if ok and module and module.RANGE then
         return module.RANGE
     end
-    return nil -- No default, module must define
+    return 500 -- Default range if not specified by module
 end
 
 -- Get firing delay (cooldown) for a turret (seconds)
@@ -18,7 +18,7 @@ function TurretRange.getFireCooldown(moduleName)
     if ok and module and module.COOLDOWN then
         return module.COOLDOWN
     end
-    return nil -- No default, module must define
+    return 0.7 -- Default cooldown if not specified by module
 end
 
 return TurretRange

@@ -379,7 +379,7 @@ end
 Components.Turret = function(moduleName)
     return {
         moduleName = moduleName or nil, -- No default, must be set by equipping a module
-        lastFireTime = 0
+        lastFireTime = -999 -- Initialize to allow first shot immediately
     }
 end
 

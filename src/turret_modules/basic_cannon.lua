@@ -18,8 +18,8 @@ local BasicCannon = {
         size = 16,
         color = {1, 0.9, 0.2, 1}
     },
-    draw = function(x, y)
-        local size = 16 -- Use design.size if needed
+    draw = function(self, x, y)
+        local size = self.design.size -- Use design.size
         love.graphics.setColor(0.3, 0.3, 0.3, 1)
         love.graphics.rectangle("fill", x - size/4, y - size/2, size/2, size, 4, 4)
         love.graphics.setColor(1, 0.9, 0.2, 1)

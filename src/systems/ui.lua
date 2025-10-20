@@ -6,6 +6,7 @@ local ECS = require('src.ecs')
 local Constants = require('src.constants')
 local Theme = require('src.ui.theme')
 local CargoWindow = require('src.ui.cargo_window')
+local MapWindow = require('src.ui.map_window')
 local Tooltips = require('src.ui.tooltips')
 local Dialogs = require('src.ui.dialogs')
 local Notifications = require('src.ui.notifications')
@@ -92,6 +93,16 @@ end, function(x, y, button)
     return true
 end)
 
+-- Map window
+UISystem.registerInteractive('map_window', function(x, y, button)
+    return MapWindow.isOpen and MapWindow.position and x >= MapWindow.position.x and x <= MapWindow.position.x + MapWindow.width
+           and y >= MapWindow.position.y and y <= MapWindow.position.y + MapWindow.height
+end, function(x, y, button)
+    -- Map window captures input (no context menu for now)
+    MapWindow:mousepressed(x, y, button)
+    return true
+end)
+
 
 -- Minimap input capture is now handled by HUD, but we still want UI to eat clicks over minimap
 local Minimap = require('src.systems.minimap')
@@ -132,6 +143,8 @@ function UISystem.draw(viewportWidth, viewportHeight)
     
     -- Draw cargo window and related UI
     CargoWindow:draw(viewportWidth, viewportHeight)
+    -- Draw map window if open
+    MapWindow:draw(viewportWidth, viewportHeight)
     
     -- Draw confirmation dialog if active (highest priority)
     if Dialogs.confirmDialog then
@@ -180,6 +193,9 @@ end
 function UISystem.keypressed(key)
     if key == 'tab' or key == 'escape' then
         CargoWindow:toggle()
+    end
+    if key == 'm' then
+        MapWindow:toggle()
     end
 end
 

@@ -86,10 +86,23 @@ function CargoWindow:draw(viewportWidth, viewportHeight)
     -- Draw turret panel on the left side
     self:drawTurretPanel(x, y, cargo, alpha)
     -- Draw dragged item icon at mouse position if dragging (use UI coords)
-    if self.draggedItem and self.draggedItem.itemDef and self.draggedItem.itemDef.draw then
+    if self.draggedItem and self.draggedItem.itemDef then
         local mx, my = Scaling.toUI(love.mouse.getPosition())
         love.graphics.setColor(1, 1, 1, 0.8 * alpha)
-        self.draggedItem.itemDef:draw(mx, my)
+        
+        local itemDef = self.draggedItem.itemDef
+        if itemDef.module and itemDef.module.draw then
+            -- If it's a turret, draw from the module
+            itemDef.module.draw(itemDef.module, mx, my)
+        elseif itemDef.draw then
+            -- For non-turret items, use their itemDef.draw
+            itemDef:draw(mx, my)
+        else
+            -- Fallback if no draw function exists anywhere
+            local color = itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}
+            love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * 0.8 * alpha)
+            love.graphics.circle("fill", mx, my, 20)
+        end
         love.graphics.setColor(1, 1, 1, 1) -- reset color
     end
 end
@@ -258,15 +271,19 @@ function CargoWindow:drawTurretPanel(windowX, windowY, cargo, alpha)
     
     -- Draw equipped module icon or placeholder (TURRET PANEL)
     if turretSlots.slots[1] then
+        local itemId = turretSlots.slots[1]
         local ItemDefs = require('src.items.item_loader')
-        local itemDef = ItemDefs[turretSlots.slots[1]]
+        local itemDef = ItemDefs[itemId]
+
         if itemDef and itemDef.module and itemDef.module.draw then
+            -- Draw using the module's draw function
             love.graphics.setColor(1, 1, 1, alpha)
-            itemDef.module.draw(slotX + slotWidth / 2, slotY + slotHeight / 2)
+            itemDef.module.draw(itemDef.module, slotX + slotWidth / 2, slotY + slotHeight / 2)
         elseif itemDef and itemDef.draw then
             love.graphics.setColor(1, 1, 1, alpha)
             itemDef:draw(slotX + slotWidth / 2, slotY + slotHeight / 2)
         else
+            -- Fallback placeholder
             love.graphics.setColor(0.5, 0.5, 0.8, alpha)
             love.graphics.circle("fill", slotX + slotWidth / 2, slotY + slotHeight / 2, 20)
         end
@@ -349,13 +366,20 @@ function CargoWindow:drawDefensiveSlotPanel(panelX, panelY, panelWidth, alpha)
     
     -- Draw equipped module icon or placeholder
     if defensiveSlots.slots[1] then
+        local itemId = defensiveSlots.slots[1]
         local ItemDefs = require('src.items.item_loader')
-        local itemDef = ItemDefs[defensiveSlots.slots[1]]
-        if itemDef and itemDef.draw then
-            -- Draw the item icon in the center of the slot
+        local itemDef = ItemDefs[itemId]
+
+        if itemDef and itemDef.module and itemDef.module.draw then
+            -- If it's a defensive module, draw from its module
+            love.graphics.setColor(1, 1, 1, alpha)
+            itemDef.module.draw(itemDef.module, slotX + slotWidth / 2, slotY + slotHeight / 2)
+        elseif itemDef and itemDef.draw then
+            -- For other defensive items, use their itemDef.draw
+            love.graphics.setColor(1, 1, 1, alpha)
             itemDef:draw(slotX + slotWidth / 2, slotY + slotHeight / 2)
         else
-            -- Fallback: draw a circle if no draw method
+            -- Fallback: draw a circle if no draw function exists anywhere
             love.graphics.setColor(0.3, 0.8, 0.5, alpha)
             love.graphics.circle("fill", slotX + slotWidth / 2, slotY + slotHeight / 2, 20)
         end
@@ -412,25 +436,29 @@ function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
         local isHovering = mx >= uiIconX and mx <= uiIconX + uiIconSize and my >= uiIconY and my <= uiIconY + uiIconSize
         
         local itemDef = ItemDefs[itemId]
+        local TurretModule = nil
+        if itemDef and itemDef.type == "turret" and itemDef.module then
+            TurretModule = itemDef.module
+        end
         
         if isHovering then
             self.hoveredItemSlot = {itemId = itemId, itemDef = itemDef, count = count, mouseX = mx, mouseY = my, slotIndex = i}
             self.hoveredGridSlot = {slotIndex = i, itemId = itemId}
             -- Draw hover highlight
-            local color = itemDef and itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}
+            local color = (TurretModule and TurretModule.design and TurretModule.design.color) or (itemDef and itemDef.design and itemDef.design.color) or {0.7, 0.7, 0.8, 1}
             love.graphics.setColor(color[1] * 1.5, color[2] * 1.5, color[3] * 1.5, 0.3 * alpha)
             love.graphics.rectangle("fill", iconX, iconY, iconSize, iconSize, 4, 4)
         end
         
-        -- Draw item using its draw method (ITEM GRID)
-        if itemDef and itemDef.module and itemDef.module.draw then
+        -- Draw item using its draw method
+        if TurretModule and TurretModule.draw then
             love.graphics.setColor(1, 1, 1, alpha)
-            itemDef.module.draw(iconX + iconSize / 2, iconY + iconSize / 2)
+            TurretModule.draw(TurretModule, iconX + iconSize / 2, iconY + iconSize / 2)
         elseif itemDef and itemDef.draw then
             itemDef:draw(iconX + iconSize / 2, iconY + iconSize / 2)
         else
             -- Fallback to circle if no draw method
-            local color = itemDef and itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}
+            local color = (TurretModule and TurretModule.design and TurretModule.design.color) or (itemDef and itemDef.design and itemDef.design.color) or {0.7, 0.7, 0.8, 1}
             love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha)
             love.graphics.circle("fill", iconX + iconSize / 2, iconY + iconSize / 2, iconSize / 2)
         end
@@ -573,13 +601,13 @@ function CargoWindow:mousereleased(x, y, button)
                             
                             -- Equip the new module
                             playerTurretSlots.slots[1] = self.draggedItem.itemId
-                            local turretModuleMap = {
-                                mining_laser_turret = "mining_laser",
-                                basic_cannon_turret = "basic_cannon",
-                                combat_laser_turret = "combat_laser",
-                                salvage_laser_turret = "salvage_laser"
-                            }
-                            playerTurret.moduleName = turretModuleMap[self.draggedItem.itemId] or self.draggedItem.itemId
+                            local ItemDefs = require('src.items.item_loader')
+                            local itemDef = ItemDefs[self.draggedItem.itemId]
+                            if itemDef and itemDef.module and itemDef.module.name then
+                                playerTurret.moduleName = itemDef.module.name -- Use module name from item definition
+                            else
+                                playerTurret.moduleName = nil -- No valid module
+                            end
                             
                             -- Remove the new module from inventory
                             if shipCargo.items[self.draggedItem.itemId] then

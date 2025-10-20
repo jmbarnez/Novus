@@ -18,8 +18,8 @@ local MiningLaser = {
         size = 16,
         color = {1.0, 1.0, 0.2, 1}
     },
-    draw = function(x, y)
-        local size = 16
+    draw = function(self, x, y)
+        local size = self.design.size
         love.graphics.setColor(0.2, 0.15, 0.1, 1)
         love.graphics.rectangle("fill", x - size/2, y - size/3, size, size * 0.6, 3, 3)
         love.graphics.setColor(1, 1, 0.2, 1)

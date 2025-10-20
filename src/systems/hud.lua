@@ -143,6 +143,8 @@ local function drawTurretSlots(viewportWidth, viewportHeight)
     
     local ItemDefs = require('src.items.item_loader')
     local mx, my = Scaling.toUI(love.mouse.getPosition())
+    local turret = ECS.getComponent(droneId, "Turret")
+    local TurretRange = require('src.systems.turret_range')
     
     -- Reset hover tracking
     HUDSystem.hoveredTurretSlot = nil
@@ -172,21 +174,69 @@ local function drawTurretSlots(viewportWidth, viewportHeight)
         
         -- Draw equipped module icon or placeholder
         if turretSlots.slots[slotIndex] then
-            local moduleName = turretSlots.slots[slotIndex]
-            local TurretModule
-            pcall(function()
-                local itemDef = ItemDefs[moduleName]
-                if itemDef and itemDef.module then
-                    TurretModule = itemDef.module
+            local itemId = turretSlots.slots[slotIndex] -- This is the item ID (e.g., basic_cannon_turret)
+            local ItemDefs = require('src.items.item_loader')
+            local itemDef = ItemDefs[itemId]
+            
+            -- Debug output (only print once per frame per slot to avoid spam)
+            if not HUDSystem._debugged then
+                HUDSystem._debugged = {}
+            end
+            local debugKey = string.format("slot_%d_%s", slotIndex, itemId)
+            if not HUDSystem._debugged[debugKey] then
+                print(string.format("[HUD] Slot %d checking itemId '%s'", slotIndex, itemId))
+                print(string.format("[HUD]   ItemDefs type: %s, has key: %s", type(ItemDefs), tostring(ItemDefs[itemId] ~= nil)))
+                if itemDef then
+                    print(string.format("[HUD]   itemDef.id: %s", itemDef.id))
+                    print(string.format("[HUD]   itemDef.module: %s", tostring(itemDef.module)))
+                    if itemDef.module then
+                        print(string.format("[HUD]   itemDef.module.name: %s", itemDef.module.name))
+                        print(string.format("[HUD]   itemDef.module.draw: %s", tostring(itemDef.module.draw)))
+                    end
                 end
-            end)
-            if TurretModule and TurretModule.draw then
+                HUDSystem._debugged[debugKey] = true
+            end
+
+            if itemDef and itemDef.module and itemDef.module.draw then
+                -- If it's a turret, draw from the module
                 love.graphics.setColor(1, 1, 1, 1)
-                TurretModule.draw(slotX + slotSize / 2, slotY + slotSize / 2)
+                local ok, err = pcall(itemDef.module.draw, itemDef.module, slotX + slotSize / 2, slotY + slotSize / 2)
+                if not ok then
+                    print(string.format("[HUD] Error drawing module for item '%s': %s", itemId, err))
+                    love.graphics.setColor(0.5, 0.5, 0.8, 1)
+                    love.graphics.circle("fill", slotX + slotSize / 2, slotY + slotSize / 2, slotSize / 3)
+                end
+            elseif itemDef and itemDef.draw then
+                -- For non-turret items (if any, though in this slot it's usually turrets), use their itemDef.draw
+                love.graphics.setColor(1, 1, 1, 1)
+                itemDef:draw(slotX + slotSize / 2, slotY + slotSize / 2)
             else
-                print(string.format("[HUD] Turret slot %d: Failed to load module '%s' or has no draw function. TurretModule=%s, has_draw=%s", slotIndex, moduleName, TurretModule ~= nil, TurretModule and TurretModule.draw ~= nil))
+                print(string.format("[HUD] Turret slot %d: Failed to find draw function for item '%s'.", slotIndex, itemId))
+                if itemDef then
+                    print(string.format("[HUD]   itemDef exists, module: %s, module.draw: %s", tostring(itemDef.module), tostring(itemDef.module and itemDef.module.draw)))
+                else
+                    print(string.format("[HUD]   itemDef is nil for itemId: %s", itemId))
+                end
                 love.graphics.setColor(0.5, 0.5, 0.8, 1)
                 love.graphics.circle("fill", slotX + slotSize / 2, slotY + slotSize / 2, slotSize / 3)
+            end
+            
+            -- Draw cooldown bar if this slot is equipped (active)
+            if slotIndex == 1 and turret then
+                local moduleName = turret.moduleName
+                if moduleName then
+                    local moduleCooldown = TurretRange.getFireCooldown(moduleName)
+                    local currentTime = love.timer.getTime()
+                    local timeSinceLastFire = currentTime - (turret.lastFireTime or 0)
+                    local cooldownRatio = math.min(timeSinceLastFire / moduleCooldown, 1.0)
+                    
+                    -- Draw green cooldown bar from right to left
+                    local barHeight = Scaling.scaleSize(4)
+                    local barWidth = slotSize * cooldownRatio
+                    
+                    love.graphics.setColor(0.2, 0.8, 0.2, 0.8) -- Green
+                    love.graphics.rectangle("fill", slotX + slotSize - barWidth, slotY + slotSize - barHeight, barWidth, barHeight)
+                end
             end
         else
             -- Empty slot - draw placeholder

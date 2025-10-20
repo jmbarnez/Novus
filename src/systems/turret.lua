@@ -3,6 +3,7 @@
 
 local ECS = require('src.ecs')
 local Components = require('src.components')
+local TurretRange = require('src.systems.turret_range')
 
 local TurretSystem = {
     name = "TurretSystem",
@@ -35,7 +36,8 @@ function TurretSystem.fireTurret(entityId, targetX, targetY)
     end
 
     local module = TurretSystem.turretModules[turret.moduleName]
-    local moduleCooldown = module and module.COOLDOWN or 0.7
+    -- Cooldown is now handled by TurretRange.getFireCooldown, which provides a default
+    local moduleCooldown = TurretRange.getFireCooldown(turret.moduleName)
     local currentTime = love.timer.getTime()
     if currentTime - turret.lastFireTime >= moduleCooldown then
         if module and module.fire then
