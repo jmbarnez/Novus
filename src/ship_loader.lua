@@ -121,6 +121,14 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
             initialTurretModuleName = "basic_cannon"
         end
         
+        -- Validate the initial turret module exists
+        if initialTurretModuleName and initialTurretModuleName ~= "" then
+            local TurretSystem = require('src.systems.turret')
+            if not TurretSystem.turretModules or not TurretSystem.turretModules[initialTurretModuleName] then
+                print(string.format("[ShipLoader] Warning: default turret module '%s' for design '%s' not found; clearing default", tostring(initialTurretModuleName), tostring(designId)))
+                initialTurretModuleName = nil
+            end
+        end
         ECS.addComponent(shipId, "Turret", Components.Turret(initialTurretModuleName))
     end
     

@@ -11,7 +11,7 @@ local BasicCannon = {
     BALL_SPEED = 200,
     BALL_RADIUS = 8,
     BALL_COLOR = {1, 0.9, 0.2, 1},
-    COOLDOWN = 0.7, -- Time between shots in seconds
+    COOLDOWN = 2, -- Time between shots in seconds
     DPS = 10, -- Damage per shot
     design = {
         shape = "custom",
@@ -43,7 +43,7 @@ function BasicCannon.fire(ownerId, startX, startY, endX, endY)
     local spawnX = startX + dirX * 25
     local spawnY = startY + dirY * 25
 
-    print(string.format("[Cannon] Fire dir: (%.2f, %.2f) | spawn: (%.2f, %.2f) -> (%.2f, %.2f)", dirX, dirY, startX, startY, spawnX, spawnY))
+    -- Debug print removed
 
     -- Create projectile entity
     local ballId = ECS.createEntity()
@@ -64,7 +64,7 @@ function BasicCannon.fire(ownerId, startX, startY, endX, endY)
         color = BasicCannon.BALL_COLOR
     })
     
-    print(string.format("[Cannon] Created projectile %d | vel: (%.2f, %.2f) | pos: (%.2f, %.2f)", ballId, dirX * BasicCannon.BALL_SPEED, dirY * BasicCannon.BALL_SPEED, spawnX, spawnY))
+    -- Debug print removed
 end
 
 return BasicCannon

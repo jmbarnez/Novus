@@ -27,7 +27,7 @@ return {
     -- Equipment
     turretSlots = 1,
     defaultTurret = "basic_cannon",
-    turretCooldown = 0.4,
+    -- Turret cooldowns are defined per turret module (COOLDOWN), not in ship designs.
     defensiveSlots = 1,
     cargoCapacity = 10, -- Only used for player
     

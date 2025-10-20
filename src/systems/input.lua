@@ -131,10 +131,10 @@ function InputSystem.update(dt)
                 mouseX, mouseY = Scaling.toUI(mouseX, mouseY)
             end
             
-            -- Fire the turret (creates/updates laser beam on cooldown)
-            TurretSystem.fireTurret(turretOwner, mouseX, mouseY)
+            -- Fire the turret (creates/updates laser beam on cooldown); pass dt for heat accumulation
+            TurretSystem.fireTurret(turretOwner, mouseX, mouseY, dt)
             
-            -- Apply beam effects every frame (damage, debris, beam positioning)
+            -- Apply beam effects every frame (damage, debris, beam positioning) and handle heat for continuous lasers
             -- Projectiles apply damage in the CollisionSystem/ProjectileSystem,
             -- Lasers apply damage in their applyBeam functions (handled in module).
                 if turretModule and turretModule.applyBeam then
@@ -153,6 +153,16 @@ function InputSystem.update(dt)
                 end
                 
                 local beamResult = turretModule.applyBeam(turretOwner, laserStartX, laserStartY, mouseX, mouseY, dt)
+                -- Handle heat accumulation for continuous weapons
+                local turretComp = ECS.getComponent(turretOwner, "Turret")
+                if turretComp and turretModule and turretModule.CONTINUOUS then
+                    -- Grow heat, and trigger overheat if exceeding MAX_HEAT
+                    local heatRate = turretModule.HEAT_RATE or 1.0
+                    turretComp.heat = math.min((turretComp.heat or 0) + heatRate * dt, turretModule.MAX_HEAT or 10)
+                    if turretComp.heat >= (turretModule.MAX_HEAT or 10) then
+                        turretComp.overheated = true
+                    end
+                end
                 -- Also update the laser beam position on the entity
                 if turretModule.laserEntity and turretModule.laserEntity > 0 then
                     local laserBeam = ECS.getComponent(turretModule.laserEntity, "LaserBeam")
@@ -178,31 +188,18 @@ function InputSystem.update(dt)
                     turretModule.laserEntity = nil
                 end
             end
+                    -- On release, start cooling down heat for continuous lasers
+                    local turretComp = ECS.getComponent(turretOwner, "Turret")
+                    if turretComp and turretComp.heat and turretComp.heat > 0 then
+                        -- We'll rely on TurretSystem.update to cool down over time
+                    end
         end
     end
 end
 
 function InputSystem.keypressed(key)
     -- Tab key handling will be done in core.lua to avoid circular dependency
-    -- E key: toggle magnetic collection field
-    if key == 'e' then
-        local ECS = require('src.ecs')
-        
-        -- Find player's controlled ship
-        local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
-        if #controllers == 0 then return end
-        local pilotId = controllers[1]
-        local input = ECS.getComponent(pilotId, "InputControlled")
-        local playerShip = input and input.targetEntity or pilotId
-        
-        -- Get MagneticField component and toggle it
-        local magField = ECS.getComponent(playerShip, "MagneticField")
-        if magField then
-            magField.active = not magField.active
-            local status = magField.active and "ON" or "OFF"
-            print("[InputSystem] Magnetic collection field toggled: " .. status)
-        end
-    end
+    -- Removed E key logic for magnetic field toggle
 end
 
 function InputSystem.keyreleased(key)
@@ -214,17 +211,26 @@ function InputSystem.mousemoved(x, y, dx, dy, isTouch)
 end
 
 function InputSystem.wheelmoved(x, y)
+    -- Forward wheel events to MapWindow for zoom control if open
+    local MapWindow = require('src.ui.map_window')
+    if MapWindow and MapWindow.getOpen and MapWindow:getOpen() then
+        MapWindow:wheelmoved(x, y)
+        return
+    end
+
     local cameraEntities = ECS.getEntitiesWith({"Camera"})
     if #cameraEntities > 0 then
         local cameraId = cameraEntities[1]
         local camera = ECS.getComponent(cameraId, "Camera")
-        
+
         local zoomStep = 0.1 -- How much zoom changes per wheel tick
-        
-        if y > 0 then -- Mouse wheel up (zoom in)
-            camera.targetZoom = math.min(camera.targetZoom + zoomStep, 2.0)
-        elseif y < 0 then -- Mouse wheel down (zoom out)
-            camera.targetZoom = math.max(camera.targetZoom - zoomStep, 0.5)
+
+        if camera then
+            if y > 0 then -- Mouse wheel up (zoom in)
+                camera.targetZoom = math.min((camera.targetZoom or camera.zoom or 1) + zoomStep, 2.0)
+            elseif y < 0 then -- Mouse wheel down (zoom out)
+                camera.targetZoom = math.max((camera.targetZoom or camera.zoom or 1) - zoomStep, 0.5)
+            end
         end
     end
 end

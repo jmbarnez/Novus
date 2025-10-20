@@ -104,11 +104,13 @@ function Core.init()
                 droneTurret.moduleName = "basic_cannon"
             end
             turretSlots.slots[1] = basicCannonId
-            print("[Core] Equipped default turret: Basic Cannon")
+            if droneTurret then
+                print(string.format("[Core] Equipped default turret: itemId='%s', moduleName='%s'", basicCannonId, droneTurret.moduleName))
+            end
         else
             -- If slot is empty, make sure moduleName is empty too
             if droneTurret then
-                droneTurret.moduleName = ""
+                droneTurret.moduleName = nil
             end
             print("[Core] No turret module equipped at start")
         end

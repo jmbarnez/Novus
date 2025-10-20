@@ -65,7 +65,22 @@ function AI.update(dt)
         if playerPos then
             local dsq = distSq(pos.x, pos.y, playerPos.x, playerPos.y)
             local dist = math.sqrt(dsq)
-            local detectionRadiusSq = (ai.detectionRadius * ai.detectionRadius)
+            -- Detection radius should be at least roughly the turret firing range so AI can detect
+            -- targets at a distance they can engage. Use module range if available.
+            local moduleBasedRadius = nil
+            if turret and turret.moduleName then
+                local moduleRange = TurretRange.getMaxRange(turret.moduleName)
+                if moduleRange then
+                    -- Use a slightly smaller detection radius to avoid instant engagement at edge cases,
+                    -- but generally detection should be near turret range
+                    moduleBasedRadius = moduleRange * 0.95
+                end
+            end
+            local effectiveDetectionRadius = ai.detectionRadius
+            if moduleBasedRadius then
+                effectiveDetectionRadius = math.max(effectiveDetectionRadius or 0, moduleBasedRadius)
+            end
+            local detectionRadiusSq = (effectiveDetectionRadius * effectiveDetectionRadius)
             
             if dsq < detectionRadiusSq then
                 -- Player detected - determine best behavior based on distance
@@ -141,7 +156,7 @@ function AI.update(dt)
             if turret and turret.moduleName and dist < fireRange then
                 local TurretSystem = ECS.getSystem("TurretSystem")
                 if TurretSystem and TurretSystem.fireTurret then
-                    TurretSystem.fireTurret(eid, playerPos.x, playerPos.y)
+                    TurretSystem.fireTurret(eid, playerPos.x, playerPos.y, dt)
                 end
             end
         elseif ai.state == "orbit" and playerPos then
@@ -188,7 +203,7 @@ function AI.update(dt)
                 if turret and turret.moduleName and dist < fireRange then
                     local TurretSystem = ECS.getSystem("TurretSystem")
                     if TurretSystem and TurretSystem.fireTurret then
-                        TurretSystem.fireTurret(eid, playerPos.x, playerPos.y)
+                        TurretSystem.fireTurret(eid, playerPos.x, playerPos.y, dt)
                     end
                 end
             end

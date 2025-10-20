@@ -24,7 +24,7 @@ function TurretSystem.loadTurretModules(path)
     end
 end
 
-function TurretSystem.fireTurret(entityId, targetX, targetY)
+function TurretSystem.fireTurret(entityId, targetX, targetY, dt)
     local turret = ECS.getComponent(entityId, "Turret")
     local position = ECS.getComponent(entityId, "Position")
     if not turret or not position then return end
@@ -36,23 +36,71 @@ function TurretSystem.fireTurret(entityId, targetX, targetY)
     end
 
     local module = TurretSystem.turretModules[turret.moduleName]
-    -- Cooldown is now handled by TurretRange.getFireCooldown, which provides a default
+    -- If module is continuous (laser), bypass simple cooldown and call fire every frame.
+    if module and module.CONTINUOUS then
+        -- If turret overheated, do not fire
+        if turret.overheated then
+            return
+        end
+        if module and module.fire then
+            module.fire(entityId, position.x, position.y, targetX, targetY)
+            -- accumulate heat using dt if supplied
+            if dt and dt > 0 then
+                local heatRate = module.HEAT_RATE or 1.0
+                turret.heat = math.min((turret.heat or 0) + heatRate * dt, module.MAX_HEAT or 10)
+                if turret.heat >= (module.MAX_HEAT or 10) then
+                    turret.overheated = true
+                end
+            end
+            turret.lastFireTime = love.timer.getTime()
+        end
+        return
+    end
+
+    -- Non-continuous projectiles use module-defined cooldown
     local moduleCooldown = TurretRange.getFireCooldown(turret.moduleName)
     local currentTime = love.timer.getTime()
     if currentTime - turret.lastFireTime >= moduleCooldown then
         if module and module.fire then
-            print("[TurretSystem] Firing turret module: " .. turret.moduleName)
             module.fire(entityId, position.x, position.y, targetX, targetY)
             turret.lastFireTime = currentTime
-        else
-            print("[TurretSystem] Module not found or has no fire method: " .. (turret.moduleName or "nil"))
         end
     end
 end
 
 function TurretSystem.update(dt)
-    -- Turret System might have its own update logic for certain turret types later
-    -- For now, it primarily responds to explicit fire calls.
+    -- Cooldown / heat management for continuous weapons
+    local turretEntities = ECS.getEntitiesWith({"Turret"})
+    for _, eid in ipairs(turretEntities) do
+        local t = ECS.getComponent(eid, "Turret")
+        if not t then goto cont end
+        local module = TurretSystem.turretModules[t.moduleName]
+        if module and module.CONTINUOUS then
+            -- Determine if turret is currently firing by comparing lastFireTime
+            local now = love.timer.getTime()
+            local firing = (now - (t.lastFireTime or 0)) < 0.2
+            if not firing then
+                local coolRate = module.COOL_RATE or (module.HEAT_RATE or 1.0) * 0.5
+                t.heat = math.max(0, (t.heat or 0) - coolRate * dt)
+                -- Recover from overheat when heat drops below 50% of max
+                if t.overheated and t.heat < (module.MAX_HEAT or 10) * 0.5 then
+                    t.overheated = false
+                end
+                else
+                    -- If overheat condition reached and laser entity exists, destroy it to stop continuous firing
+                    if not t.overheated and t.heat >= (module.MAX_HEAT or 10) then
+                        t.overheated = true
+                        t.heat = module.MAX_HEAT or 10
+                        local mod = TurretSystem.turretModules[t.moduleName]
+                        if mod and mod.laserEntity then
+                            ECS.destroyEntity(mod.laserEntity)
+                            mod.laserEntity = nil
+                        end
+                    end
+            end
+        end
+        ::cont::
+    end
 end
 
 return TurretSystem

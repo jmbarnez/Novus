@@ -157,11 +157,13 @@ local function drawTurretSlots(viewportWidth, viewportHeight)
         -- Check if hovering
         local isHovering = mx >= slotX and mx <= slotX + slotSize and my >= slotY and my <= slotY + slotSize
         
-        -- Draw slot background
-        local bgColor = isHovering and {0.15, 0.15, 0.2, 0.95} or {0.1, 0.1, 0.15, 0.9}
-        love.graphics.setColor(bgColor[1], bgColor[2], bgColor[3], bgColor[4])
-        love.graphics.rectangle("fill", slotX, slotY, slotSize, slotSize, 4, 4)
+    -- Draw slot background
+    local bgColor = isHovering and {0.15, 0.15, 0.2, 0.95} or {0.1, 0.1, 0.15, 0.9}
+    love.graphics.setColor(bgColor[1], bgColor[2], bgColor[3], bgColor[4])
+    love.graphics.rectangle("fill", slotX, slotY, slotSize, slotSize, 4, 4)
         
+        -- cooldown overlay handled below (left-to-right); no overlay here
+
         -- Draw slot border
         local borderColor = {0.4, 0.4, 0.5, 0.8}
         if turretSlots.slots[slotIndex] then
@@ -178,31 +180,14 @@ local function drawTurretSlots(viewportWidth, viewportHeight)
             local ItemDefs = require('src.items.item_loader')
             local itemDef = ItemDefs[itemId]
             
-            -- Debug output (only print once per frame per slot to avoid spam)
-            if not HUDSystem._debugged then
-                HUDSystem._debugged = {}
-            end
-            local debugKey = string.format("slot_%d_%s", slotIndex, itemId)
-            if not HUDSystem._debugged[debugKey] then
-                print(string.format("[HUD] Slot %d checking itemId '%s'", slotIndex, itemId))
-                print(string.format("[HUD]   ItemDefs type: %s, has key: %s", type(ItemDefs), tostring(ItemDefs[itemId] ~= nil)))
-                if itemDef then
-                    print(string.format("[HUD]   itemDef.id: %s", itemDef.id))
-                    print(string.format("[HUD]   itemDef.module: %s", tostring(itemDef.module)))
-                    if itemDef.module then
-                        print(string.format("[HUD]   itemDef.module.name: %s", itemDef.module.name))
-                        print(string.format("[HUD]   itemDef.module.draw: %s", tostring(itemDef.module.draw)))
-                    end
-                end
-                HUDSystem._debugged[debugKey] = true
-            end
+            -- Draw equipped turret module icon if available
 
             if itemDef and itemDef.module and itemDef.module.draw then
                 -- If it's a turret, draw from the module
                 love.graphics.setColor(1, 1, 1, 1)
                 local ok, err = pcall(itemDef.module.draw, itemDef.module, slotX + slotSize / 2, slotY + slotSize / 2)
                 if not ok then
-                    print(string.format("[HUD] Error drawing module for item '%s': %s", itemId, err))
+                    -- If draw fails, fallback to placeholder icon
                     love.graphics.setColor(0.5, 0.5, 0.8, 1)
                     love.graphics.circle("fill", slotX + slotSize / 2, slotY + slotSize / 2, slotSize / 3)
                 end
@@ -211,31 +196,48 @@ local function drawTurretSlots(viewportWidth, viewportHeight)
                 love.graphics.setColor(1, 1, 1, 1)
                 itemDef:draw(slotX + slotSize / 2, slotY + slotSize / 2)
             else
-                print(string.format("[HUD] Turret slot %d: Failed to find draw function for item '%s'.", slotIndex, itemId))
-                if itemDef then
-                    print(string.format("[HUD]   itemDef exists, module: %s, module.draw: %s", tostring(itemDef.module), tostring(itemDef.module and itemDef.module.draw)))
-                else
-                    print(string.format("[HUD]   itemDef is nil for itemId: %s", itemId))
-                end
+                -- If no draw function, fallback to placeholder icon
                 love.graphics.setColor(0.5, 0.5, 0.8, 1)
                 love.graphics.circle("fill", slotX + slotSize / 2, slotY + slotSize / 2, slotSize / 3)
             end
             
-            -- Draw cooldown bar if this slot is equipped (active)
+            -- For continuous laser weapons, show heat overlay instead of simple cooldown
             if slotIndex == 1 and turret then
                 local moduleName = turret.moduleName
-                if moduleName then
+                local module = moduleName and TurretSystem.turretModules[moduleName]
+                if module and module.CONTINUOUS then
+                    -- Overheat overlay: red, fills left-to-right as heat increases
+                    local heat = (turret.heat or 0)
+                    local maxHeat = module.MAX_HEAT or 10
+                    local heatRatio = math.max(0, math.min(heat / maxHeat, 1))
+                    -- Draw a subtle inner overlay with padding
+                    local pad = math.max(2, math.floor(slotSize * 0.08))
+                    local innerH = slotSize - pad * 2
+                    local innerW = slotSize - pad * 2
+                    local overlayInnerWidth = math.floor(innerW * heatRatio)
+                    if turret.overheated then
+                        love.graphics.setColor(1.0, 0.2, 0.2, 0.4) -- subtle red
+                    else
+                        love.graphics.setColor(0.9, 0.3, 0.2, 0.28) -- subtle orange
+                    end
+                    if overlayInnerWidth > 0 then
+                        love.graphics.rectangle("fill", slotX + pad, slotY + pad, overlayInnerWidth, innerH, 3, 3)
+                    end
+                elseif module then
+                    -- Non-continuous: cooldown overlay - fills left-to-right as cooldown completes
                     local moduleCooldown = TurretRange.getFireCooldown(moduleName)
                     local currentTime = love.timer.getTime()
                     local timeSinceLastFire = currentTime - (turret.lastFireTime or 0)
-                    local cooldownRatio = math.min(timeSinceLastFire / moduleCooldown, 1.0)
-                    
-                    -- Draw green cooldown bar from right to left
-                    local barHeight = Scaling.scaleSize(4)
-                    local barWidth = slotSize * cooldownRatio
-                    
-                    love.graphics.setColor(0.2, 0.8, 0.2, 0.8) -- Green
-                    love.graphics.rectangle("fill", slotX + slotSize - barWidth, slotY + slotSize - barHeight, barWidth, barHeight)
+                    local cooldownRatio = math.max(0, math.min(timeSinceLastFire / moduleCooldown, 1.0))
+                    -- Draw subtle inner cooldown overlay
+                    local pad = math.max(2, math.floor(slotSize * 0.08))
+                    local innerH = slotSize - pad * 2
+                    local innerW = slotSize - pad * 2
+                    local overlayInnerWidth = math.floor(innerW * cooldownRatio)
+                    love.graphics.setColor(0.2, 0.8, 0.2, 0.28) -- subtle green
+                    if overlayInnerWidth > 0 then
+                        love.graphics.rectangle("fill", slotX + pad, slotY + pad, overlayInnerWidth, innerH, 3, 3)
+                    end
                 end
             end
         else
@@ -262,7 +264,7 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     viewportHeight = viewportHeight or (love.graphics and love.graphics.getHeight and love.graphics.getHeight()) or 1080
     drawHullShieldBar(viewportWidth, viewportHeight)
     drawTurretSlots(viewportWidth, viewportHeight)
-    drawMagneticFieldStatus(viewportWidth, viewportHeight)
+    -- drawMagneticFieldStatus(viewportWidth, viewportHeight) -- Removed magnetic field HUD
     -- Draw minimap as part of HUD
     if Minimap and Minimap.draw then
         Minimap.draw()
@@ -276,13 +278,14 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     SkillNotifications.draw()
     
     -- Draw turret slot tooltip if hovering
-    if HUDSystem.hoveredTurretSlot and HUDSystem.hoveredTurretSlot.itemDef then
+    local slot = HUDSystem.hoveredTurretSlot
+    if slot and type(slot) == "table" and slot.itemId and slot.itemDef and slot.mouseX and slot.mouseY then
         Tooltips.drawItemTooltip(
-            HUDSystem.hoveredTurretSlot.itemId,
-            HUDSystem.hoveredTurretSlot.itemDef,
+            slot.itemId,
+            slot.itemDef,
             1,
-            HUDSystem.hoveredTurretSlot.mouseX,
-            HUDSystem.hoveredTurretSlot.mouseY
+            slot.mouseX,
+            slot.mouseY
         )
     end
 end

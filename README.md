@@ -57,6 +57,23 @@ This project uses a modern **Entity Component System (ECS)** architecture design
 - **[Architecture Overview](docs/ARCHITECTURE.md)** - Detailed system architecture and design decisions
 - **[Development Guide](docs/DEVELOPMENT.md)** - Coding standards and best practices
 
+## 🛠️ Turret Modules & Cooldown Logic
+
+All turret cooldowns are defined exclusively in their turret module files (e.g., `src/turret_modules/basic_cannon.lua`).
+
+- The `COOLDOWN` field in each turret module is the only source of truth for firing rate.
+- Ship designs and other files should not define or override turret cooldowns.
+- The game engine always queries cooldown via `TurretRange.getFireCooldown(moduleName)`.
+
+Example turret module:
+```lua
+local BasicCannon = {
+   name = "basic_cannon",
+   COOLDOWN = 0.7,
+   -- ...other fields...
+}
+```
+
 ## 🛠️ Development
 
 ### Core Principles

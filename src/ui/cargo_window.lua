@@ -386,23 +386,7 @@ function CargoWindow:drawDefensiveSlotPanel(panelX, panelY, panelWidth, alpha)
     end
 end
 
-function CargoWindow:drawCloseButton(x, y, alpha)
-    local border = 3
-    local closeSize = 18
-    local closeX = x + self.width - closeSize - 8 - border
-    local closeY = y + border + (Theme.window.topBarHeight - 2*border - closeSize) / 2
-    local mx, my = Scaling.toUI(love.mouse.getPosition())
-    
-    local closeHover = mx >= closeX and mx <= closeX + closeSize and my >= closeY and my <= closeY + closeSize
-    -- Minimal X: black by default, red on hover, no background
-    local xColor = closeHover and {1,0.15,0.15,alpha} or {0,0,0,alpha}
-    love.graphics.setLineWidth(2)
-    love.graphics.setColor(xColor)
-    love.graphics.line(closeX+4, closeY+4, closeX+closeSize-4, closeY+closeSize-4)
-    love.graphics.line(closeX+closeSize-4, closeY+4, closeX+4, closeY+closeSize-4)
-    love.graphics.setLineWidth(1)
-    self.closeButtonRect = {x = closeX, y = closeY, w = closeSize, h = closeSize}
-end
+-- Close button is handled by WindowBase:drawCloseButton
 
 function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
     local iconSize = Theme.spacing.iconSize
@@ -477,14 +461,7 @@ end
 function CargoWindow:mousepressed(x, y, button)
     if not self.isOpen or not self.position then return end
     local mx, my = x, y
-    -- Check close button click
-    if self.closeButtonRect and button == 1 then
-        if mx >= self.closeButtonRect.x and mx <= self.closeButtonRect.x + self.closeButtonRect.w
-           and my >= self.closeButtonRect.y and my <= self.closeButtonRect.y + self.closeButtonRect.h then
-            self:setOpen(false)
-            return
-        end
-    end
+    -- WindowBase handles close button clicks
     -- Start dragging any item from cargo grid
     if button == 1 and self.hoveredItemSlot then
         self.draggedItem = {
@@ -517,7 +494,7 @@ function CargoWindow:mousepressed(x, y, button)
                 end
                 -- Clear the turret module name so it can't fire
                 if playerTurret then
-                    playerTurret.moduleName = ""
+                    playerTurret.moduleName = nil
                 end
             end
         end
@@ -541,7 +518,7 @@ function CargoWindow:mousepressed(x, y, button)
                         turretSlots.slots[1] = nil
                         -- Clear the turret module name so it can't fire
                         if playerTurret then
-                            playerTurret.moduleName = ""
+                            playerTurret.moduleName = nil
                         end
                         -- Add to inventory
                         shipCargo.items[moduleId] = (shipCargo.items[moduleId] or 0) + 1
@@ -605,6 +582,13 @@ function CargoWindow:mousereleased(x, y, button)
                             local itemDef = ItemDefs[self.draggedItem.itemId]
                             if itemDef and itemDef.module and itemDef.module.name then
                                 playerTurret.moduleName = itemDef.module.name -- Use module name from item definition
+                                -- Equip turret module and set moduleName
+                                -- Validate the module exists in the turret modules loader
+                                local TurretSystem = require('src.systems.turret')
+                                if not TurretSystem.turretModules or not TurretSystem.turretModules[playerTurret.moduleName] then
+                                    -- If module not found, clear moduleName
+                                    playerTurret.moduleName = nil
+                                end
                             else
                                 playerTurret.moduleName = nil -- No valid module
                             end
@@ -686,19 +670,13 @@ function CargoWindow:mousereleased(x, y, button)
             self.draggedItem = nil
             return
         end
-        -- Dragging turret module out of turret slot to inventory
+        -- Dragging turret module out of turret slot: always return to cargo
         if self.isOpen and button == 1 and self.draggedItem and self.draggedItem.slotIndex == "turret" then
-            -- If dropped onto cargo grid, add to inventory
-            if self.hoveredGridSlot then
-                local itemId = self.draggedItem.itemId
-                if cargo and not cargo.items then cargo.items = {} end
-                if cargo and itemId then
-                    cargo.items[itemId] = (cargo.items[itemId] or 0) + 1
-                end
-                self.draggedItem = nil
-                return
+            local itemId = self.draggedItem.itemId
+            if cargo and not cargo.items then cargo.items = {} end
+            if cargo and itemId then
+                cargo.items[itemId] = (cargo.items[itemId] or 0) + 1
             end
-            -- If dropped elsewhere, just clear draggedItem (module already removed from slot)
             self.draggedItem = nil
             return
         end

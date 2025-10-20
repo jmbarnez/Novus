@@ -18,6 +18,7 @@ function TurretRange.getFireCooldown(moduleName)
     if ok and module and module.COOLDOWN then
         return module.COOLDOWN
     end
+    -- If module not found or COOLDOWN missing, fallback to default cooldown
     return 0.7 -- Default cooldown if not specified by module
 end
 

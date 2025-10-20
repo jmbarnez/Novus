@@ -232,6 +232,8 @@ function UISystem.mousereleased(x, y, button)
     -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale)
     local mx, my = Scaling.toUI(x, y)
     CargoWindow:mousereleased(mx, my, button)
+    -- Forward to map window as well
+    MapWindow:mousereleased(mx, my, button)
     -- Release capture on mouse release (assumes left click)
     if button == 1 then
         UISystem.releaseMouse()
@@ -243,6 +245,7 @@ function UISystem.mousemoved(x, y, dx, dy, isTouch)
     -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale)
     local mx, my = Scaling.toUI(x, y)
     CargoWindow:mousemoved(mx, my, dx, dy)
+    MapWindow:mousemoved(mx, my, dx, dy)
 end
 
 -- Public API functions
