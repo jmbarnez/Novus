@@ -256,6 +256,19 @@ function UISystem.draw(viewportWidth, viewportHeight)
         )
         return false
     end
+
+    -- Draw tooltip for ship window available modules
+    if ShipWindow.isOpen and ShipWindow.hoveredItemSlot and not Dialogs.confirmDialog then
+        Tooltips.drawItemTooltip(
+            ShipWindow.hoveredItemSlot.itemId,
+            ShipWindow.hoveredItemSlot.itemDef,
+            ShipWindow.hoveredItemSlot.count,
+            ShipWindow.hoveredItemSlot.mouseX,
+            ShipWindow.hoveredItemSlot.mouseY
+        )
+        return false
+    end
+
     return false
 end
 

@@ -372,6 +372,32 @@ local RenderSystem = {
         -- Draw magnetic field indicators
         drawMagneticField()
 
+        -- Draw target indicator around targeted enemy
+        local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
+        if #controllers > 0 then
+            local inputComp = ECS.getComponent(controllers[1], "InputControlled")
+            if inputComp and inputComp.targetedEnemy then
+                local targetPos = ECS.getComponent(inputComp.targetedEnemy, "Position")
+                local targetColl = ECS.getComponent(inputComp.targetedEnemy, "Collidable")
+
+                if targetPos and targetColl then
+                    -- Draw pulsing target circle
+                    local time = love.timer.getTime()
+                    local pulse = 0.5 + 0.3 * math.sin(time * 4)  -- Pulse between 0.5 and 0.8
+                    local radius = targetColl.radius + 15
+
+                    love.graphics.setColor(1, 0.2, 0.2, pulse)  -- Red with pulsing alpha
+                    love.graphics.setLineWidth(3)
+                    love.graphics.circle("line", targetPos.x, targetPos.y, radius)
+
+                    -- Draw inner circle for more emphasis
+                    love.graphics.setColor(1, 0.5, 0.5, pulse * 0.7)
+                    love.graphics.setLineWidth(1)
+                    love.graphics.circle("line", targetPos.x, targetPos.y, radius - 5)
+                end
+            end
+        end
+
         if CameraSystem and CameraSystem.resetTransform then
             CameraSystem.resetTransform()
         end

@@ -85,7 +85,7 @@ end
 local function drawHotkeyOverlay(viewportWidth, viewportHeight)
     -- Draw hotkey overlay in bottom left
     local x = Scaling.scaleX(20)
-    local y = viewportHeight - Scaling.scaleY(150)  -- Position from bottom (adjusted for taller overlay)
+    local y = viewportHeight - Scaling.scaleY(180)  -- Position from bottom (moved up a bit)
 
     -- Background
     love.graphics.setColor(0, 0, 0, 0.7)

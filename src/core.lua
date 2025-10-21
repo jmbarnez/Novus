@@ -189,8 +189,14 @@ function Core.init()
         ECS.addComponent(asteroidId, "AngularVelocity", Components.AngularVelocity(0))
         ECS.addComponent(asteroidId, "Collidable", Components.Collidable(size / 2))
         ECS.addComponent(asteroidId, "Durability", Components.Durability(size * 2, size * 2))
-        ECS.addComponent(asteroidId, "Asteroid", Components.Asteroid())
-        ECS.addComponent(asteroidId, "Renderable", Components.Renderable("polygon", nil, nil, nil, {0.6, 0.4, 0.2, 1}))
+
+        -- Randomly choose asteroid type (50/50 chance)
+        local asteroidType = math.random() < 0.5 and "stone" or "iron"
+        ECS.addComponent(asteroidId, "Asteroid", Components.Asteroid(asteroidType))
+
+        -- Set color based on asteroid type
+        local color = asteroidType == "stone" and {0.5, 0.5, 0.5, 1} or {0.6, 0.4, 0.2, 1}
+        ECS.addComponent(asteroidId, "Renderable", Components.Renderable("polygon", nil, nil, nil, color))
     end
 
     -- Spawn enemy ships across the map

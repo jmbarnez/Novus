@@ -90,7 +90,7 @@ function CargoWindow:draw(viewportWidth, viewportHeight)
         local itemDef = self.draggedItem.itemDef
         love.graphics.push()
         love.graphics.translate(mx, my)
-        love.graphics.scale(2, 2)
+        love.graphics.scale(1, 1)
         if itemDef.module and itemDef.module.draw then
             -- If it's a turret, draw from the module
             itemDef.module.draw(itemDef.module, 0, 0)
@@ -156,7 +156,7 @@ function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
         -- Draw item using its draw method, scaled to slot size
         love.graphics.push()
         love.graphics.translate(iconX + slotSize / 2, iconY + slotSize / 2)
-        love.graphics.scale(2, 2)  -- Scale icons 2x to fill the larger slots
+            love.graphics.scale(1, 1)  -- Scale icons 1x to fit the smaller slots
         if TurretModule and TurretModule.draw then
             love.graphics.setColor(1, 1, 1, alpha)
             TurretModule.draw(TurretModule, 0, 0)

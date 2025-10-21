@@ -138,14 +138,15 @@ function DestructionSystem.update(dt)
                 if durability and durability.spawnBits then
                     DestructionSystem.spawnItems(pos.x, pos.y, durability.spawnBits)
                 end
-                -- Asteroid: default to stone items if not specified
+                -- Asteroid: drop items based on asteroid type
                 local asteroid = ECS.getComponent(entityId, "Asteroid")
                 if asteroid and (not durability or not durability.spawnBits) then
                     local collidable = ECS.getComponent(entityId, "Collidable")
                     local parentSize = collidable and collidable.radius or 20
+                    local itemType = asteroid.asteroidType == "iron" and "iron" or "stone"
                     DestructionSystem.spawnItems(pos.x, pos.y, {
                         count = math.random(8, 15),
-                        itemType = "stone",
+                        itemType = itemType,
                         distance = 0,
                         speed = {Constants.bit_spawn_speed_asteroid_min or 40, Constants.bit_spawn_speed_asteroid_max or 120}
                     })

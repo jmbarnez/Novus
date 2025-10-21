@@ -82,7 +82,8 @@ end
 -- startX, startY: muzzle position
 -- endX, endY: target position (mouse)
 -- dt: delta time
-function SalvageLaser.applyBeam(ownerId, startX, startY, endX, endY, dt)
+-- turretComp: turret component with heat information
+function SalvageLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretComp)
     local closestIntersection = nil
     local closestDistSq = math.huge
     local hitWreckageId = nil
@@ -105,7 +106,30 @@ function SalvageLaser.applyBeam(ownerId, startX, startY, endX, endY, dt)
         -- Apply per-frame DPS to wreckage
         local durability = ECS.getComponent(hitWreckageId, "Durability")
         if durability then
-            local damageApplied = math.min(SalvageLaser.DPS * dt, durability.current)
+            -- Calculate distance from laser origin to hit point
+            local hitDistance = math.sqrt(closestDistSq)
+
+            -- Distance falloff: damage starts falling off after 550 units, reaches 50% at max range (1100)
+            local falloffStart = 550
+            local falloffEnd = SalvageLaser.RANGE
+            local distanceMultiplier = 1.0
+            if hitDistance > falloffStart then
+                local falloffRange = falloffEnd - falloffStart
+                local falloffProgress = math.min((hitDistance - falloffStart) / falloffRange, 1.0)
+                distanceMultiplier = 1.0 - (falloffProgress * 0.5)  -- Falls to 50% damage
+            end
+
+            -- Heat multiplier: damage increases from 1x at 0 heat to 2x at max heat
+            local heatMultiplier = 1.0
+            if turretComp and turretComp.heat then
+                local heatProgress = turretComp.heat / SalvageLaser.MAX_HEAT
+                heatMultiplier = 1.0 + (heatProgress * 1.0)  -- Up to 2x damage
+            end
+
+            -- Calculate final damage
+            local baseDamage = SalvageLaser.DPS * dt
+            local finalDamage = baseDamage * distanceMultiplier * heatMultiplier
+            local damageApplied = math.min(finalDamage, durability.current)
             durability.current = durability.current - damageApplied
             -- Only grant XP if wreckage is destroyed this frame
             if durability.current <= 0 then

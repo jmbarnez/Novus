@@ -81,7 +81,8 @@ end
 -- startX, startY: muzzle position
 -- endX, endY: target position (mouse)
 -- dt: delta time
-function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt)
+-- turretComp: turret component with heat information
+function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretComp)
     local closestIntersection = nil
     local closestDistSq = math.huge
     local hitShipId = nil
@@ -116,7 +117,30 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt)
         -- Apply per-frame DPS to ship hull
         local hull = ECS.getComponent(hitShipId, "Hull")
         if hull then
-            local damageApplied = math.min(CombatLaser.DPS * dt, hull.current)
+            -- Calculate distance from laser origin to hit point
+            local hitDistance = math.sqrt(closestDistSq)
+
+            -- Distance falloff: damage starts falling off after 800 units, reaches 50% at max range (1600)
+            local falloffStart = 800
+            local falloffEnd = CombatLaser.RANGE
+            local distanceMultiplier = 1.0
+            if hitDistance > falloffStart then
+                local falloffRange = falloffEnd - falloffStart
+                local falloffProgress = math.min((hitDistance - falloffStart) / falloffRange, 1.0)
+                distanceMultiplier = 1.0 - (falloffProgress * 0.5)  -- Falls to 50% damage
+            end
+
+            -- Heat multiplier: damage increases from 1x at 0 heat to 2x at max heat
+            local heatMultiplier = 1.0
+            if turretComp and turretComp.heat then
+                local heatProgress = turretComp.heat / CombatLaser.MAX_HEAT
+                heatMultiplier = 1.0 + (heatProgress * 1.0)  -- Up to 2x damage
+            end
+
+            -- Calculate final damage
+            local baseDamage = CombatLaser.DPS * dt
+            local finalDamage = baseDamage * distanceMultiplier * heatMultiplier
+            local damageApplied = math.min(finalDamage, hull.current)
             hull.current = hull.current - damageApplied
             -- Only grant XP if ship is destroyed this frame
             if hull.current <= 0 then

@@ -59,12 +59,15 @@ end
 -- InputControlled component - Marks entity as player controllable
 -- @field controlType string: Type of control ("drone", "camera", etc.)
 -- @field speed number: Movement speed multiplier
+-- @field targetedEnemy number: Entity ID of currently targeted enemy (nil if none)
 Components.InputControlled = function(controlType, speed)
     return {
         controlType = controlType or "drone",
         speed = speed or Constants.player_max_speed,
         -- targetEntity: optionally references the entity id this controller is piloting
-        targetEntity = nil
+        targetEntity = nil,
+        -- targetedEnemy: entity ID of currently targeted enemy ship
+        targetedEnemy = nil
     }
 end
 
@@ -299,9 +302,12 @@ Components.AngularVelocity = function(omega)
     }
 end
 
--- Asteroid tag component - Marks asteroid entities
-Components.Asteroid = function()
-    return {}
+-- Asteroid component - Marks asteroid entities and their type
+-- @field asteroidType string: Type of asteroid ("stone" or "iron")
+Components.Asteroid = function(asteroidType)
+    return {
+        asteroidType = asteroidType or "stone"
+    }
 end
 
 -- Wreckage component - Marks entity as salvageable wreckage from destroyed ships

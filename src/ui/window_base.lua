@@ -34,11 +34,12 @@ function WindowBase:setOpen(state)
     
     -- Center window on first open if not explicitly positioned
     if state and not self.positionInitialized and not self.position then
-        local screenW = love.graphics.getWidth()
-        local screenH = love.graphics.getHeight()
+        -- Use UI reference dimensions (1920x1080) for centering
+        local uiW = 1920
+        local uiH = 1080
         self.position = {
-            x = math.floor((screenW - self.width) / 2),
-            y = math.floor((screenH - self.height) / 2)
+            x = math.floor((uiW - self.width) / 2),
+            y = math.floor((uiH - self.height) / 2)
         }
         self.positionInitialized = true
     end
@@ -80,7 +81,7 @@ function WindowBase:drawCloseButton(x, y, alpha)
     local closeSize = 18
     local closeX = x + self.width - closeSize - 8 - border
     local closeY = y + border + (Theme.window.topBarHeight - 2*border - closeSize) / 2
-    local mx, my = love.mouse.getPosition()
+    local mx, my = Scaling.toUI(love.mouse.getPosition())
 
     local closeHover = mx >= closeX and mx <= closeX + closeSize and my >= closeY and my <= closeY + closeSize
     -- Minimal X: black by default, red on hover, no background

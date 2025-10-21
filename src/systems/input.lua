@@ -137,7 +137,8 @@ function InputSystem.update(dt)
             -- Apply beam effects every frame (damage, debris, beam positioning) and handle heat for continuous lasers
             -- Projectiles apply damage in the CollisionSystem/ProjectileSystem,
             -- Lasers apply damage in their applyBeam functions (handled in module).
-                if turretModule and turretModule.applyBeam then
+            -- Only apply beam if turret is not overheated
+            if turretModule and turretModule.applyBeam and not turret.overheated then
                 -- Offset laser start position away from ship to avoid self-collision
                 local laserStartX = playerPos.x
                 local laserStartY = playerPos.y
@@ -151,8 +152,8 @@ function InputSystem.update(dt)
                         laserStartY = playerPos.y + (dy / dist) * (collider.radius + 5)
                     end
                 end
-                
-                local beamResult = turretModule.applyBeam(turretOwner, laserStartX, laserStartY, mouseX, mouseY, dt)
+
+                local beamResult = turretModule.applyBeam(turretOwner, laserStartX, laserStartY, mouseX, mouseY, dt, turret)
                 -- Handle heat accumulation for continuous weapons
                 local turretComp = ECS.getComponent(turretOwner, "Turret")
                 if turretComp and turretModule and turretModule.CONTINUOUS then
@@ -207,6 +208,77 @@ end
 
 function InputSystem.mousemoved(x, y, dx, dy, isTouch)
     -- This function can be used for other mouse movement related logic if needed.
+end
+
+function InputSystem.mousepressed(x, y, button, istouch, presses)
+    -- Handle enemy targeting with Ctrl + Left Click
+    if button == 1 and (love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl")) then
+        -- Get mouse position in world coordinates
+        local mouseX, mouseY = x, y
+
+        -- Convert screen coordinates to world coordinates using Scaling helper
+        local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+        if #cameraEntities > 0 then
+            local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
+            local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
+            local Scaling = require('src.scaling')
+            mouseX, mouseY = Scaling.toWorld(mouseX, mouseY, cameraComp, cameraPos)
+        else
+            -- Fallback: convert using global canvas transform if present
+            local Scaling = require('src.scaling')
+            mouseX, mouseY = Scaling.toUI(mouseX, mouseY)
+        end
+
+        -- Find closest enemy ship
+        local closestEnemy = nil
+        local closestDist = math.huge
+
+        -- Get all enemy ships (entities with CombatAI or MiningAI but not controlled by player)
+        local enemyEntities = {}
+        local combatEnemies = ECS.getEntitiesWith({"CombatAI", "Position", "Collidable"})
+        local miningEnemies = ECS.getEntitiesWith({"MiningAI", "Position", "Collidable"})
+
+        for _, enemyId in ipairs(combatEnemies) do
+            if not ECS.hasComponent(enemyId, "ControlledBy") then
+                table.insert(enemyEntities, enemyId)
+            end
+        end
+
+        for _, enemyId in ipairs(miningEnemies) do
+            if not ECS.hasComponent(enemyId, "ControlledBy") then
+                table.insert(enemyEntities, enemyId)
+            end
+        end
+
+        -- Find closest enemy to mouse position
+        for _, enemyId in ipairs(enemyEntities) do
+            local enemyPos = ECS.getComponent(enemyId, "Position")
+            local enemyColl = ECS.getComponent(enemyId, "Collidable")
+
+            if enemyPos and enemyColl then
+                local dx = mouseX - enemyPos.x
+                local dy = mouseY - enemyPos.y
+                local dist = math.sqrt(dx * dx + dy * dy)
+
+                -- Check if mouse is within reasonable targeting range (enemy radius + some tolerance)
+                if dist <= (enemyColl.radius + 50) and dist < closestDist then
+                    closestDist = dist
+                    closestEnemy = enemyId
+                end
+            end
+        end
+
+        -- Set the targeted enemy on the player controller
+        local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
+        if #controllers > 0 then
+            local inputComp = ECS.getComponent(controllers[1], "InputControlled")
+            if inputComp then
+                inputComp.targetedEnemy = closestEnemy
+            end
+        end
+
+        return -- Don't process as regular left click
+    end
 end
 
 function InputSystem.wheelmoved(x, y)

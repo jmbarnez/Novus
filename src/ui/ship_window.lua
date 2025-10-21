@@ -170,39 +170,82 @@ function ShipWindow:drawAvailableModules(cargoItems, x, y, width, alpha)
     love.graphics.print("Available Modules:", x, y)
 
     local ItemDefs = require('src.items.item_loader')
-    local moduleY = y + 20
-    local buttonHeight = 25
+    local slotSize = Theme.spacing.slotSize
+    local padding = Theme.spacing.iconGridPadding
+    local gridTop = y + 20
+    local availableWidth = width
+    local cols = math.max(1, math.floor(availableWidth / (slotSize + padding)))
+    local mx, my = Scaling.toUI(love.mouse.getPosition())
+
     self.equipButtons = {}
+    self.hoveredItemSlot = nil
+    local i = 0
+
+    -- Grid starts from the left edge
+    local gridLeftX = x
 
     for itemId, count in pairs(cargoItems) do
         local itemDef = ItemDefs[itemId]
         if itemDef and (itemDef.type == "turret" or string.match(itemId, "shield")) then
-            -- Module background
-            love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], Theme.colors.bgMedium[3], alpha * 0.7)
-            love.graphics.rectangle("fill", x, moduleY, width, buttonHeight, 2, 2)
-            love.graphics.setColor(Theme.colors.borderLight[1], Theme.colors.borderLight[2], Theme.colors.borderLight[3], alpha)
-            love.graphics.rectangle("line", x, moduleY, width, buttonHeight, 2, 2)
+            local row = math.floor(i / cols)
+            local col = i % cols
+            local slotX = gridLeftX + col * (slotSize + padding)
+            local slotY = gridTop + row * (slotSize + padding)
 
-            -- Module name and count
-            love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-            love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
-            love.graphics.print((itemDef.name or itemId) .. " (" .. count .. ")", x + 10, moduleY + 5)
+            -- Draw slot background
+            love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.8)
+            love.graphics.rectangle("fill", slotX, slotY, slotSize, slotSize, 4, 4)
+            love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha)
+            love.graphics.rectangle("line", slotX, slotY, slotSize, slotSize, 4, 4)
 
-            -- Equip button
-            local buttonX = x + width - 60
-            local buttonY = moduleY + 2
-            local buttonW = 50
-            local buttonH = buttonHeight - 4
+            -- Check if hovering over slot
+            local isHoveringSlot = mx >= slotX and mx <= slotX + slotSize and my >= slotY and my <= slotY + slotSize
 
-            -- Check if hovering
-            local mx, my = Scaling.toUI(love.mouse.getPosition())
-            local isHovering = mx >= buttonX and mx <= buttonX + buttonW and my >= buttonY and my <= buttonY + buttonH
+            if isHoveringSlot then
+                self.hoveredItemSlot = {itemId = itemId, itemDef = itemDef, count = count, mouseX = mx, mouseY = my, slotIndex = i}
+            end
 
-            love.graphics.setColor(isHovering and {0.3, 0.8, 0.3, alpha} or {0.2, 0.6, 0.2, alpha})
+            -- Draw item icon
+            love.graphics.push()
+            love.graphics.translate(slotX + slotSize / 2, slotY + slotSize / 2)
+            love.graphics.scale(1, 1)  -- Scale icons 1x to fit the smaller slots
+            if itemDef.module and itemDef.module.draw then
+                -- If it's a turret, draw from the module
+                love.graphics.setColor(1, 1, 1, alpha)
+                itemDef.module.draw(itemDef.module, 0, 0)
+            elseif itemDef.draw then
+                -- For non-turret items, use their itemDef.draw
+                itemDef:draw(0, 0)
+            else
+                -- Fallback if no draw function exists
+                local color = itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}
+                love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha)
+                love.graphics.circle("fill", 0, 0, slotSize / 4)
+            end
+            love.graphics.pop()
+
+            -- Draw count if > 1
+            if count > 1 then
+                love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+                love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+                love.graphics.printf(tostring(count), slotX, slotY + slotSize - 8, slotSize, "center")
+            end
+
+            -- Equip button (smaller, positioned at bottom of slot)
+            local buttonW = slotSize - 4
+            local buttonH = 12
+            local buttonX = slotX + 2
+            local buttonY = slotY + slotSize - buttonH - 2
+
+            -- Check if hovering over button
+            local isHoveringButton = mx >= buttonX and mx <= buttonX + buttonW and my >= buttonY and my <= buttonY + buttonH
+
+            love.graphics.setColor(isHoveringButton and {0.3, 0.8, 0.3, alpha} or {0.2, 0.6, 0.2, alpha})
             love.graphics.rectangle("fill", buttonX, buttonY, buttonW, buttonH, 2, 2)
             love.graphics.setColor(1, 1, 1, alpha)
-            local buttonText = truncateText("EQUIP", buttonW - 4, Theme.getFont(Theme.fonts.tiny))
-            love.graphics.printf(buttonText, buttonX, buttonY + 2, buttonW, "center")
+            love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
+            local buttonText = truncateText("EQUIP", buttonW - 2, Theme.getFont(Theme.fonts.tiny))
+            love.graphics.printf(buttonText, buttonX, buttonY + 1, buttonW, "center")
 
             -- Store button rect for click handling
             table.insert(self.equipButtons, {
@@ -210,7 +253,7 @@ function ShipWindow:drawAvailableModules(cargoItems, x, y, width, alpha)
                 itemId = itemId, count = count
             })
 
-            moduleY = moduleY + buttonHeight + 2
+            i = i + 1
         end
     end
 end
