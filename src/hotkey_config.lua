@@ -12,8 +12,7 @@ HotkeyConfig.defaults = {
     move_right = "d",
     target_enemy = "lctrl", -- Ctrl+Click
     cargo_window = "tab",
-    skills_window = "v",
-    ship_window = "g",
+    -- skills_window and ship_window removed (no longer used)
     toggle_hud = "f5",
     map_window = "m",
     settings_window = "escape"
@@ -30,8 +29,7 @@ HotkeyConfig.descriptions = {
     move_right = "Move Right",
     target_enemy = "Target Enemy (Ctrl+Click)",
     cargo_window = "Cargo Window",
-    skills_window = "Skills Window",
-    ship_window = "Ship Window",
+    -- skills_window and ship_window removed (no longer used)
     toggle_hud = "Toggle HUD",
     map_window = "Map Window",
     settings_window = "Settings Window"

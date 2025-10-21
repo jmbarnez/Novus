@@ -57,6 +57,11 @@ local SettingsWindow = WindowBase:new{
     savedSettings = {}
 }
 
+-- Canvas used to render a downscaled copy of the screen for a blur-like background
+SettingsWindow._blurCanvas = nil
+SettingsWindow._screenW = nil
+SettingsWindow._screenH = nil
+
 -- FPS Configuration
 SettingsWindow.fpsOptions = {30, 60, 90, 120, 144, 240, nil}
 SettingsWindow.fpsLabels = {"30", "60", "90", "120", "144", "240", "Unlimited"}
@@ -473,6 +478,42 @@ function SettingsWindow:toggle()
     end
 end
 
+-- Override setOpen to capture a downscaled snapshot for blur and to disable UI hotkeys
+function SettingsWindow:setOpen(state)
+    WindowBase.setOpen(self, state)
+
+    -- When opening, capture a downscaled screenshot into a canvas to simulate blur
+    if state then
+        local w, h = love.graphics.getDimensions()
+        self._screenW = w
+        self._screenH = h
+        -- Create a small canvas to draw a downscaled scene into (for cheap blur)
+        local downW = math.max(160, math.floor(w / 8))
+        local downH = math.max(90, math.floor(h / 8))
+        self._blurCanvas = love.graphics.newCanvas(downW, downH)
+        -- Copy the game's main canvas into the small canvas scaled down
+        local ECS = require('src.ecs')
+        local canvasEntities = ECS.getEntitiesWith({"Canvas"})
+        if #canvasEntities > 0 then
+            local canvasComp = ECS.getComponent(canvasEntities[1], "Canvas")
+            if canvasComp and canvasComp.canvas then
+                love.graphics.push()
+                love.graphics.origin()
+                love.graphics.setCanvas(self._blurCanvas)
+                love.graphics.clear()
+                -- Draw the main canvas scaled down into the small canvas
+                love.graphics.setColor(1,1,1,1)
+                love.graphics.draw(canvasComp.canvas, 0, 0, 0, downW / canvasComp.width, downH / canvasComp.height)
+                love.graphics.setCanvas()
+                love.graphics.pop()
+            end
+        end
+    else
+        -- On close, release blur canvas
+        self._blurCanvas = nil
+    end
+end
+
 -- Get window open state
 function SettingsWindow:getOpen()
     return self.isOpen
@@ -482,9 +523,25 @@ end
 function SettingsWindow:draw()
     if not self.isOpen or not self.position then return end
     
-    -- Draw glass overlay background
-    love.graphics.setColor(0, 0, 0, 0.3 * self.animAlpha)
-    love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
+    -- Draw blurred background (use captured downscaled canvas if available)
+    if self._blurCanvas then
+        -- Ensure smooth scaling
+        self._blurCanvas:setFilter('linear', 'linear')
+        local cw, ch = self._blurCanvas:getWidth(), self._blurCanvas:getHeight()
+        local sw, sh = love.graphics.getDimensions()
+        local sx = sw / cw
+        local sy = sh / ch
+        -- Draw the downscaled canvas stretched up once
+        love.graphics.setColor(1, 1, 1, 1 * self.animAlpha)
+        love.graphics.draw(self._blurCanvas, 0, 0, 0, sx, sy)
+        -- Overlay a subtle dark tint to maintain readability
+        love.graphics.setColor(0, 0, 0, 0.35 * self.animAlpha)
+        love.graphics.rectangle('fill', 0, 0, sw, sh)
+    else
+        -- Fallback to semi-transparent glass
+        love.graphics.setColor(0, 0, 0, 0.3 * self.animAlpha)
+        love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
+    end
     
     WindowBase.draw(self)
     

@@ -121,6 +121,9 @@ end, function(x, y, button)
     return true
 end)
 
+-- Ship window (contains loadout, inventory, and skills panels)
+-- Ship window integration removed; handled by ShipWindow module itself if needed
+
 -- Register settings window
 UISystem.registerInteractive('settings_window', function(x, y, button)
     return SettingsWindow.isOpen and SettingsWindow.position and x >= SettingsWindow.position.x and x <= SettingsWindow.position.x + SettingsWindow.width
@@ -263,7 +266,8 @@ end
 -- Key pressed handler
 function UISystem.keypressed(key)
     -- Tab key is now handled in core.lua to toggle ShipWindow
-    if key == 'escape' then
+    local HotkeyConfig = require('src.hotkey_config')
+    if key == HotkeyConfig.getHotkey("settings_window") then
         if SettingsWindow:getOpen() then
             SettingsWindow:setOpen(false)
             return
@@ -281,7 +285,7 @@ function UISystem.keypressed(key)
         UISystem.setWindowFocus('settings_window')
         return
     end
-    if key == 'm' then
+    if key == HotkeyConfig.getHotkey("map_window") then
         MapWindow:toggle()
         if MapWindow:getOpen() then
             UISystem.setWindowFocus('map_window')
@@ -330,7 +334,7 @@ function UISystem.mousepressed(x, y, button)
     -- Check remaining interactive elements (non-windows) in registration order
     for _, name in ipairs(interactiveOrder) do
         -- Skip windows since we already handled them above
-        if not (name == 'cargo_window' or name == 'map_window' or name == 'skills_window' or name == 'ship_window') then
+        if not (name == 'cargo_window' or name == 'map_window' or name == 'ship_window') then
             local entry = interactiveMap[name]
             if entry and entry.hit and entry.hit(mx, my, button) then
                 local handled = false

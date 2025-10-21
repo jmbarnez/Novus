@@ -14,6 +14,7 @@ local Parallax = require('src.parallax')
 local Constants = require('src.constants')
 local Procedural = require('src.procedural')
 local UISystem = require('src.systems.ui')
+local HotkeyConfig = require('src.hotkey_config')
 local Scaling = require('src.scaling')
 local ShipLoader = require('src.ship_loader')
 local AsteroidClusters = require('src.systems.asteroid_clusters')
@@ -267,7 +268,7 @@ end
 
 
 function Core.keypressed(key)
-    if key == 'escape' then
+    if key == HotkeyConfig.getHotkey("settings_window") then
         -- If a window is currently open, let UISystem handle closing it first
         if UISystem.isShipWindowOpen and UISystem.isShipWindowOpen() then
             UISystem.setShipWindowOpen(false)
@@ -282,10 +283,10 @@ function Core.keypressed(key)
         -- Otherwise, open the settings window
         UISystem.toggleSettingsWindow()
         return
-    elseif key == 'tab' then
+    elseif key == HotkeyConfig.getHotkey("cargo_window") then
         UISystem.toggleShipWindow()
         return
-    elseif key == 'f5' then
+    elseif key == HotkeyConfig.getHotkey("toggle_hud") then
         local HUDSystem = require('src.systems.hud')
         if HUDSystem and HUDSystem.toggle then
             HUDSystem.toggle()
@@ -293,11 +294,16 @@ function Core.keypressed(key)
         return
     end
     if UISystem.isSettingsWindowOpen and UISystem.isSettingsWindowOpen() then
-        -- forward key event directly to settings window
+        -- Forward key event directly to settings window and DO NOT propagate to global handlers
         local SettingsWindow = require('src.ui.settings_window')
         if SettingsWindow.keypressed then
-            SettingsWindow:keypressed(key)
+            local handled = SettingsWindow:keypressed(key)
+            if handled then
+                return
+            end
         end
+        -- If settings window did not handle the key (but is open), consume the key anyway
+        return
     end
     UISystem.keypressed = UISystem.keypressed or function(_) end
     UISystem.keypressed(key)
@@ -312,6 +318,10 @@ function Core.mousepressed(x, y, button)
             return
         end
     end
+    -- If settings window is open, consume mouse input to avoid interacting with the world
+    if UISystem.isSettingsWindowOpen and UISystem.isSettingsWindowOpen() then
+        return
+    end
     if Systems.InputSystem.mousepressed then
         Systems.InputSystem.mousepressed(x, y, button)
     end
@@ -325,6 +335,10 @@ function Core.mousemoved(x, y, dx, dy, isTouch)
     if UISystem.mousemoved then
         UISystem.mousemoved(x, y, dx, dy, isTouch)
     end
+    -- If settings window is open, do not forward mouse move to the game systems
+    if UISystem.isSettingsWindowOpen and UISystem.isSettingsWindowOpen() then
+        return
+    end
     if Systems.InputSystem.mousemoved then
         Systems.InputSystem.mousemoved(x, y, dx, dy, isTouch)
     end
@@ -333,6 +347,10 @@ end
 function Core.mousereleased(x, y, button)
     if UISystem.mousereleased then
         UISystem.mousereleased(x, y, button)
+    end
+    -- If settings window is open, consume mouse release events
+    if UISystem.isSettingsWindowOpen and UISystem.isSettingsWindowOpen() then
+        return
     end
     if Systems.InputSystem.mousereleased then
         Systems.InputSystem.mousereleased(x, y, button)
@@ -346,6 +364,10 @@ function Core.wheelmoved(x, y)
         if consumed then
             return
         end
+    end
+    -- If settings window is open, do not forward wheel to game systems
+    if UISystem.isSettingsWindowOpen and UISystem.isSettingsWindowOpen() then
+        return
     end
     -- Forward to input system for camera zoom only if not consumed by UI
     if Systems.InputSystem.wheelmoved then
