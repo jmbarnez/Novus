@@ -16,9 +16,41 @@ function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
     local lines = {}
     if isTurret then
         table.insert(lines, module.displayName)
-        if module.DPS then table.insert(lines, string.format("DPS: %s", module.DPS)) end
-        if module.COOLDOWN then table.insert(lines, string.format("Cooldown: %.2fs", module.COOLDOWN)) end
-        if module.RANGE then table.insert(lines, string.format("Range: %s", module.RANGE)) end
+        
+        -- Calculate realistic stats
+        if module.CONTINUOUS then
+            -- For continuous weapons (lasers), show actual DPS per second
+            -- DPS value is damage applied per frame, need to convert to damage per second
+            -- Average frame rate is 60 FPS, but we show realistic effective DPS
+            local effectiveDPS = module.DPS or 0
+            table.insert(lines, string.format("Damage Output: %.0f/sec", effectiveDPS))
+            
+            if module.HEAT_RATE and module.MAX_HEAT then
+                -- Calculate max firing duration before overheat
+                local maxFireTime = module.MAX_HEAT / (module.HEAT_RATE or 1.0)
+                table.insert(lines, string.format("Max Fire Duration: %.1fs", maxFireTime))
+            end
+            if module.COOL_RATE then
+                table.insert(lines, string.format("Cool Rate: %.1f/sec", module.COOL_RATE))
+            end
+        else
+            -- For projectile weapons, show damage per shot and effective DPS
+            if module.DPS then
+                local damagePerShot = module.DPS
+                table.insert(lines, string.format("Damage per Shot: %.0f", damagePerShot))
+            end
+            if module.COOLDOWN then
+                table.insert(lines, string.format("Fire Rate: %.2fs cooldown", module.COOLDOWN))
+                if module.DPS then
+                    local effectiveDPS = module.DPS / module.COOLDOWN
+                    table.insert(lines, string.format("Effective DPS: %.1f", effectiveDPS))
+                end
+            end
+        end
+        
+        if module.RANGE then 
+            table.insert(lines, string.format("Range: %d units", module.RANGE)) 
+        end
         table.insert(lines, "")
     else
         table.insert(lines, itemDef.name)

@@ -219,98 +219,134 @@ function ShipWindow:drawLoadoutContent(windowX, windowY, alpha)
     local polygonShape = ECS.getComponent(droneId, "PolygonShape")
     local position = ECS.getComponent(droneId, "Position")
 
-    -- Split the view: 25% equipment, 75% cargo
-    local equipmentWidth = math.floor(contentWidth * 0.25)
-    local cargoWidth = contentWidth - equipmentWidth - 10
-    local dividerX = contentX + equipmentWidth + 5
+    -- Split the view: 30% stats+equipment, 70% cargo
+    local leftPanelWidth = math.floor(contentWidth * 0.30)
+    local cargoWidth = contentWidth - leftPanelWidth - 10
+    local dividerX = contentX + leftPanelWidth + 5
 
     -- Draw vertical divider
-    love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha * 0.6)
+    love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha * 0.3)
     love.graphics.rectangle("fill", dividerX - 1, contentY, 2, contentHeight)
 
     -- LEFT PANEL: Ship Stats and Equipment
     local slotSize = Theme.spacing.slotSize
     local slotPadding = Theme.spacing.iconGridPadding
+    local sectionHeight = 95  -- Height for each stat section
 
-    local statsY = contentY + 30
-    love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
-    love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
-
-    -- Hull Bar
-    if hull then
-        local barWidth = equipmentWidth - 20
-        local barHeight = 12
-        local hullRatio = math.max(0, math.min(1, hull.current / hull.max))
-        love.graphics.setColor(0.3, 0.7, 0.3, alpha)
-        love.graphics.rectangle("fill", contentX + 10, statsY, barWidth * hullRatio, barHeight)
-        love.graphics.setColor(0.2, 0.3, 0.2, alpha)
-        love.graphics.rectangle("line", contentX + 10, statsY, barWidth, barHeight)
-        love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
-        love.graphics.printf(string.format("Hull: %d/%d", hull.current, hull.max), contentX + 10, statsY, barWidth, "center")
-        statsY = statsY + barHeight + 8
-    end
-
-    -- Shield Bar
-    if shield and shield.max > 0 then
-        local barWidth = equipmentWidth - 20
-        local barHeight = 12
-        local shieldRatio = math.max(0, math.min(1, shield.current / shield.max))
-        love.graphics.setColor(0.3, 0.5, 0.9, alpha)
-        love.graphics.rectangle("fill", contentX + 10, statsY, barWidth * shieldRatio, barHeight)
-        love.graphics.setColor(0.2, 0.2, 0.3, alpha)
-        love.graphics.rectangle("line", contentX + 10, statsY, barWidth, barHeight)
-        love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
-        love.graphics.printf(string.format("Shield: %d/%d", shield.current, shield.max), contentX + 10, statsY, barWidth, "center")
-        statsY = statsY + barHeight + 8
-    end
-
-    -- Max Speed and Thrust Force
-    love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
-    love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
+    -- Get all stats first
     local Constants = require('src.constants')
-    local thrustMultiplier = 1
-    local mass = 1
-    local shipDesign = ECS.getComponent(droneId, "ShipDesign")
-    if shipDesign then
-        if shipDesign.thrustMultiplier then
-            thrustMultiplier = shipDesign.thrustMultiplier
-        end
-        if shipDesign.mass then
-            mass = shipDesign.mass
+    local physics = ECS.getComponent(droneId, "Physics")
+    local mass = physics and physics.mass or 1
+    local baseMaxVelocity = Constants.player_max_speed
+    local maxVelocity = baseMaxVelocity / mass
+    local acceleration = maxVelocity / 2.0
+    
+    local totalEffectiveHP = (hull and hull.max or 0) + (shield and shield.max or 0)
+    local survivalTime = 0
+    if totalEffectiveHP > 0 then
+        local typicalEnemyDPS = 5
+        survivalTime = totalEffectiveHP / typicalEnemyDPS
+    end
+    
+    local turret = ECS.getComponent(droneId, "Turret")
+    local turretDPS = 0
+    local turretRange = 0
+    local turretCooldown = 0
+    local effectiveDPS = 0
+    
+    if turret and turret.moduleName and turret.moduleName ~= "" then
+        local TurretSystem = ECS.getSystem("TurretSystem")
+        if TurretSystem and TurretSystem.turretModules then
+            local turretModule = TurretSystem.turretModules[turret.moduleName]
+            if turretModule then
+                turretDPS = turretModule.DPS or 0
+                turretRange = turretModule.RANGE or 0
+                
+                if turretModule.CONTINUOUS then
+                    effectiveDPS = turretDPS
+                else
+                    turretCooldown = turretModule.COOLDOWN or 1
+                    effectiveDPS = turretDPS / turretCooldown
+                end
+            end
         end
     end
-    local maxVelocity = Constants.player_max_speed * thrustMultiplier
-    local thrustForce = mass * thrustMultiplier * Constants.player_max_speed
-    love.graphics.printf(string.format("Max Velocity: %.0f units/s", maxVelocity), contentX + 10, statsY, equipmentWidth - 20, "center")
-    statsY = statsY + 14
-    love.graphics.printf(string.format("Thrust Force: %.0f", thrustForce), contentX + 10, statsY, equipmentWidth - 20, "center")
-    statsY = statsY + 14
-    love.graphics.printf(string.format("Thrust Multiplier: %.2f", thrustMultiplier), contentX + 10, statsY, equipmentWidth - 20, "center")
-    statsY = statsY + 18
-
-    -- Turret Module Section
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-    love.graphics.printf("Turret", contentX, statsY, equipmentWidth, "center")
-    self:drawEquipmentSlot("Turret Module", turretSlots and turretSlots.slots[1], contentX + (equipmentWidth - slotSize) / 2, statsY + 20, slotSize, alpha, droneId)
-
-    -- Defensive Module Section
-    local defensiveY = statsY + slotSize + slotPadding + 15
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-    love.graphics.printf("Defense", contentX, defensiveY, equipmentWidth, "center")
-    self:drawEquipmentSlot("Defensive Module", defensiveSlots and defensiveSlots.slots[1], contentX + (equipmentWidth - slotSize) / 2, defensiveY + 20, slotSize, alpha, droneId)
+    
+    -- Helper function to draw a stat section
+    local function drawStatSection(sectionY, label, stats)
+        local sectionX = contentX + 10
+        local boxWidth = leftPanelWidth - 20
+        local boxHeight = sectionHeight - 8
+        
+        -- Section background with subtle border
+        love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.4)
+        love.graphics.rectangle("fill", sectionX, sectionY, boxWidth, boxHeight, 3, 3)
+        love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha * 0.2)
+        love.graphics.rectangle("line", sectionX, sectionY, boxWidth, boxHeight, 3, 3)
+        
+        -- Section label
+        love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+        love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
+        love.graphics.printf(label, sectionX + 5, sectionY + 8, boxWidth - 10, "left")
+        
+        -- Stats
+        love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
+        love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
+        
+        local statY = sectionY + 26
+        for i, stat in ipairs(stats) do
+            love.graphics.printf(stat, sectionX + 8, statY, boxWidth - 16, "left")
+            statY = statY + 16
+        end
+    end
+    
+    -- SECTION 1: Combat
+    drawStatSection(contentY, "COMBAT", {
+        string.format("Damage: %.0f", turretDPS),
+        string.format("DPS: %.1f", effectiveDPS),
+        string.format("Range: %d", turretRange)
+    })
+    
+    -- SECTION 2: Survival
+    local survivalStats = {
+        string.format("Eff. HP: %d", totalEffectiveHP),
+    }
+    if shield and shield.max > 0 then
+        table.insert(survivalStats, string.format("Shield: +%d", shield.max))
+        table.insert(survivalStats, string.format("Regen: %.1f/s", shield.regenRate or 0))
+    end
+    table.insert(survivalStats, string.format("Uptime: ~%.0fs", survivalTime))
+    
+    drawStatSection(contentY + sectionHeight, "SURVIVAL", survivalStats)
+    
+    -- SECTION 3: Movement
+    drawStatSection(contentY + sectionHeight * 2, "MOVEMENT", {
+        string.format("Max Vel: %.0f u/s", maxVelocity),
+        string.format("Accel: %.0f u/s²", acceleration),
+        string.format("Mass: %.1f", mass)
+    })
+    
+    -- EQUIPMENT SLOTS at bottom
+    local equipmentY = contentY + sectionHeight * 3 + 10
+    
+    -- Turret Slot
+    love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
+    love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha * 0.7)
+    love.graphics.printf("TURRET", contentX + 10, equipmentY, leftPanelWidth - 20, "left")
+    self:drawEquipmentSlot("Turret Module", turretSlots and turretSlots.slots[1], contentX + (leftPanelWidth - slotSize) / 2, equipmentY + 12, slotSize, alpha, droneId)
+    
+    -- Defensive Slot
+    local defenseY = equipmentY + slotSize + 12
+    love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha * 0.7)
+    love.graphics.printf("DEFENSE", contentX + 10, defenseY, leftPanelWidth - 20, "left")
+    self:drawEquipmentSlot("Defensive Module", defensiveSlots and defensiveSlots.slots[1], contentX + (leftPanelWidth - slotSize) / 2, defenseY + 12, slotSize, alpha, droneId)
 
     -- RIGHT PANEL: Cargo
     local cargoX = dividerX + 5
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-    love.graphics.printf("Cargo", cargoX, contentY, cargoWidth, "center")
 
-
-    -- Draw cargo grid
+    -- Draw cargo grid (full height, no header)
     if cargo then
-        self:drawCargoGrid(cargo.items, cargoX, contentY + 45, cargoWidth, contentHeight - 45, alpha)
+        self:drawCargoGrid(cargo.items, cargoX, contentY, cargoWidth, contentHeight, alpha)
     end
 
     -- Draw dragged item at mouse position
@@ -373,7 +409,8 @@ function ShipWindow:drawCargoGrid(cargoItems, x, y, width, height, alpha)
                 love.graphics.rectangle("fill", slotX, slotY, slotSize, slotSize, 4, 4)
             end
             
-            love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha)
+            -- Draw slot border (invisible)
+            love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], 0)
             love.graphics.rectangle("line", slotX, slotY, slotSize, slotSize, 4, 4)
 
             -- Draw item icon
