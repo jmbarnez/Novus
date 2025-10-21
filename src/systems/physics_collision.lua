@@ -650,6 +650,21 @@ local PhysicsCollisionSystem = {
                             goto continue_nearby 
                         end
                         
+                        -- CRITICAL: Missiles should ONLY collide with enemies (Hull component)
+                        -- Skip missiles hitting asteroids, wreckages, or other non-enemy entities
+                        if proj1 and proj1.isMissile then
+                            local hull2 = ECS.getComponent(entity2Id, "Hull")
+                            if not hull2 then
+                                goto continue_nearby
+                            end
+                        end
+                        if proj2 and proj2.isMissile then
+                            local hull1 = ECS.getComponent(entity1Id, "Hull")
+                            if not hull1 then
+                                goto continue_nearby
+                            end
+                        end
+                        
                         -- If either entity is a projectile, apply its damage to the other
                         if proj1 then
                             local damage = proj1.damage or 10

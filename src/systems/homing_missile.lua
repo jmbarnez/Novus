@@ -17,6 +17,7 @@ function HomingMissileSystem.update(dt)
         local position = ECS.getComponent(missileId, "Position")
         local velocity = ECS.getComponent(missileId, "Velocity")
         local polygonShape = ECS.getComponent(missileId, "PolygonShape")
+        local acceleration = ECS.getComponent(missileId, "Acceleration")
 
         if not (homing and position and velocity and polygonShape) then goto continue_homing end
 
@@ -80,27 +81,64 @@ function HomingMissileSystem.update(dt)
 
                 -- Update polygon rotation to match new direction
                 polygonShape.rotation = newAngle
+
+                -- Apply acceleration in direction of travel
+                if acceleration then
+                    acceleration.ax = newDirX * homing.acceleration
+                    acceleration.ay = newDirY * homing.acceleration
+                end
             end
         end
 
         ::continue_homing::
     end
 
-    -- Handle all missiles (including non-homing ones) - update rotation to match velocity
+    -- Handle non-homing missiles - update rotation to match velocity and apply acceleration
     local allMissiles = ECS.getEntitiesWith({"Projectile", "Position", "Velocity", "PolygonShape"})
 
     for _, missileId in ipairs(allMissiles) do
         local velocity = ECS.getComponent(missileId, "Velocity")
         local polygonShape = ECS.getComponent(missileId, "PolygonShape")
         local projectile = ECS.getComponent(missileId, "Projectile")
+        local homing = ECS.getComponent(missileId, "HomingMissile")
 
-        -- Only handle missiles (not other projectiles like cannon balls)
-        if projectile and projectile.isMissile and velocity and polygonShape then
+        -- Only handle missiles (not other projectiles like cannon balls) that DON'T have homing (to avoid duplicate logic)
+        if projectile and projectile.isMissile and velocity and polygonShape and not homing then
             local speed = math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy)
             if speed > 0 then
                 local currentDirX = velocity.vx / speed
                 local currentDirY = velocity.vy / speed
                 polygonShape.rotation = math.atan2(currentDirY, currentDirX)
+            end
+
+            -- Apply acceleration for non-homing missiles too
+            local acceleration = ECS.getComponent(missileId, "Acceleration")
+            if acceleration then
+                local currentSpeed = math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy)
+                if currentSpeed > 0 then
+                    local dirX = velocity.vx / currentSpeed
+                    local dirY = velocity.vy / currentSpeed
+                    acceleration.ax = dirX * 300 -- Use default missile acceleration
+                    acceleration.ay = dirY * 300
+                end
+            end
+        end
+    end
+
+    -- Apply maxSpeed cap to all missiles with acceleration
+    local acceleratingMissiles = ECS.getEntitiesWith({"Acceleration", "Velocity"})
+    for _, missileId in ipairs(acceleratingMissiles) do
+        local velocity = ECS.getComponent(missileId, "Velocity")
+        local acceleration = ECS.getComponent(missileId, "Acceleration")
+        local projectile = ECS.getComponent(missileId, "Projectile")
+
+        -- Only cap missiles, not other accelerating entities
+        if projectile and projectile.isMissile and velocity and acceleration then
+            local speed = math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy)
+            if speed > 400 then -- MISSILE_MAX_SPEED
+                local maxSpeed = 400
+                velocity.vx = (velocity.vx / speed) * maxSpeed
+                velocity.vy = (velocity.vy / speed) * maxSpeed
             end
         end
     end

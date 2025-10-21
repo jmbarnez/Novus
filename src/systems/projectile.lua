@@ -12,6 +12,7 @@ function ProjectileSystem.update(dt)
     local projectiles = ECS.getEntitiesWith({"Projectile", "Position", "Collidable"})
     local asteroids = ECS.getEntitiesWith({"Asteroid", "Position", "Collidable", "Durability"})
     local wreckages = ECS.getEntitiesWith({"Wreckage", "Position", "Collidable", "Durability"})
+    local enemies = ECS.getEntitiesWith({"Hull", "Position", "Collidable"}) -- Enemies have Hull component
 
     for _, projId in ipairs(projectiles) do
         local projPos = ECS.getComponent(projId, "Position")
@@ -77,6 +78,45 @@ function ProjectileSystem.update(dt)
             end
             ::continue_wreckage::
         end
+
+        -- Enemy damage: all projectiles except mining/salvage lasers hit enemies
+        for _, enemyId in ipairs(enemies) do
+            if projectile and projectile.ownerId == enemyId then goto continue_enemy end -- Don't hit self
+            
+            local enemyPos = ECS.getComponent(enemyId, "Position")
+            local enemyColl = ECS.getComponent(enemyId, "Collidable")
+            if not (enemyPos and enemyColl) then goto continue_enemy end
+            
+            local dx = enemyPos.x - projPos.x
+            local dy = enemyPos.y - projPos.y
+            local distSq = dx * dx + dy * dy
+            local radii = enemyColl.radius + projColl.radius
+            
+            if distSq < radii * radii then
+                -- Only missiles, cannons hit enemies (not mining/salvage lasers)
+                if projectile and (projectile.isMissile or projectile.damage) and not projectile.isMiningLaser and not projectile.isSalvageLaser then
+                    local hull = ECS.getComponent(enemyId, "Hull")
+                    if hull and projectile.damage then
+                        hull.current = math.max(0, hull.current - projectile.damage)
+                    end
+                    
+                    -- Destroy missile on impact
+                    if projectile.isMissile then
+                        local projDur = ECS.getComponent(projId, "Durability")
+                        if projDur then projDur.current = 0 end
+                    end
+                    
+                    -- Destroy brittle projectiles on impact
+                    if projectile.brittle then
+                        local projDur = ECS.getComponent(projId, "Durability")
+                        if projDur then projDur.current = 0 end
+                    end
+                end
+                break
+            end
+            ::continue_enemy::
+        end
+
         ::continue_projectile::
     end
 end
