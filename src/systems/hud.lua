@@ -8,6 +8,7 @@ local Scaling = require('src.scaling')
 local Tooltips = require('src.ui.tooltips')
 local TurretSystem = require('src.systems.turret')
 local TimeManager = require('src.time_manager')
+local HotkeyConfig = require('src.hotkey_config')
 
 local HUDSystem = {
     name = "HUDSystem",
@@ -254,10 +255,13 @@ local function drawHotkeyOverlay(viewportWidth, viewportHeight)
     local x = Scaling.scaleX(20)
     local y = viewportHeight - Scaling.scaleY(200)  -- Position from bottom (moved up a bit)
 
+    -- Get hotkeys from configuration
+    local hotkeys = HotkeyConfig.getAllHotkeys()
+    
     -- Background
     love.graphics.setColor(0, 0, 0, 0.7)
     local overlayWidth = Scaling.scaleSize(240)
-    local overlayHeight = Scaling.scaleSize(160)  -- Increased for 7 lines
+    local overlayHeight = Scaling.scaleSize(#hotkeys * 14 + 20)  -- Dynamic height based on hotkey count
     love.graphics.rectangle("fill", x - 10, y - 10, overlayWidth, overlayHeight, 4, 4)
 
     -- Border
@@ -272,19 +276,12 @@ local function drawHotkeyOverlay(viewportWidth, viewportHeight)
     local lineHeight = 14
     local currentY = y
 
-    love.graphics.print("WASD: Move", x, currentY)
-    currentY = currentY + lineHeight
-    love.graphics.print("Ctrl+Click: Target", x, currentY)
-    currentY = currentY + lineHeight
-    love.graphics.print("Escape: Clear Target", x, currentY)
-    currentY = currentY + lineHeight
-    love.graphics.print("TAB: Cargo Window", x, currentY)
-    currentY = currentY + lineHeight
-    love.graphics.print("V: Skills Window", x, currentY)
-    currentY = currentY + lineHeight
-    love.graphics.print("G: Ship Window", x, currentY)
-    currentY = currentY + lineHeight
-    love.graphics.print("F5: Toggle HUD", x, currentY)
+    -- Draw configurable hotkeys
+    for i, hotkey in ipairs(hotkeys) do
+        local displayText = HotkeyConfig.getDisplayText(hotkey.action)
+        love.graphics.print(displayText, x, currentY)
+        currentY = currentY + lineHeight
+    end
 end
 
 -- Canvas caching for turret slots

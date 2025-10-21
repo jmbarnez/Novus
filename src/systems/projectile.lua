@@ -20,6 +20,17 @@ function ProjectileSystem.update(dt)
         local projectile = ECS.getComponent(projId, "Projectile")
         if not (projPos and projColl) then goto continue_projectile end
 
+        -- Update projectile lifetime and check for expiration
+        local lifetime = ECS.getComponent(projId, "ProjectileLifetime")
+        if lifetime then
+            lifetime.age = lifetime.age + dt
+            if lifetime.age >= lifetime.maxAge then
+                -- Projectile exceeded max age - shatter it
+                local projDur = ECS.getComponent(projId, "Durability")
+                if projDur then projDur.current = 0 end
+            end
+        end
+
         -- Asteroid collision: all non-laser projectiles bounce or break on asteroids
         for _, asteroidId in ipairs(asteroids) do
             local asteroidPos = ECS.getComponent(asteroidId, "Position")

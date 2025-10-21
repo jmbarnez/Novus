@@ -5,6 +5,7 @@
 local ECS = require('src.ecs')
 local Constants = require('src.constants')
 local TurretSystem = require('src.systems.turret')
+local HotkeyConfig = require('src.hotkey_config')
 
 local InputSystem = {
     name = "InputSystem",
@@ -65,19 +66,25 @@ function InputSystem.update(dt)
             local thrust_x = 0
             local thrust_y = 0
 
-            if love.keyboard.isDown("w") then
+            -- Use configurable movement keys
+            local moveUp = HotkeyConfig.getHotkey("move_up")
+            local moveDown = HotkeyConfig.getHotkey("move_down")
+            local moveLeft = HotkeyConfig.getHotkey("move_left")
+            local moveRight = HotkeyConfig.getHotkey("move_right")
+
+            if love.keyboard.isDown(moveUp) then
                 thrust_y = -thrustMagnitude
             end
 
-            if love.keyboard.isDown("s") then
+            if love.keyboard.isDown(moveDown) then
                 thrust_y = thrust_y + thrustMagnitude
             end
 
-            if love.keyboard.isDown("a") then
+            if love.keyboard.isDown(moveLeft) then
                 thrust_x = -thrustMagnitude
             end
 
-            if love.keyboard.isDown("d") then
+            if love.keyboard.isDown(moveRight) then
                 thrust_x = thrust_x + thrustMagnitude
             end
 
@@ -174,9 +181,8 @@ function InputSystem.update(dt)
             local isLaserTurret = turretModule and (turretModule.name == "mining_laser" or turretModule.name == "combat_laser" or turretModule.name == "salvage_laser")
             local canFire = true
             if isLaserTurret then
-                local heat = ECS.getComponent(turretOwner, "Heat")
-                if heat then
-                    canFire = heat.current < (turretModule.MAX_HEAT or 10)
+                if turret and turret.heat then
+                    canFire = turret.heat.current < (turretModule.MAX_HEAT or 10)
                 end
             end
             
@@ -257,8 +263,9 @@ function InputSystem.mousemoved(x, y, dx, dy, isTouch)
 end
 
 function InputSystem.mousepressed(x, y, button, istouch, presses)
-    -- Handle enemy targeting with Ctrl + Left Click
-    if button == 1 and (love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl")) then
+    -- Handle enemy targeting with configurable target key + Left Click
+    local targetKey = HotkeyConfig.getHotkey("target_enemy")
+    if button == 1 and love.keyboard.isDown(targetKey) then
         -- Get mouse position in world coordinates
         local mouseX, mouseY = x, y
 

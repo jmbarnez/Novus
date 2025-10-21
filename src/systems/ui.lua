@@ -447,6 +447,34 @@ function UISystem.mousemoved(x, y, dx, dy, isTouch)
     end
 end
 
+-- Mouse wheel handler
+function UISystem.wheelmoved(x, y)
+    -- Forward to settings window first if open
+    if SettingsWindow and SettingsWindow:getOpen() and SettingsWindow.wheelmoved then
+        if SettingsWindow:wheelmoved(x, y) then
+            return true -- Consumed by settings window
+        end
+    end
+    
+    -- Forward to other windows
+    local windows = {
+        map_window = MapWindow,
+        ship_window = ShipWindow
+    }
+
+    for i = #windowOrder, 1, -1 do
+        local windowName = windowOrder[i]
+        local window = windows[windowName]
+        if window and window.wheelmoved then
+            if window:wheelmoved(x, y) then
+                return true -- Consumed by window
+            end
+        end
+    end
+    
+    return false -- Not consumed
+end
+
 -- Public API functions
 -- CargoWindow has been integrated into ShipWindow
 -- For backwards compatibility, cargo functions now control ShipWindow

@@ -82,7 +82,8 @@ function Core.init()
     ShipLoader.loadAllDesigns("src.ship_designs")
 
     -- Create player's starter drone using modular system (will be blue)
-    local droneId = ShipLoader.createShip("starter_drone", 0, 0, "player", pilotId)
+    -- Spawn player away from asteroid clusters on the left side of the world
+    local droneId = ShipLoader.createShip("starter_drone", -1500, 0, "player", pilotId)
     
     -- Apply ship-specific thrust multiplier if defined
     local droneDesign = ShipLoader.getDesign("starter_drone")
@@ -151,7 +152,7 @@ function Core.init()
 
     -- Create Camera Entity
     local cameraId = ECS.createEntity()
-    ECS.addComponent(cameraId, "Position", Components.Position(0, 0))
+    ECS.addComponent(cameraId, "Position", Components.Position(-1500, 0))
     ECS.addComponent(cameraId, "Camera", Components.Camera(Constants.screen_width, Constants.screen_height))
 
     -- Create UI Entity
@@ -239,20 +240,27 @@ function Core.init()
     end
 
     print("Game entities created and systems initialized")
-    print("Pilot and starting drone spawned at world center (0, 0)")
+    print("Pilot and starting drone spawned at (-1500, 0) - away from asteroid clusters")
     print("Asteroid cluster spawned: 1 cluster with 30 asteroids and enemies")
     print("Player controls: WASD for thrust, ESC to quit")
 end
 
 -- Main game update loop
 function Core.update(dt)
+    -- Check if settings window is open to pause the game
+    local UISystem = require('src.systems.ui')
+    if UISystem.isSettingsWindowOpen and UISystem.isSettingsWindowOpen() then
+        -- Pause the game when settings window is open
+        return
+    end
+    
     -- Update all ECS systems
     ECS.update(dt)
 end
 
 -- Main game render loop
 function Core.draw()
-    love.graphics.clear(0, 0, 0)
+    love.graphics.clear(0.05, 0.05, 0.08)
 
     ECS.draw() -- Draw all world and UI systems
 end
@@ -332,7 +340,17 @@ function Core.mousereleased(x, y, button)
 end
 
 function Core.wheelmoved(x, y)
-    Systems.InputSystem.wheelmoved(x, y)
+    -- Forward to UI system first
+    if UISystem.wheelmoved then
+        local consumed = UISystem.wheelmoved(x, y)
+        if consumed then
+            return
+        end
+    end
+    -- Forward to input system for camera zoom only if not consumed by UI
+    if Systems.InputSystem.wheelmoved then
+        Systems.InputSystem.wheelmoved(x, y)
+    end
 end
 
 -- Game cleanup (if needed)

@@ -160,7 +160,7 @@ local RenderSystem = {
         love.graphics.setCanvas(canvasComp.canvas)
         love.graphics.clear()
 
-        love.graphics.setColor(0, 0, 0, 1)
+        love.graphics.setColor(0.02, 0.02, 0.08, 1)  -- Dark navy blue background
         love.graphics.rectangle("fill", 0, 0, canvasComp.width, canvasComp.height)
 
         Profiler.stop("canvas_setup")
@@ -259,6 +259,12 @@ local RenderSystem = {
                         renderable.height)
                 elseif renderable.shape == "circle" and renderable.radius then
                     love.graphics.circle("fill", position.x, position.y, renderable.radius)
+                    -- Draw black border for cannonballs
+                    local cannonballBorder = ECS.getComponent(entityId, "CannonballBorder")
+                    if cannonballBorder then
+                        love.graphics.setColor(cannonballBorder.borderColor)
+                        love.graphics.circle("line", position.x, position.y, renderable.radius)
+                    end
                     -- Draw small health bar for enemies (non-player)
                     if ECS.hasComponent(entityId, "Hull") and not (ECS.hasComponent(entityId, "ControlledBy") and ECS.hasComponent(ECS.getComponent(entityId, "ControlledBy").pilotId, "Player")) then
                         local hull = ECS.getComponent(entityId, "Hull")

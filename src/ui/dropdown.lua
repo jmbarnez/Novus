@@ -79,10 +79,11 @@ function Dropdown:drawClosed(alpha)
     love.graphics.setColor(Theme.colors.textPrimary)
     love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
     local selectedText = self.options[self.selectedIndex] or "Select"
-    love.graphics.printf(selectedText, self.x + 8, self.y + 4, self.width - 20, "left")
+    love.graphics.printf(selectedText, self.x + 8, self.y + 4, self.width - 30, "left")
     
     -- Draw dropdown arrow
-    love.graphics.printf(self.isOpen and "▲" or "▼", self.x + self.width - 16, self.y + 4, 12, "center")
+    love.graphics.setColor(Theme.colors.textAccent)
+    love.graphics.printf(self.isOpen and "^" or "v", self.x + self.width - 20, self.y + 4, 16, "center")
 end
 
 --- Draw just the open dropdown menu (no button)

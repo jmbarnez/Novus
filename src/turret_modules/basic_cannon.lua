@@ -11,6 +11,7 @@ local BasicCannon = {
     BALL_SPEED = 200,
     BALL_RADIUS = 8,
     BALL_COLOR = {1, 0.9, 0.2, 1},
+    BALL_LIFETIME = 6, -- Seconds before projectile shatters
     COOLDOWN = 2, -- Time between shots in seconds
     DPS = 10, -- Damage per shot
     design = {
@@ -54,10 +55,17 @@ function BasicCannon.fire(ownerId, startX, startY, endX, endY)
     ECS.addComponent(ballId, "Collidable", Components.Collidable(BasicCannon.BALL_RADIUS))
     ECS.addComponent(ballId, "Physics", Components.Physics(1.0, 0.5, 0.99))
     ECS.addComponent(ballId, "Durability", Components.Durability(1, 1))
-        ECS.addComponent(ballId, "Projectile", {ownerId = ownerId, damage = BasicCannon.DPS, brittle = true, isMissile = false})
+    ECS.addComponent(ballId, "Projectile", {ownerId = ownerId, damage = BasicCannon.DPS, brittle = true, isMissile = false})
     ECS.addComponent(ballId, "ShatterEffect", {
         numPieces = 8,
         color = BasicCannon.BALL_COLOR
+    })
+    ECS.addComponent(ballId, "CannonballBorder", {
+        borderColor = {0, 0, 0, 1} -- Black border
+    })
+    ECS.addComponent(ballId, "ProjectileLifetime", {
+        age = 0,
+        maxAge = BasicCannon.BALL_LIFETIME
     })
 end
 

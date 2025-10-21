@@ -150,4 +150,28 @@ Components.ShieldImpact = function(x, y, shipId)
     }
 end
 
+-- GalaxyBackdrop component - Distant galaxy rendering data
+-- @field size number: Approximate size of the galaxy
+-- @field color table: Base color of the galaxy {r, g, b, a}
+-- @field spiralTightness number: How tight the spiral arms are
+-- @field armCount number: Number of spiral arms
+-- @field coreRadius number: Radius of the galaxy core
+-- @field armLength number: Length of spiral arms
+-- @field armPoints table: Generated spiral arm points
+-- @field backgroundStars table: Background stars around galaxy
+-- @field nebulaClouds table: Nebula clouds around galaxy
+Components.GalaxyBackdrop = function(size, color, spiralTightness, armCount)
+    return {
+        size = size or 2000,
+        color = color or {0.8, 0.6, 1.0, 0.3},
+        spiralTightness = spiralTightness or 0.3,
+        armCount = armCount or 2,
+        coreRadius = (size or 2000) * 0.15,
+        armLength = (size or 2000) * 0.8,
+        armPoints = {},
+        backgroundStars = {},
+        nebulaClouds = {}
+    }
+end
+
 return Components
