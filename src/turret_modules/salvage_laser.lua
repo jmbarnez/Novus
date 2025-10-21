@@ -98,6 +98,20 @@ end
 -- dt: delta time
 -- turretComp: turret component with heat information
 function SalvageLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretComp)
+    -- Offset start position to barrel end to match where laser visually originates
+    local offsetStartX = startX
+    local offsetStartY = startY
+    local ownerCollidable = ECS.getComponent(ownerId, "Collidable")
+    if ownerCollidable then
+        local dx = endX - startX
+        local dy = endY - startY
+        local dist = math.sqrt(dx * dx + dy * dy)
+        if dist > 0 then
+            offsetStartX = startX + (dx / dist) * (ownerCollidable.radius + 5)
+            offsetStartY = startY + (dy / dist) * (ownerCollidable.radius + 5)
+        end
+    end
+
     local closestIntersection = nil
     local closestDistSq = math.huge
     local hitEntityId = nil
@@ -105,9 +119,9 @@ function SalvageLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretC
     -- Check for collisions with any collidable polygon entity (asteroids, ships, wreckage, etc)
     local entityEntities = ECS.getEntitiesWith({"Collidable", "Position", "PolygonShape"})
     for _, entityId in ipairs(entityEntities) do
-        local intersection = CollisionSystem.linePolygonIntersect(startX, startY, endX, endY, entityId)
+        local intersection = CollisionSystem.linePolygonIntersect(offsetStartX, offsetStartY, endX, endY, entityId)
         if intersection then
-            local distSq = (intersection.x - startX)^2 + (intersection.y - startY)^2
+            local distSq = (intersection.x - offsetStartX)^2 + (intersection.y - offsetStartY)^2
             if distSq < closestDistSq then
                 closestDistSq = distSq
                 closestIntersection = intersection

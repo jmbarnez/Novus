@@ -75,18 +75,19 @@ function MiningLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
     local dy = endY - offsetStartY
     local beamLength = math.sqrt(dx * dx + dy * dy)
     
+    -- Calculate midpoint for position (for depth sorting and rendering order)
+    local midX = (offsetStartX + endX) / 2
+    local midY = (offsetStartY + endY) / 2
+    
+    ECS.addComponent(turretComp.laserEntity, "Position", Components.Position(midX, midY))
+    -- Add collision component so laser can collide with entities
+    ECS.addComponent(turretComp.laserEntity, "Collidable", Components.Collidable(beamLength / 2 + 10))
     ECS.addComponent(turretComp.laserEntity, "LaserBeam", {
         start = {x = offsetStartX, y = offsetStartY},
         endPos = {x = endX, y = endY},
         color = {1, 1, 0.2, 1},  -- Bright yellow
         ownerId = ownerId
     })
-    -- Add position for collision tracking
-    local midX = (offsetStartX + endX) / 2
-    local midY = (offsetStartY + endY) / 2
-    ECS.addComponent(turretComp.laserEntity, "Position", Components.Position(midX, midY))
-    -- Add collision component so laser can collide with entities
-    ECS.addComponent(turretComp.laserEntity, "Collidable", Components.Collidable(beamLength / 2 + 10))
 end
 
 -- Called every frame while the laser is firing
