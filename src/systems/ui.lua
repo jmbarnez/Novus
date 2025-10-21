@@ -5,9 +5,7 @@
 local ECS = require('src.ecs')
 local Constants = require('src.constants')
 local Theme = require('src.ui.theme')
-local CargoWindow = require('src.ui.cargo_window')
 local MapWindow = require('src.ui.map_window')
-local SkillsWindow = require('src.ui.skills_window')
 local ShipWindow = require('src.ui.ship_window')
 local Tooltips = require('src.ui.tooltips')
 local Dialogs = require('src.ui.dialogs')
@@ -15,6 +13,8 @@ local Notifications = require('src.ui.notifications')
 local SkillNotifications = require('src.ui.skill_notifications')
 local Scaling = require('src.scaling')
 -- Hotbar removed
+-- CargoWindow removed - now integrated into ShipWindow
+-- SkillsWindow removed - now a panel within ShipWindow
 
 -- UI System main table
 local UISystem = {
@@ -99,14 +99,7 @@ end, function(x, y, button)
 end)
 
 
--- Cargo window
-UISystem.registerInteractive('cargo_window', function(x, y, button)
-    return CargoWindow.isOpen and CargoWindow.position and x >= CargoWindow.position.x and x <= CargoWindow.position.x + CargoWindow.width
-           and y >= CargoWindow.position.y and y <= CargoWindow.position.y + CargoWindow.height
-end, function(x, y, button)
-    CargoWindow:mousepressed(x, y, button)
-    return true
-end)
+-- Cargo and Skills windows are now integrated into ShipWindow as panels
 
 -- Map window
 UISystem.registerInteractive('map_window', function(x, y, button)
@@ -118,16 +111,7 @@ end, function(x, y, button)
     return true
 end)
 
--- Skills window
-UISystem.registerInteractive('skills_window', function(x, y, button)
-    return SkillsWindow.isOpen and SkillsWindow.position and x >= SkillsWindow.position.x and x <= SkillsWindow.position.x + SkillsWindow.width
-           and y >= SkillsWindow.position.y and y <= SkillsWindow.position.y + SkillsWindow.height
-end, function(x, y, button)
-    SkillsWindow:mousepressed(x, y, button)
-    return true
-end)
-
--- Ship window
+-- Ship window (contains loadout, inventory, and skills panels)
 UISystem.registerInteractive('ship_window', function(x, y, button)
     return ShipWindow.isOpen and ShipWindow.position and x >= ShipWindow.position.x and x <= ShipWindow.position.x + ShipWindow.width
            and y >= ShipWindow.position.y and y <= ShipWindow.position.y + ShipWindow.height
@@ -176,9 +160,7 @@ function UISystem.draw(viewportWidth, viewportHeight)
     
     -- Draw windows in focus order (background to foreground)
     local windows = {
-        cargo_window = CargoWindow,
         map_window = MapWindow,
-        skills_window = SkillsWindow,
         ship_window = ShipWindow
     }
 
@@ -210,24 +192,13 @@ function UISystem.draw(viewportWidth, viewportHeight)
     end
     
     -- Draw tooltip if hovering over item and no menus are open
-    if CargoWindow.isOpen and CargoWindow.hoveredItemSlot and not Dialogs.confirmDialog then
+    if ShipWindow.isOpen and ShipWindow.hoveredItemSlot and not Dialogs.confirmDialog then
         Tooltips.drawItemTooltip(
-            CargoWindow.hoveredItemSlot.itemId,
-            CargoWindow.hoveredItemSlot.itemDef,
-            CargoWindow.hoveredItemSlot.count,
-            CargoWindow.hoveredItemSlot.mouseX,
-            CargoWindow.hoveredItemSlot.mouseY
-        )
-    end
-
-    -- Draw tooltip for turret slot
-    if CargoWindow.isOpen and CargoWindow.hoveredTurretSlot and not Dialogs.confirmDialog then
-        Tooltips.drawItemTooltip(
-            CargoWindow.hoveredTurretSlot.itemId,
-            CargoWindow.hoveredTurretSlot.itemDef,
-            CargoWindow.hoveredTurretSlot.count,
-            CargoWindow.hoveredTurretSlot.mouseX,
-            CargoWindow.hoveredTurretSlot.mouseY
+            ShipWindow.hoveredItemSlot.itemId,
+            ShipWindow.hoveredItemSlot.itemDef,
+            ShipWindow.hoveredItemSlot.count,
+            ShipWindow.hoveredItemSlot.mouseX,
+            ShipWindow.hoveredItemSlot.mouseY
         )
         -- Not handled by UI
         return false
@@ -276,33 +247,25 @@ end
 function UISystem.update(dt)
     Notifications.update(dt)
     SkillNotifications.update(dt)
-    CargoWindow:update(dt)
+    -- CargoWindow removed - now integrated into ShipWindow
 end
 
 -- Key pressed handler
 function UISystem.keypressed(key)
-    if key == 'tab' or key == 'escape' then
-        CargoWindow:toggle()
-        if CargoWindow:getOpen() then
-            UISystem.setWindowFocus('cargo_window')
+    -- Tab key is now handled in core.lua to toggle ShipWindow
+    if key == 'escape' then
+        -- Close any open windows
+        if ShipWindow:getOpen() then
+            ShipWindow:setOpen(false)
+        end
+        if MapWindow:getOpen() then
+            MapWindow:setOpen(false)
         end
     end
     if key == 'm' then
         MapWindow:toggle()
         if MapWindow:getOpen() then
             UISystem.setWindowFocus('map_window')
-        end
-    end
-    if key == 'v' then
-        SkillsWindow:toggle()
-        if SkillsWindow:getOpen() then
-            UISystem.setWindowFocus('skills_window')
-        end
-    end
-    if key == 'g' then
-        ShipWindow:toggle()
-        if ShipWindow:getOpen() then
-            UISystem.setWindowFocus('ship_window')
         end
     end
 end
@@ -378,9 +341,7 @@ function UISystem.mousereleased(x, y, button)
 
     -- Forward to windows in focus order (most focused first)
     local windows = {
-        cargo_window = CargoWindow,
         map_window = MapWindow,
-        skills_window = SkillsWindow,
         ship_window = ShipWindow
     }
 
@@ -419,9 +380,7 @@ function UISystem.mousemoved(x, y, dx, dy, isTouch)
 
     -- Forward to windows in focus order (most focused first)
     local windows = {
-        cargo_window = CargoWindow,
         map_window = MapWindow,
-        skills_window = SkillsWindow,
         ship_window = ShipWindow
     }
 
@@ -449,22 +408,24 @@ function UISystem.mousemoved(x, y, dx, dy, isTouch)
 end
 
 -- Public API functions
+-- CargoWindow has been integrated into ShipWindow
+-- For backwards compatibility, cargo functions now control ShipWindow
 function UISystem.setCargoWindowOpen(state)
-    CargoWindow:setOpen(state)
+    ShipWindow:setOpen(state)
     if state then
-        UISystem.setWindowFocus('cargo_window')
+        UISystem.setWindowFocus('ship_window')
     end
 end
 
 function UISystem.toggleCargoWindow()
-    CargoWindow:toggle()
-    if CargoWindow:getOpen() then
-        UISystem.setWindowFocus('cargo_window')
+    ShipWindow:toggle()
+    if ShipWindow:getOpen() then
+        UISystem.setWindowFocus('ship_window')
     end
 end
 
 function UISystem.isCargoWindowOpen()
-    return CargoWindow:getOpen()
+    return ShipWindow:getOpen()
 end
 
 function UISystem.setMapWindowOpen(state)
@@ -485,23 +446,8 @@ function UISystem.isMapWindowOpen()
     return MapWindow:getOpen()
 end
 
-function UISystem.setSkillsWindowOpen(state)
-    SkillsWindow:setOpen(state)
-    if state then
-        UISystem.setWindowFocus('skills_window')
-    end
-end
-
-function UISystem.toggleSkillsWindow()
-    SkillsWindow:toggle()
-    if SkillsWindow:getOpen() then
-        UISystem.setWindowFocus('skills_window')
-    end
-end
-
-function UISystem.isSkillsWindowOpen()
-    return SkillsWindow:getOpen()
-end
+-- Skills panel is now integrated into ShipWindow
+-- No separate API functions needed
 
 function UISystem.setShipWindowOpen(state)
     ShipWindow:setOpen(state)

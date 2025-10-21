@@ -122,7 +122,13 @@ function WindowBase:draw()
     love.graphics.setColor(1, 1, 1, 1)
     Theme.draw3DBorder(x, y, w, h)
 
-    -- ...existing code...
+    -- Draw top bar background
+    love.graphics.setColor(Theme.colors.bgLight[1], Theme.colors.bgLight[2], Theme.colors.bgLight[3], 1)
+    love.graphics.rectangle("fill", x + border, y + border, w - border * 2, topBarH - border)
+
+    -- Draw bottom bar background
+    love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], Theme.colors.bgMedium[3], 1)
+    love.graphics.rectangle("fill", x + border, y + h - bottomBarH, w - border * 2, bottomBarH - border)
 
     -- Divider line below top bar
     love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1)

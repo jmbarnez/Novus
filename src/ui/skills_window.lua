@@ -49,7 +49,12 @@ function SkillsWindow:draw(viewportWidth, viewportHeight)
     self:drawCloseButton(x, y, alpha)
 
     -- Draw skills content
-    self:drawSkillsContent(x, y, alpha)
+    self:drawSkillsContentOnly(x, y, alpha)
+end
+
+-- Draw only the skills content without window frame (for tabbed interface)
+function SkillsWindow:drawSkillsContentOnly(windowX, windowY, alpha)
+    self:drawSkillsContent(windowX, windowY, alpha)
 end
 
 function SkillsWindow:drawSkillsContent(windowX, windowY, alpha)

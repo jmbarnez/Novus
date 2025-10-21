@@ -154,4 +154,15 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
     end
 end
 
+-- Stop firing - clean up laser beam entity
+function MiningLaser.stopFiring()
+    if MiningLaser.laserEntity then
+        local component = ECS.getComponent(MiningLaser.laserEntity, "LaserBeam")
+        if component then
+            ECS.destroyEntity(MiningLaser.laserEntity)
+        end
+        MiningLaser.laserEntity = nil
+    end
+end
+
 return MiningLaser

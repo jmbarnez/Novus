@@ -12,11 +12,41 @@ local InputSystem = {
 }
 
 function InputSystem.update(dt)
-    -- Apply input from controller entities (pilots) to the controlled entity (drone)
-    local controllers = ECS.getEntitiesWith({"InputControlled"})
+    -- Handle targeting progress
+    local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
     for _, controllerId in ipairs(controllers) do
-    local input = ECS.getComponent(controllerId, "InputControlled")
-    input = input or {speed = 300}
+        local input = ECS.getComponent(controllerId, "InputControlled")
+        if input and input.targetingTarget then
+            -- Check if target still exists
+            local targetPos = ECS.getComponent(input.targetingTarget, "Position")
+
+            if targetPos then
+                -- Progress the lock-on regardless of mouse position
+                local currentTime = love.timer.getTime()
+                local elapsed = currentTime - input.targetingStartTime
+                input.targetingProgress = math.min(elapsed / 3.0, 1.0)  -- 3 second lock-on time
+
+                -- Complete targeting when progress reaches 1.0
+                if input.targetingProgress >= 1.0 then
+                    input.targetedEnemy = input.targetingTarget
+                    input.targetingTarget = nil
+                    input.targetingProgress = 0
+                    input.targetingStartTime = 0
+                end
+            else
+                -- Target no longer exists, cancel targeting
+                input.targetingTarget = nil
+                input.targetingProgress = 0
+                input.targetingStartTime = 0
+            end
+        end
+    end
+
+    -- Apply input from controller entities (pilots) to the controlled entity (drone)
+    local allControllers = ECS.getEntitiesWith({"InputControlled"})
+    for _, controllerId in ipairs(allControllers) do
+        local input = ECS.getComponent(controllerId, "InputControlled")
+        input = input or {speed = 300}
         local targetEntity = input and input.targetEntity or nil
         -- Prefer controlling the target entity if provided, otherwise control the controller itself
         local accelEntity = targetEntity or controllerId
@@ -153,7 +183,22 @@ function InputSystem.update(dt)
                     end
                 end
 
-                local beamResult = turretModule.applyBeam(turretOwner, laserStartX, laserStartY, mouseX, mouseY, dt, turret)
+                -- Calculate beam end position, limited by weapon range
+                local beamEndX = mouseX
+                local beamEndY = mouseY
+                if turretModule.RANGE then
+                    local dx = mouseX - laserStartX
+                    local dy = mouseY - laserStartY
+                    local distToTarget = math.sqrt(dx * dx + dy * dy)
+                    if distToTarget > turretModule.RANGE then
+                        -- Cap the beam at maximum range
+                        local ratio = turretModule.RANGE / distToTarget
+                        beamEndX = laserStartX + dx * ratio
+                        beamEndY = laserStartY + dy * ratio
+                    end
+                end
+
+                local beamResult = turretModule.applyBeam(turretOwner, laserStartX, laserStartY, beamEndX, beamEndY, dt, turret)
                 -- Handle heat accumulation for continuous weapons
                 local turretComp = ECS.getComponent(turretOwner, "Turret")
                 if turretComp and turretModule and turretModule.CONTINUOUS then
@@ -268,12 +313,17 @@ function InputSystem.mousepressed(x, y, button, istouch, presses)
             end
         end
 
-        -- Set the targeted enemy on the player controller
+        -- Start targeting process on the player controller
         local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
         if #controllers > 0 then
             local inputComp = ECS.getComponent(controllers[1], "InputControlled")
             if inputComp then
-                inputComp.targetedEnemy = closestEnemy
+                -- Clear any existing target
+                inputComp.targetedEnemy = nil
+                -- Start new targeting process
+                inputComp.targetingTarget = closestEnemy
+                inputComp.targetingProgress = 0
+                inputComp.targetingStartTime = love.timer.getTime()
             end
         end
 

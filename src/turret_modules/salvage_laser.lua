@@ -147,4 +147,15 @@ function SalvageLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretC
     end
 end
 
+-- Stop firing - clean up laser beam entity
+function SalvageLaser.stopFiring()
+    if SalvageLaser.laserEntity then
+        local component = ECS.getComponent(SalvageLaser.laserEntity, "LaserBeam")
+        if component then
+            ECS.destroyEntity(SalvageLaser.laserEntity)
+        end
+        SalvageLaser.laserEntity = nil
+    end
+end
+
 return SalvageLaser

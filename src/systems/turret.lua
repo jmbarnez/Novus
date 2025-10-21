@@ -84,6 +84,15 @@ function TurretSystem.update(dt)
             -- Determine if turret is currently firing by comparing lastFireTime
             local now = love.timer.getTime()
             local firing = (now - (t.lastFireTime or 0)) < 0.2
+            local wasFiring = t._wasFiringLastFrame
+
+            if not firing and wasFiring then
+                -- Just stopped firing - clean up
+                if module.stopFiring then
+                    module.stopFiring()
+                end
+            end
+
             if not firing then
                 local coolRate = module.COOL_RATE or (module.HEAT_RATE or 1.0) * 0.5
                 t.heat = math.max(0, (t.heat or 0) - coolRate * dt)
@@ -98,6 +107,9 @@ function TurretSystem.update(dt)
                     t.heat = module.MAX_HEAT or 10
                 end
             end
+
+            -- Track firing state for next frame
+            t._wasFiringLastFrame = firing
         end
         ::cont::
     end

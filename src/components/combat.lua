@@ -60,4 +60,16 @@ Components.LastDamager = function(pilotId, weaponType)
     }
 end
 
+-- HomingMissile component - Makes a projectile home in on a target
+-- @field targetId number: Entity ID of the target to home in on
+-- @field turnRate number: Maximum turning rate in radians per second
+-- @field maxRange number: Maximum range at which homing works
+Components.HomingMissile = function(targetId, turnRate, maxRange)
+    return {
+        targetId = targetId or nil,
+        turnRate = turnRate or 2.0,
+        maxRange = maxRange or 1000
+    }
+end
+
 return Components

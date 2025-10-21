@@ -14,8 +14,8 @@ local CombatLaser = {
     HEAT_RATE = 4.0,
     MAX_HEAT = 12.0,
     COOL_RATE = 3.0,
-    DPS = 35,
-    RANGE = 1600,
+    DPS = 15,
+    RANGE = 800,
     design = {
         shape = "custom",
         size = 16,
@@ -65,12 +65,25 @@ function CombatLaser.fire(ownerId, startX, startY, endX, endY)
             offsetStartY = startY + (dy / dist) * (ownerCollidable.radius + 5)
         end
     end
-    
+
+    -- Limit beam length to maximum range
+    local beamEndX = endX
+    local beamEndY = endY
+    local dx = endX - offsetStartX
+    local dy = endY - offsetStartY
+    local distToTarget = math.sqrt(dx * dx + dy * dy)
+    if distToTarget > CombatLaser.RANGE then
+        -- Cap the beam at maximum range
+        local ratio = CombatLaser.RANGE / distToTarget
+        beamEndX = offsetStartX + dx * ratio
+        beamEndY = offsetStartY + dy * ratio
+    end
+
     -- Create new laser beam entity
     CombatLaser.laserEntity = ECS.createEntity()
     ECS.addComponent(CombatLaser.laserEntity, "LaserBeam", {
         start = {x = offsetStartX, y = offsetStartY},
-        endPos = {x = endX, y = endY},
+        endPos = {x = beamEndX, y = beamEndY},
         color = {0, 0.8, 1, 1},  -- Blue laser color
     })
     -- Mark this entity as a combat laser projectile for ship damage
@@ -120,8 +133,8 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
             -- Calculate distance from laser origin to hit point
             local hitDistance = math.sqrt(closestDistSq)
 
-            -- Distance falloff: damage starts falling off after 800 units, reaches 50% at max range (1600)
-            local falloffStart = 800
+            -- Distance falloff: damage starts falling off after 400 units, reaches 50% at max range (800)
+            local falloffStart = 400
             local falloffEnd = CombatLaser.RANGE
             local distanceMultiplier = 1.0
             if hitDistance > falloffStart then
@@ -155,6 +168,17 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
         return {hit = true, intersection = closestIntersection}
     else
         return {hit = false}
+    end
+end
+
+-- Stop firing - clean up laser beam entity
+function CombatLaser.stopFiring()
+    if CombatLaser.laserEntity then
+        local component = ECS.getComponent(CombatLaser.laserEntity, "LaserBeam")
+        if component then
+            ECS.destroyEntity(CombatLaser.laserEntity)
+        end
+        CombatLaser.laserEntity = nil
     end
 end
 

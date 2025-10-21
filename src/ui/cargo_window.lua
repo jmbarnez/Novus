@@ -45,8 +45,15 @@ function CargoWindow:draw(viewportWidth, viewportHeight)
     local w = self.width
     local h = self.height
 
-    -- ...existing code...
-    
+    -- Draw close button
+    self:drawCloseButton(x, y, alpha)
+
+    -- Draw cargo content
+    self:drawCargoContentOnly(x, y, alpha)
+end
+
+-- Draw only the cargo content without window frame (for tabbed interface)
+function CargoWindow:drawCargoContentOnly(windowX, windowY, alpha)
     -- Get the player's controlled ship
     local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
     if #controllers == 0 then return end
@@ -54,39 +61,33 @@ function CargoWindow:draw(viewportWidth, viewportHeight)
     local inputComp = ECS.getComponent(pilotId, "InputControlled")
     local shipId = inputComp and inputComp.targetEntity or nil
     if not shipId then return end
-    
+
     local cargo = ECS.getComponent(shipId, "Cargo")
     if not cargo then return end
-    
+
     local currency = ECS.getComponent(pilotId, "Currency")
-    
-    -- Draw close button
-    self:drawCloseButton(x, y, alpha)
-    
-    -- Draw bottom bar
-    local bottomBarH = Theme.window.bottomBarHeight
-    local bottomY = y + h - bottomBarH
-    local bottomBarColor = Theme.colors.bgMedium
-    love.graphics.setColor(bottomBarColor[1], bottomBarColor[2], bottomBarColor[3], alpha)
-    
-    -- Draw cargo info
+
+    -- Draw cargo info (bottom bar background provided by WindowBase)
     love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
     love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
     local itemCount = 0
     for _, v in pairs(cargo.items) do itemCount = itemCount + v end
     local capText = string.format("Cargo: %d / %d", itemCount, cargo.capacity or 0)
-    love.graphics.print(capText, x + Scaling.scaleX(12), bottomY + Scaling.scaleY(5))
-    
+    local bottomBarH = Theme.window.bottomBarHeight
+    local bottomY = windowY + self.height - bottomBarH
+    love.graphics.print(capText, windowX + Scaling.scaleX(12), bottomY + Scaling.scaleY(5))
+
     local currencyText = currency and string.format("Credits: %d", currency.amount or 0) or ""
-    love.graphics.print(currencyText, x + w - Scaling.scaleX(140), bottomY + Scaling.scaleY(5))
-    
+    love.graphics.print(currencyText, windowX + self.width - Scaling.scaleX(140), bottomY + Scaling.scaleY(5))
+
     -- Draw items grid
-    self:drawItemsGrid(x, y, cargo, alpha)
+    self:drawItemsGrid(windowX, windowY, cargo, alpha)
+
     -- Draw dragged item icon at mouse position if dragging (use UI coords)
     if self.draggedItem and self.draggedItem.itemDef then
         local mx, my = Scaling.toUI(love.mouse.getPosition())
         love.graphics.setColor(1, 1, 1, 0.8 * alpha)
-        
+
         local itemDef = self.draggedItem.itemDef
         love.graphics.push()
         love.graphics.translate(mx, my)

@@ -48,6 +48,7 @@ function Core.init()
     ECS.registerSystem("DestructionSystem", Systems.DestructionSystem)
     ECS.registerSystem("DebrisSystem", Systems.DebrisSystem)
     ECS.registerSystem("TurretSystem", Systems.TurretSystem)
+    ECS.registerSystem("HomingMissileSystem", Systems.HomingMissileSystem)
     ECS.registerSystem("ProjectileSystem", Systems.ProjectileSystem)
     ECS.registerSystem("ShieldImpactSystem", Systems.ShieldImpactSystem)
 
@@ -66,6 +67,7 @@ function Core.init()
     local basicCannonId = "basic_cannon_turret"
     local combatLaserId = "combat_laser_turret"
     local salvageLaserId = "salvage_laser_turret"
+    local missileLauncherId = "missile_launcher_turret"
     
     -- Load turret modules (including basic cannon)
     Systems.TurretSystem.loadTurretModules("src/turret_modules")
@@ -90,6 +92,7 @@ function Core.init()
         shipCargo.items[basicCannonId] = 1
         shipCargo.items[combatLaserId] = 1
         shipCargo.items[salvageLaserId] = 1
+        shipCargo.items[missileLauncherId] = 1
         shipCargo.items["basic_shield_module"] = 1  -- Add starting defensive module
     end
     
@@ -200,10 +203,11 @@ function Core.init()
     end
 
     -- Spawn enemy ships across the map
-    -- 5 mining laser drones + 10 cannon drones = 15 total
+    -- 5 mining laser drones + 5 combat laser drones + 5 basic cannon drones = 15 total
     local miningCount = 5
-    local cannonCount = 10
-    local totalEnemies = miningCount + cannonCount
+    local combatLaserCount = 5
+    local cannonCount = 5
+    local totalEnemies = miningCount + combatLaserCount + cannonCount
     local enemySpacing = (Constants.world_max_x - Constants.world_min_x) / (totalEnemies + 1)
     
     local enemyIndex = 1
@@ -241,8 +245,34 @@ function Core.init()
         
         enemyIndex = enemyIndex + 1
     end
-    
-    -- Spawn cannon drones second
+
+    -- Spawn combat laser drones second
+    for i = 1, combatLaserCount do
+        local x = Constants.world_min_x + enemyIndex * enemySpacing + (math.random() - 0.5) * 500
+        local y = (math.random() - 0.5) * 4000  -- Random Y position
+        x = math.max(Constants.world_min_x, math.min(Constants.world_max_x, x))
+        y = math.max(Constants.world_min_y, math.min(Constants.world_max_y, y))
+
+        local designId = "red_scout"
+        local turretModule = "combat_laser"
+
+        local shipId = ShipLoader.createShip(designId, x, y, "ai")
+
+        if shipId then
+            -- Set turret module
+            local turret = ECS.getComponent(shipId, "Turret")
+            if turret then
+                turret.moduleName = turretModule
+            end
+
+            -- Mark as combat AI for ECS queries
+            ECS.addComponent(shipId, "CombatAI", Components.CombatAI())
+        end
+
+        enemyIndex = enemyIndex + 1
+    end
+
+    -- Spawn basic cannon drones third
     for i = 1, cannonCount do
         local x = Constants.world_min_x + enemyIndex * enemySpacing + (math.random() - 0.5) * 500
         local y = (math.random() - 0.5) * 4000  -- Random Y position
@@ -292,7 +322,7 @@ function Core.init()
     print("Game entities created and systems initialized")
     print("Pilot and starting drone spawned at world center (0, 0)")
     print("Asteroid field spawned: 150 asteroids in thick band across world")
-    print("Enemy ships spawned: 5 mining lasers + 10 cannons = 15 total enemies distributed across the map")
+    print("Enemy ships spawned: 5 mining lasers + 5 combat lasers + 5 basic cannons = 15 total enemies distributed across the map")
     print("Collector scouts spawned: 3 autonomous bit collectors with magnetic fields")
     print("Player controls: WASD for thrust, ESC to quit")
 end
@@ -314,7 +344,7 @@ function Core.keypressed(key)
     if key == 'escape' then
         love.event.quit()
     elseif key == 'tab' then
-        UISystem.toggleCargoWindow()
+        UISystem.toggleShipWindow()
         return
     elseif key == 'f5' then
         local HUDSystem = require('src.systems.hud')

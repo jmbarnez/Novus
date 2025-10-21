@@ -6,6 +6,9 @@ local Components = {}
 -- @field controlType string: Type of control ("drone", "camera", etc.)
 -- @field speed number: Movement speed multiplier
 -- @field targetedEnemy number: Entity ID of currently targeted enemy (nil if none)
+-- @field targetingTarget number: Entity ID of enemy currently being targeted (before lock-on complete)
+-- @field targetingProgress number: Lock-on progress (0-1, takes 3 seconds to reach 1.0)
+-- @field targetingStartTime number: Time when targeting began
 Components.InputControlled = function(controlType, speed)
     return {
         controlType = controlType or "drone",
@@ -13,7 +16,11 @@ Components.InputControlled = function(controlType, speed)
         -- targetEntity: optionally references the entity id this controller is piloting
         targetEntity = nil,
         -- targetedEnemy: entity ID of currently targeted enemy ship
-        targetedEnemy = nil
+        targetedEnemy = nil,
+        -- targeting system: lock-on progress tracking
+        targetingTarget = nil,     -- Enemy being targeted for lock-on
+        targetingProgress = 0,     -- Progress 0-1 (takes 3 seconds)
+        targetingStartTime = 0     -- When targeting began
     }
 end
 

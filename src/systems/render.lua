@@ -79,9 +79,17 @@ local function drawLaser()
             -- ...existing code...
             -- Use laser color if available, default to yellow for mining laser
             local color = laser.color or {1, 1, 0, 1}
-            love.graphics.setColor(color[1], color[2], color[3], color[4])
-            love.graphics.setLineWidth(2)
+
+            -- Draw faint outer beam
+            love.graphics.setColor(color[1], color[2], color[3], 0.15) -- Very faint outer beam
+            love.graphics.setLineWidth(4)
             love.graphics.line(laser.start.x, laser.start.y, laser.endPos.x, laser.endPos.y)
+
+            -- Draw bright white core
+            love.graphics.setColor(1, 1, 1, 0.7) -- Bright white core
+            love.graphics.setLineWidth(1)
+            love.graphics.line(laser.start.x, laser.start.y, laser.endPos.x, laser.endPos.y)
+
             love.graphics.setLineWidth(1)
         end
     end
@@ -372,28 +380,45 @@ local RenderSystem = {
         -- Draw magnetic field indicators
         drawMagneticField()
 
-        -- Draw target indicator around targeted enemy
+        -- Draw target indicator around targeted enemy or targeting target
         local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
         if #controllers > 0 then
             local inputComp = ECS.getComponent(controllers[1], "InputControlled")
-            if inputComp and inputComp.targetedEnemy then
-                local targetPos = ECS.getComponent(inputComp.targetedEnemy, "Position")
-                local targetColl = ECS.getComponent(inputComp.targetedEnemy, "Collidable")
+            local targetId = inputComp and (inputComp.targetedEnemy or inputComp.targetingTarget)
+
+            if targetId then
+                local targetPos = ECS.getComponent(targetId, "Position")
+                local targetColl = ECS.getComponent(targetId, "Collidable")
 
                 if targetPos and targetColl then
-                    -- Draw pulsing target circle
                     local time = love.timer.getTime()
-                    local pulse = 0.5 + 0.3 * math.sin(time * 4)  -- Pulse between 0.5 and 0.8
                     local radius = targetColl.radius + 15
 
-                    love.graphics.setColor(1, 0.2, 0.2, pulse)  -- Red with pulsing alpha
-                    love.graphics.setLineWidth(3)
-                    love.graphics.circle("line", targetPos.x, targetPos.y, radius)
+                    if inputComp.targetedEnemy == targetId then
+                        -- Locked target - red pulsing circles
+                        local pulse = 0.5 + 0.3 * math.sin(time * 4)  -- Pulse between 0.5 and 0.8
 
-                    -- Draw inner circle for more emphasis
-                    love.graphics.setColor(1, 0.5, 0.5, pulse * 0.7)
-                    love.graphics.setLineWidth(1)
-                    love.graphics.circle("line", targetPos.x, targetPos.y, radius - 5)
+                        love.graphics.setColor(1, 0.2, 0.2, pulse)  -- Red with pulsing alpha
+                        love.graphics.setLineWidth(3)
+                        love.graphics.circle("line", targetPos.x, targetPos.y, radius)
+
+                        -- Draw inner circle for more emphasis
+                        love.graphics.setColor(1, 0.5, 0.5, pulse * 0.7)
+                        love.graphics.setLineWidth(1)
+                        love.graphics.circle("line", targetPos.x, targetPos.y, radius - 5)
+                    elseif inputComp.targetingTarget == targetId then
+                        -- Targeting in progress - orange/yellow pulsing circles
+                        local pulse = 0.4 + 0.4 * math.sin(time * 8)  -- Faster pulse during targeting
+
+                        love.graphics.setColor(1, 0.8, 0.2, pulse)  -- Orange with pulsing alpha
+                        love.graphics.setLineWidth(3)
+                        love.graphics.circle("line", targetPos.x, targetPos.y, radius)
+
+                        -- Draw inner circle for more emphasis
+                        love.graphics.setColor(1, 0.9, 0.5, pulse * 0.7)
+                        love.graphics.setLineWidth(1)
+                        love.graphics.circle("line", targetPos.x, targetPos.y, radius - 5)
+                    end
                 end
             end
         end

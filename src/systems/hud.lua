@@ -15,6 +15,197 @@ local HUDSystem = {
     hoveredTurretSlot = nil -- Track which turret slot is being hovered
 }
 
+local function drawTargetingIndicator(viewportWidth, viewportHeight)
+    -- Find player controller and check for targeted enemy
+    local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+    if #playerEntities == 0 then return end
+    local pilotId = playerEntities[1]
+    local input = ECS.getComponent(pilotId, "InputControlled")
+    if not input then return end
+
+    local hasTarget = input.targetedEnemy ~= nil
+    local isTargeting = input.targetingTarget ~= nil
+
+    -- Position in top-center of screen
+    local centerX = viewportWidth / 2
+    local y = 20
+
+    if hasTarget then
+        -- Get target information for display
+        local targetPos = ECS.getComponent(input.targetedEnemy, "Position")
+        local targetHull = ECS.getComponent(input.targetedEnemy, "Hull")
+
+        -- Draw targeting reticle/bracket
+        love.graphics.setColor(1, 0.2, 0.2, 0.8)  -- Red targeting color
+        love.graphics.setLineWidth(2)
+
+        local reticleSize = 15
+        -- Draw corner brackets
+        love.graphics.line(centerX - reticleSize, y, centerX - reticleSize/2, y)
+        love.graphics.line(centerX - reticleSize, y, centerX - reticleSize, y + reticleSize/2)
+        love.graphics.line(centerX + reticleSize, y, centerX + reticleSize/2, y)
+        love.graphics.line(centerX + reticleSize, y, centerX + reticleSize, y + reticleSize/2)
+
+        -- Draw pulsing center dot
+        local time = love.timer.getTime()
+        local pulse = 0.3 + 0.4 * math.sin(time * 6)
+        love.graphics.setColor(1, 0.2, 0.2, pulse)
+        love.graphics.circle("fill", centerX, y + reticleSize/2, 3)
+
+        -- Draw "TARGET LOCKED" text below
+        love.graphics.setColor(Theme.colors.textPrimary)
+        love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+        local text = "TARGET LOCKED"
+        local textWidth = Theme.getFont(Theme.fonts.small):getWidth(text)
+        love.graphics.printf(text, centerX - textWidth/2, y + reticleSize + 5, textWidth, "left")
+
+        -- Show comprehensive target stats
+        love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
+
+        local statY = y + reticleSize + 25
+        local lineHeight = 15
+
+        -- Enemy type
+        local enemyType = "Unknown"
+        if ECS.hasComponent(input.targetedEnemy, "CombatAI") then
+            enemyType = "Combat"
+        elseif ECS.hasComponent(input.targetedEnemy, "MiningAI") then
+            enemyType = "Mining"
+        elseif ECS.hasComponent(input.targetedEnemy, "MagneticField") then
+            enemyType = "Collector"
+        end
+
+        local typeText = string.format("TYPE: %s", enemyType)
+        local typeWidth = Theme.getFont(Theme.fonts.tiny):getWidth(typeText)
+        love.graphics.printf(typeText, centerX - typeWidth/2, statY, typeWidth, "left")
+        statY = statY + lineHeight
+
+        -- Distance
+        if targetPos then
+            local playerPos = ECS.getComponent(input.targetEntity, "Position")
+            if playerPos then
+                local dx = targetPos.x - playerPos.x
+                local dy = targetPos.y - playerPos.y
+                local distance = math.sqrt(dx * dx + dy * dy)
+
+                local distText = string.format("DIST: %.0f u", distance)
+                local distWidth = Theme.getFont(Theme.fonts.tiny):getWidth(distText)
+                love.graphics.printf(distText, centerX - distWidth/2, statY, distWidth, "left")
+                statY = statY + lineHeight
+            end
+        end
+
+        -- Hull health
+        if targetHull then
+            local healthPercent = (targetHull.current / targetHull.max) * 100
+            local healthText = string.format("HULL: %.0f%%", healthPercent)
+            local healthWidth = Theme.getFont(Theme.fonts.tiny):getWidth(healthText)
+            love.graphics.printf(healthText, centerX - healthWidth/2, statY, healthWidth, "left")
+            statY = statY + lineHeight
+        end
+
+        -- Shield status
+        local targetShield = ECS.getComponent(input.targetedEnemy, "Shield")
+        if targetShield and targetShield.max > 0 then
+            local shieldPercent = (targetShield.current / targetShield.max) * 100
+            local shieldText = string.format("SHLD: %.0f%%", shieldPercent)
+            local shieldWidth = Theme.getFont(Theme.fonts.tiny):getWidth(shieldText)
+            love.graphics.printf(shieldText, centerX - shieldWidth/2, statY, shieldWidth, "left")
+            statY = statY + lineHeight
+        end
+
+        -- Weapon type
+        local targetTurret = ECS.getComponent(input.targetedEnemy, "Turret")
+        if targetTurret and targetTurret.moduleName then
+            local weaponText = string.format("WEAP: %s", targetTurret.moduleName:gsub("_", " "):upper())
+            local weaponWidth = Theme.getFont(Theme.fonts.tiny):getWidth(weaponText)
+            love.graphics.printf(weaponText, centerX - weaponWidth/2, statY, weaponWidth, "left")
+            statY = statY + lineHeight
+        end
+
+        -- Speed
+        local targetVelocity = ECS.getComponent(input.targetedEnemy, "Velocity")
+        if targetVelocity then
+            local speed = math.sqrt(targetVelocity.vx * targetVelocity.vx + targetVelocity.vy * targetVelocity.vy)
+            local speedText = string.format("SPD: %.0f u/s", speed)
+            local speedWidth = Theme.getFont(Theme.fonts.tiny):getWidth(speedText)
+            love.graphics.printf(speedText, centerX - speedWidth/2, statY, speedWidth, "left")
+        end
+    elseif isTargeting then
+        -- Show targeting progress during lock-on
+        local targetPos = ECS.getComponent(input.targetingTarget, "Position")
+
+        -- Draw targeting reticle/bracket (yellow/orange during targeting)
+        love.graphics.setColor(1, 0.8, 0.2, 0.8)  -- Orange targeting color
+        love.graphics.setLineWidth(2)
+
+        local reticleSize = 15
+        -- Draw corner brackets
+        love.graphics.line(centerX - reticleSize, y, centerX - reticleSize/2, y)
+        love.graphics.line(centerX - reticleSize, y, centerX - reticleSize, y + reticleSize/2)
+        love.graphics.line(centerX + reticleSize, y, centerX + reticleSize/2, y)
+        love.graphics.line(centerX + reticleSize, y, centerX + reticleSize, y + reticleSize/2)
+
+        -- Draw pulsing center dot (faster pulse during targeting)
+        local time = love.timer.getTime()
+        local pulse = 0.3 + 0.4 * math.sin(time * 10)
+        love.graphics.setColor(1, 0.8, 0.2, pulse)
+        love.graphics.circle("fill", centerX, y + reticleSize/2, 3)
+
+        -- Draw progress bar
+        local barWidth = 80
+        local barHeight = 6
+        local barX = centerX - barWidth / 2
+        local barY = y + reticleSize + 5
+
+        -- Background
+        love.graphics.setColor(0.2, 0.2, 0.2, 0.8)
+        love.graphics.rectangle("fill", barX, barY, barWidth, barHeight, 2, 2)
+
+        -- Progress fill
+        local progressWidth = barWidth * input.targetingProgress
+        love.graphics.setColor(1, 0.8, 0.2, 0.9)
+        love.graphics.rectangle("fill", barX, barY, progressWidth, barHeight, 2, 2)
+
+        -- Border
+        love.graphics.setColor(1, 1, 1, 0.5)
+        love.graphics.setLineWidth(1)
+        love.graphics.rectangle("line", barX, barY, barWidth, barHeight, 2, 2)
+
+        -- Draw "TARGETING..." text
+        love.graphics.setColor(Theme.colors.textPrimary)
+        love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+        local text = "TARGETING..."
+        local textWidth = Theme.getFont(Theme.fonts.small):getWidth(text)
+        love.graphics.printf(text, centerX - textWidth/2, y + reticleSize + 15, textWidth, "left")
+
+        -- Show progress percentage
+        love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
+        local progressText = string.format("%.1f%%", input.targetingProgress * 100)
+        local progressWidth = Theme.getFont(Theme.fonts.tiny):getWidth(progressText)
+        love.graphics.printf(progressText, centerX - progressWidth/2, y + reticleSize + 30, progressWidth, "left")
+
+    else
+        -- Show "NO TARGET" when no enemy is targeted
+        love.graphics.setColor(Theme.colors.textSecondary)
+        love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+        local text = "NO TARGET"
+        local textWidth = Theme.getFont(Theme.fonts.small):getWidth(text)
+        love.graphics.printf(text, centerX - textWidth/2, y, textWidth, "left")
+
+        -- Add hint text
+        love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
+        local hintText = "CTRL + CLICK to target enemy (3s lock-on)"
+        local hintWidth = Theme.getFont(Theme.fonts.tiny):getWidth(hintText)
+        love.graphics.printf(hintText, centerX - hintWidth/2, y + 20, hintWidth, "left")
+
+        -- Add note about mouse freedom
+        local noteText = "Mouse can move freely during lock-on"
+        local noteWidth = Theme.getFont(Theme.fonts.tiny):getWidth(noteText)
+        love.graphics.printf(noteText, centerX - noteWidth/2, y + 35, noteWidth, "left")
+    end
+end
+
 local function drawSpeedText(viewportWidth, viewportHeight)
     -- Find pilot entity and their controlled drone
     local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
@@ -256,6 +447,10 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     if not HUDSystem.visible then return end
     viewportWidth = viewportWidth or (love.graphics and love.graphics.getWidth and love.graphics.getWidth()) or 1920
     viewportHeight = viewportHeight or (love.graphics and love.graphics.getHeight and love.graphics.getHeight()) or 1080
+
+    -- Draw targeting indicator first (top layer)
+    drawTargetingIndicator(viewportWidth, viewportHeight)
+
     drawHullShieldBar(viewportWidth, viewportHeight)
     drawTurretSlots(viewportWidth, viewportHeight)
     -- drawMagneticFieldStatus(viewportWidth, viewportHeight) -- Removed magnetic field HUD
