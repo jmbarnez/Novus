@@ -229,7 +229,7 @@ function Core.init()
                 if ai then
                     ai.state = "patrol"  -- Start in patrol, will transition to chase/orbit when player detected
                     ai.speed = 80        -- Combat drone speed
-                    ai.detectionRadius = 1600  -- Larger detection radius for combat
+                    ai.detectionRadius = 800  -- Larger detection radius for combat
                     ai.fireRange = 2500  -- Fallback fire range (will be overridden by turret)
                 end
                 
