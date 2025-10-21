@@ -218,8 +218,10 @@ function InputSystem.update(dt)
                     end
                 end
                 -- Also update the laser beam position on the entity
-                if turretModule.laserEntity and turretModule.laserEntity > 0 then
-                    local laserBeam = ECS.getComponent(turretModule.laserEntity, "LaserBeam")
+                -- Combat laser stores on turretComp, mining/salvage on module
+                local laserEntityId = turretComp and turretComp.laserEntity or turretModule.laserEntity
+                if laserEntityId and laserEntityId > 0 then
+                    local laserBeam = ECS.getComponent(laserEntityId, "LaserBeam")
                     if laserBeam then
                         laserBeam.start = {x = laserStartX, y = laserStartY}
                         -- Use collision point if hit, otherwise use mouse position
@@ -235,15 +237,22 @@ function InputSystem.update(dt)
         else
             -- Mouse released - destroy laser
             local turretModule = TurretSystem.turretModules[turret.moduleName]
-            if turretModule and turretModule.laserEntity then
-                local laserBeam = ECS.getComponent(turretModule.laserEntity, "LaserBeam")
+            local turretComp = ECS.getComponent(turretOwner, "Turret")
+            -- Combat laser stores on turretComp, mining/salvage on module
+            local laserEntityId = turretComp and turretComp.laserEntity or (turretModule and turretModule.laserEntity)
+            if laserEntityId then
+                local laserBeam = ECS.getComponent(laserEntityId, "LaserBeam")
                 if laserBeam then
-                    ECS.destroyEntity(turretModule.laserEntity)
+                    ECS.destroyEntity(laserEntityId)
+                end
+                if turretComp then
+                    turretComp.laserEntity = nil
+                end
+                if turretModule then
                     turretModule.laserEntity = nil
                 end
             end
                     -- On release, start cooling down heat for continuous lasers
-                    local turretComp = ECS.getComponent(turretOwner, "Turret")
                     if turretComp and turretComp.heat and turretComp.heat > 0 then
                         -- We'll rely on TurretSystem.update to cool down over time
                     end

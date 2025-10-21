@@ -43,7 +43,7 @@ local CombatLaser = {
 
 -- Fire the laser - creates and maintains laser beam entity
 function CombatLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
-    -- Store laser on turret component to avoid conflicts between multiple turrets
+    -- Store laser on turret component so each turret can have its own laser
     if not turretComp then return end
     
     -- Destroy old laser if it exists
@@ -83,21 +83,42 @@ function CombatLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
 
     -- Create new laser beam entity
     turretComp.laserEntity = ECS.createEntity()
+    
+    -- Calculate midpoint for position (for depth sorting and rendering order)
+    local midX = (offsetStartX + beamEndX) / 2
+    local midY = (offsetStartY + beamEndY) / 2
+    
+    ECS.addComponent(turretComp.laserEntity, "Position", Components.Position(midX, midY))
     ECS.addComponent(turretComp.laserEntity, "LaserBeam", {
         start = {x = offsetStartX, y = offsetStartY},
         endPos = {x = beamEndX, y = beamEndY},
         color = {0, 0.4, 0.5, 1},  -- Blue laser color (half brightness)
+        ownerId = ownerId
     })
     -- Mark this entity as a combat laser projectile for ship damage
     ECS.addComponent(turretComp.laserEntity, "Projectile", {ownerId = ownerId, damage = CombatLaser.DPS, brittle = false, isCombatLaser = true})
 end
 
 -- Called every frame while the laser is firing
--- startX, startY: muzzle position
+-- startX, startY: muzzle position (ship center)
 -- endX, endY: target position (mouse)
 -- dt: delta time
 -- turretComp: turret component with heat information
 function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretComp)
+    -- Offset start position to barrel end to match where laser visually originates
+    local offsetStartX = startX
+    local offsetStartY = startY
+    local ownerCollidable = ECS.getComponent(ownerId, "Collidable")
+    if ownerCollidable then
+        local dx = endX - startX
+        local dy = endY - startY
+        local dist = math.sqrt(dx * dx + dy * dy)
+        if dist > 0 then
+            offsetStartX = startX + (dx / dist) * (ownerCollidable.radius + 5)
+            offsetStartY = startY + (dy / dist) * (ownerCollidable.radius + 5)
+        end
+    end
+
     local closestIntersection = nil
     local closestDistSq = math.huge
     local hitShipId = nil
@@ -113,11 +134,12 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
         
         if polygonShape then
             -- Use polygon collision for ships with polygon shapes
-            intersection = CollisionSystem.linePolygonIntersect(startX, startY, endX, endY, shipId)
+            -- Use the offset barrel position as the laser origin
+            intersection = CollisionSystem.linePolygonIntersect(offsetStartX, offsetStartY, endX, endY, shipId)
         end
         
         if intersection then
-            local distSq = (intersection.x - startX)^2 + (intersection.y - startY)^2
+            local distSq = (intersection.x - offsetStartX)^2 + (intersection.y - offsetStartY)^2
             if distSq < closestDistSq then
                 closestDistSq = distSq
                 closestIntersection = intersection
@@ -174,6 +196,7 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
         if damage > 0 and hull then
             local damageApplied = math.min(damage, hull.current)
             hull.current = hull.current - damageApplied
+            print("LASER DAMAGE: Applied " .. damageApplied .. " damage to ship " .. hitShipId .. ", hull now " .. hull.current)
 
             -- Only grant XP if ship is destroyed this frame
             if hull.current <= 0 then

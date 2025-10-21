@@ -615,18 +615,45 @@ local PhysicsCollisionSystem = {
                         
                     -- Resolve collision if detected
                     if colliding and vel1 and vel2 and phys1 and phys2 then
-                        -- Prevent projectile from colliding with its owner (if immunity still active)
+                        -- Check if either entity is a projectile or laser
                         local proj1 = ECS.getComponent(entity1Id, "Projectile")
                         local proj2 = ECS.getComponent(entity2Id, "Projectile")
-                        if proj1 and proj1.ownerId == entity2Id and proj1.ownerImmunityTime and proj1.ownerImmunityTime > 0 then goto continue_nearby end
-                        if proj2 and proj2.ownerId == entity1Id and proj2.ownerImmunityTime and proj2.ownerImmunityTime > 0 then goto continue_nearby end
+                        local laser1 = ECS.getComponent(entity1Id, "LaserBeam")
+                        local laser2 = ECS.getComponent(entity2Id, "LaserBeam")
                         
-                        -- Skip projectile-to-projectile collisions entirely
-                        if proj1 and proj2 then goto continue_nearby end
+                        -- CRITICAL: Prevent projectiles/lasers from colliding with their owner ship
+                        -- Check immunity timer to ensure projectile can't hit its own ship
+                        if proj1 and proj1.ownerId == entity2Id then
+                            if proj1.ownerImmunityTime and proj1.ownerImmunityTime > 0 then
+                                -- Owner immunity still active - skip collision entirely
+                                goto continue_nearby
+                            end
+                        end
+                        if proj2 and proj2.ownerId == entity1Id then
+                            if proj2.ownerImmunityTime and proj2.ownerImmunityTime > 0 then
+                                -- Owner immunity still active - skip collision entirely
+                                goto continue_nearby
+                            end
+                        end
+                        if laser1 and laser1.ownerId == entity2Id then
+                            -- Laser originated from this ship - never collide
+                            goto continue_nearby
+                        end
+                        if laser2 and laser2.ownerId == entity1Id then
+                            -- Laser originated from this ship - never collide
+                            goto continue_nearby
+                        end
+                        
+                        -- CRITICAL: Skip all projectile-to-projectile collisions entirely
+                        -- Projectiles should never collide with each other
+                        if proj1 and proj2 then 
+                            goto continue_nearby 
+                        end
                         
                         -- If either entity is a projectile, apply its damage to the other
                         if proj1 then
                             local damage = proj1.damage or 10
+                            print("PROJECTILE DAMAGE: proj1 dealing " .. damage .. " to entity " .. entity2Id)
                             -- Apply to Shield first, then Hull
                             local shield2 = ECS.getComponent(entity2Id, "Shield")
                             local hull2 = ECS.getComponent(entity2Id, "Hull")

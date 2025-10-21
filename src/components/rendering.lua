@@ -100,13 +100,15 @@ Components.PolygonShape = function(vertices, rotation)
     }
 end
 
--- LaserBeam component - Represents a mining laser
+-- LaserBeam component - Represents a laser beam
 -- @field start table: The starting position of the laser {x, y}
 -- @field endPos table: The ending position of the laser {x, y}
+-- @field ownerId number: The entity ID of the owner who fired the laser
 Components.LaserBeam = function(data)
     return {
         start = data.start or {x = 0, y = 0},
-        endPos = data.endPos or {x = 0, y = 0}
+        endPos = data.endPos or {x = 0, y = 0},
+        ownerId = data.ownerId or 0
     }
 end
 

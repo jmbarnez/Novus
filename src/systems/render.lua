@@ -147,6 +147,10 @@ local RenderSystem = {
         local Profiler = require('src.profiler')
         Profiler.start("canvas_setup")
 
+        -- Initialize item rendering counters
+        culledItems = 0
+        renderedItems = 0
+
         local canvasEntities = ECS.getEntitiesWith({"Canvas"})
         if #canvasEntities == 0 then return end
         local canvasId = canvasEntities[1]
@@ -205,8 +209,6 @@ local RenderSystem = {
 
         drawDebris()
 
-        drawLaser()
-
         -- Get camera for culling calculations
         local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
         local cullingCamera = nil
@@ -215,15 +217,6 @@ local RenderSystem = {
             cullingCamera = ECS.getComponent(cameraEntities[1], "Camera")
             cullingCameraPos = ECS.getComponent(cameraEntities[1], "Position")
         end
-
-        -- Debug counters for culling verification (set to false to disable)
-        local DEBUG_CULLING = true
-        local renderedItems = 0
-        local culledItems = 0
-        local renderedAsteroids = 0
-        local culledAsteroids = 0
-        local renderedWreckages = 0
-        local culledWreckages = 0
 
         local renderableEntities = ECS.getEntitiesWith({"Position", "Renderable"})
         for _, entityId in ipairs(renderableEntities) do
@@ -300,17 +293,7 @@ local RenderSystem = {
                             local collidable = ECS.getComponent(entityId, "Collidable")
                             local radius = collidable and collidable.radius or 20
                             if not isOnScreen(position.x, position.y, radius, cullingCameraPos, cullingCamera) then
-                                if asteroid then
-                                    culledAsteroids = culledAsteroids + 1
-                                elseif wreckage then
-                                    culledWreckages = culledWreckages + 1
-                                end
                                 goto continue_entity
-                            end
-                            if asteroid then
-                                renderedAsteroids = renderedAsteroids + 1
-                            elseif wreckage then
-                                renderedWreckages = renderedWreckages + 1
                             end
                         end
 
@@ -356,7 +339,28 @@ local RenderSystem = {
                                 turretAimAngle = math.atan2(turretComp.aimY - position.y, turretComp.aimX - position.x)
                             end
                             drawTurret(position.x, position.y, renderable.color, turretAimAngle)
-                            -- Draw small health bar for polygon enemies (non-player)
+                            -- Draw small health bar for polygon enemies (non-player) - only when damaged
+                            if ECS.hasComponent(entityId, "Hull") and not (ECS.hasComponent(entityId, "ControlledBy") and ECS.hasComponent(ECS.getComponent(entityId, "ControlledBy").pilotId, "Player")) then
+                                local hull = ECS.getComponent(entityId, "Hull")
+                                local shield = ECS.getComponent(entityId, "Shield")
+                                -- Only show health bar when damaged
+                                if hull and (hull.current < hull.max or (shield and shield.current < shield.max)) then
+                                    local barWidth = 48
+                                    local barHeight = 6
+                                    local x = position.x - barWidth / 2
+                                    local y = position.y - 16
+                                    love.graphics.setColor(0.1, 0.1, 0.1, 0.9)
+                                    love.graphics.rectangle("fill", x, y, barWidth, barHeight, 3, 3)
+                                    local ratio = math.max(0, math.min(1, (hull.current or 0) / (hull.max or 1)))
+                                    if shield and shield.max > 0 then
+                                        local sRatio = math.max(0, math.min(1, (shield.current or 0) / (shield.max or 1)))
+                                        love.graphics.setColor(0.2, 0.6, 1, 0.9)
+                                        love.graphics.rectangle("fill", x + 1, y - 8, (barWidth - 2) * sRatio, barHeight - 2, 2, 2)
+                                    end
+                                    love.graphics.setColor(1, 0.2, 0.2, 0.95)
+                                    love.graphics.rectangle("fill", x + 1, y + 1, (barWidth - 2) * ratio, barHeight - 2, 2, 2)
+                                end
+                            end
                         else
                             drawPolygon(position.x, position.y, polygonShape, renderable.color)
                             if ECS.hasComponent(entityId, "Hull") and not (ECS.hasComponent(entityId, "ControlledBy") and ECS.hasComponent(ECS.getComponent(entityId, "ControlledBy").pilotId, "Player")) then
@@ -392,104 +396,72 @@ local RenderSystem = {
             ShieldImpactSystem.draw()
         end
 
+        -- Draw laser beams (rendered on top of ships)
+        drawLaser()
+
         Profiler.stop("entity_rendering")
         Profiler.start("canvas_finalize")
 
-        -- Calculate frame skip for performance optimizations
-        local frameSkip = love.timer.getTime() * 60  -- Approximate frame count
-        
-        -- Only check asteroid hover and draw health bars every other frame for performance
-        if math.floor(frameSkip) % 2 == 0 then
-            local mouseX, mouseY = love.mouse.getPosition()
-            local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
-            if #cameraEntities > 0 then
-                local cameraId = cameraEntities[1]
-                local cameraComp = ECS.getComponent(cameraId, "Camera")
-                local cameraPos = ECS.getComponent(cameraId, "Position")
-                if cameraComp and cameraPos and canvasComp.offsetX and canvasComp.scale and cameraComp.zoom and cameraPos.x and cameraPos.y then
-                    mouseX = (mouseX - canvasComp.offsetX) / canvasComp.scale / cameraComp.zoom + cameraPos.x
-                    mouseY = (mouseY - canvasComp.offsetY) / canvasComp.scale / cameraComp.zoom + cameraPos.y
+
+
+        -- Draw asteroid durability bars (only when damaged)
+        local asteroidEntities = ECS.getEntitiesWith({"Asteroid", "Position", "Durability", "Collidable"})
+        for _, id in ipairs(asteroidEntities) do
+            local pos = ECS.getComponent(id, 'Position')
+            local coll = ECS.getComponent(id, 'Collidable')
+            local durability = ECS.getComponent(id, 'Durability')
+            if pos and durability and durability.current and durability.max then
+                -- Cull off-screen asteroid health bars
+                local radius = coll and coll.radius or 12
+                if not isOnScreen(pos.x, pos.y, radius, cullingCameraPos, cullingCamera) then
+                    goto continue_asteroid
+                end
+                
+                -- Only show when damaged
+                if durability.current < durability.max then
+                    local barW = 24
+                    local barH = 3
+                    local pad = coll and (coll.radius + 6) or 14
+                    local frac = math.max(0, math.min(1, durability.current / durability.max))
+                    love.graphics.setColor(0.25, 0.25, 0.2, 0.85)
+                    love.graphics.rectangle("fill", pos.x - barW/2, pos.y - pad, barW, barH)
+                    love.graphics.setColor(1, 1, 0.2, 1)
+                    love.graphics.rectangle("fill", pos.x - barW/2, pos.y - pad, barW * frac, barH)
+                    love.graphics.setColor(0,0,0,1)
+                    love.graphics.rectangle("line", pos.x - barW/2, pos.y - pad, barW, barH)
                 end
             end
-            local hoveredAsteroidId = nil
-            local minDist = math.huge
-            local asteroidEntities = ECS.getEntitiesWith({"Asteroid", "Position", "PolygonShape", "Durability", "Collidable"})
-            for _, id in ipairs(asteroidEntities) do
-                local pos = ECS.getComponent(id, "Position")
-                local coll = ECS.getComponent(id, "Collidable")
-                if pos then
-                    local radius = coll and coll.radius or 12
-                    if pos.x and pos.y and mouseX and mouseY then
-                        local dx, dy = mouseX - pos.x, mouseY - pos.y
-                        local distSq = dx*dx + dy*dy
-                        if distSq <= (radius * radius) then
-                            if distSq < minDist then
-                                minDist = distSq
-                                hoveredAsteroidId = id
-                            end
-                        end
-                    end
-                end
-            end
-            for _, id in ipairs(asteroidEntities) do
-                local pos = ECS.getComponent(id, 'Position')
-                local coll = ECS.getComponent(id, 'Collidable')
-                local durability = ECS.getComponent(id, 'Durability')
-                if pos and durability and durability.current and durability.max then
-                    -- Cull off-screen asteroid health bars
-                    local radius = coll and coll.radius or 12
-                    if not isOnScreen(pos.x, pos.y, radius, cullingCameraPos, cullingCamera) then
-                        goto continue_asteroid
-                    end
-                    
-                    local shouldShowBar = (id == hoveredAsteroidId) or (durability.current < durability.max)
-                    if shouldShowBar then
-                        local barW = 24
-                        local barH = 3
-                        local pad = coll and (coll.radius + 6) or 14
-                        local frac = math.max(0, math.min(1, durability.current / durability.max))
-                        love.graphics.setColor(0.25, 0.25, 0.2, 0.85)
-                        love.graphics.rectangle("fill", pos.x - barW/2, pos.y - pad, barW, barH)
-                        love.graphics.setColor(1, 1, 0.2, 1)
-                        love.graphics.rectangle("fill", pos.x - barW/2, pos.y - pad, barW * frac, barH)
-                        love.graphics.setColor(0,0,0,1)
-                        love.graphics.rectangle("line", pos.x - barW/2, pos.y - pad, barW, barH)
-                    end
-                end
-                ::continue_asteroid::
-            end
+            ::continue_asteroid::
         end
 
-        -- Draw wreckage durability bars (green) - skip every other frame for performance
-        if math.floor(frameSkip) % 2 == 0 then
-            local wreckageEntities = ECS.getEntitiesWith({"Wreckage", "Position", "Durability", "Collidable"})
-            for _, id in ipairs(wreckageEntities) do
-                local pos = ECS.getComponent(id, 'Position')
-                local coll = ECS.getComponent(id, 'Collidable')
-                local durability = ECS.getComponent(id, 'Durability')
-                if pos and durability and durability.current and durability.max then
-                    -- Cull off-screen wreckage health bars
-                    local radius = coll and coll.radius or 12
-                    if not isOnScreen(pos.x, pos.y, radius, cullingCameraPos, cullingCamera) then
-                        goto continue_wreckage
-                    end
-                    
-                    local shouldShowBar = durability.current < durability.max  -- Only show when damaged
-                    if shouldShowBar then
-                        local barW = 24
-                        local barH = 3
-                        local pad = coll and (coll.radius + 6) or 14
-                        local frac = math.max(0, math.min(1, durability.current / durability.max))
-                        love.graphics.setColor(0.15, 0.25, 0.15, 0.85)  -- Dark green background
-                        love.graphics.rectangle("fill", pos.x - barW/2, pos.y - pad, barW, barH)
-                        love.graphics.setColor(0.4, 0.8, 0.4, 1)  -- Muted green fill
-                        love.graphics.rectangle("fill", pos.x - barW/2, pos.y - pad, barW * frac, barH)
-                        love.graphics.setColor(0,0,0,1)  -- Black outline
-                        love.graphics.rectangle("line", pos.x - barW/2, pos.y - pad, barW, barH)
-                    end
+        -- Draw wreckage durability bars (green) - only when damaged
+        local wreckageEntities = ECS.getEntitiesWith({"Wreckage", "Position", "Durability", "Collidable"})
+        for _, id in ipairs(wreckageEntities) do
+            local pos = ECS.getComponent(id, 'Position')
+            local coll = ECS.getComponent(id, 'Collidable')
+            local durability = ECS.getComponent(id, 'Durability')
+            if pos and durability and durability.current and durability.max then
+                -- Cull off-screen wreckage health bars
+                local radius = coll and coll.radius or 12
+                if not isOnScreen(pos.x, pos.y, radius, cullingCameraPos, cullingCamera) then
+                    goto continue_wreckage
                 end
-                ::continue_wreckage::
+                
+                -- Only show when damaged
+                if durability.current < durability.max then
+                    local barW = 24
+                    local barH = 3
+                    local pad = coll and (coll.radius + 6) or 14
+                    local frac = math.max(0, math.min(1, durability.current / durability.max))
+                    love.graphics.setColor(0.15, 0.25, 0.15, 0.85)  -- Dark green background
+                    love.graphics.rectangle("fill", pos.x - barW/2, pos.y - pad, barW, barH)
+                    love.graphics.setColor(0.4, 0.8, 0.4, 1)  -- Muted green fill
+                    love.graphics.rectangle("fill", pos.x - barW/2, pos.y - pad, barW * frac, barH)
+                    love.graphics.setColor(0,0,0,1)  -- Black outline
+                    love.graphics.rectangle("line", pos.x - barW/2, pos.y - pad, barW, barH)
+                end
             end
+            ::continue_wreckage::
         end
 
         -- Draw magnetic field indicators
@@ -546,11 +518,6 @@ local RenderSystem = {
             UISystem.draw(canvasComp.width, canvasComp.height)
         end
         -- FPS counter now handled by HUD System
-        if DEBUG_CULLING then
-            love.graphics.print(string.format("Items: %d/%d", renderedItems, renderedItems + culledItems), 8, 24)
-            love.graphics.print(string.format("Asteroids: %d/%d", renderedAsteroids, renderedAsteroids + culledAsteroids), 8, 44)
-            love.graphics.print(string.format("Wreckages: %d/%d", renderedWreckages, renderedWreckages + culledWreckages), 8, 64)
-        end
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.setCanvas()
         local w, h = love.graphics.getDimensions()

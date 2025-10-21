@@ -37,6 +37,7 @@ function linePolygonIntersect(x1, y1, x2, y2, entityId)
     local closestIntersection = nil
     local closestDistSq = math.huge
 
+    -- Check each edge of the polygon
     for i = 1, #transformedVertices do
         local p1 = transformedVertices[i]
         local p2 = transformedVertices[(i % #transformedVertices) + 1]
@@ -47,7 +48,8 @@ function linePolygonIntersect(x1, y1, x2, y2, entityId)
             local t = ((x1 - p1.x) * (p1.y - p2.y) - (y1 - p1.y) * (p1.x - p2.x)) / den
             local u = -((x1 - x2) * (y1 - p1.y) - (y1 - y2) * (x1 - p1.x)) / den
 
-            if t > 0 and t < 1 and u > 0 and u < 1 then
+            -- Accept intersection if both parameters are in valid range (0-1 for both line segments)
+            if t >= 0 and t <= 1 and u >= 0 and u <= 1 then
                 -- Calculate the intersection point
                 local intersectionX = x1 + t * (x2 - x1)
                 local intersectionY = y1 + t * (y2 - y1)

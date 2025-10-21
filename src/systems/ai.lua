@@ -95,11 +95,39 @@ function AI.update(dt)
                     -- Too far - chase to get into range
                     ai.state = "chase"
                 end
+                -- When aggro'd, do NOT swing turret randomly
+                if turret then
+                    turret._swingTimer = nil
+                    turret._swingAngle = nil
+                end
             else
                 -- Player out of detection range - return to patrol
                 if ai.state == "chase" or ai.state == "orbit" then
                     ai.state = "patrol"
                 end
+                -- Swing turret randomly while idle
+                if turret then
+                    turret._swingTimer = (turret._swingTimer or 0) - dt
+                    if not turret._swingAngle or turret._swingTimer <= 0 then
+                        turret._swingAngle = math.random() * 2 * math.pi
+                        turret._swingTimer = 1 + math.random() * 2 -- Change direction every 1-3 seconds
+                    end
+                    local swingRadius = 100
+                    turret.aimX = pos.x + math.cos(turret._swingAngle) * swingRadius
+                    turret.aimY = pos.y + math.sin(turret._swingAngle) * swingRadius
+                end
+            end
+        else
+            -- No player: swing turret randomly
+            if turret then
+                turret._swingTimer = (turret._swingTimer or 0) - dt
+                if not turret._swingAngle or turret._swingTimer <= 0 then
+                    turret._swingAngle = math.random() * 2 * math.pi
+                    turret._swingTimer = 1 + math.random() * 2 -- Change direction every 1-3 seconds
+                end
+                local swingRadius = 100
+                turret.aimX = pos.x + math.cos(turret._swingAngle) * swingRadius
+                turret.aimY = pos.y + math.sin(turret._swingAngle) * swingRadius
             end
         end
 
@@ -177,8 +205,14 @@ function AI.update(dt)
             -- Aim and fire turret at player if within firing range
             if turret and turret.moduleName and dist < fireRange then
                 -- Store turret aim position for rendering
-                turret.aimX = playerPos.x
-                turret.aimY = playerPos.y
+                -- Calculate the exact direction the turret is firing
+                local dx = playerPos.x - pos.x
+                local dy = playerPos.y - pos.y
+                local fireAngle = math.atan2(dy, dx)
+                local muzzleDistance = 12 -- Should match barrelLength in drawTurret
+                turret.aimX = pos.x + math.cos(fireAngle) * muzzleDistance
+                turret.aimY = pos.y + math.sin(fireAngle) * muzzleDistance
+
                 local TurretSystem = ECS.getSystem("TurretSystem")
                 if TurretSystem and TurretSystem.fireTurret then
                     TurretSystem.fireTurret(eid, playerPos.x, playerPos.y, dt)
@@ -187,16 +221,14 @@ function AI.update(dt)
                     local turretModule = TurretSystem.turretModules[turret.moduleName]
                     if turretModule and turretModule.applyBeam and turretModule.CONTINUOUS and not turret.overheated then
                         -- Offset laser start position away from ship to avoid self-collision
-                        local laserStartX = pos.x
-                        local laserStartY = pos.y
+                        local laserStartX = pos.x + math.cos(fireAngle) * muzzleDistance
+                        local laserStartY = pos.y + math.sin(fireAngle) * muzzleDistance
                         local collider = ECS.getComponent(eid, "Collidable")
                         if collider then
-                            local dx = playerPos.x - pos.x
-                            local dy = playerPos.y - pos.y
                             local distToTarget = math.sqrt(dx * dx + dy * dy)
                             if distToTarget > 0 then
-                                laserStartX = pos.x + (dx / distToTarget) * (collider.radius + 5)
-                                laserStartY = pos.y + (dy / distToTarget) * (collider.radius + 5)
+                                laserStartX = pos.x + (dx / distToTarget) * (collider.radius + muzzleDistance)
+                                laserStartY = pos.y + (dy / distToTarget) * (collider.radius + muzzleDistance)
                             end
                         end
 
@@ -204,14 +236,14 @@ function AI.update(dt)
                         local beamEndX = playerPos.x
                         local beamEndY = playerPos.y
                         if turretModule.RANGE then
-                            local dx = playerPos.x - laserStartX
-                            local dy = playerPos.y - laserStartY
-                            local distToTarget = math.sqrt(dx * dx + dy * dy)
-                            if distToTarget > turretModule.RANGE then
+                            local dx2 = playerPos.x - laserStartX
+                            local dy2 = playerPos.y - laserStartY
+                            local distToTarget2 = math.sqrt(dx2 * dx2 + dy2 * dy2)
+                            if distToTarget2 > turretModule.RANGE then
                                 -- Cap the beam at maximum range
-                                local ratio = turretModule.RANGE / distToTarget
-                                beamEndX = laserStartX + dx * ratio
-                                beamEndY = laserStartY + dy * ratio
+                                local ratio = turretModule.RANGE / distToTarget2
+                                beamEndX = laserStartX + dx2 * ratio
+                                beamEndY = laserStartY + dy2 * ratio
                             end
                         end
 
@@ -289,6 +321,14 @@ function AI.update(dt)
                 
                 -- Fire turret at player while orbiting
                 if turret and turret.moduleName and dist < fireRange then
+                    -- Store turret aim position for rendering
+                    local dx = playerPos.x - pos.x
+                    local dy = playerPos.y - pos.y
+                    local fireAngle = math.atan2(dy, dx)
+                    local muzzleDistance = 12
+                    turret.aimX = pos.x + math.cos(fireAngle) * muzzleDistance
+                    turret.aimY = pos.y + math.sin(fireAngle) * muzzleDistance
+
                     local TurretSystem = ECS.getSystem("TurretSystem")
                     if TurretSystem and TurretSystem.fireTurret then
                         TurretSystem.fireTurret(eid, playerPos.x, playerPos.y, dt)
@@ -297,16 +337,14 @@ function AI.update(dt)
                         local turretModule = TurretSystem.turretModules[turret.moduleName]
                         if turretModule and turretModule.applyBeam and turretModule.CONTINUOUS and not turret.overheated then
                             -- Offset laser start position away from ship to avoid self-collision
-                            local laserStartX = pos.x
-                            local laserStartY = pos.y
+                            local laserStartX = pos.x + math.cos(fireAngle) * muzzleDistance
+                            local laserStartY = pos.y + math.sin(fireAngle) * muzzleDistance
                             local collider = ECS.getComponent(eid, "Collidable")
                             if collider then
-                                local dx = playerPos.x - pos.x
-                                local dy = playerPos.y - pos.y
                                 local distToTarget = math.sqrt(dx * dx + dy * dy)
                                 if distToTarget > 0 then
-                                    laserStartX = pos.x + (dx / distToTarget) * (collider.radius + 5)
-                                    laserStartY = pos.y + (dy / distToTarget) * (collider.radius + 5)
+                                    laserStartX = pos.x + (dx / distToTarget) * (collider.radius + muzzleDistance)
+                                    laserStartY = pos.y + (dy / distToTarget) * (collider.radius + muzzleDistance)
                                 end
                             end
 
@@ -314,14 +352,14 @@ function AI.update(dt)
                             local beamEndX = playerPos.x
                             local beamEndY = playerPos.y
                             if turretModule.RANGE then
-                                local dx = playerPos.x - laserStartX
-                                local dy = playerPos.y - laserStartY
-                                local distToTarget = math.sqrt(dx * dx + dy * dy)
-                                if distToTarget > turretModule.RANGE then
+                                local dx2 = playerPos.x - laserStartX
+                                local dy2 = playerPos.y - laserStartY
+                                local distToTarget2 = math.sqrt(dx2 * dx2 + dy2 * dy2)
+                                if distToTarget2 > turretModule.RANGE then
                                     -- Cap the beam at maximum range
-                                    local ratio = turretModule.RANGE / distToTarget
-                                    beamEndX = laserStartX + dx * ratio
-                                    beamEndY = laserStartY + dy * ratio
+                                    local ratio = turretModule.RANGE / distToTarget2
+                                    beamEndX = laserStartX + dx2 * ratio
+                                    beamEndY = laserStartY + dy2 * ratio
                                 end
                             end
 

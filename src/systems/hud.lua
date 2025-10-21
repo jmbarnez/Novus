@@ -252,12 +252,12 @@ end
 local function drawHotkeyOverlay(viewportWidth, viewportHeight)
     -- Draw hotkey overlay in bottom left
     local x = Scaling.scaleX(20)
-    local y = viewportHeight - Scaling.scaleY(180)  -- Position from bottom (moved up a bit)
+    local y = viewportHeight - Scaling.scaleY(200)  -- Position from bottom (moved up a bit)
 
     -- Background
     love.graphics.setColor(0, 0, 0, 0.7)
-    local overlayWidth = Scaling.scaleSize(200)
-    local overlayHeight = Scaling.scaleSize(140)  -- Increased for 6 lines instead of 4
+    local overlayWidth = Scaling.scaleSize(240)
+    local overlayHeight = Scaling.scaleSize(160)  -- Increased for 7 lines
     love.graphics.rectangle("fill", x - 10, y - 10, overlayWidth, overlayHeight, 4, 4)
 
     -- Border
@@ -274,6 +274,10 @@ local function drawHotkeyOverlay(viewportWidth, viewportHeight)
 
     love.graphics.print("WASD: Move", x, currentY)
     currentY = currentY + lineHeight
+    love.graphics.print("Ctrl+Click: Target", x, currentY)
+    currentY = currentY + lineHeight
+    love.graphics.print("Escape: Clear Target", x, currentY)
+    currentY = currentY + lineHeight
     love.graphics.print("TAB: Cargo Window", x, currentY)
     currentY = currentY + lineHeight
     love.graphics.print("V: Skills Window", x, currentY)
@@ -281,8 +285,6 @@ local function drawHotkeyOverlay(viewportWidth, viewportHeight)
     love.graphics.print("G: Ship Window", x, currentY)
     currentY = currentY + lineHeight
     love.graphics.print("F5: Toggle HUD", x, currentY)
-    currentY = currentY + lineHeight
-    love.graphics.print("ESC: Quit", x, currentY)
 end
 
 -- Canvas caching for turret slots

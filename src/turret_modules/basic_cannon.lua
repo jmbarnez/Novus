@@ -38,9 +38,13 @@ function BasicCannon.fire(ownerId, startX, startY, endX, endY)
     local dirX = dx / dist
     local dirY = dy / dist
 
-    -- Use muzzle position directly for projectile origin
-    local spawnX = startX
-    local spawnY = startY
+    -- Offset spawn position to barrel end (away from ship center)
+    -- Barrel extends from ship center by approximately the ship's radius
+    local ownerCollidable = ECS.getComponent(ownerId, "Collidable")
+    local barrelLength = ownerCollidable and (ownerCollidable.radius + BasicCannon.BALL_RADIUS + 5) or 20
+    
+    local spawnX = startX + dirX * barrelLength
+    local spawnY = startY + dirY * barrelLength
 
     -- Create projectile entity
     local ballId = ECS.createEntity()

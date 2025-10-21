@@ -60,7 +60,8 @@ function MiningLaser.fire(ownerId, startX, startY, endX, endY)
     ECS.addComponent(MiningLaser.laserEntity, "LaserBeam", {
         start = {x = offsetStartX, y = offsetStartY},
         endPos = {x = endX, y = endY},
-        color = {1, 1, 0, 1}  -- Yellow
+        color = {1, 1, 0, 1},  -- Yellow
+        ownerId = ownerId
     })
     -- Mark this entity as a mining laser projectile for asteroid damage
     ECS.addComponent(MiningLaser.laserEntity, "Projectile", {ownerId = ownerId, damage = MiningLaser.DPS, brittle = false, isMiningLaser = true})
