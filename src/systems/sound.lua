@@ -4,7 +4,12 @@
 
 local SoundSystem = {
     name = "SoundSystem",
-    sounds = {}
+    sounds = {},
+    volumes = {
+        master = 100,
+        music = 100,
+        sfx = 100
+    }
 }
 
 -- Load a single sound file (path relative to the game folder)
@@ -33,6 +38,26 @@ function SoundSystem.loadAll(dir)
     end
 end
 
+-- Set volume for a specific audio type (master, music, sfx)
+function SoundSystem.setVolume(volumeType, volume)
+    if SoundSystem.volumes[volumeType] then
+        SoundSystem.volumes[volumeType] = math.max(0, math.min(100, volume))
+        
+        -- Apply to music if it's master or music volume
+        if volumeType == "master" or volumeType == "music" then
+            if SoundSystem.musicSource then
+                local finalVolume = (SoundSystem.volumes.master / 100) * (SoundSystem.volumes.music / 100)
+                SoundSystem.musicSource:setVolume(finalVolume)
+            end
+        end
+    end
+end
+
+-- Get volume for a specific audio type
+function SoundSystem.getVolume(volumeType)
+    return SoundSystem.volumes[volumeType] or 100
+end
+
 -- Play a named sound. opts: {volume, pitch, loop}
 function SoundSystem.play(name, opts)
     local src = SoundSystem.sounds[name]
@@ -40,37 +65,48 @@ function SoundSystem.play(name, opts)
         return nil
     end
     local clone = src:clone()
-    if opts and opts.volume then clone:setVolume(opts.volume) end
+    
+    -- Apply volume scaling based on master and sfx volumes
+    local finalVolume = (SoundSystem.volumes.master / 100) * (SoundSystem.volumes.sfx / 100)
+    if opts and opts.volume then 
+        finalVolume = finalVolume * (opts.volume / 100)
+    end
+    clone:setVolume(finalVolume)
+    
     if opts and opts.pitch then clone:setPitch(opts.pitch) end
     if opts and opts.loop then clone:setLooping(true) end
     clone:play()
     return clone
-
 end
 
 -- Music control
-local musicSource = nil
 function SoundSystem.playMusic(path, opts)
-    if musicSource then
-        musicSource:stop()
-        musicSource = nil
+    if SoundSystem.musicSource then
+        SoundSystem.musicSource:stop()
+        SoundSystem.musicSource = nil
     end
     if love.filesystem.getInfo(path) then
         -- Debug: found music file
         local success, src = pcall(love.audio.newSource, path, "stream")
         if success and src then
-            musicSource = src
-            musicSource:setLooping(true)
-            if opts and opts.volume then musicSource:setVolume(opts.volume) end
-            musicSource:play()
+            SoundSystem.musicSource = src
+            SoundSystem.musicSource:setLooping(true)
+            
+            -- Apply volume scaling based on master and music volumes
+            local finalVolume = (SoundSystem.volumes.master / 100) * (SoundSystem.volumes.music / 100)
+            if opts and opts.volume then 
+                finalVolume = finalVolume * (opts.volume / 100)
+            end
+            SoundSystem.musicSource:setVolume(finalVolume)
+            SoundSystem.musicSource:play()
         end
     end
 end
 
 function SoundSystem.stopMusic()
-    if musicSource then
-        musicSource:stop()
-        musicSource = nil
+    if SoundSystem.musicSource then
+        SoundSystem.musicSource:stop()
+        SoundSystem.musicSource = nil
     end
 end
 

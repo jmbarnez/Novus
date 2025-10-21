@@ -13,6 +13,14 @@ local gameState = "start" -- Possible values: "start", "loading", "game"
 local loadingTimer = 0
 local loadingDuration = 0.8 -- seconds
 
+-- Global function to return to main menu
+function returnToMainMenu()
+    if gameState == "game" then
+        Core.quit()
+        gameState = "start"
+    end
+end
+
 -- Love2D callback functions - delegate to core module
 
 function love.load()
@@ -186,8 +194,7 @@ function love.quit()
     if gameState == "game" then
         Core.quit()
     end
-    -- ...existing code...
-    end
+end
 
 function love.resize(w, h)
     Scaling.update()

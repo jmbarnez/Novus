@@ -13,11 +13,12 @@ local Theme = require('src.ui.theme')
 local Scaling = require('src.scaling')
 local TimeManager = require('src.time_manager')
 local Dropdown = require('src.ui.dropdown')
+local Slider = require('src.ui.slider')
 local HotkeyConfig = require('src.hotkey_config')
 
 local SettingsWindow = WindowBase:new{
-    width = 480,
-    height = 400,
+    width = 600,
+    height = 500,
     isOpen = false,
     animAlphaSpeed = 2.0,
     
@@ -25,6 +26,10 @@ local SettingsWindow = WindowBase:new{
     fpsDropdown = nil,
     modeDropdown = nil,
     resDropdown = nil,
+    -- Slider components
+    masterVolumeSlider = nil,
+    musicVolumeSlider = nil,
+    sfxVolumeSlider = nil,
     _exitBtn = nil,
     _initialized = false,
     
@@ -46,7 +51,10 @@ local SettingsWindow = WindowBase:new{
         thumbY = 0,
         dragging = false,
         dragOffset = 0
-    }
+    },
+    
+    -- Settings change tracking
+    savedSettings = {}
 }
 
 -- FPS Configuration
@@ -65,6 +73,10 @@ SettingsWindow.resolutions = {
     {w = 2560, h = 1440, label = "2560x1440"},
 }
 
+-- Audio volume range (0-100%)
+SettingsWindow.volumeMin = 0
+SettingsWindow.volumeMax = 100
+
 -- Get current FPS index
 function SettingsWindow:currentFpsIndex()
     local curFps = TimeManager.getTargetFps()
@@ -72,6 +84,33 @@ function SettingsWindow:currentFpsIndex()
         if v == curFps then return i end
     end
     return #self.fpsOptions
+end
+
+-- Save current settings state as baseline
+function SettingsWindow:saveSettingsSnapshot()
+    local SoundSystem = require('src.systems.sound')
+    self.savedSettings = {
+        fps = TimeManager.getTargetFps(),
+        windowMode = self:currentModeIndex(),
+        resolution = {w = love.graphics.getWidth(), h = love.graphics.getHeight()},
+        hotkeys = {},
+        audio = {
+            masterVolume = SoundSystem.getVolume and SoundSystem.getVolume("master") or 100,
+            musicVolume = SoundSystem.getVolume and SoundSystem.getVolume("music") or 100,
+            sfxVolume = SoundSystem.getVolume and SoundSystem.getVolume("sfx") or 100
+        }
+    }
+    
+    -- Save hotkey state
+    local hotkeys = HotkeyConfig.getAllHotkeys()
+    for i, hotkey in ipairs(hotkeys) do
+        self.savedSettings.hotkeys[hotkey.action] = HotkeyConfig.getHotkey(hotkey.action)
+    end
+end
+
+-- Close the window
+function SettingsWindow:closeWindow()
+    self:setOpen(false)
 end
 
 -- Get current window mode index
@@ -89,6 +128,12 @@ function SettingsWindow:getCurrentResIndex()
         if res.w == w and res.h == h then return i end
     end
     return 4  -- Default to 1920x1080
+end
+
+-- Get current volume value for a given volume type
+function SettingsWindow:getCurrentVolume(volumeType)
+    local SoundSystem = require('src.systems.sound')
+    return SoundSystem.getVolume and SoundSystem.getVolume(volumeType) or 100
 end
 
 -- Draw hotkey configuration buttons
@@ -164,7 +209,7 @@ function SettingsWindow:drawScrollBar(alpha)
     
     -- Position scroll bar within content area only
     local contentAreaY = self.position.y + topBarH + 3
-    local contentAreaH = self.height - topBarH - 3 - 3 - 40
+    local contentAreaH = self.height - topBarH - 3 - 3 - Theme.window.bottomBarHeight
     
     -- Update scroll bar position to be within content area
     sb.x = self.position.x + self.width - 20
@@ -189,10 +234,17 @@ function SettingsWindow:drawScrollBar(alpha)
         local thumbHovered = mx >= sb.x and mx <= sb.x + sb.width and 
                             my >= sb.thumbY and my <= sb.thumbY + sb.thumbHeight
         
-        love.graphics.setColor(thumbHovered and Theme.colors.buttonHover or Theme.colors.borderLight)
+        if thumbHovered then
+            love.graphics.setColor(Theme.colors.buttonHover[1], Theme.colors.buttonHover[2], 
+                                 Theme.colors.buttonHover[3], alpha)
+        else
+            love.graphics.setColor(Theme.colors.borderLight[1], Theme.colors.borderLight[2], 
+                                 Theme.colors.borderLight[3], alpha)
+        end
         love.graphics.rectangle("fill", sb.x + 1, sb.thumbY, sb.width - 2, sb.thumbHeight, 2, 2)
     end
 end
+
 
 -- Initialize dropdowns on first draw
 function SettingsWindow:initialize()
@@ -223,16 +275,20 @@ function SettingsWindow:initialize()
         self.contentHeight = 0
     end
     
+    -- Save initial settings snapshot
+    self:saveSettingsSnapshot()
+    
     local x, y = self.position.x + 30, self.position.y + 60
     local dropdownWidth = self.width - 60
     
     -- FPS Dropdown
     self.fpsDropdown = Dropdown:new(self.fpsLabels, self:currentFpsIndex(), x, y, dropdownWidth, function(idx, val)
         TimeManager.setTargetFps(self.fpsOptions[idx])
+        self:saveSettingsSnapshot()
     end)
     
     -- Mode Dropdown
-    self.modeDropdown = Dropdown:new(self.modes, self:currentModeIndex(), x, y + 50, dropdownWidth, function(idx, val)
+    self.modeDropdown = Dropdown:new(self.modes, self:currentModeIndex(), x, y + 60, dropdownWidth, function(idx, val)
         if idx == 1 then
             love.window.setMode(1920, 1080, {fullscreen = false, borderless = false})
         elseif idx == 2 then
@@ -240,6 +296,7 @@ function SettingsWindow:initialize()
         elseif idx == 3 then
             love.window.setMode(0, 0, {fullscreen = true})
         end
+        self:saveSettingsSnapshot()
     end)
     
     -- Resolution Dropdown
@@ -251,11 +308,61 @@ function SettingsWindow:initialize()
     self.resDropdown = Dropdown:new(
         resLabels,
         self:getCurrentResIndex(), 
-        x, y + 100, 
+        x, y + 120, 
         dropdownWidth, 
         function(idx, val)
             local res = self.resolutions[idx]
             love.window.setMode(res.w, res.h, {fullscreen = false, borderless = false})
+            self:saveSettingsSnapshot()
+        end
+    )
+    
+    -- Audio Volume Sliders
+    self.masterVolumeSlider = Slider:new(
+        self.volumeMin,
+        self.volumeMax,
+        self:getCurrentVolume("master"),
+        x, y + 180,
+        dropdownWidth - 50,  -- Leave space for value text
+        20,
+        function(value)
+            local SoundSystem = require('src.systems.sound')
+            if SoundSystem.setVolume then
+                SoundSystem.setVolume("master", value)
+            end
+            self:saveSettingsSnapshot()
+        end
+    )
+    
+    self.musicVolumeSlider = Slider:new(
+        self.volumeMin,
+        self.volumeMax,
+        self:getCurrentVolume("music"),
+        x, y + 240,
+        dropdownWidth - 50,
+        20,
+        function(value)
+            local SoundSystem = require('src.systems.sound')
+            if SoundSystem.setVolume then
+                SoundSystem.setVolume("music", value)
+            end
+            self:saveSettingsSnapshot()
+        end
+    )
+    
+    self.sfxVolumeSlider = Slider:new(
+        self.volumeMin,
+        self.volumeMax,
+        self:getCurrentVolume("sfx"),
+        x, y + 300,
+        dropdownWidth - 50,
+        20,
+        function(value)
+            local SoundSystem = require('src.systems.sound')
+            if SoundSystem.setVolume then
+                SoundSystem.setVolume("sfx", value)
+            end
+            self:saveSettingsSnapshot()
         end
     )
     
@@ -271,21 +378,23 @@ function SettingsWindow:initializeHotkeyButtons()
     local hotkeys = HotkeyConfig.getAllHotkeys()
     
     -- Calculate total content height
-    local fpsHeight = 50
-    local modeHeight = 50
-    local resHeight = 50
-    local hotkeyLabelHeight = 20
+    -- Layout: Label (12px) + Control (24px) with 24px spacing between sections = 60px per section
+    local fpsHeight = 60
+    local modeHeight = 60
+    local resHeight = 60
+    local audioHeight = 180  -- 3 audio sliders at 60px each
+    local hotkeyLabelHeight = 12
     local buttonHeight = 20
     local buttonSpacing = 5
-    local hotkeyButtonsHeight = #hotkeys * (buttonHeight + buttonSpacing)
-    local exitButtonHeight = 50
-    local exitButtonPadding = 80
+    local hotkeyButtonsHeight = #hotkeys * (buttonHeight + buttonSpacing) + hotkeyLabelHeight
+    local bottomPadding = 20
     
-    self.contentHeight = fpsHeight + modeHeight + resHeight + hotkeyLabelHeight + hotkeyButtonsHeight + exitButtonHeight + exitButtonPadding
+    self.contentHeight = fpsHeight + modeHeight + resHeight + audioHeight + hotkeyButtonsHeight + bottomPadding
     
     -- Calculate scroll area dimensions
     local topBarH = Theme.window.topBarHeight
-    local contentAreaHeight = self.height - topBarH - 3 - 3 - 40  -- Available height for content (minus window borders)
+    local bottomBarH = Theme.window.bottomBarHeight
+    local contentAreaHeight = self.height - topBarH - 3 - 3 - bottomBarH  -- Available height for content (minus window borders)
     
     -- Calculate maximum scroll
     self.maxScrollY = math.max(0, self.contentHeight - contentAreaHeight)
@@ -295,7 +404,7 @@ function SettingsWindow:initializeHotkeyButtons()
     self.scrollBar.y = self.position.y + topBarH + 3
     self.scrollBar.height = contentAreaHeight
     if self.contentHeight > 0 then
-        self.scrollBar.thumbHeight = math.max(20, contentAreaHeight * (contentAreaHeight / self.contentHeight))
+        self.scrollBar.thumbHeight = math.max(20, (contentAreaHeight / self.contentHeight) * contentAreaHeight)
         -- Initialize thumb position
         self.scrollBar.thumbY = self.scrollBar.y
     else
@@ -309,7 +418,7 @@ function SettingsWindow:initializeHotkeyButtons()
             description = hotkey.description,
             key = hotkey.key,
             x = self.position.x + 30,
-            y = self.position.y + 220 + (i - 1) * (buttonHeight + buttonSpacing) - self.contentScrollY,
+            y = self.position.y + 420 + (i - 1) * (buttonHeight + buttonSpacing) - self.contentScrollY,
             width = self.width - 80,  -- Leave space for scroll bar
             height = buttonHeight
         })
@@ -326,17 +435,27 @@ function SettingsWindow:updateDropdownPositions()
     self.fpsDropdown.y = y
     
     self.modeDropdown.x = x
-    self.modeDropdown.y = y + 50
+    self.modeDropdown.y = y + 60
     
     self.resDropdown.x = x
-    self.resDropdown.y = y + 100
+    self.resDropdown.y = y + 120
+    
+    -- Update audio slider positions
+    self.masterVolumeSlider.x = x
+    self.masterVolumeSlider.y = y + 180
+    
+    self.musicVolumeSlider.x = x
+    self.musicVolumeSlider.y = y + 240
+    
+    self.sfxVolumeSlider.x = x
+    self.sfxVolumeSlider.y = y + 300
     
     -- Update hotkey button positions
     local buttonHeight = 20
     local buttonSpacing = 5
     for i, button in ipairs(self.hotkeyButtons) do
         button.x = self.position.x + 30
-        button.y = self.position.y + 220 + (i - 1) * (buttonHeight + buttonSpacing) - self.contentScrollY
+        button.y = self.position.y + 420 + (i - 1) * (buttonHeight + buttonSpacing) - self.contentScrollY
         button.width = self.width - 80  -- Leave space for scroll bar
     end
     
@@ -347,7 +466,11 @@ end
 
 -- Toggle window open/close
 function SettingsWindow:toggle()
-    self:setOpen(not self.isOpen)
+    if self.isOpen then
+        self:closeWindow()
+    else
+        self:setOpen(true)
+    end
 end
 
 -- Get window open state
@@ -381,7 +504,7 @@ function SettingsWindow:draw()
     local contentAreaX = x + 3
     local contentAreaY = y + topBarH + 3
     local contentAreaW = self.width - 6 - 20  -- Leave space for scroll bar
-    local contentAreaH = self.height - topBarH - 3 - 3 - 40  -- Account for bottom bar area
+    local contentAreaH = self.height - topBarH - 3 - 3 - Theme.window.bottomBarHeight  -- Account for bottom bar area
     
     love.graphics.setScissor(contentAreaX, contentAreaY, contentAreaW, contentAreaH)
     
@@ -390,9 +513,12 @@ function SettingsWindow:draw()
     love.graphics.setColor(Theme.colors.textAccent)
     
     love.graphics.print("FPS Limit:", x + 30, y + 42 - self.contentScrollY)
-    love.graphics.print("Window Mode:", x + 30, y + 92 - self.contentScrollY)
-    love.graphics.print("Resolution:", x + 30, y + 142 - self.contentScrollY)
-    love.graphics.print("Hotkeys:", x + 30, y + 202 - self.contentScrollY)
+    love.graphics.print("Window Mode:", x + 30, y + 102 - self.contentScrollY)
+    love.graphics.print("Resolution:", x + 30, y + 162 - self.contentScrollY)
+    love.graphics.print("Master Volume:", x + 30, y + 222 - self.contentScrollY)
+    love.graphics.print("Music Volume:", x + 30, y + 282 - self.contentScrollY)
+    love.graphics.print("SFX Volume:", x + 30, y + 342 - self.contentScrollY)
+    love.graphics.print("Hotkeys:", x + 30, y + 402 - self.contentScrollY)
     
     -- Draw hotkey buttons (inside scissor region)
     self:drawHotkeyButtons(alpha)
@@ -401,6 +527,11 @@ function SettingsWindow:draw()
     self.fpsDropdown:drawClosed(alpha)
     self.modeDropdown:drawClosed(alpha)
     self.resDropdown:drawClosed(alpha)
+    
+    -- Draw audio sliders (inside scissor region)
+    self.masterVolumeSlider:draw(alpha)
+    self.musicVolumeSlider:draw(alpha)
+    self.sfxVolumeSlider:draw(alpha)
     
     -- Disable scissor to draw dropdown menus outside clipping area
     love.graphics.setScissor()
@@ -416,28 +547,27 @@ function SettingsWindow:draw()
         self.resDropdown:drawOpen(alpha)
     end
     
-    -- Re-enable scissor for exit button
-    love.graphics.setScissor(contentAreaX, contentAreaY, contentAreaW, contentAreaH)
-    
-    -- Exit Button (positioned at bottom of scrollable content)
-    local btnW, btnH = 140, 34
-    local btnX = x + (self.width - btnW) / 2
-    -- Position button at the end of the scrollable content with more space
-    local btnY = y + 42 + 50 + 50 + 20 + (#self.hotkeyButtons * 25) + 80 - self.contentScrollY
-    
-    self._exitBtn = {x = btnX, y = btnY, w = btnW, h = btnH}
-    
-    local mx, my = Scaling.toUI(love.mouse.getPosition())
-    local hovered = mx >= btnX and mx <= btnX + btnW and my >= btnY and my <= btnY + btnH
-    
-    love.graphics.setColor(hovered and Theme.colors.buttonCloseHover or Theme.colors.buttonClose)
-    love.graphics.rectangle('fill', btnX, btnY, btnW, btnH, 6, 6)
-    love.graphics.setColor(1, 1, 1, alpha)
-    love.graphics.setFont(Theme.getFontBold(Theme.fonts.normal))
-    love.graphics.printf('Exit Game', btnX, btnY + 8, btnW, 'center')
-    
     -- Disable scissor
     love.graphics.setScissor()
+    
+    -- Exit to Main Menu Button (positioned in bottom bar)
+    local btnW, btnH = 160, 34
+    local startX = x + (self.width - btnW) / 2
+    
+    -- Position button in the bottom bar area
+    local btnY = y + self.height - Theme.window.bottomBarHeight + (Theme.window.bottomBarHeight - btnH) / 2
+    
+    self._exitBtn = {x = startX, y = btnY, w = btnW, h = btnH}
+    
+    local mx, my = Scaling.toUI(love.mouse.getPosition())
+    
+    -- Exit to Main Menu Button (red)
+    local exitHovered = mx >= startX and mx <= startX + btnW and my >= btnY and my <= btnY + btnH
+    love.graphics.setColor(exitHovered and Theme.colors.buttonCloseHover or Theme.colors.buttonClose)
+    love.graphics.rectangle('fill', startX, btnY, btnW, btnH, 6, 6)
+    love.graphics.setColor(1, 1, 1, alpha)
+    love.graphics.setFont(Theme.getFontBold(Theme.fonts.normal))
+    love.graphics.printf('Exit to Main Menu', startX, btnY + 8, btnW, 'center')
     
     -- Close button
     self:drawCloseButton(x, y, alpha)
@@ -453,30 +583,68 @@ function SettingsWindow:mousepressed(mx, my, button)
     if not self.isOpen then return end
     
     self:initialize()
+    self:updateDropdownPositions()
     
-    -- Try hotkey buttons first
-    if self:handleHotkeyButtonClick(mx, my) then return end
+    -- Convert screen coordinates to UI coordinates
+    local uiMx, uiMy = Scaling.toUI(mx, my)
     
-    -- Try dropdowns
-    if self.fpsDropdown and self.fpsDropdown:mousepressed(mx, my) then return end
-    if self.modeDropdown and self.modeDropdown:mousepressed(mx, my) then return end
-    if self.resDropdown and self.resDropdown:mousepressed(mx, my) then return end
+    -- Check Exit to Main Menu button FIRST (before any scrollable content)
+    -- This prevents click-through to content behind it
+    if self._exitBtn and uiMx >= self._exitBtn.x and uiMx <= self._exitBtn.x + self._exitBtn.w and
+       uiMy >= self._exitBtn.y and uiMy <= self._exitBtn.y + self._exitBtn.h then
+        self:closeWindow()
+        if returnToMainMenu then
+            returnToMainMenu()
+        end
+        return true
+    end
     
-    -- Exit button
-    if self._exitBtn and mx >= self._exitBtn.x and mx <= self._exitBtn.x + self._exitBtn.w and
-       my >= self._exitBtn.y and my <= self._exitBtn.y + self._exitBtn.h then
-        love.event.quit()
+    -- Check close button (from WindowBase)
+    local closeBtn = {
+        x = self.position.x + self.width - 35,
+        y = self.position.y + 5,
+        w = 30,
+        h = 20
+    }
+    if uiMx >= closeBtn.x and uiMx <= closeBtn.x + closeBtn.w and
+       uiMy >= closeBtn.y and uiMy <= closeBtn.y + closeBtn.h then
+        self:closeWindow()
+        return true
+    end
+    
+    -- Check scroll bar BEFORE content (to prevent click-through)
+    if self:handleScrollBarClick(uiMx, uiMy) then return true end
+    
+    -- Try dropdowns (these can extend outside the content area when open)
+    if self.fpsDropdown and self.fpsDropdown:mousepressed(uiMx, uiMy) then return true end
+    if self.modeDropdown and self.modeDropdown:mousepressed(uiMx, uiMy) then return true end
+    if self.resDropdown and self.resDropdown:mousepressed(uiMx, uiMy) then return true end
+    
+    -- Try sliders (in scrollable content)
+    if self.masterVolumeSlider and self.masterVolumeSlider:mousepressed(uiMx, uiMy, button) then 
+        return true
+    end
+    if self.musicVolumeSlider and self.musicVolumeSlider:mousepressed(uiMx, uiMy, button) then 
+        return true
+    end
+    if self.sfxVolumeSlider and self.sfxVolumeSlider:mousepressed(uiMx, uiMy, button) then 
+        return true
+    end
+    
+    -- Try hotkey buttons (in scrollable content)
+    if self:handleHotkeyButtonClick(uiMx, uiMy) then return true end
+    
+    -- Check if clicking on the window itself (to capture and prevent click-through)
+    if uiMx >= self.position.x and uiMx <= self.position.x + self.width and
+       uiMy >= self.position.y and uiMy <= self.position.y + self.height then
         return true
     end
     
     WindowBase.mousepressed(self, mx, my, button)
 end
 
--- Handle hotkey button clicks
-function SettingsWindow:handleHotkeyButtonClick(mx, my)
-    if not self.hotkeyButtons then return false end
-    
-    -- Check if clicking on scroll bar thumb
+-- Handle scroll bar clicks
+function SettingsWindow:handleScrollBarClick(mx, my)
     if not self.scrollBar then return false end
     
     local sb = self.scrollBar
@@ -497,6 +665,13 @@ function SettingsWindow:handleHotkeyButtonClick(mx, my)
             return true
         end
     end
+    
+    return false
+end
+
+-- Handle hotkey button clicks
+function SettingsWindow:handleHotkeyButtonClick(mx, my)
+    if not self.hotkeyButtons then return false end
     
     -- Check hotkey buttons
     for i, button in ipairs(self.hotkeyButtons) do
@@ -541,6 +716,9 @@ function SettingsWindow:keypressed(key)
             end
         end
         
+        -- Auto-save settings
+        self:saveSettingsSnapshot()
+        
         -- Stop waiting
         self.waitingForKey = false
         self.selectedHotkey = nil
@@ -557,10 +735,24 @@ function SettingsWindow:mousereleased(mx, my, button)
         return true
     end
     
+    self:initialize()
+    self:updateDropdownPositions()
+    
+    -- Convert screen coordinates to UI coordinates
+    local uiMx, uiMy = Scaling.toUI(mx, my)
+    
+    -- Handle slider mouse release (use raw UI coordinates)
+    if self.masterVolumeSlider and self.masterVolumeSlider:mousereleased(uiMx, uiMy, button) then return true end
+    if self.musicVolumeSlider and self.musicVolumeSlider:mousereleased(uiMx, uiMy, button) then return true end
+    if self.sfxVolumeSlider and self.sfxVolumeSlider:mousereleased(uiMx, uiMy, button) then return true end
+    
     WindowBase.mousereleased(self, mx, my, button)
 end
 
 function SettingsWindow:mousemoved(mx, my, dx, dy)
+    self:initialize()
+    self:updateDropdownPositions()
+    
     -- Handle scroll bar dragging
     if self.scrollBar and self.scrollBar.dragging then
         local sb = self.scrollBar
@@ -571,6 +763,14 @@ function SettingsWindow:mousemoved(mx, my, dx, dy)
         self:updateScroll(0) -- Update positions
         return true
     end
+    
+    -- Convert screen coordinates to UI coordinates
+    local uiMx, uiMy = Scaling.toUI(mx, my)
+    
+    -- Handle slider mouse move (use raw UI coordinates)
+    if self.masterVolumeSlider and self.masterVolumeSlider:mousemoved(uiMx, uiMy, dx, dy) then return true end
+    if self.musicVolumeSlider and self.musicVolumeSlider:mousemoved(uiMx, uiMy, dx, dy) then return true end
+    if self.sfxVolumeSlider and self.sfxVolumeSlider:mousemoved(uiMx, uiMy, dx, dy) then return true end
     
     WindowBase.mousemoved(self, mx, my, dx, dy)
 end

@@ -353,10 +353,33 @@ function Core.wheelmoved(x, y)
     end
 end
 
--- Game cleanup (if needed)
+-- Game cleanup - completely reset all game state
 function Core.quit()
-    -- Any cleanup logic would go here
     print("Space Drone Adventure shutting down...")
+    
+    -- Close all UI windows
+    if UISystem then
+        -- Close all windows
+        if UISystem.setShipWindowOpen then UISystem.setShipWindowOpen(false) end
+        if UISystem.setMapWindowOpen then UISystem.setMapWindowOpen(false) end
+        if UISystem.setSettingsWindowOpen then UISystem.setSettingsWindowOpen(false) end
+        
+        -- Reset UI state
+        if UISystem.releaseMouse then UISystem.releaseMouse() end
+        if UISystem.setWindowFocus then UISystem.setWindowFocus(nil) end
+    end
+    
+    -- Clear all ECS entities, components, and systems
+    ECS.clear()
+    
+    -- Reset global debug flags
+    if _G.canvasDebugPrinted then
+        _G.canvasDebugPrinted = nil
+    end
+    
+    -- Reset any other global state that might persist
+    -- This ensures a completely fresh start when the game is restarted
+    print("Game state completely cleared")
 end
 
 function Core.onResize(w, h)

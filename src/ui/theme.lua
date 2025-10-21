@@ -60,7 +60,7 @@ local Theme = {
     window = {
         borderThickness = 1,        -- Minimal border thickness
         topBarHeight = 20,          -- Top bar height
-        bottomBarHeight = 20,       -- Bottom bar height
+        bottomBarHeight = 50,       -- Bottom bar height
     },
 }
 
