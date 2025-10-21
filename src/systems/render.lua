@@ -26,35 +26,22 @@ local function isOnScreen(x, y, radius, cameraPos, camera)
 end
 
 -- Helper function to draw a turret on top of the drone
-local function drawTurret(x, y, color, playerRotation)
-    -- Get mouse position
-    local mouseX, mouseY = love.mouse.getPosition()
-
-    -- Get canvas and viewport information
-    local canvasEntities = ECS.getEntitiesWith({"Canvas"})
-    local canvasComp = ECS.getComponent(canvasEntities[1], "Canvas")
-    local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
-    local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
-    local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
-
-        if not (canvasComp and cameraComp and cameraPos and color and color[4]) then return end
-    
-        -- Convert mouse position to world coordinates, accounting for zoom and camera position
-    mouseX = (mouseX - canvasComp.offsetX) / canvasComp.scale / cameraComp.zoom + cameraPos.x
-    mouseY = (mouseY - canvasComp.offsetY) / canvasComp.scale / cameraComp.zoom + cameraPos.y
-
-    -- Calculate angle between drone and mouse relative to the drone's rotation
-    ---@diagnostic disable-next-line: deprecated
-    local angle = math.atan2(mouseY - y, mouseX - x) - playerRotation
-
+-- Draw turret and return muzzle position
+local function drawTurret(x, y, color, turretRotation)
+    -- Turret barrel length
+    local barrelLength = 12
+    local barrelOffset = 0 -- If you want to offset the barrel from the center
     -- Draw turret (rectangle pointing right, then rotated)
-    love.graphics.setColor(1, 1, 1, color[4]) -- White turret barrel
+    love.graphics.setColor(1, 1, 1, color[4])
     love.graphics.push()
     love.graphics.translate(x, y)
-    love.graphics.rotate(playerRotation) -- Rotate with the drone
-    love.graphics.rotate(angle) -- Then rotate turret relative to drone
-    love.graphics.rectangle("fill", 0, -2, 12, 4) -- 12 pixels long, 4 pixels wide
+    love.graphics.rotate(turretRotation)
+    love.graphics.rectangle("fill", 0, -2, barrelLength, 4)
     love.graphics.pop()
+    -- Calculate muzzle position in world coordinates
+    local muzzleX = x + math.cos(turretRotation) * barrelLength
+    local muzzleY = y + math.sin(turretRotation) * barrelLength
+    return muzzleX, muzzleY
 end
 
 -- Helper function to draw a polygon shape
@@ -326,12 +313,13 @@ local RenderSystem = {
                                 renderedWreckages = renderedWreckages + 1
                             end
                         end
-                        
+
                         local controlledBy = ECS.getComponent(entityId, "ControlledBy")
                         local isPlayerDrone = false
                         if controlledBy and controlledBy.pilotId and ECS.hasComponent(controlledBy.pilotId, "Player") then
                             isPlayerDrone = true
                         end
+                        local isShip = ECS.hasComponent(entityId, "Hull")
                         if isPlayerDrone then
                             local playerRotation = polygonShape.rotation or 0
                             love.graphics.push()
@@ -339,11 +327,38 @@ local RenderSystem = {
                             love.graphics.rotate(playerRotation)
                             drawPolygon(0, 0, polygonShape, renderable.color)
                             love.graphics.pop()
-                            drawTurret(position.x, position.y, renderable.color, playerRotation)
+                            -- Calculate turret aim direction (angle to mouse)
+                            local mouseX, mouseY = love.mouse.getPosition()
+                            local canvasEntities = ECS.getEntitiesWith({"Canvas"})
+                            local canvasComp = ECS.getComponent(canvasEntities[1], "Canvas")
+                            local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+                            local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
+                            local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
+                            if canvasComp and cameraComp and cameraPos then
+                                mouseX = (mouseX - canvasComp.offsetX) / canvasComp.scale / cameraComp.zoom + cameraPos.x
+                                mouseY = (mouseY - canvasComp.offsetY) / canvasComp.scale / cameraComp.zoom + cameraPos.y
+                                local aimAngle = math.atan2(mouseY - position.y, mouseX - position.x)
+                                drawTurret(position.x, position.y, renderable.color, aimAngle)
+                            else
+                                drawTurret(position.x, position.y, renderable.color, playerRotation)
+                            end
+                        elseif isShip then
+                            local enemyRotation = polygonShape.rotation or 0
+                            love.graphics.push()
+                            love.graphics.translate(position.x, position.y)
+                            love.graphics.rotate(enemyRotation)
+                            drawPolygon(0, 0, polygonShape, renderable.color)
+                            love.graphics.pop()
+                            -- Calculate turret aim direction for enemy
+                            local turretAimAngle = enemyRotation
+                            local turretComp = ECS.getComponent(entityId, "Turret")
+                            if turretComp and turretComp.aimX and turretComp.aimY then
+                                turretAimAngle = math.atan2(turretComp.aimY - position.y, turretComp.aimX - position.x)
+                            end
+                            drawTurret(position.x, position.y, renderable.color, turretAimAngle)
+                            -- Draw small health bar for polygon enemies (non-player)
                         else
                             drawPolygon(position.x, position.y, polygonShape, renderable.color)
-                            
-                            -- Draw small health bar for polygon enemies (non-player)
                             if ECS.hasComponent(entityId, "Hull") and not (ECS.hasComponent(entityId, "ControlledBy") and ECS.hasComponent(ECS.getComponent(entityId, "ControlledBy").pilotId, "Player")) then
                                 local hull = ECS.getComponent(entityId, "Hull")
                                 local shield = ECS.getComponent(entityId, "Shield")

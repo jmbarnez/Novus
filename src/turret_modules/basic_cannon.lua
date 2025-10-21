@@ -38,12 +38,9 @@ function BasicCannon.fire(ownerId, startX, startY, endX, endY)
     local dirX = dx / dist
     local dirY = dy / dist
 
-    -- Offset spawn position so projectile starts well away from the ship to prevent collision/sticking
-    -- Use a larger offset (25 units) to ensure it clears the player ship's collision radius
-    local spawnX = startX + dirX * 25
-    local spawnY = startY + dirY * 25
-
-    -- Debug print removed
+    -- Use muzzle position directly for projectile origin
+    local spawnX = startX
+    local spawnY = startY
 
     -- Create projectile entity
     local ballId = ECS.createEntity()
@@ -51,20 +48,13 @@ function BasicCannon.fire(ownerId, startX, startY, endX, endY)
     ECS.addComponent(ballId, "Velocity", Components.Velocity(dirX * BasicCannon.BALL_SPEED, dirY * BasicCannon.BALL_SPEED))
     ECS.addComponent(ballId, "Renderable", Components.Renderable("circle", nil, nil, BasicCannon.BALL_RADIUS, BasicCannon.BALL_COLOR))
     ECS.addComponent(ballId, "Collidable", Components.Collidable(BasicCannon.BALL_RADIUS))
-    -- Give projectile physics so it participates naturally in collisions
-    ECS.addComponent(ballId, "Physics", Components.Physics(1, 0.01)) -- no friction, low mass
-    -- Small durability so it breaks upon a strong impact (brittle)
-    ECS.addComponent(ballId, "Durability", Components.Durability(1, 1)) -- Destroy on impact
-    -- Mark projectile as brittle so collision handling can treat it specially
+    ECS.addComponent(ballId, "Physics", Components.Physics(1.0, 0.5, 0.99))
+    ECS.addComponent(ballId, "Durability", Components.Durability(1, 1))
     ECS.addComponent(ballId, "Projectile", {ownerId = ownerId, damage = BasicCannon.DPS, brittle = true, isMiningLaser = false})
-    
-    -- Add shatter effect component to spawn debris particles on destruction
     ECS.addComponent(ballId, "ShatterEffect", {
         numPieces = 8,
         color = BasicCannon.BALL_COLOR
     })
-    
-    -- Debug print removed
 end
 
 return BasicCannon

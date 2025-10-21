@@ -28,4 +28,12 @@ Components.Stack = function(quantity)
     }
 end
 
+-- Wallet component - Tracks player currency (credits)
+-- @field credits number: Current credit balance
+Components.Wallet = function(credits)
+    return {
+        credits = credits or 0
+    }
+end
+
 return Components

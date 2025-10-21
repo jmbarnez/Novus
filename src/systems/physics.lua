@@ -8,7 +8,46 @@ local PhysicsSystem = {
     priority = 2,
 
     update = function(dt)
-        -- Get all entities with Position and Velocity (physics applies to all moving entities)
+        -- PHASE 0: Reset acceleration accumulators (so they don't accumulate across frames)
+        local accelEntities = ECS.getEntitiesWith({"Acceleration"})
+        for _, entityId in ipairs(accelEntities) do
+            local acceleration = ECS.getComponent(entityId, "Acceleration")
+            if acceleration then
+                acceleration.ax = 0
+                acceleration.ay = 0
+            end
+        end
+        
+        -- PHASE 1: Convert accumulated forces to acceleration (F = ma -> a = F/m)
+        local forceEntities = ECS.getEntitiesWith({"Force", "Physics", "Acceleration"})
+        for _, entityId in ipairs(forceEntities) do
+            local force = ECS.getComponent(entityId, "Force")
+            local physics = ECS.getComponent(entityId, "Physics")
+            local acceleration = ECS.getComponent(entityId, "Acceleration")
+            
+            if force and physics and acceleration then
+                -- Convert force to acceleration: a = F/m
+                acceleration.ax = acceleration.ax + (force.fx / physics.mass)
+                acceleration.ay = acceleration.ay + (force.fy / physics.mass)
+                
+                -- Apply torque to angular velocity if entity has rotation
+                if force.torque ~= 0 then
+                    local angularVel = ECS.getComponent(entityId, "AngularVelocity")
+                    local rotMass = ECS.getComponent(entityId, "RotationalMass")
+                    if angularVel and rotMass then
+                        -- Angular acceleration = torque / moment of inertia
+                        angularVel.omega = angularVel.omega + (force.torque / rotMass.inertia) * dt
+                    end
+                end
+                
+                -- Reset force accumulators for next frame
+                force.fx = 0
+                force.fy = 0
+                force.torque = 0
+            end
+        end
+        
+        -- PHASE 2: Get all entities with Position and Velocity (physics applies to all moving entities)
         local entities = ECS.getEntitiesWith({"Position", "Velocity"})
 
         for _, entityId in ipairs(entities) do
@@ -59,7 +98,14 @@ local PhysicsSystem = {
         for _, entityId in ipairs(angularEntities) do
             local angularVelocity = ECS.getComponent(entityId, "AngularVelocity")
             local polygonShape = ECS.getComponent(entityId, "PolygonShape")
+            local physics = ECS.getComponent(entityId, "Physics")
             if not (angularVelocity and polygonShape) then goto continue_angular end
+            
+            -- Apply angular damping (rotational friction)
+            if physics and physics.angularDamping then
+                angularVelocity.omega = angularVelocity.omega * physics.angularDamping
+            end
+            
             -- Update rotation
             polygonShape.rotation = polygonShape.rotation + (angularVelocity.omega or 0) * dt
             ::continue_angular::

@@ -21,8 +21,8 @@ return {
     
     -- Physics (very light and nimble)
     friction = 0.9999, -- Space has no air resistance, nearly 1.0 for realistic coasting
-    mass = 0.4, -- Very light
-    thrustMultiplier = 0.25, -- 1/4 thrust power vs other ships
+    mass = 5, -- Very light for a ship (projectiles are 0.5, asteroids are 50-500)
+    angularDamping = 0.95, -- Ships damp rotation faster (more control)
     
     -- Equipment
     turretSlots = 1,

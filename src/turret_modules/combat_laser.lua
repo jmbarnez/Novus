@@ -15,40 +15,42 @@ local CombatLaser = {
     MAX_HEAT = 12.0,
     COOL_RATE = 3.0,
     DPS = 15,
-    RANGE = 800,
+    RANGE = 400,
     design = {
         shape = "custom",
         size = 16,
-        color = {0, 0.8, 1, 1}
+        color = {0, 0.4, 0.5, 1}  -- Half brightness
     },
     draw = function(self, x, y)
         local size = self.design.size
-        love.graphics.setColor(0.1, 0.15, 0.2, 1)
+        love.graphics.setColor(0.05, 0.075, 0.1, 1)
         love.graphics.rectangle("fill", x - size/2, y - size/3, size, size * 0.6, 3, 3)
-        love.graphics.setColor(0, 0.8, 1, 1)
+        love.graphics.setColor(0, 0.4, 0.5, 1)
         love.graphics.circle("fill", x, y - size/2.5, size/3)
-        love.graphics.setColor(0.2, 0.9, 1, 0.9)
+        love.graphics.setColor(0.1, 0.45, 0.5, 0.9)
         love.graphics.circle("fill", x, y - size/2.5, size/4.5)
-        love.graphics.setColor(1, 1, 1, 0.6)
+        love.graphics.setColor(0.5, 0.5, 0.5, 0.3)
         love.graphics.circle("fill", x - size/6, y - size/2.5, size/6)
-        love.graphics.setColor(0, 0.6, 1, 0.8)
+        love.graphics.setColor(0, 0.3, 0.5, 0.8)
         love.graphics.rectangle("fill", x - size/3, y + size/4, size * 0.65, size/4, 2, 2)
-        love.graphics.setColor(0.2, 0.8, 1, 0.7)
+        love.graphics.setColor(0.1, 0.4, 0.5, 0.7)
         love.graphics.rectangle("fill", x - size/3 + 1, y + size/4 + 1, size/3, size/6)
-        love.graphics.setColor(0.12, 0.12, 0.15, 0.9)
+        love.graphics.setColor(0.06, 0.06, 0.075, 0.9)
         love.graphics.line(x - size/2 + 2, y, x - size/2 + 2, y + size/3)
         love.graphics.line(x + size/2 - 2, y, x + size/2 - 2, y + size/3)
-    end,
-    laserEntity = nil
+    end
 }
 
 -- Fire the laser - creates and maintains laser beam entity
-function CombatLaser.fire(ownerId, startX, startY, endX, endY)
+function CombatLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
+    -- Store laser on turret component to avoid conflicts between multiple turrets
+    if not turretComp then return end
+    
     -- Destroy old laser if it exists
-    if CombatLaser.laserEntity then
-        local component = ECS.getComponent(CombatLaser.laserEntity, "LaserBeam")
+    if turretComp.laserEntity then
+        local component = ECS.getComponent(turretComp.laserEntity, "LaserBeam")
         if component then
-            ECS.destroyEntity(CombatLaser.laserEntity)
+            ECS.destroyEntity(turretComp.laserEntity)
         end
     end
     
@@ -80,14 +82,14 @@ function CombatLaser.fire(ownerId, startX, startY, endX, endY)
     end
 
     -- Create new laser beam entity
-    CombatLaser.laserEntity = ECS.createEntity()
-    ECS.addComponent(CombatLaser.laserEntity, "LaserBeam", {
+    turretComp.laserEntity = ECS.createEntity()
+    ECS.addComponent(turretComp.laserEntity, "LaserBeam", {
         start = {x = offsetStartX, y = offsetStartY},
         endPos = {x = beamEndX, y = beamEndY},
-        color = {0, 0.8, 1, 1},  -- Blue laser color
+        color = {0, 0.4, 0.5, 1},  -- Blue laser color (half brightness)
     })
     -- Mark this entity as a combat laser projectile for ship damage
-    ECS.addComponent(CombatLaser.laserEntity, "Projectile", {ownerId = ownerId, damage = CombatLaser.DPS, brittle = false, isCombatLaser = true})
+    ECS.addComponent(turretComp.laserEntity, "Projectile", {ownerId = ownerId, damage = CombatLaser.DPS, brittle = false, isCombatLaser = true})
 end
 
 -- Called every frame while the laser is firing
@@ -190,13 +192,13 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
 end
 
 -- Stop firing - clean up laser beam entity
-function CombatLaser.stopFiring()
-    if CombatLaser.laserEntity then
-        local component = ECS.getComponent(CombatLaser.laserEntity, "LaserBeam")
+function CombatLaser.stopFiring(turretComp)
+    if turretComp and turretComp.laserEntity then
+        local component = ECS.getComponent(turretComp.laserEntity, "LaserBeam")
         if component then
-            ECS.destroyEntity(CombatLaser.laserEntity)
+            ECS.destroyEntity(turretComp.laserEntity)
         end
-        CombatLaser.laserEntity = nil
+        turretComp.laserEntity = nil
     end
 end
 

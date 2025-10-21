@@ -11,7 +11,9 @@ local AI = {
     priority = 9,
 }
 
-local STEERING = 8.0 -- Steering responsiveness for AI (how quickly they reach desired velocity)
+local STEERING = 0.8 -- Steering responsiveness for AI (how quickly they reach desired velocity)
+-- Lower value = gentler steering, higher value = more aggressive
+-- 0.8 gives smooth, predictable drone-like behavior
 
 -- Simple helper for distance squared
 local function distSq(x1, y1, x2, y2)
@@ -115,13 +117,18 @@ function AI.update(dt)
                 if dist < 10 then
                     ai.currentPoint = ai.currentPoint % #ai.patrolPoints + 1
                 else
-                        -- Normalize and set desired velocity toward point (simple behavior)
+                        -- Normalize and set desired velocity toward point (thrust-based)
                         local desiredVx = (dx / dist) * ai.speed
                         local desiredVy = (dy / dist) * ai.speed
-                        local acc = ECS.getComponent(eid, "Acceleration")
-                        if acc then
-                            acc.ax = (desiredVx - vel.vx) * STEERING
-                            acc.ay = (desiredVy - vel.vy) * STEERING
+                        
+                        -- Use thrust force instead of direct acceleration
+                        local ForceUtils = require('src.systems.force_utils')
+                        local physics = ECS.getComponent(eid, "Physics")
+                        if physics then
+                            -- Calculate thrust needed to reach desired velocity
+                            local thrustX = (desiredVx - vel.vx) * STEERING * physics.mass
+                            local thrustY = (desiredVy - vel.vy) * STEERING * physics.mass
+                            ForceUtils.applyForce(eid, thrustX, thrustY)
                         end
                 end
             else
@@ -153,19 +160,25 @@ function AI.update(dt)
             local dy = playerPos.y - pos.y
             local dist = math.sqrt(dx*dx + dy*dy)
             
-            -- Always move toward player when in chase state
+            -- Always move toward player when in chase state (thrust-based)
             if dist > 0 then
-                    local desiredVx = (dx / dist) * ai.speed
-                    local desiredVy = (dy / dist) * ai.speed
-                    local acc = ECS.getComponent(eid, "Acceleration")
-                    if acc then
-                        acc.ax = (desiredVx - vel.vx) * STEERING
-                        acc.ay = (desiredVy - vel.vy) * STEERING
-                    end
+                local desiredVx = (dx / dist) * ai.speed
+                local desiredVy = (dy / dist) * ai.speed
+                
+                local ForceUtils = require('src.systems.force_utils')
+                local physics = ECS.getComponent(eid, "Physics")
+                if physics then
+                    local thrustX = (desiredVx - vel.vx) * STEERING * physics.mass
+                    local thrustY = (desiredVy - vel.vy) * STEERING * physics.mass
+                    ForceUtils.applyForce(eid, thrustX, thrustY)
+                end
             end
             
             -- Aim and fire turret at player if within firing range
             if turret and turret.moduleName and dist < fireRange then
+                -- Store turret aim position for rendering
+                turret.aimX = playerPos.x
+                turret.aimY = playerPos.y
                 local TurretSystem = ECS.getSystem("TurretSystem")
                 if TurretSystem and TurretSystem.fireTurret then
                     TurretSystem.fireTurret(eid, playerPos.x, playerPos.y, dt)
@@ -251,24 +264,27 @@ function AI.update(dt)
                 local correctionX = (dx / dist) * correctionFactor * orbitSpeed * 0.5
                 local correctionY = (dy / dist) * correctionFactor * orbitSpeed * 0.5
                 
+                local ForceUtils = require('src.systems.force_utils')
+                local physics = ECS.getComponent(eid, "Physics")
+                
                 if distanceError > 0 then
-                    -- Too far - move closer
-                        local desiredVx = orbitX - correctionX
-                        local desiredVy = orbitY - correctionY
-                        local acc = ECS.getComponent(eid, "Acceleration")
-                        if acc then
-                            acc.ax = (desiredVx - vel.vx) * STEERING
-                            acc.ay = (desiredVy - vel.vy) * STEERING
-                        end
+                    -- Too far - move closer (thrust-based)
+                    local desiredVx = orbitX - correctionX
+                    local desiredVy = orbitY - correctionY
+                    if physics then
+                        local thrustX = (desiredVx - vel.vx) * STEERING * physics.mass
+                        local thrustY = (desiredVy - vel.vy) * STEERING * physics.mass
+                        ForceUtils.applyForce(eid, thrustX, thrustY)
+                    end
                 else
-                    -- Too close - move away
-                        local desiredVx = orbitX + correctionX
-                        local desiredVy = orbitY + correctionY
-                        local acc = ECS.getComponent(eid, "Acceleration")
-                        if acc then
-                            acc.ax = (desiredVx - vel.vx) * STEERING
-                            acc.ay = (desiredVy - vel.vy) * STEERING
-                        end
+                    -- Too close - move away (thrust-based)
+                    local desiredVx = orbitX + correctionX
+                    local desiredVy = orbitY + correctionY
+                    if physics then
+                        local thrustX = (desiredVx - vel.vx) * STEERING * physics.mass
+                        local thrustY = (desiredVy - vel.vy) * STEERING * physics.mass
+                        ForceUtils.applyForce(eid, thrustX, thrustY)
+                    end
                 end
                 
                 -- Fire turret at player while orbiting

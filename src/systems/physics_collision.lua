@@ -378,7 +378,7 @@ local function resolveCollision(entity1, entity2, normal, depth)
     end
     
     -- Calculate impulse for linear collision response
-    local restitution = 0.0  -- Inelastic collisions
+    local restitution = 0.3  -- Some bounce for realistic space physics (was 0.0)
     local j = -(1 + restitution) * velAlongNormal
     j = j / (1 / phys1.mass + 1 / phys2.mass)
     

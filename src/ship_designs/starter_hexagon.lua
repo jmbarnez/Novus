@@ -19,7 +19,8 @@ return {
     
     -- Physics
     friction = 0.9999, -- Space has no air resistance, nearly 1.0 for realistic coasting
-    mass = 1,
+    mass = 12, -- Medium-weight starter ship
+    angularDamping = 0.95, -- Ships damp rotation faster (more control)
     
     -- Equipment slots
     turretSlots = 1,

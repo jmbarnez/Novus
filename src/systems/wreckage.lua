@@ -46,7 +46,7 @@ function WrackageSystem.spawnWrackage(x, y, sourceShip)
         -- Core components
         ECS.addComponent(wreckageId, "Position", Components.Position(wreckageX, wreckageY))
         ECS.addComponent(wreckageId, "Velocity", Components.Velocity(vx, vy))
-        ECS.addComponent(wreckageId, "Physics", Components.Physics(0.97, 0.3))  -- Some friction, light mass
+        ECS.addComponent(wreckageId, "Physics", Components.Physics(0.97, 2.0, 0.90))  -- Some friction, light debris mass, high rotation damping
         ECS.addComponent(wreckageId, "AngularVelocity", Components.AngularVelocity(rotationSpeed))
         
         -- Wreckage-specific components

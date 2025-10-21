@@ -61,6 +61,7 @@ function Core.init()
     ECS.addComponent(pilotId, "InputControlled", Components.InputControlled())
     ECS.addComponent(pilotId, "Player", Components.Player())
     ECS.addComponent(pilotId, "Skills", Components.Skills())
+    ECS.addComponent(pilotId, "Wallet", Components.Wallet(1000))  -- Start with 1000 credits
 
     -- Give pilot (player) initial turret items in their ship's cargo
     local miningLaserId = "mining_laser_turret"
@@ -183,13 +184,16 @@ function Core.init()
         local vertices = Procedural.generatePolygonVertices(vertexCount, size / 2)
         
         local asteroidMass = size * size * 0.5
+        -- Calculate realistic inertia from shape
+        local rotationalInertia = Components.calculatePolygonInertia(vertices, asteroidMass) * 2
         
         local asteroidId = ECS.createEntity()
         ECS.addComponent(asteroidId, "Position", Components.Position(x, y))
         ECS.addComponent(asteroidId, "Velocity", Components.Velocity(0, 0))
-        ECS.addComponent(asteroidId, "Physics", Components.Physics(0.999, asteroidMass))
+        ECS.addComponent(asteroidId, "Physics", Components.Physics(0.999, asteroidMass, 0.985))
         ECS.addComponent(asteroidId, "PolygonShape", Components.PolygonShape(vertices, math.random() * 2 * math.pi))
         ECS.addComponent(asteroidId, "AngularVelocity", Components.AngularVelocity(0))
+        ECS.addComponent(asteroidId, "RotationalMass", Components.RotationalMass(rotationalInertia))
         ECS.addComponent(asteroidId, "Collidable", Components.Collidable(size / 2))
         ECS.addComponent(asteroidId, "Durability", Components.Durability(size * 2, size * 2))
 

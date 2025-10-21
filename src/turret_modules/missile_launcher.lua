@@ -75,7 +75,7 @@ function MissileLauncher.fire(ownerId, startX, startY, endX, endY)
     ECS.addComponent(missileId, "Renderable", Components.Renderable("polygon", nil, nil, nil, MissileLauncher.MISSILE_COLOR))
     ECS.addComponent(missileId, "Collidable", Components.Collidable(MissileLauncher.MISSILE_RADIUS))
     -- Give missile physics with low friction for sustained flight
-    ECS.addComponent(missileId, "Physics", Components.Physics(1, 0.98))
+    ECS.addComponent(missileId, "Physics", Components.Physics(1.0, 1.5, 0.98)) -- no friction, light mass, rotation damping
     -- Missile durability - survives longer than basic projectiles
     ECS.addComponent(missileId, "Durability", Components.Durability(3, 3)) -- Takes 3 hits to destroy
     -- Mark as projectile

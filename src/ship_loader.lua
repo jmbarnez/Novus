@@ -64,7 +64,8 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
     -- Physics
     ECS.addComponent(shipId, "Physics", Components.Physics(
         design.friction or 0.95,
-        design.mass or 1
+        design.mass or 1,
+        design.angularDamping or 0.95  -- Ships get controlled damping by default
     ))
     
     -- Determine color based on controller type
@@ -86,7 +87,16 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
         ECS.addComponent(shipId, "Renderable", Components.Renderable(
             "polygon", nil, nil, nil, shipColor
         ))
+        
+        -- Calculate realistic moment of inertia based on polygon shape and mass
+        local mass = design.mass or 1
+        local inertia = Components.calculatePolygonInertia(design.polygon, mass)
+        ECS.addComponent(shipId, "RotationalMass", Components.RotationalMass(inertia))
+        ECS.addComponent(shipId, "AngularVelocity", Components.AngularVelocity(0))
     end
+    
+    -- Add Force accumulator for force-based physics
+    ECS.addComponent(shipId, "Force", Components.Force(0, 0, 0))
     
     -- Collision
     if design.collisionRadius then

@@ -54,7 +54,7 @@ local ShipWindow = WindowBase:new{
 ShipWindow.activeTab = "loadout" -- "loadout", "skills"
 ShipWindow.tabs = {"loadout", "skills"}
 ShipWindow.tabNames = {
-    loadout = "Loadout & Inventory",
+    loadout = "Loadout & Cargo",
     skills = "Skills"
 }
 ShipWindow.tabButtons = {}
@@ -102,6 +102,9 @@ function ShipWindow:draw(viewportWidth, viewportHeight)
     elseif self.activeTab == "skills" then
         self:drawSkillsContent(x, y, alpha)
     end
+
+    -- Draw bottom bar with status info
+    self:drawBottomBar(x, y, alpha)
 end
 
 -- Tab management
@@ -133,7 +136,7 @@ function ShipWindow:drawTabHeaders(windowX, windowY, alpha)
         love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha)
         love.graphics.rectangle("line", tabX, tabY, tabWidth, TAB_HEIGHT)
 
-        -- Tab text
+        -- Tab text - centered vertically
         love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
         love.graphics.setFont(Theme.getFont(Theme.fonts.small))
         love.graphics.printf(self.tabNames[tabKey], tabX, tabY + TAB_HEIGHT/2 - 8, tabWidth, "center")
@@ -150,7 +153,50 @@ function ShipWindow:drawTabHeaders(windowX, windowY, alpha)
     love.graphics.line(windowX, tabY + TAB_HEIGHT, windowX + self.width, tabY + TAB_HEIGHT)
 end
 
--- Draw the combined equipment + inventory view side-by-side
+-- Draw bottom status bar with credits and cargo info
+function ShipWindow:drawBottomBar(windowX, windowY, alpha)
+    local x = windowX
+    local y = windowY + self.height - Theme.window.bottomBarHeight
+    local w = self.width
+    local h = Theme.window.bottomBarHeight
+    local padding = Theme.spacing.padding
+
+    -- Get player and ship data
+    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+    if #pilotEntities == 0 then return end
+    local pilotId = pilotEntities[1]
+    local input = ECS.getComponent(pilotId, "InputControlled")
+    if not input or not input.targetEntity then return end
+    local droneId = input.targetEntity
+
+    local wallet = ECS.getComponent(pilotId, "Wallet")
+    local cargo = ECS.getComponent(droneId, "Cargo")
+
+    -- Calculate cargo usage
+    local itemCount = 0
+    local maxCapacity = cargo and cargo.capacity or 0
+    if cargo then
+        for _, v in pairs(cargo.items) do
+            itemCount = itemCount + v
+        end
+    end
+
+    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
+    local fontHeight = love.graphics.getFont():getHeight()
+    local textY = y + (h - fontHeight) / 2
+
+    -- Draw left side: Credits
+    local creditsText = wallet and string.format("Credits: %d", wallet.credits) or "Credits: 0"
+    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+    love.graphics.print(creditsText, x + padding, textY)
+
+    -- Draw right side: Cargo capacity
+    local cargoText = string.format("Cargo: %d/%d", itemCount, maxCapacity)
+    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+    love.graphics.printf(cargoText, x + padding, textY, w - padding * 2, "right")
+end
+
+-- Draw the combined equipment + cargo view side-by-side
 function ShipWindow:drawLoadoutContent(windowX, windowY, alpha)
     local contentX = windowX + 10
     local contentY = windowY + Theme.window.topBarHeight + TAB_HEIGHT + 10
@@ -168,49 +214,103 @@ function ShipWindow:drawLoadoutContent(windowX, windowY, alpha)
     local turretSlots = ECS.getComponent(droneId, "TurretSlots")
     local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
     local cargo = ECS.getComponent(droneId, "Cargo")
-    local currency = ECS.getComponent(pilotId, "Currency")
+    local hull = ECS.getComponent(droneId, "Hull")
+    local shield = ECS.getComponent(droneId, "Shield")
+    local polygonShape = ECS.getComponent(droneId, "PolygonShape")
+    local position = ECS.getComponent(droneId, "Position")
 
-    -- Split the view: 40% equipment, 60% inventory
-    local equipmentWidth = math.floor(contentWidth * 0.4)
-    local inventoryWidth = contentWidth - equipmentWidth - 10
+    -- Split the view: 25% equipment, 75% cargo
+    local equipmentWidth = math.floor(contentWidth * 0.25)
+    local cargoWidth = contentWidth - equipmentWidth - 10
     local dividerX = contentX + equipmentWidth + 5
 
     -- Draw vertical divider
     love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha * 0.6)
     love.graphics.rectangle("fill", dividerX - 1, contentY, 2, contentHeight)
 
-    -- LEFT PANEL: Equipment
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-    love.graphics.printf("Ship Equipment", contentX, contentY, equipmentWidth, "center")
+    -- LEFT PANEL: Ship Stats and Equipment
+    local slotSize = Theme.spacing.slotSize
+    local slotPadding = Theme.spacing.iconGridPadding
 
-    local yPos = contentY + 35
-    self:drawEquipmentSlot("Turret Module", turretSlots and turretSlots.slots[1], contentX, yPos, equipmentWidth, alpha, droneId)
-    yPos = yPos + 80
-    self:drawEquipmentSlot("Defensive Module", defensiveSlots and defensiveSlots.slots[1], contentX, yPos, equipmentWidth, alpha, droneId)
+    local statsY = contentY + 30
+    love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
+    love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
 
-    -- RIGHT PANEL: Inventory
-    local inventoryX = dividerX + 5
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-    love.graphics.printf("Inventory", inventoryX, contentY, inventoryWidth, "center")
-
-    -- Draw cargo info
-    if cargo then
-        local itemCount = 0
-        for _, v in pairs(cargo.items) do itemCount = itemCount + v end
-        local capText = string.format("Cargo: %d/%d", itemCount, cargo.capacity or 0)
-        love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+    -- Hull Bar
+    if hull then
+        local barWidth = equipmentWidth - 20
+        local barHeight = 12
+        local hullRatio = math.max(0, math.min(1, hull.current / hull.max))
+        love.graphics.setColor(0.3, 0.7, 0.3, alpha)
+        love.graphics.rectangle("fill", contentX + 10, statsY, barWidth * hullRatio, barHeight)
+        love.graphics.setColor(0.2, 0.3, 0.2, alpha)
+        love.graphics.rectangle("line", contentX + 10, statsY, barWidth, barHeight)
         love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
-        love.graphics.print(capText, inventoryX, contentY + 20)
-        
-        if currency then
-            local creditsText = string.format("Credits: %d", currency.amount or 0)
-            love.graphics.printf(creditsText, inventoryX, contentY + 20, inventoryWidth, "right")
+        love.graphics.printf(string.format("Hull: %d/%d", hull.current, hull.max), contentX + 10, statsY, barWidth, "center")
+        statsY = statsY + barHeight + 8
+    end
+
+    -- Shield Bar
+    if shield and shield.max > 0 then
+        local barWidth = equipmentWidth - 20
+        local barHeight = 12
+        local shieldRatio = math.max(0, math.min(1, shield.current / shield.max))
+        love.graphics.setColor(0.3, 0.5, 0.9, alpha)
+        love.graphics.rectangle("fill", contentX + 10, statsY, barWidth * shieldRatio, barHeight)
+        love.graphics.setColor(0.2, 0.2, 0.3, alpha)
+        love.graphics.rectangle("line", contentX + 10, statsY, barWidth, barHeight)
+        love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
+        love.graphics.printf(string.format("Shield: %d/%d", shield.current, shield.max), contentX + 10, statsY, barWidth, "center")
+        statsY = statsY + barHeight + 8
+    end
+
+    -- Max Speed and Thrust Force
+    love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
+    love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
+    local Constants = require('src.constants')
+    local thrustMultiplier = 1
+    local mass = 1
+    local shipDesign = ECS.getComponent(droneId, "ShipDesign")
+    if shipDesign then
+        if shipDesign.thrustMultiplier then
+            thrustMultiplier = shipDesign.thrustMultiplier
         end
-        
-        -- Draw inventory grid
-        self:drawInventoryGrid(cargo.items, inventoryX, contentY + 45, inventoryWidth, contentHeight - 45, alpha)
+        if shipDesign.mass then
+            mass = shipDesign.mass
+        end
+    end
+    local maxVelocity = Constants.player_max_speed * thrustMultiplier
+    local thrustForce = mass * thrustMultiplier * Constants.player_max_speed
+    love.graphics.printf(string.format("Max Velocity: %.0f units/s", maxVelocity), contentX + 10, statsY, equipmentWidth - 20, "center")
+    statsY = statsY + 14
+    love.graphics.printf(string.format("Thrust Force: %.0f", thrustForce), contentX + 10, statsY, equipmentWidth - 20, "center")
+    statsY = statsY + 14
+    love.graphics.printf(string.format("Thrust Multiplier: %.2f", thrustMultiplier), contentX + 10, statsY, equipmentWidth - 20, "center")
+    statsY = statsY + 18
+
+    -- Turret Module Section
+    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+    love.graphics.printf("Turret", contentX, statsY, equipmentWidth, "center")
+    self:drawEquipmentSlot("Turret Module", turretSlots and turretSlots.slots[1], contentX + (equipmentWidth - slotSize) / 2, statsY + 20, slotSize, alpha, droneId)
+
+    -- Defensive Module Section
+    local defensiveY = statsY + slotSize + slotPadding + 15
+    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+    love.graphics.printf("Defense", contentX, defensiveY, equipmentWidth, "center")
+    self:drawEquipmentSlot("Defensive Module", defensiveSlots and defensiveSlots.slots[1], contentX + (equipmentWidth - slotSize) / 2, defensiveY + 20, slotSize, alpha, droneId)
+
+    -- RIGHT PANEL: Cargo
+    local cargoX = dividerX + 5
+    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
+    love.graphics.printf("Cargo", cargoX, contentY, cargoWidth, "center")
+
+
+    -- Draw cargo grid
+    if cargo then
+        self:drawCargoGrid(cargo.items, cargoX, contentY + 45, cargoWidth, contentHeight - 45, alpha)
     end
 
     -- Draw dragged item at mouse position
@@ -234,8 +334,8 @@ function ShipWindow:drawLoadoutContent(windowX, windowY, alpha)
     end
 end
 
--- Draw the inventory grid showing all items
-function ShipWindow:drawInventoryGrid(cargoItems, x, y, width, height, alpha)
+-- Draw the cargo grid showing all items
+function ShipWindow:drawCargoGrid(cargoItems, x, y, width, height, alpha)
     local ItemDefs = require('src.items.item_loader')
     local slotSize = Theme.spacing.slotSize
     local padding = Theme.spacing.iconGridPadding
@@ -305,7 +405,7 @@ function ShipWindow:drawInventoryGrid(cargoItems, x, y, width, height, alpha)
 end
 
 function ShipWindow:drawEquipmentSlot(slotName, equippedItemId, x, y, width, alpha, droneId)
-    local slotHeight = 70
+    local slotSize = width
     local mx, my = Scaling.toUI(love.mouse.getPosition())
     
     -- Check if hovering with a dragged item (for drop zone highlighting)
@@ -315,7 +415,7 @@ function ShipWindow:drawEquipmentSlot(slotName, equippedItemId, x, y, width, alp
         -- Check if this item can be equipped in this slot
         if (slotName == "Turret Module" and itemDef.type == "turret") or
            (slotName == "Defensive Module" and string.match(self.draggedItem.itemId, "shield")) then
-            if mx >= x and mx <= x + width and my >= y and my <= y + slotHeight then
+            if mx >= x and mx <= x + width and my >= y and my <= y + slotSize then
                 isDropZone = true
             end
         end
@@ -327,34 +427,28 @@ function ShipWindow:drawEquipmentSlot(slotName, equippedItemId, x, y, width, alp
     else
         love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.8)
     end
-    love.graphics.rectangle("fill", x, y, width, slotHeight, 4, 4)
-    
+    love.graphics.rectangle("fill", x, y, slotSize, slotSize, 4, 4)
+
     local borderColor = isDropZone and {0.3, 1, 0.3, alpha} or {Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha}
     love.graphics.setColor(borderColor)
-    love.graphics.rectangle("line", x, y, width, slotHeight, 4, 4)
-
-    -- Slot name
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-    love.graphics.print(slotName .. ":", x + 10, y + 5)
+    love.graphics.rectangle("line", x, y, slotSize, slotSize, 4, 4)
 
     -- Store drop zone for mouse handling
     self.equipmentSlots = self.equipmentSlots or {}
-    self.equipmentSlots[slotName] = {x = x, y = y, w = width, h = slotHeight, slotType = slotName}
+    self.equipmentSlots[slotName] = {x = x, y = y, w = slotSize, h = slotSize, slotType = slotName}
 
     if equippedItemId then
         -- Show equipped item with icon
         local ItemDefs = require('src.items.item_loader')
         local itemDef = ItemDefs[equippedItemId]
         if itemDef then
-            -- Draw item icon
-            local iconSize = 40
-            local iconX = x + 10
-            local iconY = y + 25
-            
+            -- Draw item icon centered in slot
+            local iconSize = slotSize * 0.8
+            local iconX = x + (slotSize - iconSize) / 2
+            local iconY = y + (slotSize - iconSize) / 2
             love.graphics.push()
             love.graphics.translate(iconX + iconSize/2, iconY + iconSize/2)
-            love.graphics.scale(0.8, 0.8)
+            love.graphics.scale(iconSize/48, iconSize/48)
             if itemDef.module and itemDef.module.draw then
                 love.graphics.setColor(1, 1, 1, alpha)
                 itemDef.module.draw(itemDef.module, 0, 0)
@@ -366,37 +460,8 @@ function ShipWindow:drawEquipmentSlot(slotName, equippedItemId, x, y, width, alp
                 love.graphics.circle("fill", 0, 0, iconSize / 4)
             end
             love.graphics.pop()
-            
-            -- Draw item name
-            love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-            love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-            love.graphics.print(itemDef.name or equippedItemId, x + iconSize + 20, y + 30)
         end
-
-        -- Unequip button
-        local buttonX = x + width - 80
-        local buttonY = y + slotHeight - 28
-        local buttonW = 70
-        local buttonH = 20
-
-        -- Check if hovering
-        local isHovering = mx >= buttonX and mx <= buttonX + buttonW and my >= buttonY and my <= buttonY + buttonH
-
-        love.graphics.setColor(isHovering and {1, 0.5, 0.5, alpha} or {0.6, 0.3, 0.3, alpha})
-        love.graphics.rectangle("fill", buttonX, buttonY, buttonW, buttonH, 2, 2)
-        love.graphics.setColor(1, 1, 1, alpha)
-        love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
-        local buttonText = truncateText("UNEQUIP", buttonW - 4, Theme.getFont(Theme.fonts.tiny))
-        love.graphics.printf(buttonText, buttonX, buttonY + 4, buttonW, "center")
-
-        -- Store button rect for click handling
-        self.unequipButtons = self.unequipButtons or {}
-        self.unequipButtons[slotName] = {x = buttonX, y = buttonY, w = buttonW, h = buttonH, itemId = equippedItemId, slotType = slotName}
-    else
-        -- Empty slot - show placeholder
-        love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha * 0.5)
-        love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-        love.graphics.printf("Drag item here\nto equip", x + 10, y + 25, width - 20, "center")
+        -- No equip/unequip button
     end
 end
 
@@ -423,7 +488,7 @@ function ShipWindow:unequipModule(slotType, itemId)
             if playerTurret then
                 playerTurret.moduleName = nil
             end
-            -- Add to inventory
+            -- Add to cargo
             cargo.items[itemId] = (cargo.items[itemId] or 0) + 1
         end
     elseif slotType == "Defensive Module" then
@@ -438,7 +503,7 @@ function ShipWindow:unequipModule(slotType, itemId)
             if itemDef and itemDef.module and itemDef.module.unequip then
                 itemDef.module.unequip(droneId)
             end
-            -- Add to inventory
+            -- Add to cargo
             cargo.items[itemId] = (cargo.items[itemId] or 0) + 1
         end
     end
@@ -495,7 +560,7 @@ function ShipWindow:equipModule(itemId)
                 playerTurret.moduleName = nil
             end
 
-            -- Remove from inventory
+            -- Remove from cargo
             cargo.items[itemId] = cargo.items[itemId] - 1
             if cargo.items[itemId] <= 0 then
                 cargo.items[itemId] = nil
@@ -522,7 +587,7 @@ function ShipWindow:equipModule(itemId)
                 itemDef.module.equip(droneId)
             end
 
-            -- Remove from inventory
+            -- Remove from cargo
             cargo.items[itemId] = cargo.items[itemId] - 1
             if cargo.items[itemId] <= 0 then
                 cargo.items[itemId] = nil
@@ -549,19 +614,7 @@ function ShipWindow:mousepressed(x, y, button)
 
     -- Delegate mouse events to the appropriate tab content
     if self.activeTab == "loadout" then
-        -- Handle unequip buttons
-        if self.unequipButtons then
-            for slotName, buttonRect in pairs(self.unequipButtons) do
-                if x >= buttonRect.x and x <= buttonRect.x + buttonRect.w and
-                   y >= buttonRect.y and y <= buttonRect.y + buttonRect.h then
-                    -- Unequip the module
-                    self:unequipModule(slotName, buttonRect.itemId)
-                    return
-                end
-            end
-        end
-
-        -- Start dragging from inventory
+        -- Equip/unequip buttons removed; only allow drag from cargo
         if button == 1 and self.hoveredItemSlot then
             self.draggedItem = {
                 itemId = self.hoveredItemSlot.itemId,

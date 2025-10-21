@@ -79,37 +79,33 @@ function EnemyMiningSystem.update(dt)
                     local distToAsteroid = math.sqrt(dx * dx + dy * dy)
                     -- Maintain distance of ~150 pixels from asteroid center
                     local targetDistance = 150
+                    local ForceUtils = require('src.systems.force_utils')
+                    local physics = ECS.getComponent(minerId, "Physics")
+                    
                     if distToAsteroid > targetDistance then
-                        if distToAsteroid > 0 then
+                        if distToAsteroid > 0 and physics then
                             local desiredVx = (dx / distToAsteroid) * ai.speed
                             local desiredVy = (dy / distToAsteroid) * ai.speed
-                            local acc = ECS.getComponent(minerId, "Acceleration")
-                            if acc then
-                                acc.ax = (desiredVx - vel.vx) * 6.0
-                                acc.ay = (desiredVy - vel.vy) * 6.0
-                            end
+                            local thrustX = (desiredVx - vel.vx) * 0.6 * physics.mass
+                            local thrustY = (desiredVy - vel.vy) * 0.6 * physics.mass
+                            ForceUtils.applyForce(minerId, thrustX, thrustY)
                         end
                     else
-                        local time = love.timer.getTime()
-                        local orbitAngle = time * 2
-                        local desiredVx = math.cos(orbitAngle) * ai.speed * 0.3
-                        local desiredVy = math.sin(orbitAngle) * ai.speed * 0.3
-                        local acc = ECS.getComponent(minerId, "Acceleration")
-                        if acc then
-                            acc.ax = (desiredVx - vel.vx) * 6.0
-                            acc.ay = (desiredVy - vel.vy) * 6.0
+                        if physics then
+                            local time = love.timer.getTime()
+                            local orbitAngle = time * 2
+                            local desiredVx = math.cos(orbitAngle) * ai.speed * 0.3
+                            local desiredVy = math.sin(orbitAngle) * ai.speed * 0.3
+                            local thrustX = (desiredVx - vel.vx) * 0.6 * physics.mass
+                            local thrustY = (desiredVy - vel.vy) * 0.6 * physics.mass
+                            ForceUtils.applyForce(minerId, thrustX, thrustY)
                         end
                     end
                     EnemyMiningSystem.updateMinerLaser(minerId, pos.x, pos.y, asteroidPos.x, asteroidPos.y)
                     EnemyMiningSystem.applyMinerDamage(minerId, closestAsteroid, asteroidPos.x, asteroidPos.y, dt)
                 end
             else
-                -- No asteroid found: miners stop thrusting, allow friction to slow them
-                local acc = ECS.getComponent(minerId, "Acceleration")
-                if acc then
-                    acc.ax = 0
-                    acc.ay = 0
-                end
+                -- No asteroid found: stop mining laser (thrust forces naturally decay)
                 EnemyMiningSystem.destroyMinerLaser(minerId)
             end
         end

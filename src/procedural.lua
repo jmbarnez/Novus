@@ -185,16 +185,18 @@ function Procedural.registerAsteroidTemplate()
         -- Density scales cubically with size for realistic mass
         local asteroidMass = size * size * 0.5  -- Much heavier than drone (which is mass 1)
         
-        -- Very high rotational inertia - asteroids resist spinning from impacts
-        local rotationalInertia = size * size * size * 2  -- Cubic scaling for resistance
+        -- Calculate realistic rotational inertia based on actual polygon shape
+        local rotationalInertia = Components.calculatePolygonInertia(vertices, asteroidMass)
+        -- Asteroids are extra resistant to rotation (multiply by 2)
+        rotationalInertia = rotationalInertia * 2
         
         return {
             Position = Components.Position(spawnData.x, spawnData.y),
             Velocity = Components.Velocity(velocity.vx, velocity.vy),
-            Physics = Components.Physics(0.999, asteroidMass), -- Low friction, HEAVY mass
+            Physics = Components.Physics(0.999, asteroidMass, 0.985), -- Low friction, HEAVY mass, minimal rotation damping
             PolygonShape = Components.PolygonShape(vertices, spawnData.angle or 0),
             AngularVelocity = Components.AngularVelocity(angularVelocity),
-            RotationalMass = Components.RotationalMass(rotationalInertia), -- Huge rotational inertia - hard to spin
+            RotationalMass = Components.RotationalMass(rotationalInertia), -- Calculated from shape - hard to spin
             Collidable = Components.Collidable(size / 2), -- Bounding radius
             Durability = Components.Durability(size * 2, size * 2),
             Asteroid = Components.Asteroid(),

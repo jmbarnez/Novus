@@ -22,7 +22,8 @@ return {
     
     -- Physics (identical for both player and AI)
     friction = 0.9999, -- Space has no air resistance, nearly 1.0 for realistic coasting
-    mass = 0.8,
+    mass = 15, -- Heavier combat ship (3x the starter drone)
+    angularDamping = 0.95, -- Ships damp rotation faster (more control)
     
     -- Equipment
     turretSlots = 1,

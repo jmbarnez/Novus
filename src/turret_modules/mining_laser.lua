@@ -15,7 +15,7 @@ local MiningLaser = {
     MAX_HEAT = 10.0, -- Max heat before overheating
     COOL_RATE = 3.0, -- Heat units per second while not firing
     DPS = 50,
-    RANGE = 1350,
+    RANGE = 675,
     design = {
         shape = "custom",
         size = 16,
@@ -52,20 +52,9 @@ function MiningLaser.fire(ownerId, startX, startY, endX, endY)
         end
     end
     
-    -- Offset start position away from owner ship to avoid self-collision
+    -- Use muzzle position directly for laser origin
     local offsetStartX = startX
     local offsetStartY = startY
-    local ownerCollidable = ECS.getComponent(ownerId, "Collidable")
-    if ownerCollidable then
-        local dx = endX - startX
-        local dy = endY - startY
-        local dist = math.sqrt(dx * dx + dy * dy)
-        if dist > 0 then
-            offsetStartX = startX + (dx / dist) * (ownerCollidable.radius + 5)
-            offsetStartY = startY + (dy / dist) * (ownerCollidable.radius + 5)
-        end
-    end
-    
     -- Create new laser beam entity
     MiningLaser.laserEntity = ECS.createEntity()
     ECS.addComponent(MiningLaser.laserEntity, "LaserBeam", {

@@ -41,14 +41,14 @@ function TurretSystem.fireTurret(entityId, targetX, targetY, dt)
         -- If turret overheated, do not fire and destroy any existing laser
         if turret.overheated then
             -- Destroy the laser entity if it exists to stop invisible firing
-            if module.laserEntity then
-                ECS.destroyEntity(module.laserEntity)
-                module.laserEntity = nil
+            if turret.laserEntity then
+                ECS.destroyEntity(turret.laserEntity)
+                turret.laserEntity = nil
             end
             return
         end
         if module and module.fire then
-            module.fire(entityId, position.x, position.y, targetX, targetY)
+            module.fire(entityId, position.x, position.y, targetX, targetY, turret)
             -- accumulate heat using dt if supplied
             if dt and dt > 0 then
                 local heatRate = module.HEAT_RATE or 1.0
@@ -81,19 +81,19 @@ function TurretSystem.update(dt)
         if not t then goto cont end
         local module = TurretSystem.turretModules[t.moduleName]
         if module and module.CONTINUOUS then
-            -- Determine if turret is currently firing by comparing lastFireTime
+            -- Determine if turret is currently firing by checking if it fired THIS frame
             local now = love.timer.getTime()
-            local firing = (now - (t.lastFireTime or 0)) < 0.2
+            local firedThisFrame = (now - (t.lastFireTime or 0)) < dt
             local wasFiring = t._wasFiringLastFrame
 
-            if not firing and wasFiring then
-                -- Just stopped firing - clean up
+            if not firedThisFrame and wasFiring then
+                -- Just stopped firing - clean up immediately
                 if module.stopFiring then
-                    module.stopFiring()
+                    module.stopFiring(t)
                 end
             end
 
-            if not firing then
+            if not firedThisFrame then
                 local coolRate = module.COOL_RATE or (module.HEAT_RATE or 1.0) * 0.5
                 t.heat = math.max(0, (t.heat or 0) - coolRate * dt)
                 -- Recover from overheat when heat drops below 50% of max
@@ -109,7 +109,7 @@ function TurretSystem.update(dt)
             end
 
             -- Track firing state for next frame
-            t._wasFiringLastFrame = firing
+            t._wasFiringLastFrame = firedThisFrame
         end
         ::cont::
     end

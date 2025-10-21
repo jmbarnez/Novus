@@ -43,38 +43,46 @@ function InputSystem.update(dt)
     end
 
     -- Apply input from controller entities (pilots) to the controlled entity (drone)
+    -- Uses THRUST (force-based) for realistic drone physics in space
+    local ForceUtils = require('src.systems.force_utils')
     local allControllers = ECS.getEntitiesWith({"InputControlled"})
     for _, controllerId in ipairs(allControllers) do
         local input = ECS.getComponent(controllerId, "InputControlled")
         input = input or {speed = 300}
         local targetEntity = input and input.targetEntity or nil
         -- Prefer controlling the target entity if provided, otherwise control the controller itself
-        local accelEntity = targetEntity or controllerId
-        local acceleration = ECS.getComponent(accelEntity, "Acceleration")
-        if not acceleration then
-            -- If no Acceleration on target, skip
-        else
-            local new_ax = 0
-            local new_ay = 0
+        local controlledEntity = targetEntity or controllerId
+        
+        -- Get force component (required for thrust-based control)
+        local force = ECS.getComponent(controlledEntity, "Force")
+        local physics = ECS.getComponent(controlledEntity, "Physics")
+        
+        if force and physics then
+            -- Apply constant thrust force while keys are held
+            -- Constant thrust = realistic thruster behavior (like a rocket engine)
+            local thrustMagnitude = 300  -- Constant thrust force (Newtons)
+            
+            local thrust_x = 0
+            local thrust_y = 0
 
             if love.keyboard.isDown("w") then
-                new_ay = -input.speed
+                thrust_y = -thrustMagnitude
             end
 
             if love.keyboard.isDown("s") then
-                new_ay = input.speed
+                thrust_y = thrust_y + thrustMagnitude
             end
 
             if love.keyboard.isDown("a") then
-                new_ax = -input.speed
+                thrust_x = -thrustMagnitude
             end
 
             if love.keyboard.isDown("d") then
-                new_ax = input.speed
+                thrust_x = thrust_x + thrustMagnitude
             end
 
-            acceleration.ax = new_ax
-            acceleration.ay = new_ay
+            -- Apply thrust force (accumulated with other forces this frame)
+            ForceUtils.applyForce(controlledEntity, thrust_x, thrust_y)
         end
     end
 
