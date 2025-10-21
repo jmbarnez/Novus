@@ -46,6 +46,12 @@ Constants.asteroid_rotation_max = 1
 Constants.asteroid_vertices_min = 6
 Constants.asteroid_vertices_max = 10
 
+-- Asteroid cluster respawning system settings
+Constants.asteroid_num_clusters = 5  -- Number of clusters to create
+Constants.asteroids_per_cluster = 30  -- Max asteroids per cluster
+Constants.cluster_respawn_interval = 3  -- Seconds between respawn checks
+Constants.cluster_respawn_delay = 1  -- Seconds delay before respawning an asteroid
+
 -- Magnetic collection settings
 Constants.magnet_pull_speed = 500  -- Units per second
 Constants.magnet_collect_distance = 30  -- Distance to collect bits

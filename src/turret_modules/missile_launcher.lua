@@ -7,15 +7,16 @@ local Components = require('src.components')
 local MissileLauncher = {
     name = "missile_launcher",
     displayName = "Missile Launcher",
-    MISSILE_SPEED = 150,
+    MISSILE_SPEED = 50,
     MISSILE_RADIUS = 2,
     MISSILE_COLOR = {1, 0.3, 0.1, 1}, -- Orange-red
-    MISSILE_ACCELERATION = 300, -- Acceleration in pixels per second squared
-    MISSILE_MAX_SPEED = 400, -- Maximum speed after acceleration
+    MISSILE_ACCELERATION = 800, -- Acceleration in pixels per second squared
+    MISSILE_MAX_SPEED = 800, -- Maximum speed after acceleration
     HOMING_TURN_RATE = 8.0, -- Radians per second turning rate (increased from 4.0 for better tracking)
     COOLDOWN = 3, -- Time between shots in seconds
     DPS = 25, -- Damage per missile
-    RANGE = 1000, -- Maximum range missiles can home
+    RANGE = 5000, -- Maximum range missiles can home
+    LIFETIME = 5, -- Maximum flight time in seconds before self-destruct
     design = {
         shape = "custom",
         size = 18,
@@ -53,14 +54,12 @@ function MissileLauncher.fire(ownerId, startX, startY, endX, endY)
     local pilotId = controlledBy and controlledBy.pilotId
     local inputComp = pilotId and ECS.getComponent(pilotId, "InputControlled")
     local targetedEnemy = inputComp and inputComp.targetedEnemy
+    -- Also check if player is currently targeting (not yet locked)
+    local targetingTarget = inputComp and inputComp.targetingTarget
     
-    -- Debug: Print targeting info
-    if targetedEnemy then
-        print("MISSILE: Locked target found - Entity ID: " .. targetedEnemy)
-    else
-        print("MISSILE: No locked target - will search for nearby enemy")
-    end
-
+    -- Use locked target if available, otherwise use target being aimed at
+    local preferredTarget = targetedEnemy or targetingTarget
+    
     -- Create missile entity
     local missileId = ECS.createEntity()
     ECS.addComponent(missileId, "Position", Components.Position(spawnX, spawnY))
@@ -91,55 +90,167 @@ function MissileLauncher.fire(ownerId, startX, startY, endX, endY)
     local initialRotation = math.atan2(dirY, dirX)
 
     ECS.addComponent(missileId, "PolygonShape", Components.PolygonShape(missileVertices, initialRotation))
-    ECS.addComponent(missileId, "Renderable", Components.Renderable("polygon", nil, nil, nil, MissileLauncher.MISSILE_COLOR))
+    ECS.addComponent(missileId, "Renderable", Components.Renderable("polygon", nil, nil, MissileLauncher.MISSILE_RADIUS, MissileLauncher.MISSILE_COLOR))
     ECS.addComponent(missileId, "Collidable", Components.Collidable(MissileLauncher.MISSILE_RADIUS))
     -- Give missile physics with low friction for sustained flight
-    ECS.addComponent(missileId, "Physics", Components.Physics(1.0, 1.5, 0.98)) -- no friction, light mass, rotation damping
+    ECS.addComponent(missileId, "Physics", Components.Physics(1.0, 1.5, 1.0)) -- no friction, light mass, rotation damping
     -- Missile durability - survives longer than basic projectiles
     ECS.addComponent(missileId, "Durability", Components.Durability(3, 3)) -- Takes 3 hits to destroy
     -- Mark as projectile
     ECS.addComponent(missileId, "Projectile", {ownerId = ownerId, damage = MissileLauncher.DPS, brittle = false, isMissile = true})
-
-    -- Add homing component - missiles always home, either to locked target or toward fire direction
-    local homingTarget = targetedEnemy or nil
-    if not homingTarget then
-        -- If no locked target, find the closest enemy in the general direction we're firing
-        -- This makes missiles curve toward nearby enemies
-        local enemies = ECS.getEntitiesWith({"Hull", "Position", "Collidable"})
-        local closestEnemy = nil
-        local closestDist = 500 -- Only home to enemies within 500 units in firing direction
-        
-        for _, enemyId in ipairs(enemies) do
-            if enemyId ~= ownerId then
-                local enemyPos = ECS.getComponent(enemyId, "Position")
-                if enemyPos then
-                    local edx = enemyPos.x - spawnX
-                    local edy = enemyPos.y - spawnY
-                    local edist = math.sqrt(edx * edx + edy * edy)
-                    
-                    -- Check if enemy is roughly in the direction we're firing
-                    local dot = (edx * dirX + edy * dirY) / (edist + 0.01)
-                    if dot > 0 and edist < closestDist then
-                        closestEnemy = enemyId
-                        closestDist = edist
-                    end
-                end
-            end
-        end
-        homingTarget = closestEnemy
-    end
+    
+    -- Add homing component if target locked - use the player's locked/targeting target
+    local homingTarget = preferredTarget
     
     if homingTarget then
-        print("MISSILE: Setting homing target to Entity ID: " .. homingTarget)
-        ECS.addComponent(missileId, "HomingMissile", {
+        ECS.addComponent(missileId, "MissileHoming", {
             targetId = homingTarget,
             turnRate = MissileLauncher.HOMING_TURN_RATE,
             maxRange = MissileLauncher.RANGE,
-            acceleration = MissileLauncher.MISSILE_ACCELERATION,
-            initialDirection = {x = dirX, y = dirY}
+            acceleration = MissileLauncher.MISSILE_ACCELERATION
         })
-    else
-        print("MISSILE: No homing target found - missile will fly straight")
+    end
+    
+    -- Add age tracking for lifecycle management
+    ECS.addComponent(missileId, "MissileAge", {
+        maxAge = MissileLauncher.LIFETIME,
+        age = 0
+    })
+    
+    -- Add trail emitter for missile exhaust effect
+    ECS.addComponent(missileId, "TrailEmitter", Components.TrailEmitter(
+        30,  -- emitRate: 30 particles per second (fairly frequent)
+        50,  -- maxParticles: limit per missile
+        0.3, -- particleLife: 0.3 seconds (short-lived trail)
+        0.3, -- spreadAngle: 0.3 radians spread
+        0.2, -- speedMultiplier: 0.2 (slower particles for exhaust effect)
+        {1.0, 0.5, 0.1} -- trailColor: orange-red exhaust color
+    ))
+    
+    -- Add shatter effect for explosion when missile expires
+    ECS.addComponent(missileId, "ShatterEffect", {
+        numPieces = 12, -- Number of debris pieces
+        color = {1.0, 0.3, 0.1, 1} -- Orange-red explosion color
+    })
+end
+
+-- Update homing behavior for a missile
+function MissileLauncher.updateHoming(missileId, dt)
+    local homing = ECS.getComponent(missileId, "MissileHoming")
+    if not homing then return end
+    
+    local position = ECS.getComponent(missileId, "Position")
+    local velocity = ECS.getComponent(missileId, "Velocity")
+    local polygonShape = ECS.getComponent(missileId, "PolygonShape")
+    local acceleration = ECS.getComponent(missileId, "Acceleration")
+    
+    if not (position and velocity and polygonShape) then return end
+    
+    -- Check if target still exists and is valid
+    local targetPos = nil
+    if homing.targetId then
+        targetPos = ECS.getComponent(homing.targetId, "Position")
+        -- If target no longer exists or is destroyed, stop homing
+        if not targetPos then
+            ECS.removeComponent(missileId, "MissileHoming")
+            return
+        end
+    end
+    
+    if targetPos then
+        -- Calculate direction to target
+        local dx = targetPos.x - position.x
+        local dy = targetPos.y - position.y
+        local distToTarget = math.sqrt(dx * dx + dy * dy)
+        
+        -- No range limit - missiles will home indefinitely until target is destroyed or missile expires
+        
+        -- Normalize target direction
+        local targetDirX = dx / distToTarget
+        local targetDirY = dy / distToTarget
+        
+        -- Get current velocity direction
+        local speed = math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy)
+        if speed > 0 then
+            local currentDirX = velocity.vx / speed
+            local currentDirY = velocity.vy / speed
+            
+            -- Calculate angle difference
+            local currentAngle = math.atan2(currentDirY, currentDirX)
+            local targetAngle = math.atan2(targetDirY, targetDirX)
+            local angleDiff = targetAngle - currentAngle
+            
+            -- Normalize angle difference to [-pi, pi]
+            while angleDiff > math.pi do angleDiff = angleDiff - 2 * math.pi end
+            while angleDiff < -math.pi do angleDiff = angleDiff + 2 * math.pi end
+            
+            -- Limit turning rate
+            local maxTurn = homing.turnRate * dt
+            if angleDiff > maxTurn then angleDiff = maxTurn end
+            if angleDiff < -maxTurn then angleDiff = -maxTurn end
+            
+            -- Apply rotation to current direction
+            local newAngle = currentAngle + angleDiff
+            local newDirX = math.cos(newAngle)
+            local newDirY = math.sin(newAngle)
+            
+            -- Update velocity to maintain speed but change direction
+            velocity.vx = newDirX * speed
+            velocity.vy = newDirY * speed
+            
+            -- Update polygon rotation to match new direction
+            polygonShape.rotation = newAngle
+            
+            -- Apply acceleration in direction of travel
+            if acceleration then
+                acceleration.ax = newDirX * homing.acceleration
+                acceleration.ay = newDirY * homing.acceleration
+            end
+        end
+    end
+    
+    -- Also update rotation for non-homing missiles
+    local speed = math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy)
+    if speed > 0 then
+        local currentDirX = velocity.vx / speed
+        local currentDirY = velocity.vy / speed
+        polygonShape.rotation = math.atan2(currentDirY, currentDirX)
+    end
+    
+    -- Apply acceleration for all missiles
+    if acceleration then
+        local currentSpeed = math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy)
+        if currentSpeed > 0 then
+            local dirX = velocity.vx / currentSpeed
+            local dirY = velocity.vy / currentSpeed
+            acceleration.ax = dirX * MissileLauncher.MISSILE_ACCELERATION
+            acceleration.ay = dirY * MissileLauncher.MISSILE_ACCELERATION
+        end
+    end
+    
+    -- Apply maxSpeed cap
+    local speed = math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy)
+    if speed > MissileLauncher.MISSILE_MAX_SPEED then
+        velocity.vx = (velocity.vx / speed) * MissileLauncher.MISSILE_MAX_SPEED
+        velocity.vy = (velocity.vy / speed) * MissileLauncher.MISSILE_MAX_SPEED
+    end
+end
+
+-- Update missile age and lifecycle
+function MissileLauncher.updateAge(missileId, dt)
+    local lifecycle = ECS.getComponent(missileId, "MissileAge")
+    if not lifecycle then return end
+    
+    -- Increase age
+    lifecycle.age = lifecycle.age + dt
+    
+    -- Check if missile has exceeded max age
+    if lifecycle.age >= lifecycle.maxAge then
+        -- Self-destruct: set durability to 0 to trigger destruction system
+        local durability = ECS.getComponent(missileId, "Durability")
+        if durability then
+            durability.current = 0
+        end
     end
 end
 

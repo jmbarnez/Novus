@@ -19,38 +19,13 @@ function ProjectileSystem.update(dt)
         local projColl = ECS.getComponent(projId, "Collidable")
         local projectile = ECS.getComponent(projId, "Projectile")
         if not (projPos and projColl) then goto continue_projectile end
-
-        -- Asteroid damage: only mining lasers
-        for _, astId in ipairs(asteroids) do
-            local astPos = ECS.getComponent(astId, "Position")
-            local astColl = ECS.getComponent(astId, "Collidable")
-            if not (astPos and astColl) then goto continue_asteroid end
-            local dx = astPos.x - projPos.x
-            local dy = astPos.y - projPos.y
-            local distSq = dx * dx + dy * dy
-            local radii = astColl.radius + projColl.radius
-            if distSq < radii * radii then
-                if projectile and projectile.ownerId == astId then goto continue_asteroid end
-                local durability = ECS.getComponent(astId, "Durability")
-                if durability and projectile and projectile.isMiningLaser then
-                    durability.current = durability.current - (projectile.damage or 10)
-                    -- Track who is damaging this asteroid
-                    local ownerEntity = ECS.getComponent(projectile.ownerId, "ControlledBy")
-                    if ownerEntity and ownerEntity.pilotId then
-                        ECS.addComponent(astId, "LastDamager", Components.LastDamager(ownerEntity.pilotId, "mining_laser"))
-                    end
-                end
-                -- If projectile should break on impact, mark its durability to 0 so DestructionSystem handles debris
-                if projectile and projectile.brittle then
-                    local projDur = ECS.getComponent(projId, "Durability")
-                    if projDur then projDur.current = 0 end
-                end
-                break
-            end
-            ::continue_asteroid::
+        
+        -- Skip lasers - they're handled by their modules' applyBeam() functions
+        if projectile and (projectile.isMiningLaser or projectile.isSalvageLaser or projectile.isCombatLaser) then
+            goto continue_projectile
         end
 
-        -- Wreckage damage: only salvage lasers
+        -- Wreckage damage: only salvage lasers (handled in module)
         for _, wreckId in ipairs(wreckages) do
             local wreckPos = ECS.getComponent(wreckId, "Position")
             local wreckColl = ECS.getComponent(wreckId, "Collidable")
@@ -79,7 +54,7 @@ function ProjectileSystem.update(dt)
             ::continue_wreckage::
         end
 
-        -- Enemy damage: all projectiles except mining/salvage lasers hit enemies
+        -- Enemy damage: all projectiles except mining/salvage/combat lasers hit enemies
         for _, enemyId in ipairs(enemies) do
             if projectile and projectile.ownerId == enemyId then goto continue_enemy end -- Don't hit self
             

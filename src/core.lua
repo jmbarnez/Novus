@@ -16,6 +16,7 @@ local Procedural = require('src.procedural')
 local UISystem = require('src.systems.ui')
 local Scaling = require('src.scaling')
 local ShipLoader = require('src.ship_loader')
+local AsteroidClusters = require('src.systems.asteroid_clusters')
 
 -- Game initialization
 function Core.init()

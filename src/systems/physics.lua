@@ -12,9 +12,13 @@ local PhysicsSystem = {
         local accelEntities = ECS.getEntitiesWith({"Acceleration"})
         for _, entityId in ipairs(accelEntities) do
             local acceleration = ECS.getComponent(entityId, "Acceleration")
+            local projectile = ECS.getComponent(entityId, "Projectile")
             if acceleration then
-                acceleration.ax = 0
-                acceleration.ay = 0
+                -- Don't reset acceleration for missiles - they need persistent acceleration
+                if not (projectile and projectile.isMissile) then
+                    acceleration.ax = 0
+                    acceleration.ay = 0
+                end
             end
         end
         
