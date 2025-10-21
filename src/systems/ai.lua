@@ -72,18 +72,8 @@ function AI.update(dt)
             -- Detection radius should be at least roughly the turret firing range so AI can detect
             -- targets at a distance they can engage. Use module range if available.
             local moduleBasedRadius = nil
-            if turret and turret.moduleName then
-                local moduleRange = TurretRange.getMaxRange(turret.moduleName)
-                if moduleRange then
-                    -- Use a slightly smaller detection radius to avoid instant engagement at edge cases,
-                    -- but generally detection should be near turret range
-                    moduleBasedRadius = moduleRange * 0.95
-                end
-            end
+            -- Use the AI's detection radius directly, not bound to turret range
             local effectiveDetectionRadius = ai.detectionRadius
-            if moduleBasedRadius then
-                effectiveDetectionRadius = math.max(effectiveDetectionRadius or 0, moduleBasedRadius)
-            end
             local detectionRadiusSq = (effectiveDetectionRadius * effectiveDetectionRadius)
 
             if dsq < detectionRadiusSq then
@@ -219,7 +209,9 @@ function AI.update(dt)
 
                     -- Apply beam effects for continuous weapons (lasers)
                     local turretModule = TurretSystem.turretModules[turret.moduleName]
-                    if turretModule and turretModule.applyBeam and turretModule.CONTINUOUS and not turret.overheated then
+                    local isLaserTurret = turret.moduleName == "mining_laser" or turret.moduleName == "combat_laser" or turret.moduleName == "salvage_laser"
+                    local canFire = not isLaserTurret or (turret.heat and turret.heat < (turretModule.MAX_HEAT or 10))
+                    if turretModule and turretModule.applyBeam and turretModule.CONTINUOUS and canFire then
                         -- Offset laser start position away from ship to avoid self-collision
                         local laserStartX = pos.x + math.cos(fireAngle) * muzzleDistance
                         local laserStartY = pos.y + math.sin(fireAngle) * muzzleDistance
@@ -335,35 +327,48 @@ function AI.update(dt)
 
                         -- Apply beam effects for continuous weapons (lasers)
                         local turretModule = TurretSystem.turretModules[turret.moduleName]
-                        if turretModule and turretModule.applyBeam and turretModule.CONTINUOUS and not turret.overheated then
-                            -- Offset laser start position away from ship to avoid self-collision
-                            local laserStartX = pos.x + math.cos(fireAngle) * muzzleDistance
-                            local laserStartY = pos.y + math.sin(fireAngle) * muzzleDistance
-                            local collider = ECS.getComponent(eid, "Collidable")
-                            if collider then
-                                local distToTarget = math.sqrt(dx * dx + dy * dy)
-                                if distToTarget > 0 then
-                                    laserStartX = pos.x + (dx / distToTarget) * (collider.radius + muzzleDistance)
-                                    laserStartY = pos.y + (dy / distToTarget) * (collider.radius + muzzleDistance)
-                                end
+                        local isLaserTurret = turret.moduleName == "mining_laser" or turret.moduleName == "combat_laser" or turret.moduleName == "salvage_laser"
+                        local canFire = not isLaserTurret or (turret.heat and turret.heat < (turretModule.MAX_HEAT or 10))
+                        if turretModule and turretModule.applyBeam and turretModule.CONTINUOUS and canFire then
+                            -- Determine falloff end distance based on turret module
+                            local falloffEnd = 1350  -- Default
+                            if turret.moduleName == "combat_laser" then
+                                falloffEnd = 800
+                            elseif turret.moduleName == "salvage_laser" then
+                                falloffEnd = 1100
                             end
-
-                            -- Calculate beam end position, limited by weapon range
-                            local beamEndX = playerPos.x
-                            local beamEndY = playerPos.y
-                            if turretModule.RANGE then
-                                local dx2 = playerPos.x - laserStartX
-                                local dy2 = playerPos.y - laserStartY
-                                local distToTarget2 = math.sqrt(dx2 * dx2 + dy2 * dy2)
-                                if distToTarget2 > turretModule.RANGE then
-                                    -- Cap the beam at maximum range
-                                    local ratio = turretModule.RANGE / distToTarget2
-                                    beamEndX = laserStartX + dx2 * ratio
-                                    beamEndY = laserStartY + dy2 * ratio
+                            
+                            -- Only fire if target is within falloff range
+                            local distToTarget = math.sqrt(dx * dx + dy * dy)
+                            if distToTarget <= falloffEnd then
+                                -- Offset laser start position away from ship to avoid self-collision
+                                local laserStartX = pos.x + math.cos(fireAngle) * muzzleDistance
+                                local laserStartY = pos.y + math.sin(fireAngle) * muzzleDistance
+                                local collider = ECS.getComponent(eid, "Collidable")
+                                if collider then
+                                    if distToTarget > 0 then
+                                        laserStartX = pos.x + (dx / distToTarget) * (collider.radius + muzzleDistance)
+                                        laserStartY = pos.y + (dy / distToTarget) * (collider.radius + muzzleDistance)
+                                    end
                                 end
-                            end
 
-                            turretModule.applyBeam(eid, laserStartX, laserStartY, beamEndX, beamEndY, dt, turret)
+                                -- Calculate beam end position, limited by weapon range
+                                local beamEndX = playerPos.x
+                                local beamEndY = playerPos.y
+                                if turretModule.RANGE then
+                                    local dx2 = playerPos.x - laserStartX
+                                    local dy2 = playerPos.y - laserStartY
+                                    local distToTarget2 = math.sqrt(dx2 * dx2 + dy2 * dy2)
+                                    if distToTarget2 > turretModule.RANGE then
+                                        -- Cap the beam at maximum range
+                                        local ratio = turretModule.RANGE / distToTarget2
+                                        beamEndX = laserStartX + dx2 * ratio
+                                        beamEndY = laserStartY + dy2 * ratio
+                                    end
+                                end
+
+                                turretModule.applyBeam(eid, laserStartX, laserStartY, beamEndX, beamEndY, dt, turret)
+                            end
                         end
                     end
                 end

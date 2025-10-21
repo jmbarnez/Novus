@@ -15,7 +15,7 @@ local MiningLaser = {
     MAX_HEAT = 10.0, -- Max heat before overheating
     COOL_RATE = 3.0, -- Heat units per second while not firing
     DPS = 50,
-    RANGE = 675,
+    RANGE = math.huge,  -- Unlimited beam range for visual collision
     design = {
         shape = "custom",
         size = 16,
@@ -57,15 +57,26 @@ function MiningLaser.fire(ownerId, startX, startY, endX, endY)
     local offsetStartY = startY
     -- Create new laser beam entity
     MiningLaser.laserEntity = ECS.createEntity()
+    
+    -- Calculate beam length for collision radius
+    local dx = endX - offsetStartX
+    local dy = endY - offsetStartY
+    local beamLength = math.sqrt(dx * dx + dy * dy)
+    
     ECS.addComponent(MiningLaser.laserEntity, "LaserBeam", {
         start = {x = offsetStartX, y = offsetStartY},
         endPos = {x = endX, y = endY},
-        color = {1, 1, 0, 1},  -- Yellow
+        color = {0.5, 0.5, 0, 1},  -- Dimmed yellow (half brightness)
         ownerId = ownerId
     })
+    -- Add position for collision tracking
+    local midX = (offsetStartX + endX) / 2
+    local midY = (offsetStartY + endY) / 2
+    ECS.addComponent(MiningLaser.laserEntity, "Position", Components.Position(midX, midY))
+    -- Add collision component so laser can collide with entities
+    ECS.addComponent(MiningLaser.laserEntity, "Collidable", Components.Collidable(beamLength / 2 + 10))
     -- Mark this entity as a mining laser projectile for asteroid damage
     ECS.addComponent(MiningLaser.laserEntity, "Projectile", {ownerId = ownerId, damage = MiningLaser.DPS, brittle = false, isMiningLaser = true})
-    -- ...existing code...
 end
 
 -- Called every frame while the laser is firing
@@ -78,62 +89,66 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
     local closestDistSq = math.huge
     local hitAsteroidId = nil
 
-    -- Check for asteroid hits
-    local asteroidHitEntities = ECS.getEntitiesWith({"Asteroid", "Collidable", "Position", "PolygonShape", "Durability"})
-    for _, asteroidId in ipairs(asteroidHitEntities) do
-        local intersection = CollisionSystem.linePolygonIntersect(startX, startY, endX, endY, asteroidId)
+    -- Check for collisions with all collidable polygon entities (asteroids, ships, wreckage, etc)
+    local allEntities = ECS.getEntitiesWith({"Collidable", "Position", "PolygonShape"})
+    for _, entityId in ipairs(allEntities) do
+        local intersection = CollisionSystem.linePolygonIntersect(startX, startY, endX, endY, entityId)
         if intersection then
             local distSq = (intersection.x - startX)^2 + (intersection.y - startY)^2
             if distSq < closestDistSq then
                 closestDistSq = distSq
                 closestIntersection = intersection
-                hitAsteroidId = asteroidId
+                hitAsteroidId = entityId
             end
         end
     end
 
     if closestIntersection and hitAsteroidId then
-        -- Apply per-frame DPS to asteroid
-        local durability = ECS.getComponent(hitAsteroidId, "Durability")
-        if durability then
-            -- Calculate distance from laser origin to hit point
-            local hitDistance = math.sqrt(closestDistSq)
+        -- Only apply damage if target is an asteroid
+        local isAsteroid = ECS.getComponent(hitAsteroidId, "Asteroid")
+        if isAsteroid then
+            local durability = ECS.getComponent(hitAsteroidId, "Durability")
+            if durability then
+                -- Calculate distance from laser origin to hit point
+                local hitDistance = math.sqrt(closestDistSq)
 
-            -- Distance falloff: damage starts falling off after 675 units, reaches 50% at max range (1350)
-            local falloffStart = 675
-            local falloffEnd = MiningLaser.RANGE
-            local distanceMultiplier = 1.0
-            if hitDistance > falloffStart then
-                local falloffRange = falloffEnd - falloffStart
-                local falloffProgress = math.min((hitDistance - falloffStart) / falloffRange, 1.0)
-                distanceMultiplier = 1.0 - (falloffProgress * 0.5)  -- Falls to 50% damage
-            end
+                -- Distance falloff: damage starts falling off after 400 units, reaches 0 at 1350
+                local falloffStart = 400
+                local falloffEnd = 1350
+                local distanceMultiplier = 1.0
+                if hitDistance > falloffStart then
+                    local falloffRange = falloffEnd - falloffStart
+                    local falloffProgress = math.min((hitDistance - falloffStart) / falloffRange, 1.0)
+                    distanceMultiplier = 1.0 - (falloffProgress * 1.0)  -- Falls to 0% damage at max
+                    if distanceMultiplier < 0 then distanceMultiplier = 0 end
+                end
 
-            -- Heat multiplier: damage increases from 1x at 0 heat to 2x at max heat
-            local heatMultiplier = 1.0
-            if turretComp and turretComp.heat then
-                local heatProgress = turretComp.heat / MiningLaser.MAX_HEAT
-                heatMultiplier = 1.0 + (heatProgress * 1.0)  -- Up to 2x damage
-            end
+                -- Heat multiplier: damage increases from 1x at 0 heat to 2x at max heat
+                local heatMultiplier = 1.0
+                if turretComp and turretComp.heat then
+                    local heatProgress = turretComp.heat / MiningLaser.MAX_HEAT
+                    heatMultiplier = 1.0 + (heatProgress * 1.0)  -- Up to 2x damage
+                end
 
-            -- Calculate final damage
-            local baseDamage = MiningLaser.DPS * dt
-            local finalDamage = baseDamage * distanceMultiplier * heatMultiplier
-            local damageApplied = math.min(finalDamage, durability.current)
-            durability.current = durability.current - damageApplied
+                -- Calculate final damage
+                local baseDamage = MiningLaser.DPS * dt
+                local finalDamage = baseDamage * distanceMultiplier * heatMultiplier
+                local damageApplied = math.min(finalDamage, durability.current)
+                durability.current = durability.current - damageApplied
 
-            -- Track who is damaging this asteroid
-            local ownerEntity = ECS.getComponent(ownerId, "ControlledBy")
-            if ownerEntity and ownerEntity.pilotId then
-                ECS.addComponent(hitAsteroidId, "LastDamager", Components.LastDamager(ownerEntity.pilotId, "mining_laser"))
-            end
+                -- Track who is damaging this asteroid
+                local ownerEntity = ECS.getComponent(ownerId, "ControlledBy")
+                if ownerEntity and ownerEntity.pilotId then
+                    ECS.addComponent(hitAsteroidId, "LastDamager", Components.LastDamager(ownerEntity.pilotId, "mining_laser"))
+                end
 
-            -- Only grant XP if asteroid is destroyed this frame
-            if durability.current <= 0 then
-                SkillXP.awardXp("mining")
+                -- Only grant XP if asteroid is destroyed this frame
+                if durability.current <= 0 then
+                    SkillXP.awardXp("mining")
+                end
             end
         end
-        -- Store color of hit asteroid
+        -- Store color of hit entity
         local renderable = ECS.getComponent(hitAsteroidId, "Renderable")
         closestIntersection.color = renderable and renderable.color or {0.6, 0.4, 0.2, 1}
         -- Create impact debris

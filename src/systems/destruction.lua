@@ -6,6 +6,7 @@ local Constants = require('src.constants')
 local DebrisSystem = require('src.systems.debris') -- Import DebrisSystem
 local WrackageSystem = require('src.systems.wreckage') -- Import WrackageSystem
 local ItemDefs = require('src.items.item_loader')
+local AsteroidClusters = require('src.systems.asteroid_clusters')
 
 local DestructionSystem = {
     name = "DestructionSystem",
@@ -150,6 +151,12 @@ function DestructionSystem.update(dt)
                         distance = 0,
                         speed = {Constants.bit_spawn_speed_asteroid_min or 40, Constants.bit_spawn_speed_asteroid_max or 120}
                     })
+                    
+                    -- Mark asteroid for respawn in its cluster
+                    local cluster = AsteroidClusters.getClusterForAsteroid(entityId)
+                    if cluster then
+                        AsteroidClusters.markForRespawn(entityId, cluster)
+                    end
                 end
             end
             

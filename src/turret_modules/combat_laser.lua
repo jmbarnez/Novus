@@ -15,7 +15,7 @@ local CombatLaser = {
     MAX_HEAT = 12.0,
     COOL_RATE = 3.0,
     DPS = 15,
-    RANGE = 400,
+    RANGE = math.huge,  -- Unlimited beam range for visual collision
     design = {
         shape = "custom",
         size = 16,
@@ -88,11 +88,18 @@ function CombatLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
     local midX = (offsetStartX + beamEndX) / 2
     local midY = (offsetStartY + beamEndY) / 2
     
+    -- Calculate beam length for collision radius
+    local dx = beamEndX - offsetStartX
+    local dy = beamEndY - offsetStartY
+    local beamLength = math.sqrt(dx * dx + dy * dy)
+    
     ECS.addComponent(turretComp.laserEntity, "Position", Components.Position(midX, midY))
+    -- Add collision component so laser can collide with entities
+    ECS.addComponent(turretComp.laserEntity, "Collidable", Components.Collidable(beamLength / 2 + 10))
     ECS.addComponent(turretComp.laserEntity, "LaserBeam", {
         start = {x = offsetStartX, y = offsetStartY},
         endPos = {x = beamEndX, y = beamEndY},
-        color = {0, 0.4, 0.5, 1},  -- Blue laser color (half brightness)
+        color = {0, 0.2, 0.25, 1},  -- Dimmed blue laser color (half brightness)
         ownerId = ownerId
     })
     -- Mark this entity as a combat laser projectile for ship damage
@@ -121,90 +128,87 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
 
     local closestIntersection = nil
     local closestDistSq = math.huge
-    local hitShipId = nil
+    local hitEntityId = nil
 
-    -- Check for ship hull hits - look for all entities with Hull component
-    local shipEntities = ECS.getEntitiesWith({"Hull", "Position"})
-    for _, shipId in ipairs(shipEntities) do
+    -- Check for collisions with any collidable polygon entity (ships, asteroids, wreckage, etc)
+    local entityEntities = ECS.getEntitiesWith({"Position", "PolygonShape", "Collidable"})
+    for _, entityId in ipairs(entityEntities) do
         -- Skip hitting ourselves
-        if shipId == ownerId then goto skip_ship end
+        if entityId == ownerId then goto skip_entity end
         
-        local polygonShape = ECS.getComponent(shipId, "PolygonShape")
-        local intersection = nil
-        
-        if polygonShape then
-            -- Use polygon collision for ships with polygon shapes
-            -- Use the offset barrel position as the laser origin
-            intersection = CollisionSystem.linePolygonIntersect(offsetStartX, offsetStartY, endX, endY, shipId)
-        end
+        local intersection = CollisionSystem.linePolygonIntersect(offsetStartX, offsetStartY, endX, endY, entityId)
         
         if intersection then
             local distSq = (intersection.x - offsetStartX)^2 + (intersection.y - offsetStartY)^2
             if distSq < closestDistSq then
                 closestDistSq = distSq
                 closestIntersection = intersection
-                hitShipId = shipId
+                hitEntityId = entityId
             end
         end
         
-        ::skip_ship::
+        ::skip_entity::
     end
 
-    if closestIntersection and hitShipId then
-        -- Calculate distance from laser origin to hit point
-        local hitDistance = math.sqrt(closestDistSq)
+    if closestIntersection and hitEntityId then
+        -- Only apply damage if target is a ship (has Hull component)
+        local hull = ECS.getComponent(hitEntityId, "Hull")
+        if hull then
+            -- Calculate distance from laser origin to hit point
+            local hitDistance = math.sqrt(closestDistSq)
 
-        -- Distance falloff: damage starts falling off after 400 units, reaches 50% at max range (800)
-        local falloffStart = 400
-        local falloffEnd = CombatLaser.RANGE
-        local distanceMultiplier = 1.0
-        if hitDistance > falloffStart then
-            local falloffRange = falloffEnd - falloffStart
-            local falloffProgress = math.min((hitDistance - falloffStart) / falloffRange, 1.0)
-            distanceMultiplier = 1.0 - (falloffProgress * 0.5)  -- Falls to 50% damage
-        end
-
-        -- Heat multiplier: damage increases from 1x at 0 heat to 2x at max heat
-        local heatMultiplier = 1.0
-        if turretComp and turretComp.heat then
-            local heatProgress = turretComp.heat / CombatLaser.MAX_HEAT
-            heatMultiplier = 1.0 + (heatProgress * 1.0)  -- Up to 2x damage
-        end
-
-        -- Calculate final damage
-        local baseDamage = CombatLaser.DPS * dt
-        local finalDamage = baseDamage * distanceMultiplier * heatMultiplier
-
-        -- Apply damage to Shield first, then Hull
-        local shield = ECS.getComponent(hitShipId, "Shield")
-        local hull = ECS.getComponent(hitShipId, "Hull")
-        local damage = finalDamage
-
-        if shield and shield.current > 0 then
-            -- Shield absorbed damage - create impact effect
-            local ShieldImpactSystem = ECS.getSystem("ShieldImpactSystem")
-            if ShieldImpactSystem and ShieldImpactSystem.createImpact then
-                ShieldImpactSystem.createImpact(closestIntersection.x, closestIntersection.y, hitShipId)
+            -- Distance falloff: damage starts falling off after 300 units, reaches 0 at 800
+            local falloffStart = 300
+            local falloffEnd = 800
+            local distanceMultiplier = 1.0
+            if hitDistance > falloffStart then
+                local falloffRange = falloffEnd - falloffStart
+                local falloffProgress = math.min((hitDistance - falloffStart) / falloffRange, 1.0)
+                distanceMultiplier = 1.0 - (falloffProgress * 1.0)  -- Falls to 0% damage at max
+                if distanceMultiplier < 0 then distanceMultiplier = 0 end
             end
 
-            local remaining = shield.current - damage
-            shield.current = math.max(0, remaining)
-            damage = math.max(0, -remaining)
-            shield.regenTimer = shield.regenDelay or 0
-        end
+            -- Heat multiplier: damage increases from 1x at 0 heat to 2x at max heat
+            local heatMultiplier = 1.0
+            if turretComp and turretComp.heat then
+                local heatProgress = turretComp.heat / CombatLaser.MAX_HEAT
+                heatMultiplier = 1.0 + (heatProgress * 1.0)  -- Up to 2x damage
+            end
 
-        if damage > 0 and hull then
-            local damageApplied = math.min(damage, hull.current)
-            hull.current = hull.current - damageApplied
-            print("LASER DAMAGE: Applied " .. damageApplied .. " damage to ship " .. hitShipId .. ", hull now " .. hull.current)
+            -- Calculate final damage
+            local baseDamage = CombatLaser.DPS * dt
+            local finalDamage = baseDamage * distanceMultiplier * heatMultiplier
 
-            -- Only grant XP if ship is destroyed this frame
-            if hull.current <= 0 then
-                SkillXP.awardXp("combat")
+            -- Apply damage to Shield first, then Hull
+            local shield = ECS.getComponent(hitEntityId, "Shield")
+            local damage = finalDamage
+
+            if shield and shield.current > 0 then
+                -- Shield absorbed damage - create impact effect
+                local ShieldImpactSystem = ECS.getSystem("ShieldImpactSystem")
+                if ShieldImpactSystem and ShieldImpactSystem.createImpact then
+                    ShieldImpactSystem.createImpact(closestIntersection.x, closestIntersection.y, hitEntityId)
+                end
+
+                local remaining = shield.current - damage
+                shield.current = math.max(0, remaining)
+                damage = math.max(0, -remaining)
+                shield.regenTimer = shield.regenDelay or 0
+            end
+
+            if damage > 0 then
+                local damageApplied = math.min(damage, hull.current)
+                hull.current = hull.current - damageApplied
+                print("LASER DAMAGE: Applied " .. damageApplied .. " damage to ship " .. hitEntityId .. ", hull now " .. hull.current)
+
+                -- Only grant XP if ship is destroyed this frame
+                if hull.current <= 0 then
+                    SkillXP.awardXp("combat")
+                end
             end
         end
-        -- Store color of hit ship
-        local renderable = ECS.getComponent(hitShipId, "Renderable")
+        -- Store color of hit entity
+        local renderable = ECS.getComponent(hitEntityId, "Renderable")
         closestIntersection.color = renderable and renderable.color or {0.5, 0.5, 0.5, 1}
         -- Create impact debris
         DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, closestIntersection.color)

@@ -364,21 +364,38 @@ local function drawTurretSlots(viewportWidth, viewportHeight)
                 love.graphics.setColor(0.5, 0.5, 0.8, 1)
                 love.graphics.circle("fill", slotX + slotSize / 2, slotY + slotSize / 2, slotSize / 3)
             end
-                    -- Cooldown/heat overlays (same as before, always fresh when updated)
+                    -- Heat overlays (laser turrets only)
             if slotIndex == 1 and turret then
                 local moduleName = turret.moduleName
                 local module = moduleName and TurretSystem.turretModules[moduleName]
-                if module and module.CONTINUOUS then
+                local isLaserTurret = moduleName == "mining_laser" or moduleName == "combat_laser" or moduleName == "salvage_laser"
+                if module and module.CONTINUOUS and isLaserTurret then
                     local heat = (turret.heat or 0)
                     local maxHeat = module.MAX_HEAT or 10
-                    local heatRatio = math.max(0, math.min(heat / maxHeat, 1))
-                    local pad = math.max(2, math.floor(slotSize * 0.08))
-                    local innerH = slotSize - pad * 2
-                    local innerW = slotSize - pad * 2
-                    local overlayInnerWidth = math.floor(innerW * heatRatio)
-                            love.graphics.setColor(turret.overheated and {1.0, 0.2, 0.2, 0.4} or {0.9, 0.3, 0.2, 0.28})
-                    if overlayInnerWidth > 0 then
-                        love.graphics.rectangle("fill", slotX + pad, slotY + pad, overlayInnerWidth, innerH, 3, 3)
+                    local isInCooldown = heat >= maxHeat
+                    
+                    if isInCooldown then
+                        -- Blinking red during cooldown
+                        local cooldownTimer = turret._cooldownTimer or 0
+                        local blinkPhase = math.floor((cooldownTimer * 4)) % 2  -- Blinks 4 times per second
+                        if blinkPhase == 0 then
+                            love.graphics.setColor(1.0, 0.2, 0.2, 0.8)  -- Bright red
+                            local pad = math.max(2, math.floor(slotSize * 0.08))
+                            local innerH = slotSize - pad * 2
+                            local innerW = slotSize - pad * 2
+                            love.graphics.rectangle("fill", slotX + pad, slotY + pad, innerW, innerH, 3, 3)
+                        end
+                    else
+                        -- Normal heat bar when not in cooldown
+                        local heatRatio = heat / maxHeat
+                        local pad = math.max(2, math.floor(slotSize * 0.08))
+                        local innerH = slotSize - pad * 2
+                        local innerW = slotSize - pad * 2
+                        local overlayInnerWidth = math.floor(innerW * heatRatio)
+                        love.graphics.setColor(0.9, 0.3, 0.2, 0.4)  -- Orange heat bar
+                        if overlayInnerWidth > 0 then
+                            love.graphics.rectangle("fill", slotX + pad, slotY + pad, overlayInnerWidth, innerH, 3, 3)
+                        end
                     end
                 elseif module then
                         local moduleCooldown = TurretRange.getFireCooldown(moduleName)
@@ -450,7 +467,7 @@ local function getHudStateHash()
     return table.concat({
         valn(hull.current), valn(hull.max), valn(shield.current), valn(shield.max),
         valn(velocity.vx), valn(velocity.vy), valn(velocity.vz),
-        valn(turret.moduleName, ''), valn(turret.heat), tostring(valn(turret.overheated,false)),
+        valn(turret.moduleName, ''), valn(turret.heat),
         valn(turret.lastFireTime),
         valn(turretSlots.slots and turretSlots.slots[1], ''),
         valn(turretSlots.slots and turretSlots.slots[2], ''),

@@ -16,7 +16,7 @@ local SalvageLaser = {
     MAX_HEAT = 8.0,
     COOL_RATE = 2.5,
     DPS = 40,
-    RANGE = 550,
+    RANGE = math.huge,  -- Unlimited beam range for visual collision
     design = {
         shape = "custom",
         size = 16,
@@ -69,10 +69,23 @@ function SalvageLaser.fire(ownerId, startX, startY, endX, endY)
     
     -- Create new laser beam entity
     SalvageLaser.laserEntity = ECS.createEntity()
+    
+    -- Calculate midpoint for position (for depth sorting and rendering order)
+    local midX = (offsetStartX + endX) / 2
+    local midY = (offsetStartY + endY) / 2
+    
+    -- Calculate beam length for collision radius
+    local dx = endX - offsetStartX
+    local dy = endY - offsetStartY
+    local beamLength = math.sqrt(dx * dx + dy * dy)
+    
+    ECS.addComponent(SalvageLaser.laserEntity, "Position", Components.Position(midX, midY))
+    -- Add collision component so laser can collide with entities
+    ECS.addComponent(SalvageLaser.laserEntity, "Collidable", Components.Collidable(beamLength / 2 + 10))
     ECS.addComponent(SalvageLaser.laserEntity, "LaserBeam", {
         start = {x = offsetStartX, y = offsetStartY},
         endPos = {x = endX, y = endY},
-        color = {0, 1, 0, 1},  -- Green
+        color = {0, 0.5, 0, 1},  -- Dimmed green (half brightness)
         ownerId = ownerId
     })
     -- Mark this entity as a salvage laser projectile for wreckage harvesting
@@ -87,58 +100,62 @@ end
 function SalvageLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretComp)
     local closestIntersection = nil
     local closestDistSq = math.huge
-    local hitWreckageId = nil
+    local hitEntityId = nil
 
-    -- Check for wreckage hits
-    local wreckageEntities = ECS.getEntitiesWith({"Wreckage", "Collidable", "Position", "PolygonShape", "Durability"})
-    for _, wreckageId in ipairs(wreckageEntities) do
-        local intersection = CollisionSystem.linePolygonIntersect(startX, startY, endX, endY, wreckageId)
+    -- Check for collisions with any collidable polygon entity (asteroids, ships, wreckage, etc)
+    local entityEntities = ECS.getEntitiesWith({"Collidable", "Position", "PolygonShape"})
+    for _, entityId in ipairs(entityEntities) do
+        local intersection = CollisionSystem.linePolygonIntersect(startX, startY, endX, endY, entityId)
         if intersection then
             local distSq = (intersection.x - startX)^2 + (intersection.y - startY)^2
             if distSq < closestDistSq then
                 closestDistSq = distSq
                 closestIntersection = intersection
-                hitWreckageId = wreckageId
+                hitEntityId = entityId
             end
         end
     end
 
-    if closestIntersection and hitWreckageId then
-        -- Apply per-frame DPS to wreckage
-        local durability = ECS.getComponent(hitWreckageId, "Durability")
-        if durability then
-            -- Calculate distance from laser origin to hit point
-            local hitDistance = math.sqrt(closestDistSq)
+    if closestIntersection and hitEntityId then
+        -- Only apply damage if target is wreckage
+        local isWrackage = ECS.getComponent(hitEntityId, "Wreckage")
+        if isWrackage then
+            local durability = ECS.getComponent(hitEntityId, "Durability")
+            if durability then
+                -- Calculate distance from laser origin to hit point
+                local hitDistance = math.sqrt(closestDistSq)
 
-            -- Distance falloff: damage starts falling off after 550 units, reaches 50% at max range (1100)
-            local falloffStart = 550
-            local falloffEnd = SalvageLaser.RANGE
-            local distanceMultiplier = 1.0
-            if hitDistance > falloffStart then
-                local falloffRange = falloffEnd - falloffStart
-                local falloffProgress = math.min((hitDistance - falloffStart) / falloffRange, 1.0)
-                distanceMultiplier = 1.0 - (falloffProgress * 0.5)  -- Falls to 50% damage
-            end
+                -- Distance falloff: damage starts falling off after 350 units, reaches 0 at 1100
+                local falloffStart = 350
+                local falloffEnd = 1100
+                local distanceMultiplier = 1.0
+                if hitDistance > falloffStart then
+                    local falloffRange = falloffEnd - falloffStart
+                    local falloffProgress = math.min((hitDistance - falloffStart) / falloffRange, 1.0)
+                    distanceMultiplier = 1.0 - (falloffProgress * 1.0)  -- Falls to 0% damage at max
+                    if distanceMultiplier < 0 then distanceMultiplier = 0 end
+                end
 
-            -- Heat multiplier: damage increases from 1x at 0 heat to 2x at max heat
-            local heatMultiplier = 1.0
-            if turretComp and turretComp.heat then
-                local heatProgress = turretComp.heat / SalvageLaser.MAX_HEAT
-                heatMultiplier = 1.0 + (heatProgress * 1.0)  -- Up to 2x damage
-            end
+                -- Heat multiplier: damage increases from 1x at 0 heat to 2x at max heat
+                local heatMultiplier = 1.0
+                if turretComp and turretComp.heat then
+                    local heatProgress = turretComp.heat / SalvageLaser.MAX_HEAT
+                    heatMultiplier = 1.0 + (heatProgress * 1.0)  -- Up to 2x damage
+                end
 
-            -- Calculate final damage
-            local baseDamage = SalvageLaser.DPS * dt
-            local finalDamage = baseDamage * distanceMultiplier * heatMultiplier
-            local damageApplied = math.min(finalDamage, durability.current)
-            durability.current = durability.current - damageApplied
-            -- Only grant XP if wreckage is destroyed this frame
-            if durability.current <= 0 then
-                SkillXP.awardXp("salvaging")
+                -- Calculate final damage
+                local baseDamage = SalvageLaser.DPS * dt
+                local finalDamage = baseDamage * distanceMultiplier * heatMultiplier
+                local damageApplied = math.min(finalDamage, durability.current)
+                durability.current = durability.current - damageApplied
+                -- Only grant XP if wreckage is destroyed this frame
+                if durability.current <= 0 then
+                    SkillXP.awardXp("salvaging")
+                end
             end
         end
-        -- Store color of hit wreckage
-        local renderable = ECS.getComponent(hitWreckageId, "Renderable")
+        -- Store color of hit entity
+        local renderable = ECS.getComponent(hitEntityId, "Renderable")
         closestIntersection.color = renderable and renderable.color or {0.5, 0.5, 0.5, 1}
         -- Create impact debris
         DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, closestIntersection.color)

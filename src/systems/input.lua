@@ -172,11 +172,12 @@ function InputSystem.update(dt)
             -- Fire the turret (creates/updates laser beam on cooldown); pass dt for heat accumulation
             TurretSystem.fireTurret(turretOwner, mouseX, mouseY, dt)
             
-            -- Apply beam effects every frame (damage, debris, beam positioning) and handle heat for continuous lasers
-            -- Projectiles apply damage in the CollisionSystem/ProjectileSystem,
-            -- Lasers apply damage in their applyBeam functions (handled in module).
-            -- Only apply beam if turret is not overheated
-            if turretModule and turretModule.applyBeam and not turret.overheated then
+            -- Apply beam effects every frame (damage, debris, beam positioning) and handle heat for laser turrets
+            -- Only apply beam if turret heat hasn't reached MAX_HEAT (for laser turrets only)
+            local isLaserTurret = turretModule and (turretModule.name == "mining_laser" or turretModule.name == "combat_laser" or turretModule.name == "salvage_laser")
+            local canFire = not isLaserTurret or (turret and turret.heat and turret.heat < (turretModule.MAX_HEAT or 10))
+            
+            if turretModule and turretModule.applyBeam and canFire then
                 -- Offset laser start position away from ship to avoid self-collision
                 local laserStartX = playerPos.x
                 local laserStartY = playerPos.y
