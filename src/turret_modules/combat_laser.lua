@@ -127,34 +127,52 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
     end
 
     if closestIntersection and hitShipId then
-        -- Apply per-frame DPS to ship hull
+        -- Calculate distance from laser origin to hit point
+        local hitDistance = math.sqrt(closestDistSq)
+
+        -- Distance falloff: damage starts falling off after 400 units, reaches 50% at max range (800)
+        local falloffStart = 400
+        local falloffEnd = CombatLaser.RANGE
+        local distanceMultiplier = 1.0
+        if hitDistance > falloffStart then
+            local falloffRange = falloffEnd - falloffStart
+            local falloffProgress = math.min((hitDistance - falloffStart) / falloffRange, 1.0)
+            distanceMultiplier = 1.0 - (falloffProgress * 0.5)  -- Falls to 50% damage
+        end
+
+        -- Heat multiplier: damage increases from 1x at 0 heat to 2x at max heat
+        local heatMultiplier = 1.0
+        if turretComp and turretComp.heat then
+            local heatProgress = turretComp.heat / CombatLaser.MAX_HEAT
+            heatMultiplier = 1.0 + (heatProgress * 1.0)  -- Up to 2x damage
+        end
+
+        -- Calculate final damage
+        local baseDamage = CombatLaser.DPS * dt
+        local finalDamage = baseDamage * distanceMultiplier * heatMultiplier
+
+        -- Apply damage to Shield first, then Hull
+        local shield = ECS.getComponent(hitShipId, "Shield")
         local hull = ECS.getComponent(hitShipId, "Hull")
-        if hull then
-            -- Calculate distance from laser origin to hit point
-            local hitDistance = math.sqrt(closestDistSq)
+        local damage = finalDamage
 
-            -- Distance falloff: damage starts falling off after 400 units, reaches 50% at max range (800)
-            local falloffStart = 400
-            local falloffEnd = CombatLaser.RANGE
-            local distanceMultiplier = 1.0
-            if hitDistance > falloffStart then
-                local falloffRange = falloffEnd - falloffStart
-                local falloffProgress = math.min((hitDistance - falloffStart) / falloffRange, 1.0)
-                distanceMultiplier = 1.0 - (falloffProgress * 0.5)  -- Falls to 50% damage
+        if shield and shield.current > 0 then
+            -- Shield absorbed damage - create impact effect
+            local ShieldImpactSystem = ECS.getSystem("ShieldImpactSystem")
+            if ShieldImpactSystem and ShieldImpactSystem.createImpact then
+                ShieldImpactSystem.createImpact(closestIntersection.x, closestIntersection.y, hitShipId)
             end
 
-            -- Heat multiplier: damage increases from 1x at 0 heat to 2x at max heat
-            local heatMultiplier = 1.0
-            if turretComp and turretComp.heat then
-                local heatProgress = turretComp.heat / CombatLaser.MAX_HEAT
-                heatMultiplier = 1.0 + (heatProgress * 1.0)  -- Up to 2x damage
-            end
+            local remaining = shield.current - damage
+            shield.current = math.max(0, remaining)
+            damage = math.max(0, -remaining)
+            shield.regenTimer = shield.regenDelay or 0
+        end
 
-            -- Calculate final damage
-            local baseDamage = CombatLaser.DPS * dt
-            local finalDamage = baseDamage * distanceMultiplier * heatMultiplier
-            local damageApplied = math.min(finalDamage, hull.current)
+        if damage > 0 and hull then
+            local damageApplied = math.min(damage, hull.current)
             hull.current = hull.current - damageApplied
+
             -- Only grant XP if ship is destroyed this frame
             if hull.current <= 0 then
                 SkillXP.awardXp("combat")

@@ -74,8 +74,6 @@ function CombatAlertSystem.checkAndAlertEnemies(attackX, attackY, playerDroneId)
                 if not recentPlayerAttacks[enemyId] or (currentTime - recentPlayerAttacks[enemyId] > 5) then
                     ai.state = "chase"
                     recentPlayerAttacks[enemyId] = currentTime
-                    print(string.format("[CombatAlert] Enemy %d alerted to player attack at (%.0f, %.0f), %.0f units away", 
-                        enemyId, attackX, attackY, distToAttack))
                 end
             end
         end

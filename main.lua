@@ -6,6 +6,8 @@ local Core = require('src.core')
 local Scaling = require('src.scaling')
 local StartScreen = require('src.start_screen')
 local LoadingScreen = require('src.loading_screen')
+local TimeManager = require('src.time_manager')
+local Profiler = require('src.profiler')
 
 local gameState = "start" -- Possible values: "start", "loading", "game"
 local loadingTimer = 0
@@ -14,9 +16,44 @@ local loadingDuration = 0.8 -- seconds
 -- Love2D callback functions - delegate to core module
 
 function love.load()
-    love.window.setVSync(0)
+    -- Initialize time manager with unlocked FPS
+    TimeManager.init()
+    TimeManager.setTargetFps(nil)  -- nil = unlimited FPS
+    
     local Constants = require('src.constants')
-    love.window.setMode(Constants.screen_width, Constants.screen_height, {fullscreen = false, resizable = false})
+    love.window.setMode(Constants.screen_width, Constants.screen_height, {
+        fullscreen = false, 
+        resizable = false,
+        vsync = 0,  -- Force VSync OFF
+        borderless = true  -- Enable borderless windowed mode
+    })
+    
+    -- Verify VSync is off
+    print("=== Display Settings ===")
+    print("VSync enabled:", love.window.getVSync())
+    print("Display count:", love.window.getDisplayCount())
+    if love.window.getDisplayName then
+        local name = love.window.getDisplayName(1)
+        print("Primary display:", name)
+    end
+    -- Get desktop dimensions
+    local _, _, flags = love.window.getMode()
+    print("Window VSync flag:", flags.vsync or 0)
+
+    -- Check monitor refresh rate
+    local displayModes = love.window.getFullscreenModes(1)
+    if displayModes and #displayModes > 0 then
+        print("Available display modes:")
+        for i, mode in ipairs(displayModes) do
+            if i <= 3 then  -- Show first 3 modes
+                local refresh = mode.refreshrate or mode.refreshRate or "unknown"
+                print(string.format("  %dx%d @ %sHz", mode.width, mode.height, tostring(refresh)))
+            end
+        end
+    else
+        print("No display modes available")
+    end
+    
     Scaling.update()
     -- Only initialize game when leaving start screen
 end
@@ -31,7 +68,19 @@ function love.update(dt)
             gameState = "game"
         end
     elseif gameState == "game" then
-        Core.update(dt)
+        Profiler.start("update_total")
+        
+        -- Fixed timestep update
+        local updateCount, alpha = TimeManager.step(dt)
+        
+        -- Perform fixed timestep updates
+        Profiler.start("update_logic")
+        for i = 1, updateCount do
+            Core.update(TimeManager.getFixedDt())
+        end
+        Profiler.stop("update_logic")
+        
+        Profiler.stop("update_total")
     end
 end
 
@@ -42,7 +91,19 @@ function love.draw()
     elseif gameState == "loading" then
         LoadingScreen.draw()
     else
+        Profiler.start("draw_total")
         Core.draw()
+        Profiler.stop("draw_total")
+        Profiler.frame()
+        -- FPS cap enforcement (software sleep)
+        local fps = TimeManager.getTargetFps and TimeManager.getTargetFps() or nil
+        if fps and fps > 0 then
+            local frame_time = 1 / fps
+            local used_time = love.timer.getDelta()
+            if used_time < frame_time then
+                love.timer.sleep(frame_time - used_time)
+            end
+        end
     end
 end
 
@@ -53,6 +114,22 @@ function love.keypressed(key)
         if StartScreen.keypressed then StartScreen.keypressed(key) end
         return
     end
+    
+    -- Profiler controls (available anywhere)
+    if key == "f10" then
+        -- Toggle profiler
+        if Profiler.enabled then
+            Profiler.print()
+            Profiler.disable()
+            print("Profiler DISABLED")
+        else
+            Profiler.reset()
+            Profiler.enable()
+            print("Profiler ENABLED - Press F10 again to see results")
+        end
+        return
+    end
+    
     if key == "f9" then
         local ECS = require('src.ecs')
         ECS.debugCanvasEntities()

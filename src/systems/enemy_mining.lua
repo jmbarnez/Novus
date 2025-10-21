@@ -38,8 +38,6 @@ function EnemyMiningSystem.update(dt)
     -- Find all mining AI ships - use MiningAI component for reliable identification
     local minerEntities = ECS.getEntitiesWith({"AIController", "Position", "Velocity", "MiningAI"})
     
-    print("[EnemyMiningSystem] Found " .. #minerEntities .. " mining ships to process")
-    
     for _, minerId in ipairs(minerEntities) do
         local turret = ECS.getComponent(minerId, "Turret")
         local ai = ECS.getComponent(minerId, "AIController")

@@ -48,7 +48,6 @@ function AI.update(dt)
         -- Skip ALL AI processing for mining AI ships - they are handled by EnemyMiningSystem
         -- Check for MiningAI component FIRST to avoid any state changes
         if miningAI then
-            print("[AISystem] Skipping miner " .. eid .. " - has MiningAI component")
             goto continue
         end
 

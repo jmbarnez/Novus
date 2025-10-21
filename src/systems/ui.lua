@@ -12,6 +12,7 @@ local Dialogs = require('src.ui.dialogs')
 local Notifications = require('src.ui.notifications')
 local SkillNotifications = require('src.ui.skill_notifications')
 local Scaling = require('src.scaling')
+local SettingsWindow = require('src.ui.settings_window')
 -- Hotbar removed
 -- CargoWindow removed - now integrated into ShipWindow
 -- SkillsWindow removed - now a panel within ShipWindow
@@ -120,6 +121,14 @@ end, function(x, y, button)
     return true
 end)
 
+-- Register settings window
+UISystem.registerInteractive('settings_window', function(x, y, button)
+    return SettingsWindow.isOpen and SettingsWindow.position and x >= SettingsWindow.position.x and x <= SettingsWindow.position.x + SettingsWindow.width
+           and y >= SettingsWindow.position.y and y <= SettingsWindow.position.y + SettingsWindow.height
+end, function(x, y, button)
+    SettingsWindow:mousepressed(x, y, button)
+    return true
+end)
 
 -- Minimap input capture is now handled by HUD, but we still want UI to eat clicks over minimap
 local Minimap = require('src.systems.minimap')
@@ -161,7 +170,8 @@ function UISystem.draw(viewportWidth, viewportHeight)
     -- Draw windows in focus order (background to foreground)
     local windows = {
         map_window = MapWindow,
-        ship_window = ShipWindow
+        ship_window = ShipWindow,
+        settings_window = SettingsWindow
     }
 
     -- Draw windows in focus order (least focused first, most focused last)
@@ -254,13 +264,22 @@ end
 function UISystem.keypressed(key)
     -- Tab key is now handled in core.lua to toggle ShipWindow
     if key == 'escape' then
-        -- Close any open windows
+        if SettingsWindow:getOpen() then
+            SettingsWindow:setOpen(false)
+            return
+        end
         if ShipWindow:getOpen() then
             ShipWindow:setOpen(false)
+            return
         end
         if MapWindow:getOpen() then
             MapWindow:setOpen(false)
+            return
         end
+        -- If no windows open, open settings window
+        SettingsWindow:setOpen(true)
+        UISystem.setWindowFocus('settings_window')
+        return
     end
     if key == 'm' then
         MapWindow:toggle()
@@ -324,6 +343,17 @@ function UISystem.mousepressed(x, y, button)
         end
     end
 
+    -- Also pass to settings window if it's open
+    if SettingsWindow and SettingsWindow.isOpen and SettingsWindow.mousepressed then
+        local mx, my = Scaling.toUI(x, y)
+        if mx >= SettingsWindow.position.x and mx <= SettingsWindow.position.x + SettingsWindow.width and
+           my >= SettingsWindow.position.y and my <= SettingsWindow.position.y + SettingsWindow.height then
+            SettingsWindow:mousepressed(mx, my, button)
+            UISystem.setWindowFocus('settings_window')
+            return true
+        end
+    end
+
     -- If click is on the minimap, capture it so it doesn't pass to the world
     local Minimap = require('src.systems.minimap')
     if Minimap and Minimap.isPointOver then
@@ -367,6 +397,11 @@ function UISystem.mousereleased(x, y, button)
         end
     end
 
+    if SettingsWindow and SettingsWindow.isOpen and SettingsWindow.mousereleased then
+        local mx, my = Scaling.toUI(x, y)
+        SettingsWindow:mousereleased(mx, my, button)
+    end
+
     -- Release capture on mouse release (assumes left click)
     if button == 1 then
         UISystem.releaseMouse()
@@ -404,6 +439,11 @@ function UISystem.mousemoved(x, y, dx, dy, isTouch)
         if not inOrder then
             window:mousemoved(mx, my, dx, dy)
         end
+    end
+
+    if SettingsWindow and SettingsWindow.isOpen and SettingsWindow.mousemoved then
+        local mx, my = Scaling.toUI(x, y)
+        SettingsWindow:mousemoved(mx, my, dx, dy)
     end
 end
 
@@ -497,6 +537,23 @@ function UISystem.addSkillExperience(skillName, xpGain)
         levelUp = leveledUp
     }
     SkillNotifications.addNotification(skillName, xpGain, notifData)
+end
+
+-- Settings Window API
+function UISystem.setSettingsWindowOpen(state)
+    SettingsWindow:setOpen(state)
+    if state then
+        UISystem.setWindowFocus('settings_window')
+    end
+end
+function UISystem.toggleSettingsWindow()
+    SettingsWindow:toggle()
+    if SettingsWindow:getOpen() then
+        UISystem.setWindowFocus('settings_window')
+    end
+end
+function UISystem.isSettingsWindowOpen()
+    return SettingsWindow:getOpen()
 end
 
 return UISystem

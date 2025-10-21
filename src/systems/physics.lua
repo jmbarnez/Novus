@@ -48,7 +48,7 @@ local PhysicsSystem = {
             local proj = ECS.getComponent(entityId, "Projectile")
             if proj and velocity then
                 if velocity.vx ~= 0 or velocity.vy ~= 0 then
-                    print(string.format("[PhysicsSystem] Projectile %d moved to (%.2f, %.2f)", entityId, position.x, position.y))
+                    -- Projectile moved to new position
                 end
             end
             ::continue_entity::

@@ -31,7 +31,7 @@ function TurretSystem.fireTurret(entityId, targetX, targetY, dt)
 
     -- Do nothing if no module is fitted
     if not turret.moduleName or turret.moduleName == "" or turret.moduleName == "default" then
-        print("[TurretSystem] Turret fire blocked: no module installed")
+        -- Turret fire blocked: no module installed
         return
     end
 

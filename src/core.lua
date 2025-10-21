@@ -124,7 +124,7 @@ function Core.init()
         Systems.SoundSystem.loadAll("assets/sounds")
         -- Debug: list loaded sounds
         for k, _ in pairs(Systems.SoundSystem.sounds or {}) do
-            print("[Core] Sound available:", k)
+            -- Sound available: k
         end
         -- Fallback: ensure item_pickup is loaded (some environments may not list files)
         if not Systems.SoundSystem.sounds["item_pickup"] then
@@ -132,9 +132,9 @@ function Core.init()
             local ok, src = pcall(love.audio.newSource, pickupPath, "static")
             if ok and src then
                 Systems.SoundSystem.sounds["item_pickup"] = src
-                print("[Core] Manually loaded pickup sound from: " .. pickupPath)
+                -- Manually loaded pickup sound
             else
-                print("[Core] Failed to manually load pickup sound: " .. tostring(pickupPath))
+                -- Failed to manually load pickup sound
             end
         end
     end
@@ -336,13 +336,27 @@ end
 -- Main game render loop
 function Core.draw()
     love.graphics.clear(0, 0, 0)
+
     ECS.draw() -- Draw all world and UI systems
 end
 
 
 function Core.keypressed(key)
     if key == 'escape' then
-        love.event.quit()
+        -- If a window is currently open, let UISystem handle closing it first
+        if UISystem.isShipWindowOpen and UISystem.isShipWindowOpen() then
+            UISystem.setShipWindowOpen(false)
+            return
+        elseif UISystem.isMapWindowOpen and UISystem.isMapWindowOpen() then
+            UISystem.setMapWindowOpen(false)
+            return
+        elseif UISystem.isSettingsWindowOpen and UISystem.isSettingsWindowOpen() then
+            UISystem.setSettingsWindowOpen(false)
+            return
+        end
+        -- Otherwise, open the settings window
+        UISystem.toggleSettingsWindow()
+        return
     elseif key == 'tab' then
         UISystem.toggleShipWindow()
         return
@@ -352,6 +366,13 @@ function Core.keypressed(key)
             HUDSystem.toggle()
         end
         return
+    end
+    if UISystem.isSettingsWindowOpen and UISystem.isSettingsWindowOpen() then
+        -- forward key event directly to settings window
+        local SettingsWindow = require('src.ui.settings_window')
+        if SettingsWindow.keypressed then
+            SettingsWindow:keypressed(key)
+        end
     end
     UISystem.keypressed = UISystem.keypressed or function(_) end
     UISystem.keypressed(key)

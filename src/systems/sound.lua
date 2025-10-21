@@ -56,19 +56,14 @@ function SoundSystem.playMusic(path, opts)
         musicSource = nil
     end
     if love.filesystem.getInfo(path) then
-        print("[SoundSystem] Found music file: " .. tostring(path))
+        -- Debug: found music file
         local success, src = pcall(love.audio.newSource, path, "stream")
         if success and src then
-            print("[SoundSystem] Playing music: " .. tostring(path))
             musicSource = src
             musicSource:setLooping(true)
             if opts and opts.volume then musicSource:setVolume(opts.volume) end
             musicSource:play()
-        else
-            print("[SoundSystem] Failed to create music source for: " .. tostring(path))
         end
-    else
-        print("[SoundSystem] Music file not found: " .. tostring(path))
     end
 end
 

@@ -14,10 +14,10 @@ function ShipLoader.loadDesign(designId, filepath)
     local success, design = pcall(require, filepath)
     if success and design then
         ShipLoader.designs[designId] = design
-        print("[ShipLoader] Loaded ship design: " .. designId)
+        -- Loaded ship design
         return true
     else
-        print("[ShipLoader] Failed to load ship design: " .. designId .. " - " .. tostring(design))
+        -- Failed to load ship design
         return false
     end
 end
@@ -42,14 +42,14 @@ function ShipLoader.loadAllDesigns(directory)
         end
     end
     
-    print("[ShipLoader] Loaded " .. loadedCount .. " out of " .. #knownDesigns .. " ship designs")
+    -- Loaded ship designs
 end
 
 -- Create a ship entity from a design
 function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
     local design = ShipLoader.designs[designId]
     if not design then
-        print("[ShipLoader] Error: Unknown ship design: " .. tostring(designId))
+        -- Unknown ship design
         return nil
     end
     
@@ -125,7 +125,7 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
         if initialTurretModuleName and initialTurretModuleName ~= "" then
             local TurretSystem = require('src.systems.turret')
             if not TurretSystem.turretModules or not TurretSystem.turretModules[initialTurretModuleName] then
-                print(string.format("[ShipLoader] Warning: default turret module '%s' for design '%s' not found; clearing default", tostring(initialTurretModuleName), tostring(designId)))
+                -- Warning: default turret module not found; clearing default
                 initialTurretModuleName = nil
             end
         end
@@ -207,7 +207,7 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
         end
     end
     
-    print("[ShipLoader] Created ship: " .. design.name .. " (ID: " .. shipId .. ", Controller: " .. (controllerType or "none") .. ")")
+    -- Created ship
     return shipId
 end
 

@@ -89,9 +89,6 @@ function MissileLauncher.fire(ownerId, startX, startY, endX, endY)
             maxRange = MissileLauncher.RANGE,
             initialDirection = {x = dirX, y = dirY}
         })
-        print(string.format("[MissileLauncher] Fired homing missile targeting enemy %d", targetedEnemy))
-    else
-        print("[MissileLauncher] Fired unguided missile (no target lock)")
     end
 end
 

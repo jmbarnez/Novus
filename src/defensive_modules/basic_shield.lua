@@ -31,7 +31,7 @@ function BasicShield.equip(shipId)
         shield.regenRate = math.max(shield.regenRate, BasicShield.REGEN_RATE)
         shield.regenDelay = math.min(shield.regenDelay, BasicShield.REGEN_DELAY)
     end
-    print("[BasicShield] Equipped on ship " .. shipId)
+    -- Shield equipped
 end
 
 -- Called when module is unequipped
@@ -41,7 +41,7 @@ function BasicShield.unequip(shipId)
         -- For now, just remove it entirely
         ECS.removeComponent(shipId, "Shield")
     end
-    print("[BasicShield] Unequipped from ship " .. shipId)
+    -- Shield unequipped
 end
 
 return BasicShield

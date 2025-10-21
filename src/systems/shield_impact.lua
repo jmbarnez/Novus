@@ -71,7 +71,7 @@ local ShieldImpactSystem = {
                     local pulseIntensity = math.sin(progress * math.pi) * 0.5 -- Peaks in the middle
                     
                     -- Draw multiple arc segments to show the pulse spreading
-                    local numSegments = 64
+                    local numSegments = 16  -- Reduced from 64 to 16 for performance
                     for i = 0, numSegments do
                         local angle = (i / numSegments) * math.pi * 2
                         

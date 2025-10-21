@@ -28,7 +28,6 @@ function HomingMissileSystem.update(dt)
             if not targetPos then
                 -- Remove homing component, missile will continue straight
                 ECS.removeComponent(missileId, "HomingMissile")
-                print(string.format("[HomingMissile] Target %d lost, missile %d continues unguided", homing.targetId, missileId))
                 goto continue_homing
             end
         end
@@ -43,7 +42,6 @@ function HomingMissileSystem.update(dt)
             if distToTarget > homing.maxRange then
                 -- Target too far, stop homing
                 ECS.removeComponent(missileId, "HomingMissile")
-                print(string.format("[HomingMissile] Target out of range, missile %d continues unguided", missileId))
                 goto continue_homing
             end
 

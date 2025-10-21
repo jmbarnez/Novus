@@ -33,8 +33,7 @@ function TurretEffectsSystem.createEffect(effectType, x, y, radius, duration, co
         active = true,
     })
     
-    print(string.format("[TurretEffects] Created %s effect at (%.2f, %.2f) | radius: %.1f | duration: %.2fs", 
-        effectType, x, y, radius, duration))
+    -- Created turret effect
     
     return effectId
 end
