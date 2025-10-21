@@ -32,7 +32,7 @@ return {
     
     -- AI settings (only used when AI-controlled)
     aiType = "patrol",
-    patrolPoints = {{x=0,y=0}},  -- Will patrol around spawn location
+    patrolPoints = {},  -- Empty patrol points - AI will wander randomly
     detectionRange = 400,
     engageRange = 240,
     patrolSpeed = 60

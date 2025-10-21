@@ -178,20 +178,21 @@ function MapWindow:draw(viewportWidth, viewportHeight)
         end
     end
 
-    -- Draw close/reset controls
+    -- Draw close button
     self:drawCloseButton(x, y, alpha)
-    -- Reset button
-    local btnW, btnH = 70, 20
-    local btnX = x + 8
-    local btnY = y + 6
+
+    -- Reset button (bottom center of map)
+    local btnSize = 30
+    local btnX = mapX + mapW / 2 - btnSize / 2
+    local btnY = mapY + mapH - btnSize - 10  -- 10 pixels padding from bottom
     love.graphics.setColor(Theme.colors.bgLight[1], Theme.colors.bgLight[2], Theme.colors.bgLight[3], alpha)
-    love.graphics.rectangle('fill', btnX, btnY, btnW, btnH, 4, 4)
+    love.graphics.rectangle('fill', btnX, btnY, btnSize, btnSize, 4, 4)
     love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], alpha)
-    love.graphics.rectangle('line', btnX, btnY, btnW, btnH, 4, 4)
+    love.graphics.rectangle('line', btnX, btnY, btnSize, btnSize, 4, 4)
     love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-    love.graphics.printf('Reset View', btnX, btnY + 3, btnW, 'center')
-    self.resetButtonRect = {x = btnX, y = btnY, w = btnW, h = btnH}
+    love.graphics.setFont(Theme.getFontBold(Theme.fonts.normal))
+    love.graphics.printf('R', btnX, btnY + 6, btnSize, 'center')
+    self.resetButtonRect = {x = btnX, y = btnY, w = btnSize, h = btnSize}
 
     -- Title text
     love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)

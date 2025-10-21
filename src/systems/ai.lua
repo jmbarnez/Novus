@@ -44,6 +44,7 @@ function AI.update(dt)
         local combatAI = ECS.getComponent(eid, "CombatAI")
         if not (ai and pos and vel) then goto continue end
 
+
         -- Skip ALL AI processing for mining AI ships - they are handled by EnemyMiningSystem
         -- Check for MiningAI component FIRST to avoid any state changes
         if miningAI then
@@ -83,7 +84,7 @@ function AI.update(dt)
                 effectiveDetectionRadius = math.max(effectiveDetectionRadius or 0, moduleBasedRadius)
             end
             local detectionRadiusSq = (effectiveDetectionRadius * effectiveDetectionRadius)
-            
+
             if dsq < detectionRadiusSq then
                 -- Player detected - determine best behavior based on distance
                 if dist < fireRange * 0.8 then

@@ -7,6 +7,8 @@ local Constants = require('src.constants')
 local Theme = require('src.ui.theme')
 local CargoWindow = require('src.ui.cargo_window')
 local MapWindow = require('src.ui.map_window')
+local SkillsWindow = require('src.ui.skills_window')
+local ShipWindow = require('src.ui.ship_window')
 local Tooltips = require('src.ui.tooltips')
 local Dialogs = require('src.ui.dialogs')
 local Notifications = require('src.ui.notifications')
@@ -33,6 +35,32 @@ end
 
 function UISystem.isMouseCaptured()
     return mouseCaptured
+end
+
+-- Window focus management
+local focusedWindow = nil
+local windowOrder = {} -- Array of window names in focus order (last focused is at the end)
+
+function UISystem.setWindowFocus(windowName)
+    if focusedWindow ~= windowName then
+        focusedWindow = windowName
+        -- Move this window to the end of the order (top)
+        for i, name in ipairs(windowOrder) do
+            if name == windowName then
+                table.remove(windowOrder, i)
+                break
+            end
+        end
+        table.insert(windowOrder, windowName)
+    end
+end
+
+function UISystem.getFocusedWindow()
+    return focusedWindow
+end
+
+function UISystem.getWindowOrder()
+    return windowOrder
 end
 
 -- Interactive registry for UI elements that should capture pointer input
@@ -70,25 +98,12 @@ end, function(x, y, button)
     return Dialogs.handleConfirmDialogClick(x, y, button)
 end)
 
--- Context menu
-UISystem.registerInteractive('context_menu', function(x, y, button)
-    return Dialogs.contextMenu ~= nil and Dialogs.contextMenu.displayX and Dialogs.contextMenu.displayY and
-           x >= (Dialogs.contextMenu.displayX or Dialogs.contextMenu.x) and x <= (Dialogs.contextMenu.displayX or Dialogs.contextMenu.x) + 100 and
-           y >= (Dialogs.contextMenu.displayY or Dialogs.contextMenu.y) and y <= (Dialogs.contextMenu.displayY or Dialogs.contextMenu.y) + 28
-end, function(x, y, button)
-    return Dialogs.handleContextMenuClick(x, y, button)
-end)
 
 -- Cargo window
 UISystem.registerInteractive('cargo_window', function(x, y, button)
     return CargoWindow.isOpen and CargoWindow.position and x >= CargoWindow.position.x and x <= CargoWindow.position.x + CargoWindow.width
            and y >= CargoWindow.position.y and y <= CargoWindow.position.y + CargoWindow.height
 end, function(x, y, button)
-    -- Right-click to open context menu if hovering an item
-    if button == 2 and CargoWindow.hoveredItemSlot then
-        Dialogs.contextMenu = {itemId = CargoWindow.hoveredItemSlot.itemId, x = x, y = y}
-        return true
-    end
     CargoWindow:mousepressed(x, y, button)
     return true
 end)
@@ -100,6 +115,24 @@ UISystem.registerInteractive('map_window', function(x, y, button)
 end, function(x, y, button)
     -- Map window captures input (no context menu for now)
     MapWindow:mousepressed(x, y, button)
+    return true
+end)
+
+-- Skills window
+UISystem.registerInteractive('skills_window', function(x, y, button)
+    return SkillsWindow.isOpen and SkillsWindow.position and x >= SkillsWindow.position.x and x <= SkillsWindow.position.x + SkillsWindow.width
+           and y >= SkillsWindow.position.y and y <= SkillsWindow.position.y + SkillsWindow.height
+end, function(x, y, button)
+    SkillsWindow:mousepressed(x, y, button)
+    return true
+end)
+
+-- Ship window
+UISystem.registerInteractive('ship_window', function(x, y, button)
+    return ShipWindow.isOpen and ShipWindow.position and x >= ShipWindow.position.x and x <= ShipWindow.position.x + ShipWindow.width
+           and y >= ShipWindow.position.y and y <= ShipWindow.position.y + ShipWindow.height
+end, function(x, y, button)
+    ShipWindow:mousepressed(x, y, button)
     return true
 end)
 
@@ -141,23 +174,43 @@ function UISystem.draw(viewportWidth, viewportHeight)
     -- Draw skill notifications (in screen space)
     SkillNotifications.draw()
     
-    -- Draw cargo window and related UI
-    CargoWindow:draw(viewportWidth, viewportHeight)
-    -- Draw map window if open
-    MapWindow:draw(viewportWidth, viewportHeight)
+    -- Draw windows in focus order (background to foreground)
+    local windows = {
+        cargo_window = CargoWindow,
+        map_window = MapWindow,
+        skills_window = SkillsWindow,
+        ship_window = ShipWindow
+    }
+
+    -- Draw windows in focus order (least focused first, most focused last)
+    for _, windowName in ipairs(windowOrder) do
+        local window = windows[windowName]
+        if window then
+            window:draw(viewportWidth, viewportHeight)
+        end
+    end
+
+    -- Draw any windows not yet in the order (newly opened windows)
+    for windowName, window in pairs(windows) do
+        local inOrder = false
+        for _, orderedName in ipairs(windowOrder) do
+            if orderedName == windowName then
+                inOrder = true
+                break
+            end
+        end
+        if not inOrder then
+            window:draw(viewportWidth, viewportHeight)
+        end
+    end
     
     -- Draw confirmation dialog if active (highest priority)
     if Dialogs.confirmDialog then
         Dialogs.drawConfirmDialog()
     end
     
-    -- Draw context menu if active
-    if Dialogs.contextMenu then
-        Dialogs.drawContextMenu(Dialogs.contextMenu.x, Dialogs.contextMenu.y)
-    end
-    
     -- Draw tooltip if hovering over item and no menus are open
-    if CargoWindow.isOpen and CargoWindow.hoveredItemSlot and not Dialogs.contextMenu and not Dialogs.confirmDialog then
+    if CargoWindow.isOpen and CargoWindow.hoveredItemSlot and not Dialogs.confirmDialog then
         Tooltips.drawItemTooltip(
             CargoWindow.hoveredItemSlot.itemId,
             CargoWindow.hoveredItemSlot.itemDef,
@@ -166,9 +219,9 @@ function UISystem.draw(viewportWidth, viewportHeight)
             CargoWindow.hoveredItemSlot.mouseY
         )
     end
-    
+
     -- Draw tooltip for turret slot
-    if CargoWindow.isOpen and CargoWindow.hoveredTurretSlot and not Dialogs.contextMenu and not Dialogs.confirmDialog then
+    if CargoWindow.isOpen and CargoWindow.hoveredTurretSlot and not Dialogs.confirmDialog then
         Tooltips.drawItemTooltip(
             CargoWindow.hoveredTurretSlot.itemId,
             CargoWindow.hoveredTurretSlot.itemDef,
@@ -177,6 +230,30 @@ function UISystem.draw(viewportWidth, viewportHeight)
             CargoWindow.hoveredTurretSlot.mouseY
         )
         -- Not handled by UI
+        return false
+    end
+
+    -- Draw tooltip for ship window turret slot
+    if ShipWindow.isOpen and ShipWindow.hoveredTurretSlot and not Dialogs.confirmDialog then
+        Tooltips.drawItemTooltip(
+            ShipWindow.hoveredTurretSlot.itemId,
+            ShipWindow.hoveredTurretSlot.itemDef,
+            ShipWindow.hoveredTurretSlot.count,
+            ShipWindow.hoveredTurretSlot.mouseX,
+            ShipWindow.hoveredTurretSlot.mouseY
+        )
+        return false
+    end
+
+    -- Draw tooltip for ship window defensive slot
+    if ShipWindow.isOpen and ShipWindow.hoveredDefensiveSlot and not Dialogs.confirmDialog then
+        Tooltips.drawItemTooltip(
+            ShipWindow.hoveredDefensiveSlot.itemId,
+            ShipWindow.hoveredDefensiveSlot.itemDef,
+            ShipWindow.hoveredDefensiveSlot.count,
+            ShipWindow.hoveredDefensiveSlot.mouseX,
+            ShipWindow.hoveredDefensiveSlot.mouseY
+        )
         return false
     end
     return false
@@ -193,9 +270,27 @@ end
 function UISystem.keypressed(key)
     if key == 'tab' or key == 'escape' then
         CargoWindow:toggle()
+        if CargoWindow:getOpen() then
+            UISystem.setWindowFocus('cargo_window')
+        end
     end
     if key == 'm' then
         MapWindow:toggle()
+        if MapWindow:getOpen() then
+            UISystem.setWindowFocus('map_window')
+        end
+    end
+    if key == 'v' then
+        SkillsWindow:toggle()
+        if SkillsWindow:getOpen() then
+            UISystem.setWindowFocus('skills_window')
+        end
+    end
+    if key == 'g' then
+        ShipWindow:toggle()
+        if ShipWindow:getOpen() then
+            UISystem.setWindowFocus('ship_window')
+        end
     end
 end
 
@@ -203,16 +298,52 @@ end
 function UISystem.mousepressed(x, y, button)
     -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale)
     local mx, my = Scaling.toUI(x, y)
-    
-    -- Let registered interactive elements handle the click in registration order
-    for _, name in ipairs(interactiveOrder) do
-        local entry = interactiveMap[name]
+
+    -- Check focused window first (if it exists and is open)
+    if focusedWindow and interactiveMap[focusedWindow] then
+        local entry = interactiveMap[focusedWindow]
         if entry and entry.hit and entry.hit(mx, my, button) then
             local handled = false
             if entry.handler then handled = entry.handler(mx, my, button) end
             if handled then
+                -- Keep the focused window focused
                 UISystem.captureMouse()
                 return true
+            end
+        end
+    end
+
+    -- Check other windows in focus order (most recently focused first)
+    for i = #windowOrder, 1, -1 do
+        local name = windowOrder[i]
+        -- Skip the focused window since we already checked it
+        if name ~= focusedWindow and interactiveMap[name] then
+            local entry = interactiveMap[name]
+            if entry and entry.hit and entry.hit(mx, my, button) then
+                -- Set this window as focused when clicked
+                UISystem.setWindowFocus(name)
+                local handled = false
+                if entry.handler then handled = entry.handler(mx, my, button) end
+                if handled then
+                    UISystem.captureMouse()
+                    return true
+                end
+            end
+        end
+    end
+
+    -- Check remaining interactive elements (non-windows) in registration order
+    for _, name in ipairs(interactiveOrder) do
+        -- Skip windows since we already handled them above
+        if not (name == 'cargo_window' or name == 'map_window' or name == 'skills_window' or name == 'ship_window') then
+            local entry = interactiveMap[name]
+            if entry and entry.hit and entry.hit(mx, my, button) then
+                local handled = false
+                if entry.handler then handled = entry.handler(mx, my, button) end
+                if handled then
+                    UISystem.captureMouse()
+                    return true
+                end
             end
         end
     end
@@ -231,9 +362,37 @@ end
 function UISystem.mousereleased(x, y, button)
     -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale)
     local mx, my = Scaling.toUI(x, y)
-    CargoWindow:mousereleased(mx, my, button)
-    -- Forward to map window as well
-    MapWindow:mousereleased(mx, my, button)
+
+    -- Forward to windows in focus order (most focused first)
+    local windows = {
+        cargo_window = CargoWindow,
+        map_window = MapWindow,
+        skills_window = SkillsWindow,
+        ship_window = ShipWindow
+    }
+
+    for i = #windowOrder, 1, -1 do
+        local windowName = windowOrder[i]
+        local window = windows[windowName]
+        if window then
+            window:mousereleased(mx, my, button)
+        end
+    end
+
+    -- Forward to any windows not in the order
+    for windowName, window in pairs(windows) do
+        local inOrder = false
+        for _, orderedName in ipairs(windowOrder) do
+            if orderedName == windowName then
+                inOrder = true
+                break
+            end
+        end
+        if not inOrder then
+            window:mousereleased(mx, my, button)
+        end
+    end
+
     -- Release capture on mouse release (assumes left click)
     if button == 1 then
         UISystem.releaseMouse()
@@ -244,21 +403,109 @@ end
 function UISystem.mousemoved(x, y, dx, dy, isTouch)
     -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale)
     local mx, my = Scaling.toUI(x, y)
-    CargoWindow:mousemoved(mx, my, dx, dy)
-    MapWindow:mousemoved(mx, my, dx, dy)
+
+    -- Forward to windows in focus order (most focused first)
+    local windows = {
+        cargo_window = CargoWindow,
+        map_window = MapWindow,
+        skills_window = SkillsWindow,
+        ship_window = ShipWindow
+    }
+
+    for i = #windowOrder, 1, -1 do
+        local windowName = windowOrder[i]
+        local window = windows[windowName]
+        if window then
+            window:mousemoved(mx, my, dx, dy)
+        end
+    end
+
+    -- Forward to any windows not in the order
+    for windowName, window in pairs(windows) do
+        local inOrder = false
+        for _, orderedName in ipairs(windowOrder) do
+            if orderedName == windowName then
+                inOrder = true
+                break
+            end
+        end
+        if not inOrder then
+            window:mousemoved(mx, my, dx, dy)
+        end
+    end
 end
 
 -- Public API functions
 function UISystem.setCargoWindowOpen(state)
     CargoWindow:setOpen(state)
+    if state then
+        UISystem.setWindowFocus('cargo_window')
+    end
 end
 
 function UISystem.toggleCargoWindow()
     CargoWindow:toggle()
+    if CargoWindow:getOpen() then
+        UISystem.setWindowFocus('cargo_window')
+    end
 end
 
 function UISystem.isCargoWindowOpen()
     return CargoWindow:getOpen()
+end
+
+function UISystem.setMapWindowOpen(state)
+    MapWindow:setOpen(state)
+    if state then
+        UISystem.setWindowFocus('map_window')
+    end
+end
+
+function UISystem.toggleMapWindow()
+    MapWindow:toggle()
+    if MapWindow:getOpen() then
+        UISystem.setWindowFocus('map_window')
+    end
+end
+
+function UISystem.isMapWindowOpen()
+    return MapWindow:getOpen()
+end
+
+function UISystem.setSkillsWindowOpen(state)
+    SkillsWindow:setOpen(state)
+    if state then
+        UISystem.setWindowFocus('skills_window')
+    end
+end
+
+function UISystem.toggleSkillsWindow()
+    SkillsWindow:toggle()
+    if SkillsWindow:getOpen() then
+        UISystem.setWindowFocus('skills_window')
+    end
+end
+
+function UISystem.isSkillsWindowOpen()
+    return SkillsWindow:getOpen()
+end
+
+function UISystem.setShipWindowOpen(state)
+    ShipWindow:setOpen(state)
+    if state then
+        UISystem.setWindowFocus('ship_window')
+    end
+end
+
+function UISystem.toggleShipWindow()
+    ShipWindow:toggle()
+    if ShipWindow:getOpen() then
+        UISystem.setWindowFocus('ship_window')
+    end
+end
+
+function UISystem.isShipWindowOpen()
+    return ShipWindow:getOpen()
 end
 
 -- Public API for adding skill experience

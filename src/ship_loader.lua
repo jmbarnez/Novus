@@ -179,9 +179,16 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
     elseif controllerType == "ai" then
         -- AI-controlled ship
         if design.aiType then
+            -- Create patrol points relative to spawn position instead of absolute coordinates
+            local relativePatrolPoints = {}
+            local basePatrolPoints = design.patrolPoints or {{x=0,y=0}}
+            for _, point in ipairs(basePatrolPoints) do
+                table.insert(relativePatrolPoints, {x = x + point.x, y = y + point.y})
+            end
+
             ECS.addComponent(shipId, "AIController", Components.AIController(
                 design.aiType or "patrol",
-                design.patrolPoints or {{x=0,y=0}},
+                relativePatrolPoints,
                 design.patrolSpeed or 60,
                 design.detectionRange or 400,
                 design.engageRange or 240

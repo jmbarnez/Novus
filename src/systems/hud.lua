@@ -81,47 +81,41 @@ local function drawHullShieldBar(viewportWidth, viewportHeight)
     end
 end
 
-local function drawMagneticFieldStatus(viewportWidth, viewportHeight)
-    local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-    if #playerEntities == 0 then return end
-    local pilotId = playerEntities[1]
-    local input = ECS.getComponent(pilotId, "InputControlled")
-    if not input or not input.targetEntity then return end
-    
-    local droneId = input.targetEntity
-    local magneticField = ECS.getComponent(droneId, "MagneticField")
-    if not magneticField then return end
-    
-    -- Position next to turret slots, under health bar
-    local indicatorSize = Scaling.scaleSize(32)
-    local startX = Scaling.scaleX(20) + Scaling.scaleSize(48) * 3 + Scaling.scaleSize(8) * 3 + Scaling.scaleSize(16) -- After 3 turret slots
-    local startY = Scaling.scaleY(20) + Scaling.scaleSize(Constants.ui_health_bar_height) + Scaling.scaleY(12)
-    
-    -- Draw indicator background
-    local bgColor = magneticField.active and {0.1, 0.3, 0.1, 0.9} or {0.3, 0.1, 0.1, 0.9}
-    love.graphics.setColor(bgColor[1], bgColor[2], bgColor[3], bgColor[4])
-    love.graphics.rectangle("fill", startX, startY, indicatorSize, indicatorSize, 4, 4)
-    
-    -- Draw indicator border
-    local borderColor = magneticField.active and {0.2, 0.8, 0.2, 1.0} or {0.8, 0.2, 0.2, 1.0}
-    love.graphics.setColor(borderColor[1], borderColor[2], borderColor[3], borderColor[4])
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", startX, startY, indicatorSize, indicatorSize, 4, 4)
+
+local function drawHotkeyOverlay(viewportWidth, viewportHeight)
+    -- Draw hotkey overlay in bottom left
+    local x = Scaling.scaleX(20)
+    local y = viewportHeight - Scaling.scaleY(150)  -- Position from bottom (adjusted for taller overlay)
+
+    -- Background
+    love.graphics.setColor(0, 0, 0, 0.7)
+    local overlayWidth = Scaling.scaleSize(200)
+    local overlayHeight = Scaling.scaleSize(140)  -- Increased for 6 lines instead of 4
+    love.graphics.rectangle("fill", x - 10, y - 10, overlayWidth, overlayHeight, 4, 4)
+
+    -- Border
+    love.graphics.setColor(0.3, 0.3, 0.3, 0.8)
     love.graphics.setLineWidth(1)
-    
-    -- Draw magnetic field icon (M symbol)
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-    local text = magneticField.active and "M" or "M"
-    local textWidth = Theme.getFont(Theme.fonts.small):getWidth(text)
-    local textHeight = Theme.getFont(Theme.fonts.small):getHeight()
-    love.graphics.printf(text, startX, startY + (indicatorSize - textHeight) / 2, indicatorSize, "center")
-    
-    -- Draw status text below indicator
+    love.graphics.rectangle("line", x - 10, y - 10, overlayWidth, overlayHeight, 4, 4)
+
+    -- Hotkey text
     love.graphics.setColor(Theme.colors.textPrimary)
     love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
-    local statusText = magneticField.active and "ON" or "OFF"
-    love.graphics.printf(statusText, startX, startY + indicatorSize + 2, indicatorSize, "center")
+
+    local lineHeight = 14
+    local currentY = y
+
+    love.graphics.print("WASD: Move", x, currentY)
+    currentY = currentY + lineHeight
+    love.graphics.print("TAB: Cargo Window", x, currentY)
+    currentY = currentY + lineHeight
+    love.graphics.print("V: Skills Window", x, currentY)
+    currentY = currentY + lineHeight
+    love.graphics.print("G: Ship Window", x, currentY)
+    currentY = currentY + lineHeight
+    love.graphics.print("F5: Toggle HUD", x, currentY)
+    currentY = currentY + lineHeight
+    love.graphics.print("ESC: Quit", x, currentY)
 end
 
 local function drawTurretSlots(viewportWidth, viewportHeight)
@@ -271,12 +265,15 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     end
     drawSpeedText(viewportWidth, viewportHeight)
 
+    -- Draw hotkey overlay
+    drawHotkeyOverlay(viewportWidth, viewportHeight)
+
     -- Draw notifications and experience pop-ups as part of HUD
     local Notifications = require('src.ui.notifications')
     local SkillNotifications = require('src.ui.skill_notifications')
     Notifications.draw(0, 0, 1)
     SkillNotifications.draw()
-    
+
     -- Draw turret slot tooltip if hovering
     local slot = HUDSystem.hoveredTurretSlot
     if slot and type(slot) == "table" and slot.itemId and slot.itemDef and slot.mouseX and slot.mouseY then

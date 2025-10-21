@@ -199,7 +199,6 @@ end
 
 function InputSystem.keypressed(key)
     -- Tab key handling will be done in core.lua to avoid circular dependency
-    -- Removed E key logic for magnetic field toggle
 end
 
 function InputSystem.keyreleased(key)

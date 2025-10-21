@@ -288,7 +288,7 @@ function Core.init()
     print("Asteroid field spawned: 150 asteroids in thick band across world")
     print("Enemy ships spawned: 5 mining lasers + 10 cannons = 15 total enemies distributed across the map")
     print("Collector scouts spawned: 3 autonomous bit collectors with magnetic fields")
-    print("Player controls: WASD for thrust, E to toggle collection, ESC to quit")
+    print("Player controls: WASD for thrust, ESC to quit")
 end
 
 -- Main game update loop
