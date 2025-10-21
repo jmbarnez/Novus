@@ -295,11 +295,24 @@ function SettingsWindow:initialize()
     -- Mode Dropdown
     self.modeDropdown = Dropdown:new(self.modes, self:currentModeIndex(), x, y + 60, dropdownWidth, function(idx, val)
         if idx == 1 then
+            -- Windowed: restore a sane default windowed resolution
             love.window.setMode(1920, 1080, {fullscreen = false, borderless = false})
+            -- Ensure vsync is enabled for stable presentation by default
+            if love.window.setVSync then pcall(love.window.setVSync, 1) end
         elseif idx == 2 then
-            love.window.setMode(love.graphics.getWidth(), love.graphics.getHeight(), {fullscreen = false, borderless = true})
+            -- Borderless: set to desktop resolution and borderless to avoid mode-switch flashes
+            local ok, dw, dh = pcall(love.window.getDesktopDimensions)
+            if ok and dw and dh and dw > 0 then
+                love.window.setMode(dw, dh, {fullscreen = false, borderless = true})
+            else
+                -- Fallback to current size
+                love.window.setMode(love.graphics.getWidth(), love.graphics.getHeight(), {fullscreen = false, borderless = true})
+            end
+            if love.window.setVSync then pcall(love.window.setVSync, 1) end
         elseif idx == 3 then
-            love.window.setMode(0, 0, {fullscreen = true})
+            -- Fullscreen: use desktop/fullscreen desktop type to avoid exclusive mode flicker
+            love.window.setMode(0, 0, {fullscreen = true, fullscreentype = "desktop"})
+            if love.window.setVSync then pcall(love.window.setVSync, 1) end
         end
         self:saveSettingsSnapshot()
     end)

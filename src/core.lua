@@ -153,8 +153,21 @@ function Core.init()
 
     -- Create Camera Entity
     local cameraId = ECS.createEntity()
-    ECS.addComponent(cameraId, "Position", Components.Position(-1500, 0))
-    ECS.addComponent(cameraId, "Camera", Components.Camera(Constants.screen_width, Constants.screen_height))
+    -- Create camera component first so we can read width/zoom when calculating initial position
+    local cameraComp = Components.Camera(Constants.screen_width, Constants.screen_height)
+    ECS.addComponent(cameraId, "Camera", cameraComp)
+    -- Try to center camera on the player's ship if it exists so the camera doesn't "slide" on first frames
+    local initialCamX, initialCamY = -1500, 0
+    local controlledShips = ECS.getEntitiesWith({"ControlledBy"})
+    if #controlledShips > 0 then
+        local playerShipId = controlledShips[1]
+        local playerPos = ECS.getComponent(playerShipId, "Position")
+        if playerPos then
+            initialCamX = playerPos.x - (cameraComp.width / (cameraComp.zoom or 1)) / 2
+            initialCamY = playerPos.y - (cameraComp.height / (cameraComp.zoom or 1)) / 2
+        end
+    end
+    ECS.addComponent(cameraId, "Position", Components.Position(initialCamX, initialCamY))
 
     -- Create UI Entity
     local uiId = ECS.createEntity()

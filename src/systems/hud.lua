@@ -8,7 +8,7 @@ local Scaling = require('src.scaling')
 local Tooltips = require('src.ui.tooltips')
 local TurretSystem = require('src.systems.turret')
 local TimeManager = require('src.time_manager')
-local HotkeyConfig = require('src.hotkey_config')
+-- Hotkey overlay removed from HUD (handled in settings/window only)
 
 local HUDSystem = {
     name = "HUDSystem",
@@ -213,76 +213,38 @@ local function drawHullShieldBar(viewportWidth, viewportHeight)
     local hull = ECS.getComponent(input.targetEntity, "Hull")
     local shield = ECS.getComponent(input.targetEntity, "Shield")
     if not hull then return end
-
     local barWidth = Scaling.scaleSize(Constants.ui_health_bar_width)
     local barHeight = Scaling.scaleSize(Constants.ui_health_bar_height)
-    local x = Scaling.scaleX(20)
-    local y = Scaling.scaleY(20)
-    local skew = Scaling.scaleSize(15)  -- Skew amount for parallelogram effect
+    -- Position slightly inset from top-left corner for a sleek look
+    local padding = Scaling.scaleSize(12)
+    local x = Scaling.scaleX(padding)
+    local y = Scaling.scaleY(padding)
 
-    -- Background parallelogram
-    love.graphics.setColor(0.1, 0.1, 0.1, 0.7)
-    love.graphics.polygon("fill", 
-        x, y, 
-        x + barWidth + skew, y, 
-        x + barWidth, y + barHeight, 
-        x - skew, y + barHeight
-    )
+    -- Background rectangle (dark)
+    love.graphics.setColor(0.06, 0.06, 0.06, 0.9)
+    love.graphics.rectangle("fill", x, y, barWidth, barHeight, 4, 4)
 
-    -- Hull fill parallelogram
+    -- Hull fill (red)
     local hullRatio = math.min((hull.current or 0) / hull.max, 1.0)
-    local fillWidth = barWidth * hullRatio
-    love.graphics.setColor(1.0, 0.2, 0.2, 0.9)
-    love.graphics.polygon("fill", 
-        x, y, 
-        x + fillWidth + skew, y, 
-        x + fillWidth, y + barHeight, 
-        x - skew, y + barHeight
-    )
+    local fillWidth = math.floor(barWidth * hullRatio)
+    love.graphics.setColor(1.0, 0.2, 0.2, 0.95)
+    love.graphics.rectangle("fill", x + 1, y + 1, math.max(0, fillWidth - 2), barHeight - 2, 3, 3)
 
     -- Shield overlay (if present) - draw on top of hull as blue overlay
     if shield and shield.max > 0 then
         local sRatio = math.min((shield.current or 0) / shield.max, 1.0)
-        local sFill = barWidth * sRatio
-        love.graphics.setColor(0.2, 0.6, 1, 1.0)  -- Solid blue
-        love.graphics.polygon("fill", x, y, x + sFill + skew, y, x + sFill, y + barHeight, x - skew, y + barHeight)
+        local sFill = math.floor(barWidth * sRatio)
+        love.graphics.setColor(0.18, 0.65, 1, 0.95)
+        love.graphics.rectangle("fill", x + 1, y + 1, math.max(0, sFill - 2), barHeight - 2, 3, 3)
     end
-end
 
-
-local function drawHotkeyOverlay(viewportWidth, viewportHeight)
-    -- Draw hotkey overlay in bottom left
-    local x = Scaling.scaleX(20)
-    local y = viewportHeight - Scaling.scaleY(200)  -- Position from bottom (moved up a bit)
-
-    -- Get hotkeys from configuration
-    local hotkeys = HotkeyConfig.getAllHotkeys()
-    
-    -- Background
-    love.graphics.setColor(0, 0, 0, 0.7)
-    local overlayWidth = Scaling.scaleSize(240)
-    local overlayHeight = Scaling.scaleSize(#hotkeys * 14 + 20)  -- Dynamic height based on hotkey count
-    love.graphics.rectangle("fill", x - 10, y - 10, overlayWidth, overlayHeight, 4, 4)
-
-    -- Border
-    love.graphics.setColor(0.3, 0.3, 0.3, 0.8)
+    -- Sleek black border (1px)
+    love.graphics.setColor(0, 0, 0, 1)
     love.graphics.setLineWidth(1)
-    love.graphics.rectangle("line", x - 10, y - 10, overlayWidth, overlayHeight, 4, 4)
-
-    -- Hotkey text
-    love.graphics.setColor(Theme.colors.textPrimary)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
-
-    local lineHeight = 14
-    local currentY = y
-
-    -- Draw configurable hotkeys
-    for i, hotkey in ipairs(hotkeys) do
-        local displayText = HotkeyConfig.getDisplayText(hotkey.action)
-        love.graphics.print(displayText, x, currentY)
-        currentY = currentY + lineHeight
-    end
+    love.graphics.rectangle("line", x + 0.5, y + 0.5, barWidth - 1, barHeight - 1, 4, 4)
 end
+
+
 
 -- Canvas caching for turret slots
 local turretSlotsCanvas, turretSlotsCanvasW, turretSlotsCanvasH, lastTurretSlotsFrame = nil, nil, nil, nil
@@ -483,7 +445,7 @@ local function drawHudCanvasContents(viewportWidth, viewportHeight)
     if Minimap and Minimap.draw then Minimap.draw() end
     drawSpeedText(viewportWidth, viewportHeight)
     drawFpsCounter(viewportWidth, viewportHeight)
-    drawHotkeyOverlay(viewportWidth, viewportHeight)
+    -- Hotkey overlay removed
     -- Notifications & skills (drawn every other frame for fade)
     local frameSkip = math.floor(love.timer.getTime() * 30)
     if frameSkip % 2 == 0 then
