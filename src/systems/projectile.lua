@@ -25,17 +25,49 @@ function ProjectileSystem.update(dt)
             goto continue_projectile
         end
 
-        -- Wreckage damage: only salvage lasers (handled in module)
+        -- Asteroid collision: all non-laser projectiles bounce or break on asteroids
+        for _, asteroidId in ipairs(asteroids) do
+            local asteroidPos = ECS.getComponent(asteroidId, "Position")
+            local asteroidColl = ECS.getComponent(asteroidId, "Collidable")
+            if not (asteroidPos and asteroidColl) then goto continue_asteroid end
+            
+            local dx = asteroidPos.x - projPos.x
+            local dy = asteroidPos.y - projPos.y
+            local distSq = dx * dx + dy * dy
+            local radii = asteroidColl.radius + projColl.radius
+            
+            if distSq < radii * radii then
+                -- Don't let projectiles pass through asteroids
+                if projectile and projectile.brittle then
+                    -- Brittle projectiles (cannon balls) shatter
+                    local projDur = ECS.getComponent(projId, "Durability")
+                    if projDur then projDur.current = 0 end
+                end
+                -- Non-brittle projectiles (missiles) also destroy on impact
+                if projectile and projectile.isMissile then
+                    local projDur = ECS.getComponent(projId, "Durability")
+                    if projDur then projDur.current = 0 end
+                end
+                break
+            end
+            ::continue_asteroid::
+        end
+
+        -- Wreckage collision: projectiles can't pass through
         for _, wreckId in ipairs(wreckages) do
             local wreckPos = ECS.getComponent(wreckId, "Position")
             local wreckColl = ECS.getComponent(wreckId, "Collidable")
             if not (wreckPos and wreckColl) then goto continue_wreckage end
+            
             local dx = wreckPos.x - projPos.x
             local dy = wreckPos.y - projPos.y
             local distSq = dx * dx + dy * dy
             local radii = wreckColl.radius + projColl.radius
+            
             if distSq < radii * radii then
                 if projectile and projectile.ownerId == wreckId then goto continue_wreckage end
+                
+                -- Salvage lasers damage wreckage
                 local durability = ECS.getComponent(wreckId, "Durability")
                 if durability and projectile and projectile.isSalvageLaser then
                     durability.current = durability.current - (projectile.damage or 10)
@@ -45,10 +77,17 @@ function ProjectileSystem.update(dt)
                         ECS.addComponent(wreckId, "LastDamager", Components.LastDamager(ownerEntity.pilotId, "salvage_laser"))
                     end
                 end
+                
+                -- Non-laser projectiles also stop on wreckage
                 if projectile and projectile.brittle then
                     local projDur = ECS.getComponent(projId, "Durability")
                     if projDur then projDur.current = 0 end
                 end
+                if projectile and projectile.isMissile then
+                    local projDur = ECS.getComponent(projId, "Durability")
+                    if projDur then projDur.current = 0 end
+                end
+                
                 break
             end
             ::continue_wreckage::

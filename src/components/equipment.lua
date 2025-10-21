@@ -8,8 +8,16 @@ Components.Turret = function(moduleName)
     return {
         moduleName = moduleName or nil, -- No default, must be set by equipping a module
         lastFireTime = -999, -- Initialize to allow first shot immediately
-        heat = 0, -- Current heat for continuous weapons (lasers)
-        overheated = false -- Whether the turret is currently overheated
+    }
+end
+
+-- Heat component - Manages heat for laser turrets (separate component)
+-- @field current number: Current heat level
+-- @field cooldownTimer number: Time spent in cooldown
+Components.Heat = function()
+    return {
+        current = 0,
+        cooldownTimer = 0
     }
 end
 

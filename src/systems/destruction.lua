@@ -61,6 +61,7 @@ function DestructionSystem.spawnItems(x, y, params)
                 ECS.addComponent(itemId, "Item", {id = type_, def = itemDef})
                 ECS.addComponent(itemId, "Stack", Components.Stack(quantity))
                 ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
+                ECS.addComponent(itemId, "Collidable", Components.Collidable(8))
             end
         end
     else
@@ -89,6 +90,7 @@ function DestructionSystem.spawnItems(x, y, params)
                 ECS.addComponent(itemId, "Item", {id = type_, def = itemDef})
                 ECS.addComponent(itemId, "Stack", Components.Stack(1))
                 ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
+                ECS.addComponent(itemId, "Collidable", Components.Collidable(8))
             end
         end
     end

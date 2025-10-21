@@ -4,6 +4,7 @@
 local ECS = require('src.ecs')
 local Components = require('src.components')
 local TurretRange = require('src.systems.turret_range')
+local LineOfSight = nil -- Lazily load to avoid circular dependencies
 local Systems = {}
 
 local AI = {
@@ -14,6 +15,16 @@ local AI = {
 local STEERING = 0.8 -- Steering responsiveness for AI (how quickly they reach desired velocity)
 -- Lower value = gentler steering, higher value = more aggressive
 -- 0.8 gives smooth, predictable drone-like behavior
+
+local ENABLE_LINE_OF_SIGHT = true -- Set to false to disable line-of-sight checks (for debugging)
+
+-- Lazy load LineOfSight to avoid circular dependencies
+local function getLineOfSight()
+    if not LineOfSight then
+        LineOfSight = require('src.systems.line_of_sight')
+    end
+    return LineOfSight
+end
 
 -- Simple helper for distance squared
 local function distSq(x1, y1, x2, y2)
@@ -178,10 +189,39 @@ function AI.update(dt)
             local dy = playerPos.y - pos.y
             local dist = math.sqrt(dx*dx + dy*dy)
             
-            -- Always move toward player when in chase state (thrust-based)
-            if dist > 0 then
-                local desiredVx = (dx / dist) * ai.speed
-                local desiredVy = (dy / dist) * ai.speed
+            -- Check line of sight to player (optional)
+            local hasLineOfSight = true
+            if ENABLE_LINE_OF_SIGHT then
+                local los_ok, los_result = pcall(function()
+                    return getLineOfSight().canSeeTarget(pos.x, pos.y, playerPos.x, playerPos.y, eid)
+                end)
+                if los_ok then
+                    hasLineOfSight = los_result
+                end
+            end
+            
+            -- Determine movement goal based on line of sight
+            local moveTargetX = playerPos.x
+            local moveTargetY = playerPos.y
+            
+            -- If no line of sight and enabled, try to find a better firing position
+            if ENABLE_LINE_OF_SIGHT and not hasLineOfSight then
+                local firePos = getLineOfSight().findBestFirePosition(pos.x, pos.y, playerPos.x, playerPos.y, eid, 200)
+                if firePos then
+                    moveTargetX = firePos.x
+                    moveTargetY = firePos.y
+                end
+                -- If no clear position found, just move toward player anyway to get around obstacle
+            end
+            
+            -- Always move toward player (or calculated move target) when in chase state (thrust-based)
+            local moveDx = moveTargetX - pos.x
+            local moveDy = moveTargetY - pos.y
+            local moveDist = math.sqrt(moveDx*moveDx + moveDy*moveDy)
+            
+            if moveDist > 0 then
+                local desiredVx = (moveDx / moveDist) * ai.speed
+                local desiredVy = (moveDy / moveDist) * ai.speed
                 
                 local ForceUtils = require('src.systems.force_utils')
                 local physics = ECS.getComponent(eid, "Physics")
@@ -192,12 +232,9 @@ function AI.update(dt)
                 end
             end
             
-            -- Aim and fire turret at player if within firing range
-            if turret and turret.moduleName and dist < fireRange then
+            -- Aim and fire turret at player if within firing range and has line of sight
+            if hasLineOfSight and turret and turret.moduleName and dist < fireRange then
                 -- Store turret aim position for rendering
-                -- Calculate the exact direction the turret is firing
-                local dx = playerPos.x - pos.x
-                local dy = playerPos.y - pos.y
                 local fireAngle = math.atan2(dy, dx)
                 local muzzleDistance = 12 -- Should match barrelLength in drawTurret
                 turret.aimX = pos.x + math.cos(fireAngle) * muzzleDistance
@@ -210,7 +247,13 @@ function AI.update(dt)
                     -- Apply beam effects for continuous weapons (lasers)
                     local turretModule = TurretSystem.turretModules[turret.moduleName]
                     local isLaserTurret = turret.moduleName == "mining_laser" or turret.moduleName == "combat_laser" or turret.moduleName == "salvage_laser"
-                    local canFire = not isLaserTurret or (turret.heat and turret.heat < (turretModule.MAX_HEAT or 10))
+                    local canFire = true
+                    if isLaserTurret then
+                        local heat = ECS.getComponent(eid, "Heat")
+                        if heat then
+                            canFire = heat.current < (turretModule.MAX_HEAT or 10)
+                        end
+                    end
                     if turretModule and turretModule.applyBeam and turretModule.CONTINUOUS and canFire then
                         -- Offset laser start position away from ship to avoid self-collision
                         local laserStartX = pos.x + math.cos(fireAngle) * muzzleDistance
@@ -311,8 +354,18 @@ function AI.update(dt)
                     end
                 end
                 
-                -- Fire turret at player while orbiting
-                if turret and turret.moduleName and dist < fireRange then
+                -- Fire turret at player while orbiting (if line of sight is clear)
+                local hasLineOfSight = true
+                if ENABLE_LINE_OF_SIGHT then
+                    local los_ok, los_result = pcall(function()
+                        return getLineOfSight().canSeeTarget(pos.x, pos.y, playerPos.x, playerPos.y, eid)
+                    end)
+                    if los_ok then
+                        hasLineOfSight = los_result
+                    end
+                end
+                
+                if hasLineOfSight and turret and turret.moduleName and dist < fireRange then
                     -- Store turret aim position for rendering
                     local dx = playerPos.x - pos.x
                     local dy = playerPos.y - pos.y
@@ -328,7 +381,13 @@ function AI.update(dt)
                         -- Apply beam effects for continuous weapons (lasers)
                         local turretModule = TurretSystem.turretModules[turret.moduleName]
                         local isLaserTurret = turret.moduleName == "mining_laser" or turret.moduleName == "combat_laser" or turret.moduleName == "salvage_laser"
-                        local canFire = not isLaserTurret or (turret.heat and turret.heat < (turretModule.MAX_HEAT or 10))
+                        local canFire = true
+                        if isLaserTurret then
+                            local heat = ECS.getComponent(eid, "Heat")
+                            if heat then
+                                canFire = heat.current < (turretModule.MAX_HEAT or 10)
+                            end
+                        end
                         if turretModule and turretModule.applyBeam and turretModule.CONTINUOUS and canFire then
                             -- Determine falloff end distance based on turret module
                             local falloffEnd = 1350  -- Default

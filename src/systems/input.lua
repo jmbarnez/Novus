@@ -108,14 +108,11 @@ function InputSystem.update(dt)
         end
         if turretOwner then
             local turret = ECS.getComponent(turretOwner, "Turret")
-            if turret then
-                local turretModule = TurretSystem.turretModules[turret.moduleName]
-                if turretModule and turretModule.laserEntity then
-                    local laserBeam = ECS.getComponent(turretModule.laserEntity, "LaserBeam")
-                    if laserBeam then
-                        ECS.destroyEntity(turretModule.laserEntity)
-                        turretModule.laserEntity = nil
-                    end
+            if turret and turret.laserEntity then
+                local laserBeam = ECS.getComponent(turret.laserEntity, "LaserBeam")
+                if laserBeam then
+                    ECS.destroyEntity(turret.laserEntity)
+                    turret.laserEntity = nil
                 end
             end
         end
@@ -175,7 +172,13 @@ function InputSystem.update(dt)
             -- Apply beam effects every frame (damage, debris, beam positioning) and handle heat for laser turrets
             -- Only apply beam if turret heat hasn't reached MAX_HEAT (for laser turrets only)
             local isLaserTurret = turretModule and (turretModule.name == "mining_laser" or turretModule.name == "combat_laser" or turretModule.name == "salvage_laser")
-            local canFire = not isLaserTurret or (turret and turret.heat and turret.heat < (turretModule.MAX_HEAT or 10))
+            local canFire = true
+            if isLaserTurret then
+                local heat = ECS.getComponent(turretOwner, "Heat")
+                if heat then
+                    canFire = heat.current < (turretModule.MAX_HEAT or 10)
+                end
+            end
             
             if turretModule and turretModule.applyBeam and canFire then
                 -- Offset laser start position away from ship to avoid self-collision
@@ -219,8 +222,7 @@ function InputSystem.update(dt)
                     end
                 end
                 -- Also update the laser beam position on the entity
-                -- Combat laser stores on turretComp, mining/salvage on module
-                local laserEntityId = turretComp and turretComp.laserEntity or turretModule.laserEntity
+                local laserEntityId = turretComp and turretComp.laserEntity
                 if laserEntityId and laserEntityId > 0 then
                     local laserBeam = ECS.getComponent(laserEntityId, "LaserBeam")
                     if laserBeam then
@@ -239,8 +241,7 @@ function InputSystem.update(dt)
             -- Mouse released - destroy laser
             local turretModule = TurretSystem.turretModules[turret.moduleName]
             local turretComp = ECS.getComponent(turretOwner, "Turret")
-            -- Combat laser stores on turretComp, mining/salvage on module
-            local laserEntityId = turretComp and turretComp.laserEntity or (turretModule and turretModule.laserEntity)
+            local laserEntityId = turretComp and turretComp.laserEntity
             if laserEntityId then
                 local laserBeam = ECS.getComponent(laserEntityId, "LaserBeam")
                 if laserBeam then
@@ -248,9 +249,6 @@ function InputSystem.update(dt)
                 end
                 if turretComp then
                     turretComp.laserEntity = nil
-                end
-                if turretModule then
-                    turretModule.laserEntity = nil
                 end
             end
                     -- On release, start cooling down heat for continuous lasers

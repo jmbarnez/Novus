@@ -41,21 +41,28 @@ function TurretSystem.fireTurret(entityId, targetX, targetY, dt)
         -- Check if it's a laser turret
         local isLaserTurret = turret.moduleName == "mining_laser" or turret.moduleName == "combat_laser" or turret.moduleName == "salvage_laser"
         
-        -- If heat is at max (laser turrets only), do not fire and destroy any existing laser
-        if isLaserTurret and turret.heat and turret.heat >= (module.MAX_HEAT or 10) then
-            -- Destroy the laser entity if it exists to stop invisible firing
-            if turret.laserEntity then
-                ECS.destroyEntity(turret.laserEntity)
-                turret.laserEntity = nil
+        if isLaserTurret then
+            -- Laser turrets use Heat component
+            local heat = ECS.getComponent(entityId, "Heat")
+            if heat and heat.current >= (module.MAX_HEAT or 10) then
+                -- At max heat - don't fire
+                if turret.laserEntity then
+                    ECS.destroyEntity(turret.laserEntity)
+                    turret.laserEntity = nil
+                end
+                return
             end
-            return
         end
+        
         if module and module.fire then
             module.fire(entityId, position.x, position.y, targetX, targetY, turret)
             -- accumulate heat using dt if supplied (laser turrets only)
             if isLaserTurret and dt and dt > 0 then
-                local heatRate = module.HEAT_RATE or 1.0
-                turret.heat = math.min((turret.heat or 0) + heatRate * dt, module.MAX_HEAT or 10)
+                local heat = ECS.getComponent(entityId, "Heat")
+                if heat then
+                    local heatRate = module.HEAT_RATE or 1.0
+                    heat.current = math.min((heat.current or 0) + heatRate * dt, module.MAX_HEAT or 10)
+                end
             end
             turret.lastFireTime = love.timer.getTime()
         end
@@ -75,26 +82,27 @@ end
 
 function TurretSystem.update(dt)
     -- Heat management for continuous laser weapons
-    local turretEntities = ECS.getEntitiesWith({"Turret"})
+    local turretEntities = ECS.getEntitiesWith({"Turret", "Heat"})
     for _, eid in ipairs(turretEntities) do
         local t = ECS.getComponent(eid, "Turret")
-        if not t then goto cont end
+        local heat = ECS.getComponent(eid, "Heat")
+        if not t or not heat then goto cont end
         local module = TurretSystem.turretModules[t.moduleName]
         
-        -- Only apply heat system to laser turrets
+        -- Only laser turrets should have Heat component, but be safe
         local isLaserTurret = t.moduleName == "mining_laser" or t.moduleName == "combat_laser" or t.moduleName == "salvage_laser"
         
         if module and module.CONTINUOUS and isLaserTurret then
             -- Check if at max heat (cooldown mode)
             local maxHeat = module.MAX_HEAT or 10
-            local isInCooldown = t.heat and t.heat >= maxHeat
+            local isInCooldown = heat.current >= maxHeat
             
             if isInCooldown then
                 -- In cooldown - track cooldown timer
-                t._cooldownTimer = (t._cooldownTimer or 0) + dt
-                if t._cooldownTimer >= 2.0 then  -- 2 second cooldown
-                    t.heat = 0
-                    t._cooldownTimer = 0
+                heat.cooldownTimer = (heat.cooldownTimer or 0) + dt
+                if heat.cooldownTimer >= 2.0 then  -- 2 second cooldown
+                    heat.current = 0
+                    heat.cooldownTimer = 0
                 end
             else
                 -- Not in cooldown - normal heat management
@@ -112,7 +120,7 @@ function TurretSystem.update(dt)
                 if not firedThisFrame then
                     -- Cooling down normally
                     local coolRate = module.COOL_RATE or (module.HEAT_RATE or 1.0) * 0.5
-                    t.heat = math.max(0, (t.heat or 0) - coolRate * dt)
+                    heat.current = math.max(0, (heat.current or 0) - coolRate * dt)
                 end
 
                 -- Track firing state for next frame

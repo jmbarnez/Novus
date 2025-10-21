@@ -39,17 +39,19 @@ local SalvageLaser = {
         love.graphics.setColor(0.12, 0.15, 0.12, 0.9)
         love.graphics.line(x - size/2 + 2, y, x - size/2 + 2, y + size/3)
         love.graphics.line(x + size/2 - 2, y, x + size/2 - 2, y + size/3)
-    end,
-    laserEntity = nil
+    end
 }
 
 -- Fire the laser - creates and maintains laser beam entity
-function SalvageLaser.fire(ownerId, startX, startY, endX, endY)
+function SalvageLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
+    -- Store laser on turret component so each turret can have its own laser
+    if not turretComp then return end
+    
     -- Destroy old laser if it exists
-    if SalvageLaser.laserEntity then
-        local component = ECS.getComponent(SalvageLaser.laserEntity, "LaserBeam")
+    if turretComp.laserEntity then
+        local component = ECS.getComponent(turretComp.laserEntity, "LaserBeam")
         if component then
-            ECS.destroyEntity(SalvageLaser.laserEntity)
+            ECS.destroyEntity(turretComp.laserEntity)
         end
     end
     
@@ -68,7 +70,7 @@ function SalvageLaser.fire(ownerId, startX, startY, endX, endY)
     end
     
     -- Create new laser beam entity
-    SalvageLaser.laserEntity = ECS.createEntity()
+    turretComp.laserEntity = ECS.createEntity()
     
     -- Calculate midpoint for position (for depth sorting and rendering order)
     local midX = (offsetStartX + endX) / 2
@@ -79,17 +81,17 @@ function SalvageLaser.fire(ownerId, startX, startY, endX, endY)
     local dy = endY - offsetStartY
     local beamLength = math.sqrt(dx * dx + dy * dy)
     
-    ECS.addComponent(SalvageLaser.laserEntity, "Position", Components.Position(midX, midY))
+    ECS.addComponent(turretComp.laserEntity, "Position", Components.Position(midX, midY))
     -- Add collision component so laser can collide with entities
-    ECS.addComponent(SalvageLaser.laserEntity, "Collidable", Components.Collidable(beamLength / 2 + 10))
-    ECS.addComponent(SalvageLaser.laserEntity, "LaserBeam", {
+    ECS.addComponent(turretComp.laserEntity, "Collidable", Components.Collidable(beamLength / 2 + 10))
+    ECS.addComponent(turretComp.laserEntity, "LaserBeam", {
         start = {x = offsetStartX, y = offsetStartY},
         endPos = {x = endX, y = endY},
-        color = {0, 0.5, 0, 1},  -- Dimmed green (half brightness)
+        color = {0.2, 1, 0.2, 1},  -- Bright green
         ownerId = ownerId
     })
     -- Mark this entity as a salvage laser projectile for wreckage harvesting
-    ECS.addComponent(SalvageLaser.laserEntity, "Projectile", {ownerId = ownerId, damage = SalvageLaser.DPS, brittle = false, isSalvageLaser = true})
+    ECS.addComponent(turretComp.laserEntity, "Projectile", {ownerId = ownerId, damage = SalvageLaser.DPS, brittle = false, isSalvageLaser = true})
 end
 
 -- Called every frame while the laser is firing
@@ -162,17 +164,6 @@ function SalvageLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretC
         return {hit = true, intersection = closestIntersection}
     else
         return {hit = false}
-    end
-end
-
--- Stop firing - clean up laser beam entity
-function SalvageLaser.stopFiring()
-    if SalvageLaser.laserEntity then
-        local component = ECS.getComponent(SalvageLaser.laserEntity, "LaserBeam")
-        if component then
-            ECS.destroyEntity(SalvageLaser.laserEntity)
-        end
-        SalvageLaser.laserEntity = nil
     end
 end
 

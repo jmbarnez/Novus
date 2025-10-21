@@ -38,17 +38,19 @@ local MiningLaser = {
         love.graphics.setColor(0.12, 0.12, 0.15, 0.9)
         love.graphics.line(x - size/2 + 2, y, x - size/2 + 2, y + size/3)
         love.graphics.line(x + size/2 - 2, y, x + size/2 - 2, y + size/3)
-    end,
-    laserEntity = nil  -- Track the current laser beam entity
+    end
 }
 
 -- Fire the laser - creates and maintains laser beam entity
-function MiningLaser.fire(ownerId, startX, startY, endX, endY)
+function MiningLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
+    -- Store laser on turret component so each turret can have its own laser
+    if not turretComp then return end
+    
     -- Destroy old laser if it exists
-    if MiningLaser.laserEntity then
-        local component = ECS.getComponent(MiningLaser.laserEntity, "LaserBeam")
+    if turretComp.laserEntity then
+        local component = ECS.getComponent(turretComp.laserEntity, "LaserBeam")
         if component then
-            ECS.destroyEntity(MiningLaser.laserEntity)
+            ECS.destroyEntity(turretComp.laserEntity)
         end
     end
     
@@ -56,27 +58,27 @@ function MiningLaser.fire(ownerId, startX, startY, endX, endY)
     local offsetStartX = startX
     local offsetStartY = startY
     -- Create new laser beam entity
-    MiningLaser.laserEntity = ECS.createEntity()
+    turretComp.laserEntity = ECS.createEntity()
     
     -- Calculate beam length for collision radius
     local dx = endX - offsetStartX
     local dy = endY - offsetStartY
     local beamLength = math.sqrt(dx * dx + dy * dy)
     
-    ECS.addComponent(MiningLaser.laserEntity, "LaserBeam", {
+    ECS.addComponent(turretComp.laserEntity, "LaserBeam", {
         start = {x = offsetStartX, y = offsetStartY},
         endPos = {x = endX, y = endY},
-        color = {0.5, 0.5, 0, 1},  -- Dimmed yellow (half brightness)
+        color = {1, 1, 0.2, 1},  -- Bright yellow
         ownerId = ownerId
     })
     -- Add position for collision tracking
     local midX = (offsetStartX + endX) / 2
     local midY = (offsetStartY + endY) / 2
-    ECS.addComponent(MiningLaser.laserEntity, "Position", Components.Position(midX, midY))
+    ECS.addComponent(turretComp.laserEntity, "Position", Components.Position(midX, midY))
     -- Add collision component so laser can collide with entities
-    ECS.addComponent(MiningLaser.laserEntity, "Collidable", Components.Collidable(beamLength / 2 + 10))
+    ECS.addComponent(turretComp.laserEntity, "Collidable", Components.Collidable(beamLength / 2 + 10))
     -- Mark this entity as a mining laser projectile for asteroid damage
-    ECS.addComponent(MiningLaser.laserEntity, "Projectile", {ownerId = ownerId, damage = MiningLaser.DPS, brittle = false, isMiningLaser = true})
+    ECS.addComponent(turretComp.laserEntity, "Projectile", {ownerId = ownerId, damage = MiningLaser.DPS, brittle = false, isMiningLaser = true})
 end
 
 -- Called every frame while the laser is firing
@@ -156,17 +158,6 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
         return {hit = true, intersection = closestIntersection}
     else
         return {hit = false}
-    end
-end
-
--- Stop firing - clean up laser beam entity
-function MiningLaser.stopFiring()
-    if MiningLaser.laserEntity then
-        local component = ECS.getComponent(MiningLaser.laserEntity, "LaserBeam")
-        if component then
-            ECS.destroyEntity(MiningLaser.laserEntity)
-        end
-        MiningLaser.laserEntity = nil
     end
 end
 

@@ -99,7 +99,7 @@ function CombatLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
     ECS.addComponent(turretComp.laserEntity, "LaserBeam", {
         start = {x = offsetStartX, y = offsetStartY},
         endPos = {x = beamEndX, y = beamEndY},
-        color = {0, 0.2, 0.25, 1},  -- Dimmed blue laser color (half brightness)
+        color = {0, 0.5, 1, 1},  -- Bright cyan laser color
         ownerId = ownerId
     })
     -- Mark this entity as a combat laser projectile for ship damage

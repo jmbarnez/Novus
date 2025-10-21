@@ -140,6 +140,9 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
             end
         end
         ECS.addComponent(shipId, "Turret", Components.Turret(initialTurretModuleName))
+        
+        -- Add Heat component for all turret-equipped ships (supports laser turrets and potential future heat mechanics)
+        ECS.addComponent(shipId, "Heat", Components.Heat())
     end
     
     -- Defensive slots

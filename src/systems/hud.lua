@@ -370,31 +370,34 @@ local function drawTurretSlots(viewportWidth, viewportHeight)
                 local module = moduleName and TurretSystem.turretModules[moduleName]
                 local isLaserTurret = moduleName == "mining_laser" or moduleName == "combat_laser" or moduleName == "salvage_laser"
                 if module and module.CONTINUOUS and isLaserTurret then
-                    local heat = (turret.heat or 0)
-                    local maxHeat = module.MAX_HEAT or 10
-                    local isInCooldown = heat >= maxHeat
-                    
-                    if isInCooldown then
-                        -- Blinking red during cooldown
-                        local cooldownTimer = turret._cooldownTimer or 0
-                        local blinkPhase = math.floor((cooldownTimer * 4)) % 2  -- Blinks 4 times per second
-                        if blinkPhase == 0 then
-                            love.graphics.setColor(1.0, 0.2, 0.2, 0.8)  -- Bright red
+                    local heat = ECS.getComponent(droneId, "Heat")
+                    if heat then
+                        local heatVal = (heat.current or 0)
+                        local maxHeat = module.MAX_HEAT or 10
+                        local isInCooldown = heatVal >= maxHeat
+                        
+                        if isInCooldown then
+                            -- Blinking red during cooldown
+                            local cooldownTimer = heat.cooldownTimer or 0
+                            local blinkPhase = math.floor((cooldownTimer * 4)) % 2  -- Blinks 4 times per second
+                            if blinkPhase == 0 then
+                                love.graphics.setColor(1.0, 0.2, 0.2, 0.8)  -- Bright red
+                                local pad = math.max(2, math.floor(slotSize * 0.08))
+                                local innerH = slotSize - pad * 2
+                                local innerW = slotSize - pad * 2
+                                love.graphics.rectangle("fill", slotX + pad, slotY + pad, innerW, innerH, 3, 3)
+                            end
+                        else
+                            -- Normal heat bar when not in cooldown
+                            local heatRatio = heatVal / maxHeat
                             local pad = math.max(2, math.floor(slotSize * 0.08))
                             local innerH = slotSize - pad * 2
                             local innerW = slotSize - pad * 2
-                            love.graphics.rectangle("fill", slotX + pad, slotY + pad, innerW, innerH, 3, 3)
-                        end
-                    else
-                        -- Normal heat bar when not in cooldown
-                        local heatRatio = heat / maxHeat
-                        local pad = math.max(2, math.floor(slotSize * 0.08))
-                        local innerH = slotSize - pad * 2
-                        local innerW = slotSize - pad * 2
-                        local overlayInnerWidth = math.floor(innerW * heatRatio)
-                        love.graphics.setColor(0.9, 0.3, 0.2, 0.4)  -- Orange heat bar
-                        if overlayInnerWidth > 0 then
-                            love.graphics.rectangle("fill", slotX + pad, slotY + pad, overlayInnerWidth, innerH, 3, 3)
+                            local overlayInnerWidth = math.floor(innerW * heatRatio)
+                            love.graphics.setColor(0.9, 0.3, 0.2, 0.4)  -- Orange heat bar
+                            if overlayInnerWidth > 0 then
+                                love.graphics.rectangle("fill", slotX + pad, slotY + pad, overlayInnerWidth, innerH, 3, 3)
+                            end
                         end
                     end
                 elseif module then
@@ -421,9 +424,9 @@ local function drawTurretSlots(viewportWidth, viewportHeight)
         end)
         lastTurretSlotsFrame = frameSkip
     end
-    -- Main draw: blit the cached canvas to global HUD location
-    local drawX = Scaling.scaleX(20)
-    local drawY = Scaling.scaleY(20) + Scaling.scaleSize(Constants.ui_health_bar_height) + Scaling.scaleY(12)
+    -- Main draw: blit the cached canvas to global HUD location (bottom center)
+    local drawX = (viewportWidth - turretSlotsCanvasW) / 2
+    local drawY = viewportHeight - turretSlotsCanvasH - Scaling.scaleY(20)
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.draw(turretSlotsCanvas, drawX, drawY)
 end
@@ -458,6 +461,7 @@ local function getHudStateHash()
     local shield = ECS.getComponent(d, "Shield") or {}
     local velocity = ECS.getComponent(d, "Velocity") or {}
     local turret = ECS.getComponent(d, "Turret") or {}
+    local heat = ECS.getComponent(d, "Heat") or {}
     local rings = ECS.getComponent(d, "Rings") or {}
     local turretSlots = ECS.getComponent(d, "TurretSlots") or {slots={}}
     local notifLen = #(require('src.ui.notifications').notifications or {})
@@ -467,7 +471,7 @@ local function getHudStateHash()
     return table.concat({
         valn(hull.current), valn(hull.max), valn(shield.current), valn(shield.max),
         valn(velocity.vx), valn(velocity.vy), valn(velocity.vz),
-        valn(turret.moduleName, ''), valn(turret.heat),
+        valn(turret.moduleName, ''), valn(heat.current),
         valn(turret.lastFireTime),
         valn(turretSlots.slots and turretSlots.slots[1], ''),
         valn(turretSlots.slots and turretSlots.slots[2], ''),

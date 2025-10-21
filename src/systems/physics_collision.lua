@@ -650,6 +650,21 @@ local PhysicsCollisionSystem = {
                             goto continue_nearby 
                         end
                         
+                        -- Skip items colliding with player ship
+                        -- Items should ignore player ship collisions
+                        local item1 = ECS.getComponent(entity1Id, "Item")
+                        local item2 = ECS.getComponent(entity2Id, "Item")
+                        local playerCtrl = ECS.getComponent(entity2Id, "ControlledBy")
+                        if item1 and playerCtrl then
+                            -- Item colliding with player ship - skip
+                            goto continue_nearby
+                        end
+                        playerCtrl = ECS.getComponent(entity1Id, "ControlledBy")
+                        if item2 and playerCtrl then
+                            -- Item colliding with player ship - skip
+                            goto continue_nearby
+                        end
+                        
                         -- CRITICAL: Missiles should ONLY collide with enemies (Hull component)
                         -- Skip missiles hitting asteroids, wreckages, or other non-enemy entities
                         if proj1 and proj1.isMissile then

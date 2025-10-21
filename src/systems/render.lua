@@ -86,13 +86,13 @@ local function drawLaser()
             local color = laser.color or {1, 1, 0, 1}
 
             -- Draw faint outer beam
-            love.graphics.setColor(color[1], color[2], color[3], 0.15) -- Very faint outer beam
+            love.graphics.setColor(color[1], color[2], color[3], 0.25) -- Faint colored outer beam
             love.graphics.setLineWidth(4)
             love.graphics.line(laser.start.x, laser.start.y, laser.endPos.x, laser.endPos.y)
 
-            -- Draw bright white core
-            love.graphics.setColor(1, 1, 1, 0.7) -- Bright white core
-            love.graphics.setLineWidth(1)
+            -- Draw bright colored core (tinted with laser color, not pure white)
+            love.graphics.setColor(color[1], color[2], color[3], 0.9) -- Bright colored core
+            love.graphics.setLineWidth(1.5)
             love.graphics.line(laser.start.x, laser.start.y, laser.endPos.x, laser.endPos.y)
 
             love.graphics.setLineWidth(1)
@@ -233,10 +233,10 @@ local RenderSystem = {
                     goto continue_entity
                 end
                 renderedItems = renderedItems + 1
-                -- All dropped items render tiny (small scale in space)
+                -- All dropped items render at 40% scale (doubled from 20%)
                 love.graphics.push()
                 love.graphics.translate(position.x, position.y)
-                love.graphics.scale(0.2, 0.2)  -- Draw at 20% size
+                love.graphics.scale(0.4, 0.4)  -- Draw at 40% size
                 item.def:draw(0, 0)
                 love.graphics.pop()
                 if stack and stack.quantity and stack.quantity > 1 then
