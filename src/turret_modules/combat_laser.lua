@@ -16,6 +16,9 @@ local CombatLaser = {
     COOL_RATE = 3.0,
     DPS = 15,
     RANGE = math.huge,  -- Unlimited beam range for visual collision
+    -- Damage falloff configuration
+    FALLOFF_START = 300,   -- Full damage up to this distance
+    FALLOFF_END = 800,     -- Zero damage beyond this distance
     design = {
         shape = "custom",
         size = 16,
@@ -68,29 +71,16 @@ function CombatLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
         end
     end
 
-    -- Limit beam length to maximum range
-    local beamEndX = endX
-    local beamEndY = endY
-    local dx = endX - offsetStartX
-    local dy = endY - offsetStartY
-    local distToTarget = math.sqrt(dx * dx + dy * dy)
-    if distToTarget > CombatLaser.RANGE then
-        -- Cap the beam at maximum range
-        local ratio = CombatLaser.RANGE / distToTarget
-        beamEndX = offsetStartX + dx * ratio
-        beamEndY = offsetStartY + dy * ratio
-    end
-
     -- Create new laser beam entity
     turretComp.laserEntity = ECS.createEntity()
     
     -- Calculate midpoint for position (for depth sorting and rendering order)
-    local midX = (offsetStartX + beamEndX) / 2
-    local midY = (offsetStartY + beamEndY) / 2
+    local midX = (offsetStartX + endX) / 2
+    local midY = (offsetStartY + endY) / 2
     
     -- Calculate beam length for collision radius
-    local dx = beamEndX - offsetStartX
-    local dy = beamEndY - offsetStartY
+    local dx = endX - offsetStartX
+    local dy = endY - offsetStartY
     local beamLength = math.sqrt(dx * dx + dy * dy)
     
     ECS.addComponent(turretComp.laserEntity, "Position", Components.Position(midX, midY))
@@ -98,7 +88,7 @@ function CombatLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
     ECS.addComponent(turretComp.laserEntity, "Collidable", Components.Collidable(beamLength / 2 + 10))
     ECS.addComponent(turretComp.laserEntity, "LaserBeam", {
         start = {x = offsetStartX, y = offsetStartY},
-        endPos = {x = beamEndX, y = beamEndY},
+        endPos = {x = endX, y = endY},
         color = {0, 0.5, 1, 1},  -- Bright cyan laser color
         ownerId = ownerId
     })

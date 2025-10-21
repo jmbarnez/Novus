@@ -195,22 +195,7 @@ function InputSystem.update(dt)
                     end
                 end
 
-                -- Calculate beam end position, limited by weapon range
-                local beamEndX = mouseX
-                local beamEndY = mouseY
-                if turretModule.RANGE then
-                    local dx = mouseX - laserStartX
-                    local dy = mouseY - laserStartY
-                    local distToTarget = math.sqrt(dx * dx + dy * dy)
-                    if distToTarget > turretModule.RANGE then
-                        -- Cap the beam at maximum range
-                        local ratio = turretModule.RANGE / distToTarget
-                        beamEndX = laserStartX + dx * ratio
-                        beamEndY = laserStartY + dy * ratio
-                    end
-                end
-
-                local beamResult = turretModule.applyBeam(turretOwner, laserStartX, laserStartY, beamEndX, beamEndY, dt, turret)
+                local beamResult = turretModule.applyBeam(turretOwner, laserStartX, laserStartY, mouseX, mouseY, dt, turret)
                 -- Handle heat accumulation for continuous weapons
                 local turretComp = ECS.getComponent(turretOwner, "Turret")
                 if turretComp and turretModule and turretModule.CONTINUOUS then

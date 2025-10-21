@@ -209,16 +209,28 @@ function Core.init()
             end
         end
         
-        -- Spawn 1-2 combat drones in this cluster
-        local combatCount = math.random(1, 2)
+        -- Spawn 4-5 combat drones in this cluster
+        local combatCount = math.random(4, 5)
         for i = 1, combatCount do
             local x, y = spawnEnemyInCluster(cluster.centerX, cluster.centerY)
             
             local shipId = ShipLoader.createShip("red_scout", x, y, "ai")
             if shipId then
+                -- Randomly choose between basic_cannon and combat_laser (50/50)
+                local weaponChoice = math.random() < 0.5 and "basic_cannon" or "combat_laser"
+                
                 local turret = ECS.getComponent(shipId, "Turret")
                 if turret then
-                    turret.moduleName = "combat_laser"
+                    turret.moduleName = weaponChoice
+                end
+                
+                -- Configure AI for combat
+                local ai = ECS.getComponent(shipId, "AIController")
+                if ai then
+                    ai.state = "patrol"  -- Start in patrol, will transition to chase/orbit when player detected
+                    ai.speed = 80        -- Combat drone speed
+                    ai.detectionRadius = 1600  -- Larger detection radius for combat
+                    ai.fireRange = 2500  -- Fallback fire range (will be overridden by turret)
                 end
                 
                 ECS.addComponent(shipId, "CombatAI", Components.CombatAI())

@@ -17,6 +17,9 @@ local SalvageLaser = {
     COOL_RATE = 2.5,
     DPS = 40,
     RANGE = math.huge,  -- Unlimited beam range for visual collision
+    -- Damage falloff configuration
+    FALLOFF_START = 350,   -- Full damage up to this distance
+    FALLOFF_END = 1100,    -- Zero damage beyond this distance
     design = {
         shape = "custom",
         size = 16,

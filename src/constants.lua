@@ -36,7 +36,7 @@ Constants.ui_health_bar_height = 16
 
 -- Asteroid settings
 Constants.asteroid_cluster_count = 15
-Constants.asteroid_cluster_radius = 500
+Constants.asteroid_cluster_radius = 750
 Constants.asteroid_size_min = 20
 Constants.asteroid_size_max = 60
 Constants.asteroid_velocity_min = 10

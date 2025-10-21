@@ -4,7 +4,7 @@
 local ECS = require('src.ecs')
 local Components = require('src.components')
 local TurretRange = require('src.systems.turret_range')
-local LineOfSight = nil -- Lazily load to avoid circular dependencies
+local AiTurretHelper = require('src.systems.ai_turret_helper')
 local Systems = {}
 
 local AI = {
@@ -16,22 +16,51 @@ local STEERING = 0.8 -- Steering responsiveness for AI (how quickly they reach d
 -- Lower value = gentler steering, higher value = more aggressive
 -- 0.8 gives smooth, predictable drone-like behavior
 
-local ENABLE_LINE_OF_SIGHT = true -- Set to false to disable line-of-sight checks (for debugging)
-
--- Lazy load LineOfSight to avoid circular dependencies
-local function getLineOfSight()
-    if not LineOfSight then
-        LineOfSight = require('src.systems.line_of_sight')
-    end
-    return LineOfSight
-end
-
 -- Simple helper for distance squared
 local function distSq(x1, y1, x2, y2)
     local dx = x2 - x1
     local dy = y2 - y1
     return dx*dx + dy*dy
 end
+
+-- Consolidated firing logic for chase and orbit states
+-- @param eid: Entity ID shooting
+-- @param turret: Turret component
+-- @param pos: Position of shooter
+-- @param playerPos: Position of target
+-- @param engagementRange: Max range to fire
+-- @param dt: Delta time
+local function fireAtTarget(eid, turret, pos, playerPos, engagementRange, dt)
+    if not (turret and turret.moduleName and playerPos) then
+        return
+    end
+    
+    local TurretSystem = ECS.getSystem("TurretSystem")
+    if not (TurretSystem and TurretSystem.fireTurret) then
+        return
+    end
+    
+    local dx = playerPos.x - pos.x
+    local dy = playerPos.y - pos.y
+    local dist = math.sqrt(dx*dx + dy*dy)
+    
+    if dist > engagementRange then
+        return
+    end
+    
+    -- Aim turret at target for rendering
+    AiTurretHelper.aimTurretAtTarget(turret, pos, playerPos)
+    
+    -- Fire the turret (handles projectiles and laser startup)
+    TurretSystem.fireTurret(eid, playerPos.x, playerPos.y, dt)
+    
+    -- For lasers, apply beam damage if not overheating
+    local turretModule = TurretSystem.turretModules[turret.moduleName]
+    if turretModule and turretModule.CONTINUOUS and turretModule.applyBeam then
+        AiTurretHelper.fireLaserAtTarget(eid, turret, turretModule, playerPos, dt)
+    end
+end
+
 
 -- Update loop: handle AI states
 function AI.update(dt)
@@ -70,25 +99,10 @@ function AI.update(dt)
         -- Calculate effective engagement range based on weapon type
         local engagementRange = ai.fireRange -- Start with default from AIController
         if turret and turret.moduleName then
-            local turretModule = nil
             local TurretSystem = ECS.getSystem("TurretSystem")
             if TurretSystem and TurretSystem.turretModules then
-                turretModule = TurretSystem.turretModules[turret.moduleName]
-            end
-            
-            -- For continuous weapons (lasers), use falloff end distance as effective range
-            if turretModule and turretModule.CONTINUOUS then
-                if turret.moduleName == "combat_laser" then
-                    engagementRange = 800  -- Combat laser falloff end
-                elseif turret.moduleName == "mining_laser" then
-                    engagementRange = 1350  -- Mining laser falloff end
-                elseif turret.moduleName == "salvage_laser" then
-                    engagementRange = 1100  -- Salvage laser falloff end
-                end
-            else
-                -- For projectile weapons, use a generous engagement range
-                -- Projectiles have no hard range limit, just lifecycle
-                engagementRange = 1000  -- Practical engagement range for projectiles
+                local turretModule = TurretSystem.turretModules[turret.moduleName]
+                engagementRange = AiTurretHelper.getEffectiveEngagementRange(turretModule)
             end
         end
 
@@ -205,17 +219,6 @@ function AI.update(dt)
             local dy = playerPos.y - pos.y
             local dist = math.sqrt(dx*dx + dy*dy)
             
-            -- Check line of sight to player (optional)
-            local hasLineOfSight = true
-            if ENABLE_LINE_OF_SIGHT then
-                local los_ok, los_result = pcall(function()
-                    return getLineOfSight().canSeeTarget(pos.x, pos.y, playerPos.x, playerPos.y, eid)
-                end)
-                if los_ok then
-                    hasLineOfSight = los_result
-                end
-            end
-            
             -- Always move directly toward player when in chase state (thrust-based)
             local moveDx = playerPos.x - pos.x
             local moveDy = playerPos.y - pos.y
@@ -234,58 +237,14 @@ function AI.update(dt)
                 end
             end
             
-            -- Aim and fire turret at player if within firing range and has line of sight
-            if hasLineOfSight and turret and turret.moduleName and dist < engagementRange then
-                -- Store turret aim position for rendering
-                local fireAngle = math.atan2(dy, dx)
-                local muzzleDistance = 12 -- Should match barrelLength in drawTurret
-                turret.aimX = pos.x + math.cos(fireAngle) * muzzleDistance
-                turret.aimY = pos.y + math.sin(fireAngle) * muzzleDistance
-
-                local TurretSystem = ECS.getSystem("TurretSystem")
-                if TurretSystem and TurretSystem.fireTurret then
-                    -- Always call fireTurret - it handles heat checks and laser entity management
-                    -- This ensures laser entity gets recreated after cooldown completes
-                    TurretSystem.fireTurret(eid, playerPos.x, playerPos.y, dt)
-                    
-                    -- For continuous weapons (lasers), apply beam damage if not overheating
-                    local turretModule = TurretSystem.turretModules[turret.moduleName]
-                    if turretModule and turretModule.CONTINUOUS and turretModule.applyBeam then
-                        -- Check if laser can fire (not overheated)
-                        local canFire = true
-                        if turret.heat then
-                            canFire = turret.heat.current < (turretModule.MAX_HEAT or 10)
-                        end
-                        
-                        if canFire then
-                            -- Calculate laser start position
-                            local laserStartX = pos.x + math.cos(fireAngle) * muzzleDistance
-                            local laserStartY = pos.y + math.sin(fireAngle) * muzzleDistance
-                            local collider = ECS.getComponent(eid, "Collidable")
-                            if collider and dist > 0 then
-                                laserStartX = pos.x + (dy / dist) * (collider.radius + muzzleDistance)
-                                laserStartY = pos.y + (dy / dist) * (collider.radius + muzzleDistance)
-                            end
-                            
-                            -- Apply damage and get collision result
-                            local beamResult = turretModule.applyBeam(eid, laserStartX, laserStartY, playerPos.x, playerPos.y, dt, turret)
-                            
-                            -- Update laser beam visual endpoint based on collision
-                            if turret.laserEntity then
-                                local laserBeam = ECS.getComponent(turret.laserEntity, "LaserBeam")
-                                if laserBeam then
-                                    laserBeam.start = {x = laserStartX, y = laserStartY}
-                                    -- Use collision point if hit, otherwise use target position
-                                    if beamResult and beamResult.hit and beamResult.intersection then
-                                        laserBeam.endPos = {x = beamResult.intersection.x, y = beamResult.intersection.y}
-                                    else
-                                        laserBeam.endPos = {x = playerPos.x, y = playerPos.y}
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
+            -- Always aim at player while chasing
+            if turret and playerPos then
+                AiTurretHelper.aimTurretAtTarget(turret, pos, playerPos)
+            end
+            
+            -- Fire turret at player if within firing range
+            if turret and turret.moduleName and dist < engagementRange then
+                fireAtTarget(eid, turret, pos, playerPos, engagementRange, dt)
             end
         elseif ai.state == "orbit" and playerPos then
             -- Orbit player at optimal turret range
@@ -355,70 +314,14 @@ function AI.update(dt)
                     end
                 end
                 
-                -- Fire turret at player while orbiting (if line of sight is clear)
-                local hasLineOfSight = true
-                if ENABLE_LINE_OF_SIGHT then
-                    local los_ok, los_result = pcall(function()
-                        return getLineOfSight().canSeeTarget(pos.x, pos.y, playerPos.x, playerPos.y, eid)
-                    end)
-                    if los_ok then
-                        hasLineOfSight = los_result
-                    end
+                -- Always aim at player while orbiting
+                if turret and playerPos then
+                    AiTurretHelper.aimTurretAtTarget(turret, pos, playerPos)
                 end
                 
-                if hasLineOfSight and turret and turret.moduleName and dist < engagementRange then
-                    -- Store turret aim position for rendering
-                    local dx = playerPos.x - pos.x
-                    local dy = playerPos.y - pos.y
-                    local fireAngle = math.atan2(dy, dx)
-                    local muzzleDistance = 12
-                    turret.aimX = pos.x + math.cos(fireAngle) * muzzleDistance
-                    turret.aimY = pos.y + math.sin(fireAngle) * muzzleDistance
-
-                    local TurretSystem = ECS.getSystem("TurretSystem")
-                    if TurretSystem and TurretSystem.fireTurret then
-                        -- Always call fireTurret - it handles heat checks and laser entity management
-                        -- This ensures laser entity gets recreated after cooldown completes
-                        TurretSystem.fireTurret(eid, playerPos.x, playerPos.y, dt)
-                        
-                        -- For continuous weapons (lasers), apply beam damage if not overheating
-                        local turretModule = TurretSystem.turretModules[turret.moduleName]
-                        if turretModule and turretModule.CONTINUOUS and turretModule.applyBeam then
-                            -- Check if laser can fire (not overheated)
-                            local canFire = true
-                            if turret.heat then
-                                canFire = turret.heat.current < (turretModule.MAX_HEAT or 10)
-                            end
-                            
-                            if canFire then
-                                -- Calculate laser start position
-                                local laserStartX = pos.x + math.cos(fireAngle) * muzzleDistance
-                                local laserStartY = pos.y + math.sin(fireAngle) * muzzleDistance
-                                local collider = ECS.getComponent(eid, "Collidable")
-                                if collider and dist > 0 then
-                                    laserStartX = pos.x + (dy / dist) * (collider.radius + muzzleDistance)
-                                    laserStartY = pos.y + (dy / dist) * (collider.radius + muzzleDistance)
-                                end
-                                
-                                -- Apply damage and get collision result
-                                local beamResult = turretModule.applyBeam(eid, laserStartX, laserStartY, playerPos.x, playerPos.y, dt, turret)
-                                
-                                -- Update laser beam visual endpoint based on collision
-                                if turret.laserEntity then
-                                    local laserBeam = ECS.getComponent(turret.laserEntity, "LaserBeam")
-                                    if laserBeam then
-                                        laserBeam.start = {x = laserStartX, y = laserStartY}
-                                        -- Use collision point if hit, otherwise use target position
-                                        if beamResult and beamResult.hit and beamResult.intersection then
-                                            laserBeam.endPos = {x = beamResult.intersection.x, y = beamResult.intersection.y}
-                                        else
-                                            laserBeam.endPos = {x = playerPos.x, y = playerPos.y}
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end
+                -- Fire turret at player while orbiting
+                if turret and turret.moduleName and dist < engagementRange then
+                    fireAtTarget(eid, turret, pos, playerPos, engagementRange, dt)
                 end
             end
         end

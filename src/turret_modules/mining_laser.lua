@@ -16,6 +16,9 @@ local MiningLaser = {
     COOL_RATE = 3.0, -- Heat units per second while not firing
     DPS = 50,
     RANGE = math.huge,  -- Unlimited beam range for visual collision
+    -- Damage falloff configuration
+    FALLOFF_START = 400,   -- Full damage up to this distance
+    FALLOFF_END = 1350,    -- Zero damage beyond this distance
     design = {
         shape = "custom",
         size = 16,
