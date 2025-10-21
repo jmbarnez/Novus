@@ -7,12 +7,12 @@ Constants.screen_width = 1920
 Constants.screen_height = 1080
 
 -- World dimensions (much larger than screen for exploration)
-Constants.world_width = 20000
-Constants.world_height = 20000
-Constants.world_min_x = -10000
-Constants.world_max_x = 10000
-Constants.world_min_y = -10000
-Constants.world_max_y = 10000
+Constants.world_width = 4000
+Constants.world_height = 4000
+Constants.world_min_x = -2000
+Constants.world_max_x = 2000
+Constants.world_min_y = -2000
+Constants.world_max_y = 2000
 
 -- Player physics
 Constants.player_friction = 0.9999  -- Near-zero friction for space (nearly no deceleration)
@@ -47,7 +47,7 @@ Constants.asteroid_vertices_min = 6
 Constants.asteroid_vertices_max = 10
 
 -- Asteroid cluster respawning system settings
-Constants.asteroid_num_clusters = 5  -- Number of clusters to create
+Constants.asteroid_num_clusters = 1  -- Number of clusters to create
 Constants.asteroids_per_cluster = 30  -- Max asteroids per cluster
 Constants.cluster_respawn_interval = 3  -- Seconds between respawn checks
 Constants.cluster_respawn_delay = 1  -- Seconds delay before respawning an asteroid

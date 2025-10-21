@@ -54,9 +54,19 @@ function MiningLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
         end
     end
     
-    -- Use muzzle position directly for laser origin
+    -- Offset start position away from owner ship to avoid self-collision
     local offsetStartX = startX
     local offsetStartY = startY
+    local ownerCollidable = ECS.getComponent(ownerId, "Collidable")
+    if ownerCollidable then
+        local dx = endX - startX
+        local dy = endY - startY
+        local dist = math.sqrt(dx * dx + dy * dy)
+        if dist > 0 then
+            offsetStartX = startX + (dx / dist) * (ownerCollidable.radius + 5)
+            offsetStartY = startY + (dy / dist) * (ownerCollidable.radius + 5)
+        end
+    end
     -- Create new laser beam entity
     turretComp.laserEntity = ECS.createEntity()
     
@@ -77,8 +87,6 @@ function MiningLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
     ECS.addComponent(turretComp.laserEntity, "Position", Components.Position(midX, midY))
     -- Add collision component so laser can collide with entities
     ECS.addComponent(turretComp.laserEntity, "Collidable", Components.Collidable(beamLength / 2 + 10))
-    -- Mark this entity as a mining laser projectile for asteroid damage
-    ECS.addComponent(turretComp.laserEntity, "Projectile", {ownerId = ownerId, damage = MiningLaser.DPS, brittle = false, isMiningLaser = true})
 end
 
 -- Called every frame while the laser is firing
@@ -87,6 +95,20 @@ end
 -- dt: delta time
 -- turretComp: turret component with heat information
 function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretComp)
+    -- Offset start position to barrel end to match where laser visually originates
+    local offsetStartX = startX
+    local offsetStartY = startY
+    local ownerCollidable = ECS.getComponent(ownerId, "Collidable")
+    if ownerCollidable then
+        local dx = endX - startX
+        local dy = endY - startY
+        local dist = math.sqrt(dx * dx + dy * dy)
+        if dist > 0 then
+            offsetStartX = startX + (dx / dist) * (ownerCollidable.radius + 5)
+            offsetStartY = startY + (dy / dist) * (ownerCollidable.radius + 5)
+        end
+    end
+
     local closestIntersection = nil
     local closestDistSq = math.huge
     local hitAsteroidId = nil
@@ -94,9 +116,9 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
     -- Check for collisions with all collidable polygon entities (asteroids, ships, wreckage, etc)
     local allEntities = ECS.getEntitiesWith({"Collidable", "Position", "PolygonShape"})
     for _, entityId in ipairs(allEntities) do
-        local intersection = CollisionSystem.linePolygonIntersect(startX, startY, endX, endY, entityId)
+        local intersection = CollisionSystem.linePolygonIntersect(offsetStartX, offsetStartY, endX, endY, entityId)
         if intersection then
-            local distSq = (intersection.x - startX)^2 + (intersection.y - startY)^2
+            local distSq = (intersection.x - offsetStartX)^2 + (intersection.y - offsetStartY)^2
             if distSq < closestDistSq then
                 closestDistSq = distSq
                 closestIntersection = intersection
@@ -128,7 +150,7 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
                 -- Heat multiplier: damage increases from 1x at 0 heat to 2x at max heat
                 local heatMultiplier = 1.0
                 if turretComp and turretComp.heat then
-                    local heatProgress = turretComp.heat / MiningLaser.MAX_HEAT
+                    local heatProgress = turretComp.heat.current / MiningLaser.MAX_HEAT
                     heatMultiplier = 1.0 + (heatProgress * 1.0)  -- Up to 2x damage
                 end
 
@@ -158,6 +180,17 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
         return {hit = true, intersection = closestIntersection}
     else
         return {hit = false}
+    end
+end
+
+-- Stop firing - clean up laser beam entity
+function MiningLaser.stopFiring(turretComp)
+    if turretComp and turretComp.laserEntity then
+        local component = ECS.getComponent(turretComp.laserEntity, "LaserBeam")
+        if component then
+            ECS.destroyEntity(turretComp.laserEntity)
+        end
+        turretComp.laserEntity = nil
     end
 end
 

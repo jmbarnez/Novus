@@ -172,7 +172,7 @@ function Core.init()
 
     -- Asteroid clusters are initialized via AsteroidClusters.init() above
 
-    -- Spawn enemy ships in asteroid clusters with 50% chance per cluster
+    -- Spawn enemy ships in the asteroid cluster with 100% chance
     local function spawnEnemyInCluster(clusterX, clusterY)
         -- Random position within cluster area
         local angle = math.random() * 2 * math.pi
@@ -184,78 +184,51 @@ function Core.init()
     end
     
     -- Get cluster data to spawn enemies in them
-    -- Spawn a few miners and a few combat red scouts in clusters with 50% chance each
     local clusters = AsteroidClusters.getClusters()
     for clusterId, cluster in pairs(clusters) do
-        -- 50% chance to spawn enemies in this cluster
-        if math.random() < 0.5 then
-            -- Spawn 1-2 miners in this cluster
-            local minerCount = math.random(1, 2)
-            for i = 1, minerCount do
-                local x, y = spawnEnemyInCluster(cluster.centerX, cluster.centerY)
-                
-                local shipId = ShipLoader.createShip("red_scout", x, y, "ai")
-                if shipId then
-                    local turret = ECS.getComponent(shipId, "Turret")
-                    if turret then
-                        turret.moduleName = "mining_laser"
-                    end
-                    
-                    local ai = ECS.getComponent(shipId, "AIController")
-                    if ai then
-                        ai.state = "mining"
-                        ai.speed = 40
-                        ai.detectionRadius = 600
-                    end
-                    
-                    ECS.addComponent(shipId, "MiningAI", Components.MiningAI())
-                end
-            end
+        -- Spawn 1-2 miners in this cluster
+        local minerCount = math.random(1, 2)
+        for i = 1, minerCount do
+            local x, y = spawnEnemyInCluster(cluster.centerX, cluster.centerY)
             
-            -- Spawn 1-2 combat drones in this cluster
-            local combatCount = math.random(1, 2)
-            for i = 1, combatCount do
-                local x, y = spawnEnemyInCluster(cluster.centerX, cluster.centerY)
-                
-                local shipId = ShipLoader.createShip("red_scout", x, y, "ai")
-                if shipId then
-                    local turret = ECS.getComponent(shipId, "Turret")
-                    if turret then
-                        turret.moduleName = "combat_laser"
-                    end
-                    
-                    ECS.addComponent(shipId, "CombatAI", Components.CombatAI())
+            local shipId = ShipLoader.createShip("red_scout", x, y, "ai")
+            if shipId then
+                local turret = ECS.getComponent(shipId, "Turret")
+                if turret then
+                    turret.moduleName = "mining_laser"
                 end
+                
+                local ai = ECS.getComponent(shipId, "AIController")
+                if ai then
+                    ai.state = "mining"
+                    ai.speed = 40
+                    ai.detectionRadius = 600
+                end
+                
+                ECS.addComponent(shipId, "MiningAI", Components.MiningAI())
             end
         end
-    end
-
-    -- Spawn pure collector scouts (no weapons, just magnetic fields)
-    local collectorCount = 3
-    for i = 1, collectorCount do
-        local x = Constants.world_min_x + math.random() * (Constants.world_max_x - Constants.world_min_x)
-        local y = Constants.world_min_y + math.random() * (Constants.world_max_y - Constants.world_min_y)
         
-        local designId = "red_scout"
-        local shipId = ShipLoader.createShip(designId, x, y, "ai")
-        
-        if shipId then
-            -- Don't equip a turret - these are pure collectors
-            -- The ShipLoader already added Cargo and MagneticField for red_scout
-            local ai = ECS.getComponent(shipId, "AIController")
-            if ai then
-                ai.state = "patrol"
-                ai.speed = 80  -- Slower roaming
-                ai.detectionRadius = 0  -- Don't detect anything
+        -- Spawn 1-2 combat drones in this cluster
+        local combatCount = math.random(1, 2)
+        for i = 1, combatCount do
+            local x, y = spawnEnemyInCluster(cluster.centerX, cluster.centerY)
+            
+            local shipId = ShipLoader.createShip("red_scout", x, y, "ai")
+            if shipId then
+                local turret = ECS.getComponent(shipId, "Turret")
+                if turret then
+                    turret.moduleName = "combat_laser"
+                end
+                
+                ECS.addComponent(shipId, "CombatAI", Components.CombatAI())
             end
         end
     end
 
     print("Game entities created and systems initialized")
     print("Pilot and starting drone spawned at world center (0, 0)")
-    print("Asteroid clusters spawned: 5 clusters with 30 asteroids each (150 total) distributed across the world")
-    print("Enemy ships spawned: 5 mining lasers + 5 combat lasers + 5 basic cannons = 15 total enemies distributed across the map")
-    print("Collector scouts spawned: 3 autonomous bit collectors with magnetic fields")
+    print("Asteroid cluster spawned: 1 cluster with 30 asteroids and enemies")
     print("Player controls: WASD for thrust, ESC to quit")
 end
 

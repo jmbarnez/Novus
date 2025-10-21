@@ -113,6 +113,22 @@ function SettingsWindow:initialize()
     self._initialized = true
 end
 
+-- Update dropdown positions to match current window position
+function SettingsWindow:updateDropdownPositions()
+    if not self._initialized or not self.position then return end
+    
+    local x, y = self.position.x + 30, self.position.y + 60
+    
+    self.fpsDropdown.x = x
+    self.fpsDropdown.y = y
+    
+    self.modeDropdown.x = x
+    self.modeDropdown.y = y + 50
+    
+    self.resDropdown.x = x
+    self.resDropdown.y = y + 100
+end
+
 -- Toggle window open/close
 function SettingsWindow:toggle()
     self:setOpen(not self.isOpen)
@@ -133,6 +149,7 @@ function SettingsWindow:draw()
     local alpha = self.animAlpha
     
     self:initialize()
+    self:updateDropdownPositions()
     
     -- Title
     love.graphics.setFont(Theme.getFontBold(Theme.fonts.title))

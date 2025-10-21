@@ -102,8 +102,6 @@ function CombatLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
         color = {0, 0.5, 1, 1},  -- Bright cyan laser color
         ownerId = ownerId
     })
-    -- Mark this entity as a combat laser projectile for ship damage
-    ECS.addComponent(turretComp.laserEntity, "Projectile", {ownerId = ownerId, damage = CombatLaser.DPS, brittle = false, isCombatLaser = true})
 end
 
 -- Called every frame while the laser is firing
@@ -135,7 +133,7 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
     for _, entityId in ipairs(entityEntities) do
         -- Skip hitting ourselves
         if entityId == ownerId then goto skip_entity end
-        
+
         local intersection = CollisionSystem.linePolygonIntersect(offsetStartX, offsetStartY, endX, endY, entityId)
         
         if intersection then
@@ -146,39 +144,39 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
                 hitEntityId = entityId
             end
         end
-        
+
         ::skip_entity::
     end
 
     if closestIntersection and hitEntityId then
-        -- Only apply damage if target is a ship (has Hull component)
+        -- Calculate distance from laser origin to hit point for falloff
+        local hitDistance = math.sqrt(closestDistSq)
+
+        -- Distance falloff: damage starts falling off after 300 units, reaches 0 at 800
+        local falloffStart = 300
+        local falloffEnd = 800
+        local distanceMultiplier = 1.0
+        if hitDistance > falloffStart then
+            local falloffRange = falloffEnd - falloffStart
+            local falloffProgress = math.min((hitDistance - falloffStart) / falloffRange, 1.0)
+            distanceMultiplier = 1.0 - (falloffProgress * 1.0)  -- Falls to 0% damage at max
+            if distanceMultiplier < 0 then distanceMultiplier = 0 end
+        end
+
+        -- Heat multiplier: damage increases from 1x at 0 heat to 2x at max heat
+        local heatMultiplier = 1.0
+        if turretComp and turretComp.heat then
+            local heatProgress = turretComp.heat.current / CombatLaser.MAX_HEAT
+            heatMultiplier = 1.0 + (heatProgress * 1.0)  -- Up to 2x damage
+        end
+
+        -- Calculate final damage
+        local baseDamage = CombatLaser.DPS * dt
+        local finalDamage = baseDamage * distanceMultiplier * heatMultiplier
+
+        -- Try to damage ships (Hull component) first
         local hull = ECS.getComponent(hitEntityId, "Hull")
         if hull then
-            -- Calculate distance from laser origin to hit point
-            local hitDistance = math.sqrt(closestDistSq)
-
-            -- Distance falloff: damage starts falling off after 300 units, reaches 0 at 800
-            local falloffStart = 300
-            local falloffEnd = 800
-            local distanceMultiplier = 1.0
-            if hitDistance > falloffStart then
-                local falloffRange = falloffEnd - falloffStart
-                local falloffProgress = math.min((hitDistance - falloffStart) / falloffRange, 1.0)
-                distanceMultiplier = 1.0 - (falloffProgress * 1.0)  -- Falls to 0% damage at max
-                if distanceMultiplier < 0 then distanceMultiplier = 0 end
-            end
-
-            -- Heat multiplier: damage increases from 1x at 0 heat to 2x at max heat
-            local heatMultiplier = 1.0
-            if turretComp and turretComp.heat then
-                local heatProgress = turretComp.heat / CombatLaser.MAX_HEAT
-                heatMultiplier = 1.0 + (heatProgress * 1.0)  -- Up to 2x damage
-            end
-
-            -- Calculate final damage
-            local baseDamage = CombatLaser.DPS * dt
-            local finalDamage = baseDamage * distanceMultiplier * heatMultiplier
-
             -- Apply damage to Shield first, then Hull
             local shield = ECS.getComponent(hitEntityId, "Shield")
             local damage = finalDamage
@@ -199,7 +197,6 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
             if damage > 0 then
                 local damageApplied = math.min(damage, hull.current)
                 hull.current = hull.current - damageApplied
-                print("LASER DAMAGE: Applied " .. damageApplied .. " damage to ship " .. hitEntityId .. ", hull now " .. hull.current)
 
                 -- Only grant XP if ship is destroyed this frame
                 if hull.current <= 0 then

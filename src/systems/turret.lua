@@ -42,9 +42,8 @@ function TurretSystem.fireTurret(entityId, targetX, targetY, dt)
         local isLaserTurret = turret.moduleName == "mining_laser" or turret.moduleName == "combat_laser" or turret.moduleName == "salvage_laser"
         
         if isLaserTurret then
-            -- Laser turrets use Heat component
-            local heat = ECS.getComponent(entityId, "Heat")
-            if heat and heat.current >= (module.MAX_HEAT or 10) then
+            -- Laser turrets use Heat (stored in turret component)
+            if turret.heat and turret.heat.current >= (module.MAX_HEAT or 10) then
                 -- At max heat - don't fire
                 if turret.laserEntity then
                     ECS.destroyEntity(turret.laserEntity)
@@ -58,10 +57,9 @@ function TurretSystem.fireTurret(entityId, targetX, targetY, dt)
             module.fire(entityId, position.x, position.y, targetX, targetY, turret)
             -- accumulate heat using dt if supplied (laser turrets only)
             if isLaserTurret and dt and dt > 0 then
-                local heat = ECS.getComponent(entityId, "Heat")
-                if heat then
+                if turret.heat then
                     local heatRate = module.HEAT_RATE or 1.0
-                    heat.current = math.min((heat.current or 0) + heatRate * dt, module.MAX_HEAT or 10)
+                    turret.heat.current = math.min((turret.heat.current or 0) + heatRate * dt, module.MAX_HEAT or 10)
                 end
             end
             turret.lastFireTime = love.timer.getTime()
@@ -82,27 +80,26 @@ end
 
 function TurretSystem.update(dt)
     -- Heat management for continuous laser weapons
-    local turretEntities = ECS.getEntitiesWith({"Turret", "Heat"})
+    local turretEntities = ECS.getEntitiesWith({"Turret"})
     for _, eid in ipairs(turretEntities) do
         local t = ECS.getComponent(eid, "Turret")
-        local heat = ECS.getComponent(eid, "Heat")
-        if not t or not heat then goto cont end
+        if not t then goto cont end
         local module = TurretSystem.turretModules[t.moduleName]
         
-        -- Only laser turrets should have Heat component, but be safe
+        -- Only laser turrets should use Heat component, but be safe
         local isLaserTurret = t.moduleName == "mining_laser" or t.moduleName == "combat_laser" or t.moduleName == "salvage_laser"
         
-        if module and module.CONTINUOUS and isLaserTurret then
+        if module and module.CONTINUOUS and isLaserTurret and t.heat then
             -- Check if at max heat (cooldown mode)
             local maxHeat = module.MAX_HEAT or 10
-            local isInCooldown = heat.current >= maxHeat
+            local isInCooldown = t.heat.current >= maxHeat
             
             if isInCooldown then
                 -- In cooldown - track cooldown timer
-                heat.cooldownTimer = (heat.cooldownTimer or 0) + dt
-                if heat.cooldownTimer >= 2.0 then  -- 2 second cooldown
-                    heat.current = 0
-                    heat.cooldownTimer = 0
+                t.heat.cooldownTimer = (t.heat.cooldownTimer or 0) + dt
+                if t.heat.cooldownTimer >= 2.0 then  -- 2 second cooldown
+                    t.heat.current = 0
+                    t.heat.cooldownTimer = 0
                 end
             else
                 -- Not in cooldown - normal heat management
@@ -120,7 +117,7 @@ function TurretSystem.update(dt)
                 if not firedThisFrame then
                     -- Cooling down normally
                     local coolRate = module.COOL_RATE or (module.HEAT_RATE or 1.0) * 0.5
-                    heat.current = math.max(0, (heat.current or 0) - coolRate * dt)
+                    t.heat.current = math.max(0, (t.heat.current or 0) - coolRate * dt)
                 end
 
                 -- Track firing state for next frame

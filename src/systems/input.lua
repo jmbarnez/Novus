@@ -216,8 +216,8 @@ function InputSystem.update(dt)
                 if turretComp and turretModule and turretModule.CONTINUOUS then
                     -- Grow heat, and trigger overheat if exceeding MAX_HEAT
                     local heatRate = turretModule.HEAT_RATE or 1.0
-                    turretComp.heat = math.min((turretComp.heat or 0) + heatRate * dt, turretModule.MAX_HEAT or 10)
-                    if turretComp.heat >= (turretModule.MAX_HEAT or 10) then
+                    turretComp.heat.current = math.min((turretComp.heat.current or 0) + heatRate * dt, turretModule.MAX_HEAT or 10)
+                    if turretComp.heat.current >= (turretModule.MAX_HEAT or 10) then
                         turretComp.overheated = true
                     end
                 end
@@ -252,7 +252,7 @@ function InputSystem.update(dt)
                 end
             end
                     -- On release, start cooling down heat for continuous lasers
-                    if turretComp and turretComp.heat and turretComp.heat > 0 then
+                    if turretComp and turretComp.heat and turretComp.heat.current > 0 then
                         -- We'll rely on TurretSystem.update to cool down over time
                     end
         end

@@ -103,6 +103,17 @@ function EnemyMiningSystem.update(dt)
                     end
                     EnemyMiningSystem.updateMinerLaser(minerId, pos.x, pos.y, asteroidPos.x, asteroidPos.y)
                     EnemyMiningSystem.applyMinerDamage(minerId, closestAsteroid, asteroidPos.x, asteroidPos.y, dt)
+                    
+                    -- Update turret aim position for rendering
+                    local turret = ECS.getComponent(minerId, "Turret")
+                    if turret then
+                        local dx = asteroidPos.x - pos.x
+                        local dy = asteroidPos.y - pos.y
+                        local fireAngle = math.atan2(dy, dx)
+                        local muzzleDistance = 12
+                        turret.aimX = pos.x + math.cos(fireAngle) * muzzleDistance
+                        turret.aimY = pos.y + math.sin(fireAngle) * muzzleDistance
+                    end
                 end
             else
                 -- No asteroid found: stop mining laser (thrust forces naturally decay)

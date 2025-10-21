@@ -19,11 +19,6 @@ function ProjectileSystem.update(dt)
         local projColl = ECS.getComponent(projId, "Collidable")
         local projectile = ECS.getComponent(projId, "Projectile")
         if not (projPos and projColl) then goto continue_projectile end
-        
-        -- Skip lasers - they're handled by their modules' applyBeam() functions
-        if projectile and (projectile.isMiningLaser or projectile.isSalvageLaser or projectile.isCombatLaser) then
-            goto continue_projectile
-        end
 
         -- Asteroid collision: all non-laser projectiles bounce or break on asteroids
         for _, asteroidId in ipairs(asteroids) do
@@ -67,18 +62,7 @@ function ProjectileSystem.update(dt)
             if distSq < radii * radii then
                 if projectile and projectile.ownerId == wreckId then goto continue_wreckage end
                 
-                -- Salvage lasers damage wreckage
-                local durability = ECS.getComponent(wreckId, "Durability")
-                if durability and projectile and projectile.isSalvageLaser then
-                    durability.current = durability.current - (projectile.damage or 10)
-                    -- Track who is damaging this wreckage
-                    local ownerEntity = ECS.getComponent(projectile.ownerId, "ControlledBy")
-                    if ownerEntity and ownerEntity.pilotId then
-                        ECS.addComponent(wreckId, "LastDamager", Components.LastDamager(ownerEntity.pilotId, "salvage_laser"))
-                    end
-                end
-                
-                -- Non-laser projectiles also stop on wreckage
+                -- Non-laser projectiles can't pass through wreckage
                 if projectile and projectile.brittle then
                     local projDur = ECS.getComponent(projId, "Durability")
                     if projDur then projDur.current = 0 end
@@ -107,8 +91,8 @@ function ProjectileSystem.update(dt)
             local radii = enemyColl.radius + projColl.radius
             
             if distSq < radii * radii then
-                -- Only missiles, cannons hit enemies (not mining/salvage lasers)
-                if projectile and (projectile.isMissile or projectile.damage) and not projectile.isMiningLaser and not projectile.isSalvageLaser then
+                -- Only missiles and cannons hit enemies (not lasers - they're handled by their modules)
+                if projectile and (projectile.isMissile or projectile.brittle) then
                     local hull = ECS.getComponent(enemyId, "Hull")
                     if hull and projectile.damage then
                         hull.current = math.max(0, hull.current - projectile.damage)

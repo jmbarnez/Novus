@@ -2,22 +2,18 @@ local Components = {}
 
 -- Turret component - Manages active turret module and firing state
 -- @field moduleName string: The name of the currently equipped turret module
--- @field cooldown number: The cooldown duration in seconds (now read from module)
 -- @field lastFireTime number: The time (love.timer.getTime()) when the turret last fired
+-- @field heat table: Heat management (used by heat-generating modules like lasers)
+--   @field heat.current number: Current heat level
+--   @field heat.cooldownTimer number: Time spent in cooldown
 Components.Turret = function(moduleName)
     return {
         moduleName = moduleName or nil, -- No default, must be set by equipping a module
         lastFireTime = -999, -- Initialize to allow first shot immediately
-    }
-end
-
--- Heat component - Manages heat for laser turrets (separate component)
--- @field current number: Current heat level
--- @field cooldownTimer number: Time spent in cooldown
-Components.Heat = function()
-    return {
-        current = 0,
-        cooldownTimer = 0
+        heat = {
+            current = 0,
+            cooldownTimer = 0
+        }
     }
 end
 

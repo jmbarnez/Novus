@@ -370,7 +370,7 @@ local function drawTurretSlots(viewportWidth, viewportHeight)
                 local module = moduleName and TurretSystem.turretModules[moduleName]
                 local isLaserTurret = moduleName == "mining_laser" or moduleName == "combat_laser" or moduleName == "salvage_laser"
                 if module and module.CONTINUOUS and isLaserTurret then
-                    local heat = ECS.getComponent(droneId, "Heat")
+                    local heat = turret.heat
                     if heat then
                         local heatVal = (heat.current or 0)
                         local maxHeat = module.MAX_HEAT or 10
@@ -461,7 +461,7 @@ local function getHudStateHash()
     local shield = ECS.getComponent(d, "Shield") or {}
     local velocity = ECS.getComponent(d, "Velocity") or {}
     local turret = ECS.getComponent(d, "Turret") or {}
-    local heat = ECS.getComponent(d, "Heat") or {}
+    local heat = turret.heat or {}
     local rings = ECS.getComponent(d, "Rings") or {}
     local turretSlots = ECS.getComponent(d, "TurretSlots") or {slots={}}
     local notifLen = #(require('src.ui.notifications').notifications or {})

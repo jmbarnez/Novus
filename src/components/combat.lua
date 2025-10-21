@@ -36,16 +36,17 @@ Components.Durability = function(current, max)
     }
 end
 
--- Projectile component - Marks an entity as a projectile
 -- @field ownerId number: The entity ID of the owner who fired the projectile
 -- @field damage number: The amount of damage the projectile deals
 -- @field brittle boolean: Whether projectile breaks on impact
+-- @field isMissile boolean: True if projectile is a missile (for homing, special logic)
 -- @field ownerImmunityTime number: Time remaining during which projectile won't collide with owner
 Components.Projectile = function(data)
     return {
         ownerId = data.ownerId or 0,
         damage = data.damage or 10,
         brittle = data.brittle or false,
+        isMissile = data.isMissile or false,
         ownerImmunityTime = data.ownerImmunityTime or 0.2  -- 0.2 seconds of immunity to owner collision
     }
 end

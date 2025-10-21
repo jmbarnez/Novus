@@ -90,8 +90,6 @@ function SalvageLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
         color = {0.2, 1, 0.2, 1},  -- Bright green
         ownerId = ownerId
     })
-    -- Mark this entity as a salvage laser projectile for wreckage harvesting
-    ECS.addComponent(turretComp.laserEntity, "Projectile", {ownerId = ownerId, damage = SalvageLaser.DPS, brittle = false, isSalvageLaser = true})
 end
 
 -- Called every frame while the laser is firing
@@ -141,7 +139,7 @@ function SalvageLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretC
                 -- Heat multiplier: damage increases from 1x at 0 heat to 2x at max heat
                 local heatMultiplier = 1.0
                 if turretComp and turretComp.heat then
-                    local heatProgress = turretComp.heat / SalvageLaser.MAX_HEAT
+                    local heatProgress = turretComp.heat.current / SalvageLaser.MAX_HEAT
                     heatMultiplier = 1.0 + (heatProgress * 1.0)  -- Up to 2x damage
                 end
 
@@ -164,6 +162,17 @@ function SalvageLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretC
         return {hit = true, intersection = closestIntersection}
     else
         return {hit = false}
+    end
+end
+
+-- Stop firing - clean up laser beam entity
+function SalvageLaser.stopFiring(turretComp)
+    if turretComp and turretComp.laserEntity then
+        local component = ECS.getComponent(turretComp.laserEntity, "LaserBeam")
+        if component then
+            ECS.destroyEntity(turretComp.laserEntity)
+        end
+        turretComp.laserEntity = nil
     end
 end
 

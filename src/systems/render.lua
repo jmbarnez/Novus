@@ -11,7 +11,7 @@ local unpack = unpack or table.unpack
 local function isOnScreen(x, y, radius, cameraPos, camera)
     if not (cameraPos and camera) then return true end
 
-    local padding = 100 -- Extra padding to ensure we don't cull too aggressively
+    local padding = 200 -- Extra padding to ensure we don't cull too aggressively
     local viewportWidth = camera.width / camera.zoom
     local viewportHeight = camera.height / camera.zoom
 
