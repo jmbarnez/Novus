@@ -175,6 +175,15 @@ function EnemyMiningSystem.applyMinerDamage(minerId, asteroidId, asteroidX, aste
     local intersection = CollisionSystem.linePolygonIntersect(minerPos.x, minerPos.y, asteroidX, asteroidY, asteroidId)
     
     if intersection then
+        -- Update laser visual to end at collision point instead of asteroid center
+        local laserEntity = minerLasers[minerId]
+        if laserEntity then
+            local laserBeam = ECS.getComponent(laserEntity, "LaserBeam")
+            if laserBeam then
+                laserBeam.endPos = {x = intersection.x, y = intersection.y}
+            end
+        end
+        
         -- Apply damage
         local durability = ECS.getComponent(asteroidId, "Durability")
         if durability then

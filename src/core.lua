@@ -325,6 +325,27 @@ function Core.init()
                 end
             end
         end
+        
+        -- Spawn 1 Heavy Drone as a tougher enemy in the cluster
+        local x, y = spawnEnemyInCluster(cluster.centerX, cluster.centerY)
+        local heavyDroneId = ShipLoader.createShip("heavy_drone", x, y, "ai")
+        if heavyDroneId then
+            local turret = ECS.getComponent(heavyDroneId, "Turret")
+            if turret then
+                turret.moduleName = "combat_laser"
+            end
+            
+            -- Configure AI for combat
+            local ai = ECS.getComponent(heavyDroneId, "AI")
+            local design = ShipLoader.getDesign("heavy_drone")
+            if ai and design then
+                ai.type = "combat"
+                ai.state = "patrol"
+                if design.combatDetectionRange then
+                    ai.detectionRadius = design.combatDetectionRange
+                end
+            end
+        end
     end
 
     print("Game entities created and systems initialized")

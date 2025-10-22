@@ -8,13 +8,14 @@ local Components = {}
 -- @field height number: Height for rectangles
 -- @field radius number: Radius for circles
 -- @field color table: RGBA color {r, g, b, a}
-Components.Renderable = function(shape, width, height, radius, color)
+Components.Renderable = function(shape, width, height, radius, color, texture)
     return {
         shape = shape or "rectangle",
         width = width or 10,
         height = height or 10,
         radius = radius or 5,
-        color = color or {0, 1, 0, 1} -- Default green
+        color = color or {0, 1, 0, 1}, -- Default green
+        texture = texture or nil
     }
 end
 

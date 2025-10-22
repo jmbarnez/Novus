@@ -30,6 +30,7 @@ function ShipLoader.loadAllDesigns(directory)
     local knownDesigns = {
         "starter_drone",
         "red_scout",
+        "heavy_drone",
         "standard_combat",
         "starter_hexagon"
     }
@@ -96,7 +97,7 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
         if type(design.polygon.rotation) == "number" then polyRotation = design.polygon.rotation end
         ECS.addComponent(shipId, "PolygonShape", Components.PolygonShape(design.polygon, polyRotation))
         ECS.addComponent(shipId, "Renderable", Components.Renderable(
-            "polygon", nil, nil, nil, shipColor
+            "polygon", nil, nil, nil, shipColor, design.texture
         ))
         
         -- Calculate realistic moment of inertia based on polygon shape and mass

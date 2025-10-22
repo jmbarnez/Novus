@@ -440,48 +440,32 @@ local function drawEnemyHealthBars(viewportWidth, viewportHeight)
             -- Convert canvas coordinates to screen coordinates
             local screenX, screenY = Scaling.toScreenCanvas(canvasX, canvasY)
             
-            local barWidth = 40
-            local barHeight = 6
+            local barWidth = 32
+            local barHeight = 5
             local x = screenX - barWidth / 2
             local y = screenY - (renderable.radius or 15) * camera.zoom - 10
             
-            -- Helper function to draw level indicator
-            local function drawLevelBox(xPos, yPos)
-                local level = 3  -- TODO: Get from entity component
-                local levelBoxSize = 12
-                local levelBoxX = xPos - levelBoxSize - 4
-                local levelBoxY = yPos
-                
-                -- Red background
-                love.graphics.setColor(1, 0.2, 0.2, 1)
-                love.graphics.rectangle("fill", levelBoxX, levelBoxY, levelBoxSize, levelBoxSize)
-                
-                -- Black outline
-                love.graphics.setColor(0, 0, 0, 1)
-                love.graphics.setLineWidth(1)
-                love.graphics.rectangle("line", levelBoxX, levelBoxY, levelBoxSize, levelBoxSize)
-                
-                -- White number
-                love.graphics.setColor(1, 1, 1, 1)
-                local smallFont = Theme.getFont(8)
-                love.graphics.setFont(smallFont)
-                local levelText = tostring(level)
-                local textW = smallFont:getWidth(levelText)
-                local textH = smallFont:getHeight()
-                love.graphics.print(levelText, levelBoxX + (levelBoxSize - textW) / 2, levelBoxY + (levelBoxSize - textH) / 2)
-            end
+            -- Draw background once
+            love.graphics.setColor(PlasmaTheme.colors.healthBarBg)
+            love.graphics.rectangle("fill", x, y, barWidth, barHeight, 2, 2)
             
-            -- Draw shield bar first (above) if it exists
+            -- Draw hull bar (red/pink) underneath
+            local hullRatio = math.max(0, math.min(1, (hull.current or 0) / (hull.max or 1)))
+            love.graphics.setColor(PlasmaTheme.colors.healthBarFill)
+            love.graphics.rectangle("fill", x + 1, y + 1, math.max(0, (barWidth - 2) * hullRatio), barHeight - 2, 1, 1)
+            
+            -- Shield overlay (if present) - draw on top of hull as blue overlay
             if shield and shield.max > 0 then
                 local sRatio = math.max(0, math.min(1, (shield.current or 0) / (shield.max or 1)))
-                PlasmaTheme.drawHealthBar(x, y - 8, barWidth, barHeight, sRatio, true)
-                drawLevelBox(x, y - 8)
+                love.graphics.setColor(PlasmaTheme.colors.shieldBarFill)
+                love.graphics.rectangle("fill", x + 1, y + 1, math.max(0, (barWidth - 2) * sRatio), barHeight - 2, 1, 1)
             end
             
-            -- Draw hull bar
-            local ratio = math.max(0, math.min(1, (hull.current or 0) / (hull.max or 1)))
-            PlasmaTheme.drawHealthBar(x, y, barWidth, barHeight, ratio, false)
-            drawLevelBox(x, y)
+            -- Draw thick black outline
+            love.graphics.setColor(PlasmaTheme.colors.outlineBlack)
+            love.graphics.setLineWidth(PlasmaTheme.colors.outlineThick)
+            love.graphics.rectangle("line", x, y, barWidth, barHeight, 2, 2)
+            love.graphics.setLineWidth(1)
         end
         
         ::continue_ship::

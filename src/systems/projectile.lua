@@ -104,9 +104,27 @@ function ProjectileSystem.update(dt)
             if distSq < radii * radii then
                 -- Only missiles and cannons hit enemies (not lasers - they're handled by their modules)
                 if projectile and (projectile.isMissile or projectile.brittle) then
+                    local shield = ECS.getComponent(enemyId, "Shield")
                     local hull = ECS.getComponent(enemyId, "Hull")
-                    if hull and projectile.damage then
-                        hull.current = math.max(0, hull.current - projectile.damage)
+                    local damage = projectile.damage or 10
+                    
+                    -- Apply damage to shield first, then hull
+                    if shield and shield.current > 0 then
+                        -- Shield absorbed damage - create impact effect
+                        local ShieldImpactSystem = ECS.getSystem("ShieldImpactSystem")
+                        if ShieldImpactSystem and ShieldImpactSystem.createImpact then
+                            ShieldImpactSystem.createImpact(projPos.x, projPos.y, enemyId)
+                        end
+                        
+                        local remaining = shield.current - damage
+                        shield.current = math.max(0, remaining)
+                        damage = math.max(0, -remaining)
+                        shield.regenTimer = shield.regenDelay or 0
+                    end
+                    
+                    -- Apply remaining damage to hull
+                    if damage > 0 and hull then
+                        hull.current = math.max(0, hull.current - damage)
                     end
                     
                     -- Destroy missile on impact

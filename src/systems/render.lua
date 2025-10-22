@@ -92,7 +92,7 @@ local function drawTurret(x, y, color, turretRotation)
 end
 
 -- Helper function to draw a polygon shape
-local function drawPolygon(x, y, polygonShape, color)
+local function drawPolygon(x, y, polygonShape, color, texture)
     local vertices = polygonShape.vertices
     local rotation = polygonShape.rotation
     if not polygonShape or not color then return end
@@ -119,13 +119,24 @@ local function drawPolygon(x, y, polygonShape, color)
     love.graphics.setColor(colors.stripes[1], colors.stripes[2], colors.stripes[3], colors.stripes[4])
     love.graphics.polygon("fill", worldVertices)
 
-    -- Draw subtle cockpit highlight (overlay) - only if this polygon has a cockpit defined
-    if polygonShape.cockpitRadius then
-        local cx = x + (polygonShape.cockpitOffsetX or 0)
-        local cy = y + (polygonShape.cockpitOffsetY or 0)
-        love.graphics.setColor(colors.cockpit[1], colors.cockpit[2], colors.cockpit[3], (colors.cockpit[4] or 1) * 0.7)
-        -- small circle to suggest cockpit
-        love.graphics.circle("fill", cx, cy, math.max(3, polygonShape.cockpitRadius))
+    -- Universal: draw any shape in any texture field
+    if texture then
+        for field, shapes in pairs(texture) do
+            if type(shapes) == "table" then
+                for _, shape in ipairs(shapes) do
+                    if shape.x and shape.y and shape.r and shape.color then
+                        -- Draw circle
+                        love.graphics.setColor(shape.color[1], shape.color[2], shape.color[3], shape.color[4])
+                        love.graphics.circle("fill", x + shape.x, y + shape.y, shape.r)
+                    elseif shape.x1 and shape.y1 and shape.x2 and shape.y2 and shape.color then
+                        -- Draw line
+                        love.graphics.setColor(shape.color[1], shape.color[2], shape.color[3], shape.color[4])
+                        love.graphics.setLineWidth(shape.lineWidth or 3)
+                        love.graphics.line(x + shape.x1, y + shape.y1, x + shape.x2, y + shape.y2)
+                    end
+                end
+            end
+        end
     end
 
     -- Draw thick plasma-style outline (multiple passes for thickness)
@@ -468,7 +479,7 @@ local RenderSystem = {
                             love.graphics.push()
                             love.graphics.translate(position.x, position.y)
                             love.graphics.rotate(playerRotation)
-                            drawPolygon(0, 0, polygonShape, renderable.color)
+                            drawPolygon(0, 0, polygonShape, renderable.color, renderable.texture)
                             love.graphics.pop()
                             -- Calculate turret aim direction (angle to mouse)
                             local mouseX, mouseY = love.mouse.getPosition()
@@ -503,7 +514,7 @@ local RenderSystem = {
                             love.graphics.push()
                             love.graphics.translate(position.x, position.y)
                             love.graphics.rotate(enemyRotation)
-                            drawPolygon(0, 0, polygonShape, renderable.color)
+                            drawPolygon(0, 0, polygonShape, renderable.color, renderable.texture)
                             love.graphics.pop()
                             -- Calculate turret aim direction for enemy
                             local turretAimAngle = enemyRotation
@@ -520,7 +531,7 @@ local RenderSystem = {
                             local turretWorldY = position.y + (toffX * sinE + toffY * cosE)
                             drawTurret(turretWorldX, turretWorldY, renderable.color, turretAimAngle)
                         else
-                            drawPolygon(position.x, position.y, polygonShape, renderable.color)
+                            drawPolygon(position.x, position.y, polygonShape, renderable.color, renderable.texture)
                         end
                     end
                 end
