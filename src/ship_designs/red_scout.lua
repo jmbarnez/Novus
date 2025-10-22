@@ -6,16 +6,18 @@ return {
     name = "Red Scout",
     description = "A small, fast attack ship with light armor",
     
-    -- Visual design (triangle)
+    -- Visual design (equilateral triangle)
     polygon = {
-        -- Simple triangular hull pointing up
-        {x = 0,  y = -9},
-        {x = 8,  y = 6},
-        {x = -8, y = 6},
-        -- Explicit cockpit offsets so renderer centers cockpit and turret
+        -- Side length = 16, height = side * sqrt(3)/2
+        -- Centroid at origin: top vertex y = -2/3*height, base vertices y = 1/3*height
+        { x = 0,             y = -2 * (16 * math.sqrt(3) / 2) / 3 },
+        { x = 16 / 2,        y = (16 * math.sqrt(3) / 2) / 3 },
+        { x = -16 / 2,       y = (16 * math.sqrt(3) / 2) / 3 },
         cockpitOffsetX = 0,
-        cockpitOffsetY = -2,
+        cockpitOffsetY = -(16 * math.sqrt(3) / 2) * 0.15,
         cockpitRadius = 4,
+        -- rotation can be set per-design (in radians) to rotate the whole polygon
+        rotation = 0,
     },
     -- Color layers for texture and detail
     colors = {

@@ -92,7 +92,9 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
     
     -- Visual
     if design.polygon then
-        ECS.addComponent(shipId, "PolygonShape", Components.PolygonShape(design.polygon, 0))
+        local polyRotation = 0
+        if type(design.polygon.rotation) == "number" then polyRotation = design.polygon.rotation end
+        ECS.addComponent(shipId, "PolygonShape", Components.PolygonShape(design.polygon, polyRotation))
         ECS.addComponent(shipId, "Renderable", Components.Renderable(
             "polygon", nil, nil, nil, shipColor
         ))
