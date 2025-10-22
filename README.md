@@ -111,10 +111,12 @@ Game settings are centralized in `src/constants.lua`:
 
 The ECS architecture is designed for high performance:
 
-- **Efficient Queries**: Only process entities with relevant components
+- **Efficient Queries**: Indexed component types with O(n) set intersection queries (not O(nm))
 - **System Ordering**: Deterministic execution order
 - **Memory Management**: Automatic cleanup of destroyed entities
 - **Canvas Rendering**: Off-screen rendering for smooth visuals
+
+For detailed information on the query optimization, see [ECS Query Optimization](docs/ECS_OPTIMIZATION.md).
 
 ## 🤝 Contributing
 

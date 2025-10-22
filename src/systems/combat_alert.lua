@@ -52,14 +52,14 @@ end
 
 -- Check all enemies and alert them if they're near an attack
 function CombatAlertSystem.checkAndAlertEnemies(attackX, attackY, playerDroneId)
-    local enemies = ECS.getEntitiesWith({"AIController", "Position", "Hull"})
+    local enemies = ECS.getEntitiesWith({"AI", "Position", "Hull"})
     local currentTime = love.timer.getTime()
     
     for _, enemyId in ipairs(enemies) do
         local enemyPos = ECS.getComponent(enemyId, "Position")
-        local ai = ECS.getComponent(enemyId, "AIController")
+        local ai = ECS.getComponent(enemyId, "AI")
         -- Skip miners entirely; they should never react to combat alerts
-        if ECS.getComponent(enemyId, "MiningAI") then
+        if ai.type == "mining" then
             goto continue_enemy
         end
         

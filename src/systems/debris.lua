@@ -33,10 +33,15 @@ function DebrisSystem.draw()
 
     for _, entityId in ipairs(entities) do
         local particle = ECS.getComponent(entityId, "DebrisParticle")
-        
-        -- Use a grey color for debris
-        love.graphics.setColor(particle.color[1], particle.color[2], particle.color[3], particle.life / particle.maxLife) -- Fade out
-        love.graphics.rectangle("fill", particle.x, particle.y, particle.size, particle.size)
+        if particle then
+            -- Use a grey color for debris
+            local r, g, b = 0.8, 0.8, 0.8 -- Default light grey
+            if particle.color and particle.color[1] and particle.color[2] and particle.color[3] then
+                r, g, b = particle.color[1], particle.color[2], particle.color[3]
+            end
+            love.graphics.setColor(r, g, b, particle.life / particle.maxLife) -- Fade out
+            love.graphics.rectangle("fill", particle.x, particle.y, particle.size, particle.size)
+        end
     end
 
     -- Reset color to white for other rendering

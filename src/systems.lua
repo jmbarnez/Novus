@@ -25,7 +25,6 @@ Systems.MissileSystem = require('src.systems.homing_missile')
 Systems.ProjectileSystem = require('src.systems.projectile')
 Systems.SoundSystem = require('src.systems.sound')
 Systems.WrackageSystem = require('src.systems.wreckage')
-Systems.AIArbiterSystem = require('src.systems.ai_arbiter')
 Systems.ShieldImpactSystem = require('src.systems.shield_impact')
 Systems.GalaxyBackdropSystem = require('src.systems.galaxy_backdrop')
 

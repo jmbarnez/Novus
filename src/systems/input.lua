@@ -286,18 +286,12 @@ function InputSystem.mousepressed(x, y, button, istouch, presses)
         local closestEnemy = nil
         local closestDist = math.huge
 
-        -- Get all enemy ships (entities with CombatAI or MiningAI but not controlled by player)
+        -- Get all enemy ships (AI-controlled, not controlled by player)
+        local allAIEntities = ECS.getEntitiesWith({"AI", "Position", "Collidable"})
+        
+        -- Filter to uncontrolled entities
         local enemyEntities = {}
-        local combatEnemies = ECS.getEntitiesWith({"CombatAI", "Position", "Collidable"})
-        local miningEnemies = ECS.getEntitiesWith({"MiningAI", "Position", "Collidable"})
-
-        for _, enemyId in ipairs(combatEnemies) do
-            if not ECS.hasComponent(enemyId, "ControlledBy") then
-                table.insert(enemyEntities, enemyId)
-            end
-        end
-
-        for _, enemyId in ipairs(miningEnemies) do
+        for _, enemyId in ipairs(allAIEntities) do
             if not ECS.hasComponent(enemyId, "ControlledBy") then
                 table.insert(enemyEntities, enemyId)
             end

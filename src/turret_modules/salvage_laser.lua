@@ -12,18 +12,19 @@ local SalvageLaser = {
     name = "salvage_laser",
     displayName = "Salvage Laser",
     CONTINUOUS = true,
-    HEAT_RATE = 1.5,
-    MAX_HEAT = 8.0,
-    COOL_RATE = 2.5,
-    DPS = 40,
+    HEAT_RATE = 2.0, -- Heat units per second while firing
+    MAX_HEAT = 10.0, -- Max heat before overheating
+    COOL_RATE = 3.0, -- Heat units per second while not firing
+    DPS = 30,
     RANGE = math.huge,  -- Unlimited beam range for visual collision
     -- Damage falloff configuration
     FALLOFF_START = 350,   -- Full damage up to this distance
-    FALLOFF_END = 1100,    -- Zero damage beyond this distance
+    FALLOFF_END = 1200,    -- Zero damage beyond this distance
+    ZERO_DAMAGE_RANGE = 1200,  -- Maximum effective range (beyond this deals no damage)
     design = {
         shape = "custom",
         size = 16,
-        color = {0.2, 1.0, 0.2, 1}
+        color = {0.8, 0.4, 1, 1}
     },
     draw = function(self, x, y)
         local size = self.design.size
@@ -90,7 +91,7 @@ function SalvageLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
     ECS.addComponent(turretComp.laserEntity, "LaserBeam", {
         start = {x = offsetStartX, y = offsetStartY},
         endPos = {x = endX, y = endY},
-        color = {0.2, 1, 0.2, 1},  -- Bright green
+        color = {0.2, 1, 0.2, 1},  -- Green
         ownerId = ownerId
     })
 end
@@ -171,11 +172,8 @@ function SalvageLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretC
                 end
             end
         end
-        -- Store color of hit entity
-        local renderable = ECS.getComponent(hitEntityId, "Renderable")
-        closestIntersection.color = renderable and renderable.color or {0.5, 0.5, 0.5, 1}
-        -- Create impact debris
-        DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, closestIntersection.color)
+        -- Create impact debris with laser beam color
+        DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, {0.2, 1, 0.2, 1})
         return {hit = true, intersection = closestIntersection}
     else
         return {hit = false}

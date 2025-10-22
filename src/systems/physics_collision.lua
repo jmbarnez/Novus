@@ -650,6 +650,31 @@ local PhysicsCollisionSystem = {
                             goto continue_nearby 
                         end
                         
+                        -- CRITICAL: Enemy projectiles should NOT collide with other enemies
+                        -- They should only collide with the player and asteroids/wreckage
+                        if proj1 then
+                            local owner1 = ECS.getComponent(proj1.ownerId, "ControlledBy")
+                            -- If projectile owner is AI-controlled (enemy), check target
+                            if not owner1 then  -- No ControlledBy = enemy AI
+                                local target2AI = ECS.getComponent(entity2Id, "AI")
+                                if target2AI then
+                                    -- Both are enemies - skip this collision
+                                    goto continue_nearby
+                                end
+                            end
+                        end
+                        if proj2 then
+                            local owner2 = ECS.getComponent(proj2.ownerId, "ControlledBy")
+                            -- If projectile owner is AI-controlled (enemy), check target
+                            if not owner2 then  -- No ControlledBy = enemy AI
+                                local target1AI = ECS.getComponent(entity1Id, "AI")
+                                if target1AI then
+                                    -- Both are enemies - skip this collision
+                                    goto continue_nearby
+                                end
+                            end
+                        end
+                        
                         -- Skip items colliding with player ship
                         -- Items should ignore player ship collisions
                         local item1 = ECS.getComponent(entity1Id, "Item")

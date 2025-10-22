@@ -11,7 +11,6 @@ local ECS = require('src.ecs')
 local Systems = require('src.systems')
 local Components = require('src.components')
 local Parallax = require('src.parallax')
-local Constants = require('src.constants')
 local Procedural = require('src.procedural')
 local UISystem = require('src.systems.ui')
 local HotkeyConfig = require('src.hotkey_config')
@@ -42,7 +41,7 @@ function Core.init()
     ECS.registerSystem("HUDSystem", Systems.HUDSystem)
     ECS.registerSystem("TrailSystem", Systems.TrailSystem)
     ECS.registerSystem("CombatAlertSystem", require('src.systems.combat_alert'))
-    ECS.registerSystem("AIArbiterSystem", Systems.AIArbiterSystem)
+    -- ECS.registerSystem("PlayerFaceVelocitySystem", require('src.systems.player_face_velocity'))
     ECS.registerSystem("AISystem", Systems.AISystem)
     ECS.registerSystem("CollisionSystem", Systems.CollisionSystem)
     ECS.registerSystem("MagnetSystem", Systems.MagnetSystem)
@@ -213,14 +212,15 @@ function Core.init()
                     turret.moduleName = "mining_laser"
                 end
                 
-                local ai = ECS.getComponent(shipId, "AIController")
-                if ai then
+                local ai = ECS.getComponent(shipId, "AI")
+                local design = ShipLoader.getDesign("red_scout")
+                if ai and design then
+                    ai.type = "mining"
                     ai.state = "mining"
-                    ai.speed = 40
-                    ai.detectionRadius = 600
+                    if design.miningDetectionRange then
+                        ai.detectionRadius = design.miningDetectionRange
+                    end
                 end
-                
-                ECS.addComponent(shipId, "MiningAI", Components.MiningAI())
             end
         end
         
@@ -240,15 +240,15 @@ function Core.init()
                 end
                 
                 -- Configure AI for combat
-                local ai = ECS.getComponent(shipId, "AIController")
-                if ai then
-                    ai.state = "patrol"  -- Start in patrol, will transition to chase/orbit when player detected
-                    ai.speed = 80        -- Combat drone speed
-                    ai.detectionRadius = 800  -- Larger detection radius for combat
-                    ai.fireRange = 2500  -- Fallback fire range (will be overridden by turret)
+                local ai = ECS.getComponent(shipId, "AI")
+                local design = ShipLoader.getDesign("red_scout")
+                if ai and design then
+                    ai.type = "combat"
+                    ai.state = "patrol"
+                    if design.combatDetectionRange then
+                        ai.detectionRadius = design.combatDetectionRange
+                    end
                 end
-                
-                ECS.addComponent(shipId, "CombatAI", Components.CombatAI())
             end
         end
     end
@@ -402,6 +402,16 @@ function Core.quit()
         -- Reset UI state
         if UISystem.releaseMouse then UISystem.releaseMouse() end
         if UISystem.setWindowFocus then UISystem.setWindowFocus(nil) end
+    end
+    
+    -- Release canvas resources before clearing ECS
+    local canvasEntities = ECS.getEntitiesWith({"Canvas"})
+    for _, canvasId in ipairs(canvasEntities) do
+        local canvasComp = ECS.getComponent(canvasId, "Canvas")
+        if canvasComp and canvasComp.canvas then
+            canvasComp.canvas:release()
+            canvasComp.canvas = nil
+        end
     end
     
     -- Clear all ECS entities, components, and systems

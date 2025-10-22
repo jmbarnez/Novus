@@ -498,12 +498,24 @@ function SettingsWindow:setOpen(state)
     -- When opening, capture a downscaled screenshot into a canvas to simulate blur
     if state then
         local w, h = love.graphics.getDimensions()
-        self._screenW = w
-        self._screenH = h
         -- Create a small canvas to draw a downscaled scene into (for cheap blur)
         local downW = math.max(160, math.floor(w / 8))
         local downH = math.max(90, math.floor(h / 8))
-        self._blurCanvas = love.graphics.newCanvas(downW, downH)
+        
+        -- Reuse existing canvas if dimensions haven't changed
+        if not self._blurCanvas or self._blurW ~= downW or self._blurH ~= downH then
+            -- Release old canvas if it exists
+            if self._blurCanvas then
+                self._blurCanvas:release()
+            end
+            self._blurCanvas = love.graphics.newCanvas(downW, downH)
+            self._blurW = downW
+            self._blurH = downH
+        end
+        
+        self._screenW = w
+        self._screenH = h
+        
         -- Copy the game's main canvas into the small canvas scaled down
         local ECS = require('src.ecs')
         local canvasEntities = ECS.getEntitiesWith({"Canvas"})
@@ -522,8 +534,8 @@ function SettingsWindow:setOpen(state)
             end
         end
     else
-        -- On close, release blur canvas
-        self._blurCanvas = nil
+        -- On close, keep canvas for reuse (will be released on dimension change or cleanup)
+        -- Don't set to nil to allow reuse on next open
     end
 end
 

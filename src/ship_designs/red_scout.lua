@@ -6,47 +6,39 @@ return {
     name = "Red Scout",
     description = "A small, fast attack ship with light armor",
     
-    -- Visual design
+    -- Visual design (circle)
     polygon = {
-        -- Nose and cockpit
-        {x = 0, y = -8},
-        {x = 1.2, y = -6.5},
-        {x = 2.2, y = -5.5},
-        {x = 0.8, y = -4.5},
-        -- Left forward fin
-        {x = 3.2, y = -4.2},
-        {x = 4.5, y = -2.5},
-        {x = 4.2, y = -1.2},
-        -- Left mid-body detail
-        {x = 3.8, y = 0.2},
-        {x = 4.2, y = 1.5},
-        {x = 3.2, y = 3.2},
-        {x = 2.2, y = 4.5},
-        {x = 1.2, y = 6.2},
-        -- Left rear engine pod
-        {x = 2.8, y = 7.2},
-        {x = 1.2, y = 7.8},
-        {x = 0, y = 7.5},
-        -- Right rear engine pod
-        {x = -1.2, y = 7.8},
-        {x = -2.8, y = 7.2},
-        {x = -1.2, y = 6.2},
-        {x = -2.2, y = 4.5},
-        {x = -3.2, y = 3.2},
-        {x = -4.2, y = 1.5},
-        {x = -3.8, y = 0.2},
-        -- Right mid-body detail
-        {x = -4.2, y = -1.2},
-        {x = -4.5, y = -2.5},
-        {x = -3.2, y = -4.2},
-        {x = -0.8, y = -4.5},
-        {x = -2.2, y = -5.5},
-        {x = -1.2, y = -6.5},
+        -- Circle approximated with 16 vertices
+        {x = 0,    y = -8},
+        {x = 1.96, y = -7.76},
+        {x = 3.70, y = -7.06},
+        {x = 5.08, y = -5.91},
+        {x = 6.06, y = -4.36},
+        {x = 6.54, y = -2.59},
+        {x = 6.49, y = -0.74},
+        {x = 5.91, y = 1.17},
+        {x = 4.81, y = 3.23},
+        {x = 3.23, y = 4.81},
+        {x = 1.17, y = 5.91},
+        {x = -0.74, y = 6.49},
+        {x = -2.59, y = 6.54},
+        {x = -4.36, y = 6.06},
+        {x = -5.91, y = 5.08},
+        {x = -7.06, y = 3.70},
+        {x = -7.76, y = 1.96},
+        {x = -8,    y = 0},
+        {x = -7.76, y = -1.96},
+        {x = -7.06, y = -3.70},
+        {x = -5.91, y = -5.08},
+        {x = -4.36, y = -6.06},
+        {x = -2.59, y = -6.54},
+        {x = -0.74, y = -6.49},
     },
     -- Color layers for texture and detail
     colors = {
-        base = {1, 0.15, 0.15, 1},         -- Main red hull
-        cockpit = {0.15, 0.15, 0.22, 1},    -- Dark blue/gray cockpit
+        stripes = {1, 0.15, 0.15, 1},      -- Main red hull
+        cockpit = {0.15, 0.15, 0.22, 1},   -- Dark blue/gray cockpit
+        base = {1, 0.15, 0.15, 1},         -- Main red hull (legacy)
         fins = {0.8, 0.2, 0.2, 1},         -- Lighter red for fins
         engine = {0.7, 0.7, 0.7, 1},       -- Silver/gray engine pods
         accent = {1, 0.7, 0.2, 1},         -- Orange/gold accent
@@ -75,6 +67,7 @@ return {
     friction = 0.9999, -- Space has no air resistance, nearly 1.0 for realistic coasting
     mass = 5, -- Very light for a ship (projectiles are 0.5, asteroids are 50-500)
     angularDamping = 0.95, -- Ships damp rotation faster (more control)
+    thrustForce = 300, -- Base thrust force for AI movement (applies acceleration)
     
     -- Equipment
     turretSlots = 1,
@@ -90,5 +83,16 @@ return {
     patrolPoints = {},  -- Empty patrol points - AI will wander randomly
     detectionRange = 1600,
     engageRange = 240,
-    patrolSpeed = 60
+    patrolSpeed = 60,
+    
+    -- Variant-specific detection ranges
+    miningDetectionRange = 600,
+    combatDetectionRange = 800,
+    
+    -- AI behavioral parameters
+    orbitDistance = 300,           -- Optimal distance to maintain when orbiting
+    wanderRadius = 150,            -- How far to wander from spawn point
+    wanderThrustMultiplier = 0.3,  -- Reduced thrust when wandering
+    orbitThrustMultiplier = 0.7,   -- Reduced thrust when orbiting
+    steeringResponsiveness = 0.3,  -- How quickly AI can change direction (0-1, lower = smoother turns)
 }

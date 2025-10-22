@@ -35,21 +35,27 @@ function EnemyMiningSystem.update(dt)
         end
     end
     
-    -- Find all mining AI ships - use MiningAI component for reliable identification
-    local minerEntities = ECS.getEntitiesWith({"AIController", "Position", "Velocity", "MiningAI"})
+    -- Find all mining AI ships
+    local minerEntities = ECS.getEntitiesWith({"AI", "Position", "Velocity", "Turret"})
     
     for _, minerId in ipairs(minerEntities) do
         local turret = ECS.getComponent(minerId, "Turret")
-        local ai = ECS.getComponent(minerId, "AIController")
+        local ai = ECS.getComponent(minerId, "AI")
         
-        -- Process only entities with MiningAI component
-        if ai then
-            -- ALWAYS force mining state - this is the safety check
+        -- Process only mining AI entities
+        if ai and ai.type == "mining" then
+            -- ALWAYS force mining state
             ai.state = "mining"
             
             local pos = ECS.getComponent(minerId, "Position")
             local vel = ECS.getComponent(minerId, "Velocity")
             if not (pos and vel) then goto continue end
+            
+            -- Get ship design for thrustForce
+            local wreckage = ECS.getComponent(minerId, "Wreckage")
+            local ShipLoader = require('src.ship_loader')
+            local design = wreckage and ShipLoader.getDesign(wreckage.sourceShip)
+            local thrustForce = design and design.thrustForce or 100
             
             -- Find closest asteroid within range
             local asteroids = ECS.getEntitiesWith({"Asteroid", "Position", "Durability"})
@@ -84,8 +90,8 @@ function EnemyMiningSystem.update(dt)
                     
                     if distToAsteroid > targetDistance then
                         if distToAsteroid > 0 and physics then
-                            local desiredVx = (dx / distToAsteroid) * ai.speed
-                            local desiredVy = (dy / distToAsteroid) * ai.speed
+                            local desiredVx = (dx / distToAsteroid) * thrustForce * 0.5
+                            local desiredVy = (dy / distToAsteroid) * thrustForce * 0.5
                             local thrustX = (desiredVx - vel.vx) * 0.6 * physics.mass
                             local thrustY = (desiredVy - vel.vy) * 0.6 * physics.mass
                             ForceUtils.applyForce(minerId, thrustX, thrustY)
@@ -94,8 +100,8 @@ function EnemyMiningSystem.update(dt)
                         if physics then
                             local time = love.timer.getTime()
                             local orbitAngle = time * 2
-                            local desiredVx = math.cos(orbitAngle) * ai.speed * 0.3
-                            local desiredVy = math.sin(orbitAngle) * ai.speed * 0.3
+                            local desiredVx = math.cos(orbitAngle) * thrustForce * 0.15
+                            local desiredVy = math.sin(orbitAngle) * thrustForce * 0.15
                             local thrustX = (desiredVx - vel.vx) * 0.6 * physics.mass
                             local thrustY = (desiredVy - vel.vy) * 0.6 * physics.mass
                             ForceUtils.applyForce(minerId, thrustX, thrustY)

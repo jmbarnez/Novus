@@ -19,6 +19,7 @@ local CombatLaser = {
     -- Damage falloff configuration
     FALLOFF_START = 300,   -- Full damage up to this distance
     FALLOFF_END = 800,     -- Zero damage beyond this distance
+    ZERO_DAMAGE_RANGE = 800,  -- Maximum effective range (beyond this deals no damage)
     design = {
         shape = "custom",
         size = 16,
@@ -89,7 +90,7 @@ function CombatLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
     ECS.addComponent(turretComp.laserEntity, "LaserBeam", {
         start = {x = offsetStartX, y = offsetStartY},
         endPos = {x = endX, y = endY},
-        color = {0, 0.5, 1, 1},  -- Bright cyan laser color
+        color = {0, 0.5, 1, 1},  -- Default color (will be overridden by render system based on owner)
         ownerId = ownerId
     })
 end
@@ -194,11 +195,8 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
                 end
             end
         end
-        -- Store color of hit entity
-        local renderable = ECS.getComponent(hitEntityId, "Renderable")
-        closestIntersection.color = renderable and renderable.color or {0.5, 0.5, 0.5, 1}
-        -- Create impact debris
-        DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, closestIntersection.color)
+        -- Create impact debris with laser beam color
+        DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, {0, 0.5, 1, 1})
         return {hit = true, intersection = closestIntersection}
     else
         return {hit = false}

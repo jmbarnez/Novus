@@ -13,6 +13,13 @@ local entities = {}
 -- Component storage: componentType -> entityId -> componentData
 local components = {}
 
+-- Component index: componentType -> { entityId = true, ... } (set of entity IDs)
+-- Enables O(n) queries instead of O(nm)
+local componentIndex = {}
+
+-- Recycled entity ID pool (to prevent overflow in long-running games)
+local recycledEntityIds = {}
+
 -- System registry: systemName -> system table
 local systems = {}
 
@@ -22,8 +29,15 @@ local systemOrder = nil -- Will be computed after all systems are registered
 -- Create a new entity
 -- @return entityId number: Unique identifier for the entity
 function ECS.createEntity()
-    local entityId = nextEntityId
-    nextEntityId = nextEntityId + 1
+    local entityId
+    
+    -- Reuse recycled IDs if available to prevent overflow
+    if next(recycledEntityIds) then
+        entityId = table.remove(recycledEntityIds)
+    else
+        entityId = nextEntityId
+        nextEntityId = nextEntityId + 1
+    end
 
     entities[entityId] = {}
     -- Main checkpoint log: entity creation (optional, comment out for less spam)
@@ -35,15 +49,24 @@ end
 -- @param entityId number: The entity to destroy
 function ECS.destroyEntity(entityId)
     if not entities[entityId] then
-        error("Attempted to destroy non-existent entity: " .. entityId)
+        -- Silently ignore attempts to destroy non-existent entities
+        -- This prevents crashes from double-destruction scenarios
+        return
     end
 
-    -- Remove from all component types
+    -- Remove from all component types and indices
     for componentType, _ in pairs(components) do
         components[componentType][entityId] = nil
+        if componentIndex[componentType] then
+            componentIndex[componentType][entityId] = nil
+        end
     end
 
     entities[entityId] = nil
+    
+    -- Recycle the entity ID for reuse (prevents overflow in long sessions)
+    table.insert(recycledEntityIds, entityId)
+    
     -- Main checkpoint log: entity destruction (optional, comment out for less spam)
     -- print("Entity destroyed: " .. entityId)
 end
@@ -71,10 +94,12 @@ function ECS.addComponent(entityId, componentType, componentData)
 
     if not components[componentType] then
         components[componentType] = {}
+        componentIndex[componentType] = {}
     end
 
     components[componentType][entityId] = componentData
     entities[entityId][componentType] = true
+    componentIndex[componentType][entityId] = true
 
     -- print("Component added - Entity: " .. entityId .. ", Type: " .. componentType)
 end
@@ -89,6 +114,10 @@ function ECS.removeComponent(entityId, componentType)
 
     if components[componentType] then
         components[componentType][entityId] = nil
+    end
+
+    if componentIndex[componentType] then
+        componentIndex[componentType][entityId] = nil
     end
 
     entities[entityId][componentType] = nil
@@ -156,7 +185,37 @@ function ECS.hasComponent(entityId, componentType)
     return entities[entityId] and entities[entityId][componentType] == true
 end
 
+-- Internal: compute intersection of two entity sets
+-- @param set1 table: Set of entity IDs (table with entityId = true)
+-- @param set2 table: Set of entity IDs (table with entityId = true)
+-- @return table: Array of entity IDs in both sets
+local function intersectSets(set1, set2)
+    local result = {}
+    -- Iterate over the smaller set for better performance
+    local smaller, larger = set1, set2
+    if next(set2) == nil or (next(set1) ~= nil and countTable(set1) > countTable(set2)) then
+        smaller, larger = set2, set1
+    end
+    
+    for entityId, _ in pairs(smaller) do
+        if larger[entityId] then
+            table.insert(result, entityId)
+        end
+    end
+    return result
+end
+
+-- Helper function to count table entries
+local function countTable(t)
+    local count = 0
+    for _ in pairs(t) do
+        count = count + 1
+    end
+    return count
+end
+
 -- Get all entities with specific components (for system queries)
+-- Optimized with O(n) complexity using indexed component sets and intersection
 -- @param requiredComponents table: Array of component types that must be present
 -- @return entities table: Array of entity IDs that have all required components
 function ECS.getEntitiesWith(requiredComponents)
@@ -164,23 +223,59 @@ function ECS.getEntitiesWith(requiredComponents)
         error("Invalid requiredComponents: " .. tostring(requiredComponents))
     end
     
+    if #requiredComponents == 0 then
+        return {}
+    end
+    
+    -- Start with entities that have the first component type
     local result = {}
-
-    for entityId, entityComponents in pairs(entities) do
-        local hasAllComponents = true
-
-        for _, componentType in ipairs(requiredComponents) do
-            if not entityComponents[componentType] then
-                hasAllComponents = false
-                break
-            end
-        end
-
-        if hasAllComponents then
+    local firstComponentType = requiredComponents[1]
+    
+    if not componentIndex[firstComponentType] then
+        return {}
+    end
+    
+    -- If only one component type, convert set to array
+    if #requiredComponents == 1 then
+        for entityId, _ in pairs(componentIndex[firstComponentType]) do
             table.insert(result, entityId)
         end
+        return result
     end
-
+    
+    -- Build initial set from first component
+    local currentSet = componentIndex[firstComponentType]
+    
+    -- Intersect with remaining component types
+    for i = 2, #requiredComponents do
+        local componentType = requiredComponents[i]
+        if not componentIndex[componentType] then
+            return {} -- No entities have this component type
+        end
+        
+        -- Create result array from intersection
+        local newResult = {}
+        for entityId, _ in pairs(currentSet) do
+            if componentIndex[componentType][entityId] then
+                table.insert(newResult, entityId)
+            end
+        end
+        
+        if #newResult == 0 then
+            return {} -- No entities satisfy all requirements
+        end
+        
+        -- Convert back to set for next iteration if needed
+        if i < #requiredComponents then
+            currentSet = {}
+            for _, entityId in ipairs(newResult) do
+                currentSet[entityId] = true
+            end
+        else
+            result = newResult
+        end
+    end
+    
     return result
 end
 
@@ -251,12 +346,41 @@ function ECS.getSystem(systemName)
     return systems[systemName]
 end
 
+-- Get all components of a specific entity
+-- @param entityId number: The entity to get components from
+-- @return table: Array of {componentType, componentData} pairs
+function ECS.getEntityComponents(entityId)
+    if not entityId or type(entityId) ~= "number" then
+        error("Invalid entity ID: " .. tostring(entityId))
+    end
+    
+    if not entities[entityId] then
+        return {}
+    end
+    
+    local results = {}
+    
+    -- Iterate through all component types for this entity
+    for componentType, _ in pairs(components) do
+        if components[componentType][entityId] then
+            table.insert(results, {
+                type = componentType,
+                data = components[componentType][entityId]
+            })
+        end
+    end
+    
+    return results
+end
+
 -- Clear all entities and components (useful for cleanup/testing)
 function ECS.clear()
     entities = {}
     components = {}
+    componentIndex = {}
     systems = {}
     nextEntityId = 1
+    recycledEntityIds = {}
     systemOrder = nil
     -- print("ECS cleared")
 end

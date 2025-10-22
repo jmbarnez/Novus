@@ -15,7 +15,6 @@ local MissileLauncher = {
     HOMING_TURN_RATE = 8.0, -- Radians per second turning rate (increased from 4.0 for better tracking)
     COOLDOWN = 3, -- Time between shots in seconds
     DPS = 25, -- Damage per missile
-    RANGE = 5000, -- Maximum range missiles can home
     LIFETIME = 5, -- Maximum flight time in seconds before self-destruct
     design = {
         shape = "custom",

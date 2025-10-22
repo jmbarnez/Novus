@@ -68,8 +68,17 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
         design.angularDamping or 0.95  -- Ships get controlled damping by default
     ))
     
-    -- Determine color based on controller type
-    local shipColor = design.color
+    -- Determine color based on design or controller type
+    local shipColor = nil
+    
+    -- Prefer design.colors (has stripes/cockpit/engineGlow structure)
+    if design.colors then
+        shipColor = design.colors
+    elseif design.color then
+        -- Fall back to simple design.color
+        shipColor = design.color
+    end
+    
     if not shipColor then
         -- If no color specified in design, use controller-based colors
         if controllerType == "player" then
@@ -190,31 +199,29 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
     elseif controllerType == "ai" then
         -- AI-controlled ship
         if design.aiType then
-            -- Create patrol points relative to spawn position instead of absolute coordinates
+            -- Create patrol points relative to spawn position
             local relativePatrolPoints = {}
             local basePatrolPoints = design.patrolPoints or {{x=0,y=0}}
             for _, point in ipairs(basePatrolPoints) do
                 table.insert(relativePatrolPoints, {x = x + point.x, y = y + point.y})
             end
 
-            ECS.addComponent(shipId, "AIController", Components.AIController(
-                design.aiType or "patrol",
-                relativePatrolPoints,
-                design.patrolSpeed or 60,
-                design.detectionRange or 400,
-                design.engageRange or 240
-            ))
-        end
-        -- Auto-tag AI type based on turret when available
-        local t = ECS.getComponent(shipId, "Turret")
-        if t and t.moduleName and t.moduleName ~= "" and t.moduleName ~= "default" then
-            if t.moduleName == "mining_laser" or t.moduleName == "salvage_laser" then
-                ECS.addComponent(shipId, "MiningAI", Components.MiningAI())
-                local ai = ECS.getComponent(shipId, "AIController")
-                if ai then ai.state = "mining" end
-            else
-                ECS.addComponent(shipId, "CombatAI", Components.CombatAI())
+            -- Determine AI type based on turret module
+            local aiType = "combat"
+            local t = ECS.getComponent(shipId, "Turret")
+            if t and t.moduleName then
+                if t.moduleName == "mining_laser" or t.moduleName == "salvage_laser" then
+                    aiType = "mining"
+                end
             end
+
+            -- Add unified AI component
+            ECS.addComponent(shipId, "AI", Components.AI({
+                type = aiType,
+                state = aiType == "mining" and "mining" or "patrol",
+                detectionRadius = design.detectionRange or 1200,
+                patrolPoints = relativePatrolPoints
+            }))
         end
     end
     

@@ -7,6 +7,46 @@ local Parallax = require('src.parallax')
 ---@diagnostic disable-next-line: deprecated
 local unpack = unpack or table.unpack
 
+-- Resolve layered colors from a design-like table or fallback to simple color array
+local function resolveColors(colorSpec)
+    -- Expected layered format: { stripes = {r,g,b,a}, cockpit = {r,g,b,a} }
+    -- Fallback: if colorSpec is an array like {r,g,b,a} use it for all layers
+    local layers = {
+        stripes = {1,1,1,1},
+        cockpit = {0.8, 0.8, 0.8, 1}
+    }
+    if not colorSpec then return layers end
+    
+    -- If it's a table with numeric indices, treat as simple color
+    if colorSpec[1] and type(colorSpec[1]) == 'number' then
+        local c = {colorSpec[1] or 1, colorSpec[2] or 1, colorSpec[3] or 1, colorSpec[4] or 1}
+        layers.stripes = c
+        layers.cockpit = {c[1] * 0.8, c[2] * 0.8, c[3] * 0.8, c[4]}
+        return layers
+    end
+
+    -- If it's a design color table with stripes/cockpit structure
+    if colorSpec.stripes and type(colorSpec.stripes) == 'table' and colorSpec.stripes[1] and type(colorSpec.stripes[1]) == 'number' then
+        layers.stripes = colorSpec.stripes
+    end
+    if colorSpec.cockpit and type(colorSpec.cockpit) == 'table' and colorSpec.cockpit[1] and type(colorSpec.cockpit[1]) == 'number' then
+        layers.cockpit = colorSpec.cockpit
+    end
+    
+    -- Also allow shorthand like colorSpec.colors.base
+    if colorSpec.colors and type(colorSpec.colors) == 'table' then
+        if colorSpec.colors.base and type(colorSpec.colors.base) == 'table' then
+            local c = colorSpec.colors.base
+            if c[1] and type(c[1]) == 'number' then
+                local ctab = {c[1] or 1, c[2] or 1, c[3] or 1, c[4] or 1}
+                layers.stripes = ctab
+                layers.cockpit = colorSpec.colors.cockpit or {ctab[1] * 0.8, ctab[2] * 0.8, ctab[3] * 0.8, ctab[4]}
+            end
+        end
+    end
+    return layers
+end
+
 -- Helper function to check if an entity is on-screen (with padding for safety)
 local function isOnScreen(x, y, radius, cameraPos, camera)
     if not (cameraPos and camera) then return true end
@@ -32,7 +72,7 @@ local function drawTurret(x, y, color, turretRotation)
     local barrelLength = 12
     local barrelOffset = 0 -- If you want to offset the barrel from the center
     -- Draw turret (rectangle pointing right, then rotated)
-    love.graphics.setColor(1, 1, 1, color[4])
+    love.graphics.setColor(1, 1, 1, 1)
     love.graphics.push()
     love.graphics.translate(x, y)
     love.graphics.rotate(turretRotation)
@@ -48,7 +88,9 @@ end
 local function drawPolygon(x, y, polygonShape, color)
     local vertices = polygonShape.vertices
     local rotation = polygonShape.rotation
-    if not (polygonShape and color and color[1] and color[2] and color[3] and color[4]) then return end
+    if not polygonShape or not color then return end
+    -- Resolve layered colors
+    local colors = resolveColors(color)
     if not vertices or #vertices < 3 then return end
 
     -- Transform vertices to world coordinates
@@ -66,11 +108,19 @@ local function drawPolygon(x, y, polygonShape, color)
     end
 
     -- Draw the polygon
-    love.graphics.setColor(color[1], color[2], color[3], color[4])
+    -- Draw main hull (stripes)
+    love.graphics.setColor(colors.stripes[1], colors.stripes[2], colors.stripes[3], colors.stripes[4])
     love.graphics.polygon("fill", worldVertices)
 
-    -- Draw outline
-    love.graphics.setColor(color[1] * 0.7, color[2] * 0.7, color[3] * 0.7, color[4])
+    -- Draw subtle cockpit highlight (overlay)
+    local cx = x + (polygonShape.cockpitOffsetX or 0)
+    local cy = y + (polygonShape.cockpitOffsetY or 0)
+    love.graphics.setColor(colors.cockpit[1], colors.cockpit[2], colors.cockpit[3], (colors.cockpit[4] or 1) * 0.7)
+    -- small circle to suggest cockpit
+    love.graphics.circle("fill", cx, cy, math.max(3, (polygonShape.cockpitRadius or 5)))
+
+    -- Draw outline (darker)
+    love.graphics.setColor(colors.stripes[1] * 0.6, colors.stripes[2] * 0.6, colors.stripes[3] * 0.6, colors.stripes[4])
     love.graphics.polygon("line", worldVertices)
 end
 
@@ -82,7 +132,7 @@ local function drawLaser()
         local laser = ECS.getComponent(entityId, "LaserBeam")
         if laser then
             -- ...existing code...
-            -- Use laser color if available, default to yellow for mining laser
+            -- Use the laser's own color (determined by which laser module it is)
             local color = laser.color or {1, 1, 0, 1}
 
             -- Draw faint outer beam
@@ -248,16 +298,21 @@ local RenderSystem = {
                     love.graphics.printf(qtyText, position.x - 40, position.y + 10, 80, "center")
                 end
             else
-                if renderable.color then
-                    love.graphics.setColor(unpack(renderable.color))
-                end
                 if renderable.shape == "rectangle" and renderable.width and renderable.height then
+                    if renderable.color then
+                        local cols = resolveColors(renderable.color)
+                        love.graphics.setColor(cols.stripes[1], cols.stripes[2], cols.stripes[3], cols.stripes[4])
+                    end
                     love.graphics.rectangle("fill",
                         position.x - renderable.width/2,
                         position.y - renderable.height/2,
                         renderable.width,
                         renderable.height)
                 elseif renderable.shape == "circle" and renderable.radius then
+                    if renderable.color then
+                        local cols = resolveColors(renderable.color)
+                        love.graphics.setColor(cols.stripes[1], cols.stripes[2], cols.stripes[3], cols.stripes[4])
+                    end
                     love.graphics.circle("fill", position.x, position.y, renderable.radius)
                     -- Draw black border for cannonballs
                     local cannonballBorder = ECS.getComponent(entityId, "CannonballBorder")
@@ -479,7 +534,7 @@ local RenderSystem = {
             local inputComp = ECS.getComponent(controllers[1], "InputControlled")
             local targetId = inputComp and (inputComp.targetedEnemy or inputComp.targetingTarget)
 
-            if targetId then
+            if inputComp and targetId then
                 local targetPos = ECS.getComponent(targetId, "Position")
                 local targetColl = ECS.getComponent(targetId, "Collidable")
 
@@ -487,7 +542,7 @@ local RenderSystem = {
                     local time = love.timer.getTime()
                     local radius = targetColl.radius + 15
 
-                    if inputComp.targetedEnemy == targetId then
+                    if inputComp.targetedEnemy and inputComp.targetedEnemy == targetId then
                         -- Locked target - red pulsing circles
                         local pulse = 0.5 + 0.3 * math.sin(time * 4)  -- Pulse between 0.5 and 0.8
 
@@ -499,7 +554,7 @@ local RenderSystem = {
                         love.graphics.setColor(1, 0.5, 0.5, pulse * 0.7)
                         love.graphics.setLineWidth(1)
                         love.graphics.circle("line", targetPos.x, targetPos.y, radius - 5)
-                    elseif inputComp.targetingTarget == targetId then
+                    elseif inputComp.targetingTarget and inputComp.targetingTarget == targetId then
                         -- Targeting in progress - orange/yellow pulsing circles
                         local pulse = 0.4 + 0.4 * math.sin(time * 8)  -- Faster pulse during targeting
 

@@ -1,36 +1,30 @@
 local Components = {}
 
--- AIController component - Basic AI state for enemies
--- @field state string: Current AI behavior state ("patrol", "chase", "mining", etc.)
--- @field patrolPoints table: Array of waypoints for patrol behavior
--- @field currentPoint number: Index of current patrol point
--- @field speed number: Movement speed for this AI
--- @field detectionRadius number: Radius to detect player
--- @field fireRange number: Maximum range to fire turret
-Components.AIController = function(state, patrolPoints, speed, detectionRadius, fireRange)
+-- Unified AI Component - handles all AI behavior and state
+-- @field type string: "combat" (patrol/chase/orbit) or "mining" (mining-specific)
+-- @field state string: Current behavior state ("patrol", "chase", "orbit", "mining")
+-- @field detectionRadius number: How far to detect targets
+-- @field patrolPoints table: Array of waypoints {x, y}
+-- @field config table: Behavior-specific configuration
+Components.AI = function(config)
+    config = config or {}
     return {
-        state = state or "patrol",
-        patrolPoints = patrolPoints or {},
+        type = config.type or "combat",  -- "combat" or "mining"
+        state = config.state or "patrol",
+        detectionRadius = config.detectionRadius or 1200,
+        patrolPoints = config.patrolPoints or {},
         currentPoint = 1,
-        speed = speed or 80,
-        detectionRadius = detectionRadius or 1200,  -- Much larger detection radius (1200 pixels)
-        fireRange = fireRange or 2500  -- Fallback fire range, will be overridden by turret specs
-    }
-end
-
--- MiningAI component - Marks an entity as a mining AI ship
--- Purely a marker component to identify mining AI ships for ECS queries
-Components.MiningAI = function()
-    return {
-        isMiner = true
-    }
-end
-
--- CombatAI component - Marks an entity as a combat AI ship
--- Purely a marker component to identify combat AI ships for ECS queries
-Components.CombatAI = function()
-    return {
-        isCombat = true
+        
+        -- Behavior state (spawn position, wander angle, orbit direction)
+        spawnX = nil,
+        spawnY = nil,
+        _wanderAngle = nil,
+        _wanderTimer = 0,
+        orbitDirection = nil,
+        
+        -- Turret swing state (for idle animation)
+        _swingAngle = nil,
+        _swingTimer = 0
     }
 end
 

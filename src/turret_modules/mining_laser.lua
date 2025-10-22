@@ -19,6 +19,7 @@ local MiningLaser = {
     -- Damage falloff configuration
     FALLOFF_START = 400,   -- Full damage up to this distance
     FALLOFF_END = 1350,    -- Zero damage beyond this distance
+    ZERO_DAMAGE_RANGE = 1350,  -- Maximum effective range (beyond this deals no damage)
     design = {
         shape = "custom",
         size = 16,
@@ -88,7 +89,7 @@ function MiningLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
     ECS.addComponent(turretComp.laserEntity, "LaserBeam", {
         start = {x = offsetStartX, y = offsetStartY},
         endPos = {x = endX, y = endY},
-        color = {1, 1, 0.2, 1},  -- Bright yellow
+        color = {1, 1, 0.2, 1},  -- Yellow
         ownerId = ownerId
     })
 end
@@ -176,11 +177,8 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
                 end
             end
         end
-        -- Store color of hit entity
-        local renderable = ECS.getComponent(hitAsteroidId, "Renderable")
-        closestIntersection.color = renderable and renderable.color or {0.6, 0.4, 0.2, 1}
-        -- Create impact debris
-        DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, closestIntersection.color)
+        -- Create impact debris with laser beam color
+        DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, {1, 1, 0.2, 1})
         return {hit = true, intersection = closestIntersection}
     else
         return {hit = false}

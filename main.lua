@@ -3,6 +3,7 @@
 -- Minimal Love2D main file that delegates to core game logic
 
 local Core = require('src.core')
+local Constants = require('src.constants')
 local Scaling = require('src.scaling')
 local StartScreen = require('src.start_screen')
 local LoadingScreen = require('src.loading_screen')
@@ -28,7 +29,6 @@ function love.load()
     TimeManager.init()
     TimeManager.setTargetFps(nil)  -- nil = unlimited FPS
     
-    local Constants = require('src.constants')
     love.window.setMode(Constants.screen_width, Constants.screen_height, {
         fullscreen = false, 
         resizable = false,

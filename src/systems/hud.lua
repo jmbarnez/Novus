@@ -36,7 +36,7 @@ local function drawTargetingPanel(viewportWidth, viewportHeight)
     local playerEntity = input.targetEntity
     local playerPos = playerEntity and ECS.getComponent(playerEntity, "Position")
     -- Panel dimensions
-    local panelW, panelH = Scaling.scaleSize(308), Scaling.scaleSize(124)
+    local panelW, panelH = Scaling.scaleSize(308), Scaling.scaleSize(100)
     local centerX = viewportWidth / 2
     local posX = centerX - panelW / 2
     local posY = Theme.spacing.margin + 8
@@ -52,19 +52,11 @@ local function drawTargetingPanel(viewportWidth, viewportHeight)
     love.graphics.setFont(normalFont)
     local col1 = posX + Theme.spacing.padding * 2
     local col2 = posX + panelW * 0.54
-    local row = posY + Theme.spacing.padding * 2 + Scaling.scaleY(10)
+    local row = posY + Theme.spacing.padding * 1.5
     local rowH = Scaling.scaleSize(18)
     local barW = panelW - Theme.spacing.padding * 4
     local barH = Scaling.scaleSize(22)
-    -- First row: Target type/name
-    local enemyType = "Unknown"
-    if ECS.hasComponent(entity, "CombatAI") then enemyType = "Combat" end
-    if ECS.hasComponent(entity, "MiningAI") then enemyType = "Mining" end
-    if ECS.hasComponent(entity, "MagneticField") then enemyType = "Collector" end
-        love.graphics.setColor(Theme.colors.textPrimary)
-    love.graphics.print("Target: "..enemyType, col1, row)
-    -- Hull/Shield bar below type row
-    row = row + rowH + Scaling.scaleY(4)
+    -- Hull/Shield bar positioned closer to top
     local hullVal = targetHull and targetHull.current or 0
     local hullMax = targetHull and targetHull.max or 1
     local shieldVal = (targetShield and targetShield.current) or 0
@@ -74,24 +66,23 @@ local function drawTargetingPanel(viewportWidth, viewportHeight)
     local fillWidth = barW * hullRatio
     local x = col1
     local y = row
-    -- Background parallelogram
-    local skew = Scaling.scaleSize(13)
-    love.graphics.setColor(0.14, 0.15, 0.2, 0.85)
-    love.graphics.polygon("fill", x, y, x + barW + skew, y, x + barW, y + barH, x - skew, y + barH)
-    -- Hull fill parallelogram
-    love.graphics.setColor(1.0, 0.2, 0.2, 0.88)
-    love.graphics.polygon("fill", x, y, x + fillWidth + skew * hullRatio, y, x + fillWidth, y + barH, x - skew * hullRatio, y + barH)
+    -- Background rectangle
+    love.graphics.setColor(0.06, 0.06, 0.06, 0.9)
+    love.graphics.rectangle("fill", x, y, barW, barH, 4, 4)
+    -- Hull fill rectangle
+    love.graphics.setColor(1.0, 0.2, 0.2, 0.95)
+    love.graphics.rectangle("fill", x + 1, y + 1, math.max(0, fillWidth - 2), barH - 2, 3, 3)
     -- Shield overlay
     if shieldMax > 0 and shieldVal > 0 then
         local sRatio = math.min(shieldVal / shieldMax, 1.0)
         local sFill = barW * sRatio
-        love.graphics.setColor(0.22, 0.74, 1, 0.80)
-        love.graphics.polygon("fill", x, y, x + sFill + skew * sRatio, y, x + sFill, y + barH, x - skew * sRatio, y + barH)
+        love.graphics.setColor(0.18, 0.65, 1, 0.95)
+        love.graphics.rectangle("fill", x + 1, y + 1, math.max(0, sFill - 2), barH - 2, 3, 3)
     end
     -- Bar border
-    love.graphics.setColor(Theme.colors.borderLight)
-    love.graphics.setLineWidth(1.1)
-    love.graphics.polygon("line", x, y, x + barW + skew, y, x + barW, y + barH, x - skew, y + barH)
+    love.graphics.setColor(0, 0, 0, 1)
+    love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", x + 0.5, y + 0.5, barW - 1, barH - 1, 4, 4)
     -- Bar text (centered)
     local barText
     if shieldMax > 0 then
@@ -128,16 +119,6 @@ local function drawTargetingPanel(viewportWidth, viewportHeight)
         love.graphics.print(string.format("%.0f u/s", speed), col2, row)
     else
         love.graphics.print("0 u/s", col2, row)
-    end
-    row = row + rowH
-    -- Weapon
-    love.graphics.setColor(Theme.colors.textSecondary)
-    love.graphics.print("Weapon:", col1, row)
-    love.graphics.setColor(Theme.colors.textAccent)
-    if targetTurret and targetTurret.moduleName then
-        love.graphics.print(targetTurret.moduleName:gsub("_", " "):upper(), col2, row)
-    else
-        love.graphics.print("None", col2, row)
     end
 end
 
@@ -387,7 +368,8 @@ local function drawTurretSlots(viewportWidth, viewportHeight)
     local drawX = (viewportWidth - turretSlotsCanvasW) / 2
     local drawY = viewportHeight - turretSlotsCanvasH - Scaling.scaleY(20)
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.draw(turretSlotsCanvas, drawX, drawY)
+    local scale = Scaling.getScale()
+    love.graphics.draw(turretSlotsCanvas, drawX, drawY, 0, scale, scale)
 end
 
 
@@ -480,9 +462,10 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
         lastHudCanvasFrame = frameSkip
         lastHudStateHash = hudStateHash
     end
-    -- Draw cached HUD
+    -- Draw cached HUD (scale it like the main canvas)
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.draw(hudCanvas, 0, 0)
+    local scale = Scaling.getScale()
+    love.graphics.draw(hudCanvas, 0, 0, 0, scale, scale)
     -- Draw overlays (targeting indicator/crosshair/tooltips)
     drawTargetingPanel(viewportWidth, viewportHeight)
     -- Tooltip popup

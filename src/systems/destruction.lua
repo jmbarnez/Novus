@@ -171,7 +171,7 @@ function DestructionSystem.update(dt)
             -- Determine what type of entity this is for loot drops
             local asteroid = ECS.getComponent(entityId, "Asteroid")
             local hull = ECS.getComponent(entityId, "Hull")
-            local aiController = ECS.getComponent(entityId, "AIController")
+            local ai = ECS.getComponent(entityId, "AI")
             local wreckage = ECS.getComponent(entityId, "Wreckage")
             local lootDrop = ECS.getComponent(entityId, "LootDrop")
             local lastDamager = ECS.getComponent(entityId, "LastDamager")
@@ -180,7 +180,7 @@ function DestructionSystem.update(dt)
             local wasDestroyedByEnemy = false
             if asteroid and lastDamager then
                 -- Check if the last damager was an AI-controlled entity (enemy)
-                local damagerEntity = ECS.getComponent(lastDamager.pilotId, "AIController")
+                local damagerEntity = ECS.getComponent(lastDamager.pilotId, "AI")
                 if damagerEntity then
                     wasDestroyedByEnemy = true
                 end
