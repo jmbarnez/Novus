@@ -8,6 +8,7 @@ local Scaling = require('src.scaling')
 local Tooltips = require('src.ui.tooltips')
 local TurretSystem = require('src.systems.turret')
 local TimeManager = require('src.time_manager')
+local PlasmaTheme = require('src.ui.plasma_theme')
 -- Hotkey overlay removed from HUD (handled in settings/window only)
 
 local HUDSystem = {
@@ -66,23 +67,14 @@ local function drawTargetingPanel(viewportWidth, viewportHeight)
     local fillWidth = barW * hullRatio
     local x = col1
     local y = row
-    -- Background rectangle
-    love.graphics.setColor(0.06, 0.06, 0.06, 0.9)
-    love.graphics.rectangle("fill", x, y, barW, barH, 4, 4)
-    -- Hull fill rectangle
-    love.graphics.setColor(1.0, 0.2, 0.2, 0.95)
-    love.graphics.rectangle("fill", x + 1, y + 1, math.max(0, fillWidth - 2), barH - 2, 3, 3)
+    -- Use plasma-style health bar
+    PlasmaTheme.drawHealthBar(x, y, barW, barH, hullRatio, false)
+    
     -- Shield overlay
     if shieldMax > 0 and shieldVal > 0 then
         local sRatio = math.min(shieldVal / shieldMax, 1.0)
-        local sFill = barW * sRatio
-        love.graphics.setColor(0.18, 0.65, 1, 0.95)
-        love.graphics.rectangle("fill", x + 1, y + 1, math.max(0, sFill - 2), barH - 2, 3, 3)
+        PlasmaTheme.drawHealthBar(x, y, barW, barH, sRatio, true)
     end
-    -- Bar border
-    love.graphics.setColor(0, 0, 0, 1)
-    love.graphics.setLineWidth(1)
-    love.graphics.rectangle("line", x + 0.5, y + 0.5, barW - 1, barH - 1, 4, 4)
     -- Bar text (centered)
     local barText
     if shieldMax > 0 then
@@ -201,28 +193,15 @@ local function drawHullShieldBar(viewportWidth, viewportHeight)
     local x = Scaling.scaleX(padding)
     local y = Scaling.scaleY(padding)
 
-    -- Background rectangle (dark)
-    love.graphics.setColor(0.06, 0.06, 0.06, 0.9)
-    love.graphics.rectangle("fill", x, y, barWidth, barHeight, 4, 4)
-
-    -- Hull fill (red)
+    -- Use plasma-style health bar
     local hullRatio = math.min((hull.current or 0) / hull.max, 1.0)
-    local fillWidth = math.floor(barWidth * hullRatio)
-    love.graphics.setColor(1.0, 0.2, 0.2, 0.95)
-    love.graphics.rectangle("fill", x + 1, y + 1, math.max(0, fillWidth - 2), barHeight - 2, 3, 3)
-
+    PlasmaTheme.drawHealthBar(x, y, barWidth, barHeight, hullRatio, false)
+    
     -- Shield overlay (if present) - draw on top of hull as blue overlay
     if shield and shield.max > 0 then
         local sRatio = math.min((shield.current or 0) / shield.max, 1.0)
-        local sFill = math.floor(barWidth * sRatio)
-        love.graphics.setColor(0.18, 0.65, 1, 0.95)
-        love.graphics.rectangle("fill", x + 1, y + 1, math.max(0, sFill - 2), barHeight - 2, 3, 3)
+        PlasmaTheme.drawHealthBar(x, y, barWidth, barHeight, sRatio, true)
     end
-
-    -- Sleek black border (1px)
-    love.graphics.setColor(0, 0, 0, 1)
-    love.graphics.setLineWidth(1)
-    love.graphics.rectangle("line", x + 0.5, y + 0.5, barWidth - 1, barHeight - 1, 4, 4)
 end
 
 
@@ -421,6 +400,186 @@ local function getHudStateHash()
     },":")
 end
 
+-- Draw health bars above enemy ships
+local function drawEnemyHealthBars(viewportWidth, viewportHeight)
+    local Scaling = require('src.scaling')
+    local CameraSystem = ECS.getSystem("CameraSystem")
+    
+    -- Get camera for world-to-screen conversion
+    local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+    local camera = nil
+    local cameraPos = nil
+    if #cameraEntities > 0 then
+        camera = ECS.getComponent(cameraEntities[1], "Camera")
+        cameraPos = ECS.getComponent(cameraEntities[1], "Position")
+    end
+    
+    -- Get all ships with Hull component
+    local shipEntities = ECS.getEntitiesWith({"Hull", "Position", "Renderable"})
+    
+    for _, entityId in ipairs(shipEntities) do
+        -- Skip player-controlled ships
+        if ECS.hasComponent(entityId, "ControlledBy") then
+            local controlled = ECS.getComponent(entityId, "ControlledBy")
+            if controlled and controlled.pilotId then
+                local pilot = ECS.getComponent(controlled.pilotId, "Player")
+                if pilot then goto continue_ship end
+            end
+        end
+        
+        local position = ECS.getComponent(entityId, "Position")
+        local hull = ECS.getComponent(entityId, "Hull")
+        local shield = ECS.getComponent(entityId, "Shield")
+        local renderable = ECS.getComponent(entityId, "Renderable")
+        
+        if position and hull and renderable and camera and cameraPos then
+            -- Convert world coordinates to canvas coordinates
+            local canvasX = (position.x - cameraPos.x) * camera.zoom
+            local canvasY = (position.y - cameraPos.y) * camera.zoom
+            
+            -- Convert canvas coordinates to screen coordinates
+            local screenX, screenY = Scaling.toScreenCanvas(canvasX, canvasY)
+            
+            local barWidth = 40
+            local barHeight = 6
+            local x = screenX - barWidth / 2
+            local y = screenY - (renderable.radius or 15) * camera.zoom - 10
+            
+            -- Helper function to draw level indicator
+            local function drawLevelBox(xPos, yPos)
+                local level = 3  -- TODO: Get from entity component
+                local levelBoxSize = 12
+                local levelBoxX = xPos - levelBoxSize - 4
+                local levelBoxY = yPos
+                
+                -- Red background
+                love.graphics.setColor(1, 0.2, 0.2, 1)
+                love.graphics.rectangle("fill", levelBoxX, levelBoxY, levelBoxSize, levelBoxSize)
+                
+                -- Black outline
+                love.graphics.setColor(0, 0, 0, 1)
+                love.graphics.setLineWidth(1)
+                love.graphics.rectangle("line", levelBoxX, levelBoxY, levelBoxSize, levelBoxSize)
+                
+                -- White number
+                love.graphics.setColor(1, 1, 1, 1)
+                local smallFont = Theme.getFont(8)
+                love.graphics.setFont(smallFont)
+                local levelText = tostring(level)
+                local textW = smallFont:getWidth(levelText)
+                local textH = smallFont:getHeight()
+                love.graphics.print(levelText, levelBoxX + (levelBoxSize - textW) / 2, levelBoxY + (levelBoxSize - textH) / 2)
+            end
+            
+            -- Draw shield bar first (above) if it exists
+            if shield and shield.max > 0 then
+                local sRatio = math.max(0, math.min(1, (shield.current or 0) / (shield.max or 1)))
+                PlasmaTheme.drawHealthBar(x, y - 8, barWidth, barHeight, sRatio, true)
+                drawLevelBox(x, y - 8)
+            end
+            
+            -- Draw hull bar
+            local ratio = math.max(0, math.min(1, (hull.current or 0) / (hull.max or 1)))
+            PlasmaTheme.drawHealthBar(x, y, barWidth, barHeight, ratio, false)
+            drawLevelBox(x, y)
+        end
+        
+        ::continue_ship::
+    end
+end
+
+local function drawAsteroidDurabilityBars(viewportWidth, viewportHeight)
+    local Scaling = require('src.scaling')
+    
+    -- Get camera for world-to-screen conversion
+    local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+    local camera = nil
+    local cameraPos = nil
+    if #cameraEntities > 0 then
+        camera = ECS.getComponent(cameraEntities[1], "Camera")
+        cameraPos = ECS.getComponent(cameraEntities[1], "Position")
+    end
+    
+    if not camera or not cameraPos then return end
+    
+    -- Get all asteroids with durability
+    local asteroidEntities = ECS.getEntitiesWith({"Asteroid", "Position", "Durability", "Collidable"})
+    
+    for _, entityId in ipairs(asteroidEntities) do
+        local position = ECS.getComponent(entityId, "Position")
+        local durability = ECS.getComponent(entityId, "Durability")
+        local coll = ECS.getComponent(entityId, "Collidable")
+        
+        if position and durability and durability.current and durability.max then
+            -- Only show when damaged
+            if durability.current < durability.max then
+                -- Convert world coordinates to canvas coordinates
+                local canvasX = (position.x - cameraPos.x) * camera.zoom
+                local canvasY = (position.y - cameraPos.y) * camera.zoom
+                
+                -- Convert canvas coordinates to screen coordinates
+                local screenX, screenY = Scaling.toScreenCanvas(canvasX, canvasY)
+                
+                local barWidth = 24
+                local barHeight = 3
+                local radius = coll and coll.radius or 12
+                local pad = radius + 6
+                local x = screenX - barWidth / 2
+                local y = screenY - pad * camera.zoom - 5
+                
+                local frac = math.max(0, math.min(1, durability.current / durability.max))
+                PlasmaTheme.drawDurabilityBar(x, y, barWidth, barHeight, frac, "asteroid")
+            end
+        end
+    end
+end
+
+local function drawWreckageDurabilityBars(viewportWidth, viewportHeight)
+    local Scaling = require('src.scaling')
+    
+    -- Get camera for world-to-screen conversion
+    local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+    local camera = nil
+    local cameraPos = nil
+    if #cameraEntities > 0 then
+        camera = ECS.getComponent(cameraEntities[1], "Camera")
+        cameraPos = ECS.getComponent(cameraEntities[1], "Position")
+    end
+    
+    if not camera or not cameraPos then return end
+    
+    -- Get all wreckage with durability
+    local wreckageEntities = ECS.getEntitiesWith({"Wreckage", "Position", "Durability", "Collidable"})
+    
+    for _, entityId in ipairs(wreckageEntities) do
+        local position = ECS.getComponent(entityId, "Position")
+        local durability = ECS.getComponent(entityId, "Durability")
+        local coll = ECS.getComponent(entityId, "Collidable")
+        
+        if position and durability and durability.current and durability.max then
+            -- Only show when damaged
+            if durability.current < durability.max then
+                -- Convert world coordinates to canvas coordinates
+                local canvasX = (position.x - cameraPos.x) * camera.zoom
+                local canvasY = (position.y - cameraPos.y) * camera.zoom
+                
+                -- Convert canvas coordinates to screen coordinates
+                local screenX, screenY = Scaling.toScreenCanvas(canvasX, canvasY)
+                
+                local barWidth = 24
+                local barHeight = 3
+                local radius = coll and coll.radius or 12
+                local pad = radius + 6
+                local x = screenX - barWidth / 2
+                local y = screenY - pad * camera.zoom - 5
+                
+                local frac = math.max(0, math.min(1, durability.current / durability.max))
+                PlasmaTheme.drawDurabilityBar(x, y, barWidth, barHeight, frac, "wreckage")
+            end
+        end
+    end
+end
+
 local function drawHudCanvasContents(viewportWidth, viewportHeight)
     drawHullShieldBar(viewportWidth, viewportHeight)
     drawTurretSlots(viewportWidth, viewportHeight)
@@ -442,30 +601,17 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     if not HUDSystem.visible then return end
     viewportWidth = viewportWidth or (love.graphics and love.graphics.getWidth and love.graphics.getWidth()) or 1920
     viewportHeight = viewportHeight or (love.graphics and love.graphics.getHeight and love.graphics.getHeight()) or 1080
-    -- Only allocate if resolution changes
-    if not hudCanvas or hudCanvasW ~= viewportWidth or hudCanvasH ~= viewportHeight then
-        hudCanvasW, hudCanvasH = viewportWidth, viewportHeight
-        hudCanvas = love.graphics.newCanvas(hudCanvasW, hudCanvasH)
-        lastHudCanvasFrame = nil
-        lastHudStateHash = nil
-    end
-    -- State hash approach: redraw HUD only if values change or every N frames (just in case)
-    local redrawIntervalFrames = 3
-    local frameSkip = math.floor(love.timer.getTime() * 30)
-    local hudStateHash = getHudStateHash()
-    local shouldRedraw = (lastHudStateHash ~= hudStateHash) or (not lastHudCanvasFrame) or (frameSkip - (lastHudCanvasFrame or 0) >= redrawIntervalFrames)
-    if shouldRedraw then
-        hudCanvas:renderTo(function()
-            love.graphics.clear(0,0,0,0)
-            drawHudCanvasContents(viewportWidth, viewportHeight)
-        end)
-        lastHudCanvasFrame = frameSkip
-        lastHudStateHash = hudStateHash
-    end
-    -- Draw cached HUD (scale it like the main canvas)
-    love.graphics.setColor(1, 1, 1, 1)
-    local scale = Scaling.getScale()
-    love.graphics.draw(hudCanvas, 0, 0, 0, scale, scale)
+    
+    -- Draw enemy health bars on screen (before UI, so they render behind)
+    drawEnemyHealthBars(viewportWidth, viewportHeight)
+    -- Draw asteroid durability bars on screen (before UI, so they render behind)
+    drawAsteroidDurabilityBars(viewportWidth, viewportHeight)
+    -- Draw wreckage durability bars on screen (before UI, so they render behind)
+    drawWreckageDurabilityBars(viewportWidth, viewportHeight)
+    
+    -- Draw HUD elements directly to screen (no canvas, no shader effects)
+    drawHudCanvasContents(viewportWidth, viewportHeight)
+    
     -- Draw overlays (targeting indicator/crosshair/tooltips)
     drawTargetingPanel(viewportWidth, viewportHeight)
     -- Tooltip popup

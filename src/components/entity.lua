@@ -21,9 +21,56 @@ end
 
 -- Asteroid component - Marks asteroid entities and their type
 -- @field asteroidType string: Type of asteroid ("stone" or "iron")
-Components.Asteroid = function(asteroidType)
+-- Optional: some iron asteroids may have a crystal formation attached
+-- @field crystalFormation boolean: true if this asteroid has crystal clusters on its surface
+Components.Asteroid = function(asteroidType, crystalFormation)
     return {
-        asteroidType = asteroidType or "stone"
+        asteroidType = asteroidType or "stone",
+        crystalFormation = crystalFormation or false
+    }
+end
+
+-- Attached component - marks an entity as attached to a parent entity
+-- @field parentId number: Entity ID of parent
+-- @field localX number: Local X offset relative to parent (in parent's local space)
+-- @field localY number: Local Y offset relative to parent (in parent's local space)
+Components.Attached = function(parentId, localX, localY)
+    return {
+        parentId = parentId or 0,
+        localX = localX or 0,
+        localY = localY or 0
+    }
+end
+
+-- CrystalFormation component - marks a world crystal formation attached to an asteroid
+-- @field size number: visual size of the crystal cluster
+-- @field shardCount number: number of shards to render
+-- @field color table: base color for shards
+Components.CrystalFormation = function(size, shardCount, color)
+    return {
+        size = size or 10,
+        shardCount = shardCount or 4,
+        color = color or {0.7, 0.5, 1, 1}
+    }
+end
+
+-- Hotspot component - marks a temporary weak point on an asteroid
+-- @field timeRemaining number: seconds until hotspot expires
+-- @field dpsMultiplier number: damage multiplier when mining this hotspot
+-- @field timeSinceSpawn number: time since hotspot was created (for animation)
+Components.Hotspot = function(timeRemaining, dpsMultiplier)
+    return {
+        timeRemaining = timeRemaining or 10,
+        dpsMultiplier = dpsMultiplier or 2.0,
+        timeSinceSpawn = 0
+    }
+end
+
+-- BeingMined component - marks an asteroid that is currently being mined
+-- @field lastHitTime number: time when asteroid was last hit by mining laser
+Components.BeingMined = function(lastHitTime)
+    return {
+        lastHitTime = lastHitTime or 0
     }
 end
 

@@ -3,38 +3,38 @@
 -- Provides consistent colors, fonts, and styling across the game
 
 local Theme = {
-    -- Color palette
+    -- Color palette (Plasma/Energy Style)
     colors = {
         -- Backgrounds
-        bgDark = {0.08, 0.08, 0.08, 1},      -- Main window background
-        bgMedium = {0.12, 0.12, 0.12, 1},    -- Secondary background (menus, etc)
-        bgLight = {0.16, 0.16, 0.16, 1},     -- Slightly lighter background
+        bgDark = {0.05, 0.05, 0.05, 1},      -- Main window background (darker)
+        bgMedium = {0.08, 0.08, 0.08, 1},    -- Secondary background (darker)
+        bgLight = {0.12, 0.12, 0.12, 1},     -- Slightly lighter background
         
-        -- Borders and accents
-        borderDark = {0.05, 0.05, 0.05, 1},      -- Dark shadow border
-        borderMedium = {0.25, 0.25, 0.25, 1},    -- Medium border
-        borderLight = {0.4, 0.4, 0.4, 1},        -- Light/highlight border
-        borderNeon = {0.2, 0.95, 1, 0.85},       -- Neon blue/cyan border
+        -- Borders and accents (thick black with plasma glow)
+        borderDark = {0, 0, 0, 1},              -- Pure black border
+        borderMedium = {0, 0, 0, 1},            -- Pure black border
+        borderLight = {0, 0, 0, 1},              -- Pure black border
+        borderNeon = {0.2, 0.95, 1, 1},         -- Neon blue/cyan border (electric plasma)
         
-        -- Text
+        -- Text (high contrast with energy glow)
         textPrimary = {1, 1, 1, 1},              -- Main text (white)
-        textSecondary = {0.9, 0.9, 0.9, 1},      -- Secondary text
-        textAccent = {0.8, 0.9, 1, 1},           -- Accent text (light blue)
-        textMuted = {0.6, 0.6, 0.6, 1},          -- Muted text
+        textSecondary = {0.95, 0.95, 0.95, 1},   -- Secondary text (brighter)
+        textAccent = {0.4, 0.9, 1, 1},           -- Accent text (bright cyan plasma)
+        textMuted = {0.7, 0.7, 0.7, 1},          -- Muted text (brighter)
         
-        -- Interactive elements
-        buttonHover = {0.3, 0.4, 0.5, 0.8},      -- Button hover state
-        buttonYes = {0.2, 0.5, 0.2, 1},          -- Confirmation yes button
-        buttonYesHover = {0.4, 0.7, 0.4, 1},     -- Yes button hover
-        buttonNo = {0.5, 0.2, 0.2, 1},           -- Confirmation no button
-        buttonNoHover = {0.7, 0.3, 0.3, 1},      -- No button hover
-        buttonClose = {0.85, 0.18, 0.18, 1},     -- Close button
-        buttonCloseHover = {1, 0.3, 0.3, 1},     -- Close button hover
+        -- Interactive elements (vibrant plasma energy)
+        buttonHover = {0.3, 0.5, 0.7, 1},        -- Button hover state (electric blue)
+        buttonYes = {0.1, 0.8, 0.5, 1},          -- Confirmation yes button (plasma green)
+        buttonYesHover = {0.2, 1, 0.6, 1},       -- Yes button hover (brighter plasma)
+        buttonNo = {1, 0.2, 0.5, 1},             -- Confirmation no button (plasma pink)
+        buttonNoHover = {1, 0.4, 0.6, 1},        -- No button hover (brighter plasma)
+        buttonClose = {1, 0.2, 0.5, 1},          -- Close button (plasma pink)
+        buttonCloseHover = {1, 0.4, 0.6, 1},    -- Close button hover (brighter plasma)
         
         -- Highlights and effects
-        highlightBright = {0.35, 0.38, 0.45, 0.18},  -- Bright highlight (top of windows)
-        shadowDark = {0.05, 0.06, 0.08, 0.18},       -- Dark shadow (bottom of windows)
-        overlay = {0, 0, 0, 0.6},                     -- Modal overlay
+        highlightBright = {0.4, 0.7, 1, 0.3},    -- Bright highlight (plasma blue glow)
+        shadowDark = {0, 0, 0, 0.3},             -- Dark shadow (pure black)
+        overlay = {0, 0, 0, 0.7},                 -- Modal overlay (darker)
     },
     
     -- Font sizes and paths
@@ -56,9 +56,9 @@ local Theme = {
         iconGridPadding = 12,  -- Grid spacing for icon layout
     },
     
-    -- Window styling
+    -- Window styling (Plasma/Energy)
     window = {
-        borderThickness = 1,        -- Minimal border thickness
+        borderThickness = 3,        -- Thick plasma-style border
         topBarHeight = 20,          -- Top bar height
         bottomBarHeight = 50,       -- Bottom bar height
     },
@@ -102,26 +102,36 @@ function Theme.getFontBold(size)
     return love.graphics.newFont(size)
 end
 
--- Helper function to create a sleek minimal border with opaque background
+-- Helper function to create plasma-style thick border with opaque background
 function Theme.draw3DBorder(x, y, w, h, depth)
-    depth = depth or 1
+    depth = depth or 3  -- Thick plasma-style border
 
-    -- Single clean border
-    love.graphics.setColor(Theme.colors.borderLight)
-    love.graphics.rectangle("fill", x - depth, y - depth, w + depth * 2, h + depth * 2)
-
-    -- Opaque background
+    -- Background first
     love.graphics.setColor(Theme.colors.bgDark)
     love.graphics.rectangle("fill", x, y, w, h)
+    
+    -- Thick black border
+    love.graphics.setColor(Theme.colors.borderDark)
+    love.graphics.setLineWidth(depth)
+    love.graphics.rectangle("line", x, y, w, h)
+    love.graphics.setLineWidth(1)
 end
 
--- Helper function to draw a button with consistent styling
+-- Helper function to draw a button with plasma-style consistent styling
 function Theme.drawButton(x, y, w, h, text, isHovered, buttonColor, buttonColorHover)
     local color = isHovered and buttonColorHover or buttonColor
     
+    -- Background
     love.graphics.setColor(color)
     love.graphics.rectangle("fill", x, y, w, h)
     
+    -- Thick black border
+    love.graphics.setColor(Theme.colors.borderDark)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", x, y, w, h)
+    love.graphics.setLineWidth(1)
+    
+    -- Text
     love.graphics.setColor(Theme.colors.textPrimary)
     love.graphics.printf(text, x, y + 6, w, "center")
 end

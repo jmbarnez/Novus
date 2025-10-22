@@ -105,9 +105,11 @@ function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
     love.graphics.setColor(Theme.colors.bgMedium)
     love.graphics.rectangle("fill", tooltipX - Scaling.scaleX(2), tooltipY - Scaling.scaleY(2), tooltipW + Scaling.scaleX(4), tooltipH + Scaling.scaleY(4))
     
-    -- Draw border
-    love.graphics.setColor(Theme.colors.borderLight)
+    -- Draw thick plasma-style border
+    love.graphics.setColor(Theme.colors.borderDark)
+    love.graphics.setLineWidth(2)
     love.graphics.rectangle("line", tooltipX - Scaling.scaleX(2), tooltipY - Scaling.scaleY(2), tooltipW + Scaling.scaleX(4), tooltipH + Scaling.scaleY(4))
+    love.graphics.setLineWidth(1)
     
     -- Draw text
     love.graphics.setColor(Theme.colors.textPrimary)

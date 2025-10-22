@@ -146,9 +146,34 @@ function DestructionSystem.update(dt)
                 if asteroid and (not durability or not durability.spawnBits) then
                     local collidable = ECS.getComponent(entityId, "Collidable")
                     local parentSize = collidable and collidable.radius or 20
-                    local itemType = asteroid.asteroidType == "iron" and "iron" or "stone"
+                    
+                    -- Determine item type and base count
+                    local itemType = "stone"
+                    local baseCount = math.random(8, 15)
+                    
+                    if asteroid.asteroidType == "iron" then
+                        itemType = "iron"
+                    end
+
+                    -- Crystal formations are now separate attached entities; asteroid itself does not directly spawn crystals
+                    
+                    -- Size bonus: Larger asteroids give more resources
+                    local sizeMultiplier = 1.0 + (parentSize / 100)  -- +1% per radius unit
+                    baseCount = math.floor(baseCount * sizeMultiplier)
+                    
+                    -- Skill bonus: Higher mining skill increases yield
+                    local playerEntities = ECS.getEntitiesWith({"Player", "Skills"})
+                    if #playerEntities > 0 then
+                        local skills = ECS.getComponent(playerEntities[1], "Skills")
+                        if skills and skills.skills.mining then
+                            local miningLevel = skills.skills.mining.level
+                            local skillBonus = 1.0 + (miningLevel * 0.15)  -- +15% per level
+                            baseCount = math.floor(baseCount * skillBonus)
+                        end
+                    end
+                    
                     DestructionSystem.spawnItems(pos.x, pos.y, {
-                        count = math.random(8, 15),
+                        count = baseCount,
                         itemType = itemType,
                         distance = 0,
                         speed = {Constants.bit_spawn_speed_asteroid_min or 40, Constants.bit_spawn_speed_asteroid_max or 120}

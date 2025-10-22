@@ -122,13 +122,15 @@ function WindowBase:draw()
     love.graphics.setColor(1, 1, 1, 1)
     Theme.draw3DBorder(x, y, w, h)
 
-    -- Divider line below top bar
+    -- Divider line below top bar (thick plasma style)
     love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1)
+    love.graphics.setLineWidth(2)
     love.graphics.line(x+border, y+topBarH, x+w-border, y+topBarH)
 
-    -- Divider line above bottom bar
+    -- Divider line above bottom bar (thick plasma style)
     love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1)
     love.graphics.line(x+border, y+h-bottomBarH, x+w-border, y+h-bottomBarH)
+    love.graphics.setLineWidth(1)
 end
 
 -- Helper for sign

@@ -190,6 +190,30 @@ function Procedural.registerAsteroidTemplate()
         -- Asteroids are extra resistant to rotation (multiply by 2)
         rotationalInertia = rotationalInertia * 2
         
+        -- Determine asteroid type
+        -- Change: do not create standalone crystal asteroids. Iron asteroids may rarely host crystal formations.
+        local asteroidType = "stone"
+        local rand = math.random()
+        if rand < 0.55 then
+            asteroidType = "iron"
+        else
+            asteroidType = "stone"
+        end
+        local crystalFormation = false
+        if asteroidType == "iron" and math.random() < 0.05 then
+            crystalFormation = true
+        end
+        
+        -- Different colors for different asteroid types
+        local color
+        if asteroidType == "iron" and crystalFormation then
+            color = {0.65, 0.45, 0.6, 1}  -- Iron with crystal tint
+        elseif asteroidType == "iron" then
+            color = {0.6, 0.4, 0.2, 1}  -- Brown iron asteroid
+        else
+            color = {0.5, 0.5, 0.5, 1}  -- Gray stone asteroid
+        end
+        
         return {
             Position = Components.Position(spawnData.x, spawnData.y),
             Velocity = Components.Velocity(velocity.vx, velocity.vy),
@@ -199,8 +223,8 @@ function Procedural.registerAsteroidTemplate()
             RotationalMass = Components.RotationalMass(rotationalInertia), -- Calculated from shape - hard to spin
             Collidable = Components.Collidable(size / 2), -- Bounding radius
             Durability = Components.Durability(size * 2, size * 2),
-            Asteroid = Components.Asteroid(),
-            Renderable = Components.Renderable("polygon", nil, nil, nil, {0.6, 0.4, 0.2, 1}) -- Brownish color
+            Asteroid = Components.Asteroid(asteroidType, crystalFormation),
+            Renderable = Components.Renderable("polygon", nil, nil, nil, color)
         }
     end)
 end

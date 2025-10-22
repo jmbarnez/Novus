@@ -17,11 +17,15 @@ local HotkeyConfig = require('src.hotkey_config')
 local Scaling = require('src.scaling')
 local ShipLoader = require('src.ship_loader')
 local AsteroidClusters = require('src.systems.asteroid_clusters')
+local ShaderManager = require('src.shader_manager')
 
 -- Game initialization
 function Core.init()
     print("=== Space Drone Adventure Loading ===")
     Scaling.update()
+    
+    -- Initialize shader manager
+    ShaderManager.init()
 
     -- Set windowed mode, matching start screen size
     local w, h = Constants.screen_width, Constants.screen_height
@@ -53,6 +57,8 @@ function Core.init()
     ECS.registerSystem("ProjectileSystem", Systems.ProjectileSystem)
     ECS.registerSystem("ShieldImpactSystem", Systems.ShieldImpactSystem)
     ECS.registerSystem("AsteroidClustersSystem", AsteroidClusters)
+    ECS.registerSystem("CrystalFormationSystem", Systems.CrystalFormationSystem)
+    ECS.registerSystem("AsteroidHotspotSystem", Systems.AsteroidHotspotSystem)
 
     -- Initialize asteroid cluster system
     AsteroidClusters.init()
@@ -274,13 +280,16 @@ end
 
 -- Main game render loop
 function Core.draw()
-    love.graphics.clear(0.05, 0.05, 0.08)
+    love.graphics.clear(0.01, 0.01, 0.02)
 
     ECS.draw() -- Draw all world and UI systems
 end
 
 
 function Core.keypressed(key)
+    -- F11 removed - cel-shading is now always enabled by default
+    -- Use shader settings in shader_manager.lua to customize the look
+    
     if key == HotkeyConfig.getHotkey("settings_window") then
         -- If a window is currently open, let UISystem handle closing it first
         if UISystem.isShipWindowOpen and UISystem.isShipWindowOpen() then

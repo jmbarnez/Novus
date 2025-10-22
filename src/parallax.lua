@@ -46,8 +46,9 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
             -- Static layer: draw stars at fixed screen positions, twinkling
             for _, star in ipairs(layer.stars) do
                 local twinkle = star.brightness * (0.7 + 0.3 * math.abs(math.sin(t * (star.size + 1) + star.x + star.y)))
-                love.graphics.setColor(1, 1, 1, twinkle)
-                love.graphics.points(star.x, star.y)
+                -- Brighter stars for plasma style
+                love.graphics.setColor(1, 1, 1, math.min(twinkle * 1.5, 1.0))
+                love.graphics.circle("fill", star.x, star.y, star.size)
             end
         else
             -- Parallax layer: draw as before
@@ -58,8 +59,9 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
                 if drawX < 0 then drawX = drawX + parallax.worldSize end
                 local drawY = (star.y - offsetY) % parallax.worldSize
                 if drawY < 0 then drawY = drawY + parallax.worldSize end
-                love.graphics.setColor(1, 1, 1, star.brightness)
-                love.graphics.points(drawX, drawY)
+                -- Brighter stars for plasma style
+                love.graphics.setColor(1, 1, 1, math.min(star.brightness * 1.3, 1.0))
+                love.graphics.circle("fill", drawX, drawY, star.size)
             end
         end
         ::continue::

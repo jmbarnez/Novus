@@ -4,6 +4,8 @@
 
 local ECS = require('src.ecs')
 local Parallax = require('src.parallax')
+local ShaderManager = require('src.shader_manager')
+local PlasmaTheme = require('src.ui.plasma_theme')
 ---@diagnostic disable-next-line: deprecated
 local unpack = unpack or table.unpack
 
@@ -77,6 +79,11 @@ local function drawTurret(x, y, color, turretRotation)
     love.graphics.translate(x, y)
     love.graphics.rotate(turretRotation)
     love.graphics.rectangle("fill", 0, -2, barrelLength, 4)
+    -- Plasma-style outline for turret
+    love.graphics.setColor(0, 0, 0, 1)
+    love.graphics.setLineWidth(3)
+    love.graphics.rectangle("line", 0, -2, barrelLength, 4)
+    love.graphics.setLineWidth(1)
     love.graphics.pop()
     -- Calculate muzzle position in world coordinates
     local muzzleX = x + math.cos(turretRotation) * barrelLength
@@ -121,9 +128,18 @@ local function drawPolygon(x, y, polygonShape, color)
         love.graphics.circle("fill", cx, cy, math.max(3, polygonShape.cockpitRadius))
     end
 
-    -- Draw outline (darker)
-    love.graphics.setColor(colors.stripes[1] * 0.6, colors.stripes[2] * 0.6, colors.stripes[3] * 0.6, colors.stripes[4])
+    -- Draw thick plasma-style outline (multiple passes for thickness)
+    love.graphics.setColor(0, 0, 0, colors.stripes[4]) -- Black outline
+    love.graphics.setLineWidth(4) -- Thicker outline for stronger Plasma look
     love.graphics.polygon("line", worldVertices)
+    
+    -- Draw thinner dark outline inside
+    love.graphics.setColor(colors.stripes[1] * 0.3, colors.stripes[2] * 0.3, colors.stripes[3] * 0.3, colors.stripes[4])
+    love.graphics.setLineWidth(2)
+    love.graphics.polygon("line", worldVertices)
+    
+    -- Reset line width
+    love.graphics.setLineWidth(1)
 end
 
 -- Helper function to draw the mining laser
@@ -145,6 +161,11 @@ local function drawLaser()
             -- Draw bright colored core (tinted with laser color, not pure white)
             love.graphics.setColor(color[1], color[2], color[3], 0.9) -- Bright colored core
             love.graphics.setLineWidth(1.5)
+            love.graphics.line(laser.start.x, laser.start.y, laser.endPos.x, laser.endPos.y)
+            
+            -- Plasma-style outline for laser
+            love.graphics.setColor(0, 0, 0, 0.8)
+            love.graphics.setLineWidth(6)
             love.graphics.line(laser.start.x, laser.start.y, laser.endPos.x, laser.endPos.y)
 
             love.graphics.setLineWidth(1)
@@ -192,6 +213,48 @@ local function drawMagneticField()
     end
 end
 
+-- Helper function to draw asteroid hotspots
+local function drawHotspots()
+    local hotspotEntities = ECS.getEntitiesWith({"Hotspot", "Position"})
+    for _, hotspotId in ipairs(hotspotEntities) do
+        local hotspot = ECS.getComponent(hotspotId, "Hotspot")
+        local position = ECS.getComponent(hotspotId, "Position")
+        
+        if hotspot and position then
+            -- Use time since spawn for pulsing animation
+            local time = hotspot.timeSinceSpawn
+            local pulse = 0.6 + 0.4 * math.sin(time * 3)  -- Pulse faster than magnetic field
+            
+            -- Calculate opacity based on remaining time (fade out in last 3 seconds)
+            local alphaMultiplier = 1.0
+            if hotspot.timeRemaining < 3 then
+                alphaMultiplier = hotspot.timeRemaining / 3
+            end
+            
+            -- Draw outer pulsing ring - bright orange/red
+            love.graphics.setColor(1, 0.5, 0.2, pulse * alphaMultiplier * 0.8)
+            love.graphics.setLineWidth(2)
+            love.graphics.circle("line", position.x, position.y, 12)
+            
+            -- Draw middle ring - orange
+            love.graphics.setColor(1, 0.7, 0.3, pulse * alphaMultiplier * 0.6)
+            love.graphics.setLineWidth(1.5)
+            love.graphics.circle("line", position.x, position.y, 9)
+            
+            -- Draw inner core - bright white
+            love.graphics.setColor(1, 1, 0.8, pulse * alphaMultiplier)
+            love.graphics.circle("fill", position.x, position.y, 5)
+            
+            -- Plasma-style outer glow
+            love.graphics.setColor(1, 0.4, 0.1, pulse * alphaMultiplier * 0.5)
+            love.graphics.setLineWidth(3)
+            love.graphics.circle("line", position.x, position.y, 14)
+            
+            love.graphics.setLineWidth(1)
+        end
+    end
+end
+
 local RenderSystem = {
     name = "RenderSystem",
 
@@ -212,7 +275,7 @@ local RenderSystem = {
         love.graphics.setCanvas(canvasComp.canvas)
         love.graphics.clear()
 
-        love.graphics.setColor(0.02, 0.02, 0.08, 1)  -- Dark navy blue background
+        love.graphics.setColor(0.01, 0.01, 0.015, 1)  -- Very dark blue-black background
         love.graphics.rectangle("fill", 0, 0, canvasComp.width, canvasComp.height)
 
         Profiler.stop("canvas_setup")
@@ -291,14 +354,15 @@ local RenderSystem = {
                 love.graphics.scale(0.4, 0.4)  -- Draw at 40% size
                 item.def:draw(0, 0)
                 love.graphics.pop()
-                if stack and stack.quantity and stack.quantity > 1 then
-                    love.graphics.setColor(1, 1, 1, 0.9)
-                    local Theme = require('src.ui.theme')
-                    local smallFont = Theme.getFont(10)
-                    love.graphics.setFont(smallFont)
-                    local qtyText = "x" .. tostring(stack.quantity)
-                    love.graphics.printf(qtyText, position.x - 40, position.y + 10, 80, "center")
-                end
+                -- Quantity text moved out of canvas rendering to avoid shader effects
+                -- if stack and stack.quantity and stack.quantity > 1 then
+                --     love.graphics.setColor(1, 1, 1, 0.9)
+                --     local Theme = require('src.ui.theme')
+                --     local smallFont = Theme.getFont(10)
+                --     love.graphics.setFont(smallFont)
+                --     local qtyText = "x" .. tostring(stack.quantity)
+                --     love.graphics.printf(qtyText, position.x - 40, position.y + 10, 80, "center")
+                -- end
             else
                 if renderable.shape == "rectangle" and renderable.width and renderable.height then
                     if renderable.color then
@@ -310,42 +374,71 @@ local RenderSystem = {
                         position.y - renderable.height/2,
                         renderable.width,
                         renderable.height)
+                    
+                    -- Draw plasma-style outline for rectangles
+                    love.graphics.setColor(0, 0, 0, 1)
+                    love.graphics.setLineWidth(3)
+                    love.graphics.rectangle("line",
+                        position.x - renderable.width/2,
+                        position.y - renderable.height/2,
+                        renderable.width,
+                        renderable.height)
+                    love.graphics.setLineWidth(1)
                 elseif renderable.shape == "circle" and renderable.radius then
-                    if renderable.color then
-                        local cols = resolveColors(renderable.color)
-                        love.graphics.setColor(cols.stripes[1], cols.stripes[2], cols.stripes[3], cols.stripes[4])
+                    -- If this entity is a crystal formation, draw shard-like crystals
+                    if ECS.hasComponent(entityId, "CrystalFormation") then
+                        local cf = ECS.getComponent(entityId, "CrystalFormation")
+                        if not cf then goto continue_entity end
+                        print(string.format("[Render] Drawing crystal formation %d at (%f, %f)", entityId, position.x, position.y))
+                        -- Cull off-screen
+                        if not isOnScreen(position.x, position.y, cf.size * 2, cullingCameraPos, cullingCamera) then
+                            goto continue_entity
+                        end
+                        -- Draw multiple shard triangles around center
+                        love.graphics.push()
+                        love.graphics.translate(position.x, position.y)
+                        for i = 1, cf.shardCount do
+                            local angle = (i / cf.shardCount) * (2 * math.pi) + (i % 2 == 0 and 0.2 or -0.2)
+                            local len = cf.size * (0.6 + math.random() * 0.6)
+                            local w = cf.size * 0.35
+                            local x1 = 0
+                            local y1 = 0
+                            local x2 = math.cos(angle) * len
+                            local y2 = math.sin(angle) * len
+                            -- Perpendicular for base width
+                            local bx = math.cos(angle + math.pi/2) * w
+                            local by = math.sin(angle + math.pi/2) * w
+                            local px1 = x2 + bx
+                            local py1 = y2 + by
+                            local px2 = x2 - bx
+                            local py2 = y2 - by
+                            love.graphics.setColor(cf.color[1], cf.color[2], cf.color[3], cf.color[4] or 1)
+                            love.graphics.polygon("fill", x1, y1, px1, py1, px2, py2)
+                            -- Highlight inner edge
+                            love.graphics.setColor(1, 1, 1, 0.6)
+                            love.graphics.polygon("fill", 0, 0, x2 * 0.6, y2 * 0.6, x2 * 0.4, y2 * 0.4)
+                        end
+                        love.graphics.pop()
+                    else
+                        if renderable.color then
+                            local cols = resolveColors(renderable.color)
+                            love.graphics.setColor(cols.stripes[1], cols.stripes[2], cols.stripes[3], cols.stripes[4])
+                        end
+                        love.graphics.circle("fill", position.x, position.y, renderable.radius)
+                        
+                        -- Draw plasma-style outline for circles
+                        love.graphics.setColor(0, 0, 0, 1)
+                        love.graphics.setLineWidth(3)
+                        love.graphics.circle("line", position.x, position.y, renderable.radius)
+                        love.graphics.setLineWidth(1)
                     end
-                    love.graphics.circle("fill", position.x, position.y, renderable.radius)
                     -- Draw black border for cannonballs
                     local cannonballBorder = ECS.getComponent(entityId, "CannonballBorder")
                     if cannonballBorder then
                         love.graphics.setColor(cannonballBorder.borderColor)
                         love.graphics.circle("line", position.x, position.y, renderable.radius)
                     end
-                    -- Draw small health bar for enemies (non-player)
-                    if ECS.hasComponent(entityId, "Hull") and not (ECS.hasComponent(entityId, "ControlledBy") and ECS.hasComponent(ECS.getComponent(entityId, "ControlledBy").pilotId, "Player")) then
-                        local hull = ECS.getComponent(entityId, "Hull")
-                        local shield = ECS.getComponent(entityId, "Shield")
-                        if hull then
-                            local barWidth = 40
-                            local barHeight = 6
-                            local x = position.x - barWidth / 2
-                            local y = position.y - renderable.radius - 10
-                            -- Background
-                            love.graphics.setColor(0.1, 0.1, 0.1, 0.9)
-                            love.graphics.rectangle("fill", x, y, barWidth, barHeight, 3, 3)
-                            -- Fill
-                            local ratio = math.max(0, math.min(1, (hull.current or 0) / (hull.max or 1)))
-                            -- Draw shield bar (if present) above hull with blue color
-                            if shield and shield.max > 0 then
-                                local sRatio = math.max(0, math.min(1, (shield.current or 0) / (shield.max or 1)))
-                                love.graphics.setColor(0.2, 0.6, 1, 0.9)
-                                love.graphics.rectangle("fill", x + 1, y - 8, (barWidth - 2) * sRatio, barHeight - 2, 2, 2)
-                            end
-                            love.graphics.setColor(1, 0.2, 0.2, 0.95)
-                            love.graphics.rectangle("fill", x + 1, y + 1, (barWidth - 2) * ratio, barHeight - 2, 2, 2)
-                        end
-                    end
+                    -- Health bars moved to HUD system
                 elseif renderable.shape == "polygon" then
                     local polygonShape = ECS.getComponent(entityId, "PolygonShape")
                     if polygonShape then
@@ -422,50 +515,8 @@ local RenderSystem = {
                             local turretWorldX = position.x + (toffX * cosE - toffY * sinE)
                             local turretWorldY = position.y + (toffX * sinE + toffY * cosE)
                             drawTurret(turretWorldX, turretWorldY, renderable.color, turretAimAngle)
-                            -- Draw small health bar for polygon enemies (non-player) - only when damaged
-                            if ECS.hasComponent(entityId, "Hull") and not (ECS.hasComponent(entityId, "ControlledBy") and ECS.hasComponent(ECS.getComponent(entityId, "ControlledBy").pilotId, "Player")) then
-                                local hull = ECS.getComponent(entityId, "Hull")
-                                local shield = ECS.getComponent(entityId, "Shield")
-                                -- Only show health bar when damaged
-                                if hull and (hull.current < hull.max or (shield and shield.current < shield.max)) then
-                                    local barWidth = 48
-                                    local barHeight = 6
-                                    local x = position.x - barWidth / 2
-                                    local y = position.y - 16
-                                    love.graphics.setColor(0.1, 0.1, 0.1, 0.9)
-                                    love.graphics.rectangle("fill", x, y, barWidth, barHeight, 3, 3)
-                                    local ratio = math.max(0, math.min(1, (hull.current or 0) / (hull.max or 1)))
-                                    if shield and shield.max > 0 then
-                                        local sRatio = math.max(0, math.min(1, (shield.current or 0) / (shield.max or 1)))
-                                        love.graphics.setColor(0.2, 0.6, 1, 0.9)
-                                        love.graphics.rectangle("fill", x + 1, y - 8, (barWidth - 2) * sRatio, barHeight - 2, 2, 2)
-                                    end
-                                    love.graphics.setColor(1, 0.2, 0.2, 0.95)
-                                    love.graphics.rectangle("fill", x + 1, y + 1, (barWidth - 2) * ratio, barHeight - 2, 2, 2)
-                                end
-                            end
                         else
                             drawPolygon(position.x, position.y, polygonShape, renderable.color)
-                            if ECS.hasComponent(entityId, "Hull") and not (ECS.hasComponent(entityId, "ControlledBy") and ECS.hasComponent(ECS.getComponent(entityId, "ControlledBy").pilotId, "Player")) then
-                                local hull = ECS.getComponent(entityId, "Hull")
-                                local shield = ECS.getComponent(entityId, "Shield")
-                                if hull then
-                                    local barWidth = 48
-                                    local barHeight = 6
-                                    local x = position.x - barWidth / 2
-                                    local y = position.y - 16
-                                    love.graphics.setColor(0.1, 0.1, 0.1, 0.9)
-                                    love.graphics.rectangle("fill", x, y, barWidth, barHeight, 3, 3)
-                                    local ratio = math.max(0, math.min(1, (hull.current or 0) / (hull.max or 1)))
-                                    if shield and shield.max > 0 then
-                                        local sRatio = math.max(0, math.min(1, (shield.current or 0) / (shield.max or 1)))
-                                        love.graphics.setColor(0.2, 0.6, 1, 0.9)
-                                        love.graphics.rectangle("fill", x + 1, y - 8, (barWidth - 2) * sRatio, barHeight - 2, 2, 2)
-                                    end
-                                    love.graphics.setColor(1, 0.2, 0.2, 0.95)
-                                    love.graphics.rectangle("fill", x + 1, y + 1, (barWidth - 2) * ratio, barHeight - 2, 2, 2)
-                                end
-                            end
                         end
                     end
                 end
@@ -482,70 +533,13 @@ local RenderSystem = {
         -- Draw laser beams (rendered on top of ships)
         drawLaser()
 
+        -- Draw asteroid hotspots
+        drawHotspots()
+
         Profiler.stop("entity_rendering")
         Profiler.start("canvas_finalize")
 
 
-
-        -- Draw asteroid durability bars (only when damaged)
-        local asteroidEntities = ECS.getEntitiesWith({"Asteroid", "Position", "Durability", "Collidable"})
-        for _, id in ipairs(asteroidEntities) do
-            local pos = ECS.getComponent(id, 'Position')
-            local coll = ECS.getComponent(id, 'Collidable')
-            local durability = ECS.getComponent(id, 'Durability')
-            if pos and durability and durability.current and durability.max then
-                -- Cull off-screen asteroid health bars
-                local radius = coll and coll.radius or 12
-                if not isOnScreen(pos.x, pos.y, radius, cullingCameraPos, cullingCamera) then
-                    goto continue_asteroid
-                end
-                
-                -- Only show when damaged
-                if durability.current < durability.max then
-                    local barW = 24
-                    local barH = 3
-                    local pad = coll and (coll.radius + 6) or 14
-                    local frac = math.max(0, math.min(1, durability.current / durability.max))
-                    love.graphics.setColor(0.25, 0.25, 0.2, 0.85)
-                    love.graphics.rectangle("fill", pos.x - barW/2, pos.y - pad, barW, barH)
-                    love.graphics.setColor(1, 1, 0.2, 1)
-                    love.graphics.rectangle("fill", pos.x - barW/2, pos.y - pad, barW * frac, barH)
-                    love.graphics.setColor(0,0,0,1)
-                    love.graphics.rectangle("line", pos.x - barW/2, pos.y - pad, barW, barH)
-                end
-            end
-            ::continue_asteroid::
-        end
-
-        -- Draw wreckage durability bars (green) - only when damaged
-        local wreckageEntities = ECS.getEntitiesWith({"Wreckage", "Position", "Durability", "Collidable"})
-        for _, id in ipairs(wreckageEntities) do
-            local pos = ECS.getComponent(id, 'Position')
-            local coll = ECS.getComponent(id, 'Collidable')
-            local durability = ECS.getComponent(id, 'Durability')
-            if pos and durability and durability.current and durability.max then
-                -- Cull off-screen wreckage health bars
-                local radius = coll and coll.radius or 12
-                if not isOnScreen(pos.x, pos.y, radius, cullingCameraPos, cullingCamera) then
-                    goto continue_wreckage
-                end
-                
-                -- Only show when damaged
-                if durability.current < durability.max then
-                    local barW = 24
-                    local barH = 3
-                    local pad = coll and (coll.radius + 6) or 14
-                    local frac = math.max(0, math.min(1, durability.current / durability.max))
-                    love.graphics.setColor(0.15, 0.25, 0.15, 0.85)  -- Dark green background
-                    love.graphics.rectangle("fill", pos.x - barW/2, pos.y - pad, barW, barH)
-                    love.graphics.setColor(0.4, 0.8, 0.4, 1)  -- Muted green fill
-                    love.graphics.rectangle("fill", pos.x - barW/2, pos.y - pad, barW * frac, barH)
-                    love.graphics.setColor(0,0,0,1)  -- Black outline
-                    love.graphics.rectangle("line", pos.x - barW/2, pos.y - pad, barW, barH)
-                end
-            end
-            ::continue_wreckage::
-        end
 
         -- Draw magnetic field indicators
         drawMagneticField()
@@ -596,10 +590,6 @@ local RenderSystem = {
         if CameraSystem and CameraSystem.resetTransform then
             CameraSystem.resetTransform()
         end
-        local UISystem = ECS.getSystem("UISystem")
-        if UISystem and UISystem.draw then
-            UISystem.draw(canvasComp.width, canvasComp.height)
-        end
         -- FPS counter now handled by HUD System
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.setCanvas()
@@ -624,11 +614,44 @@ local RenderSystem = {
 
         -- Profile the actual canvas draw operation
         Profiler.start("canvas_draw")
-        love.graphics.draw(canvasComp.canvas, offsetX, offsetY, 0, scale, scale)
+        
+        -- Create or reuse post-processing canvas for shader effects
+        if not _G.postProcessCanvas or _G.postProcessCanvasWidth ~= w or _G.postProcessCanvasHeight ~= h then
+            _G.postProcessCanvas = love.graphics.newCanvas(w, h)
+            _G.postProcessCanvasWidth = w
+            _G.postProcessCanvasHeight = h
+        end
+        
+        -- Apply shader effect to game canvas and render to post-process canvas
+        if ShaderManager.isCelShadingEnabled() then
+            ShaderManager.setScreenSize(w, h)
+            love.graphics.setShader(ShaderManager.getCelShader())
+            love.graphics.setCanvas(_G.postProcessCanvas)
+            love.graphics.clear(0, 0, 0, 0)
+            love.graphics.draw(canvasComp.canvas, offsetX, offsetY, 0, scale, scale)
+            love.graphics.setShader()
+            love.graphics.setCanvas()
+            -- Draw post-processed result to screen
+            love.graphics.draw(_G.postProcessCanvas, 0, 0)
+        else
+            -- No shader - draw canvas directly to screen
+            love.graphics.draw(canvasComp.canvas, offsetX, offsetY, 0, scale, scale)
+        end
+        
         Profiler.stop("canvas_draw")
 
         Profiler.stop("canvas_finalize")
         Profiler.start("ui_overlay")
+
+        -- Reset graphics state before drawing UI (ensure no lingering color/blend settings from game canvas)
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.setBlendMode("alpha")
+        
+        -- Draw UI windows (notifications, dialogs, windows) - NOT affected by shader
+        local UISystem = ECS.getSystem("UISystem")
+        if UISystem and UISystem.draw then
+            UISystem.draw(canvasComp.width, canvasComp.height)
+        end
 
         -- Draw HUD overlays in screen space, after canvas is drawn
         local HUDSystem = ECS.getSystem("HUDSystem")
