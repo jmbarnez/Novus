@@ -6,33 +6,16 @@ return {
     name = "Red Scout",
     description = "A small, fast attack ship with light armor",
     
-    -- Visual design (circle)
+    -- Visual design (triangle)
     polygon = {
-        -- Circle approximated with 16 vertices
-        {x = 0,    y = -8},
-        {x = 1.96, y = -7.76},
-        {x = 3.70, y = -7.06},
-        {x = 5.08, y = -5.91},
-        {x = 6.06, y = -4.36},
-        {x = 6.54, y = -2.59},
-        {x = 6.49, y = -0.74},
-        {x = 5.91, y = 1.17},
-        {x = 4.81, y = 3.23},
-        {x = 3.23, y = 4.81},
-        {x = 1.17, y = 5.91},
-        {x = -0.74, y = 6.49},
-        {x = -2.59, y = 6.54},
-        {x = -4.36, y = 6.06},
-        {x = -5.91, y = 5.08},
-        {x = -7.06, y = 3.70},
-        {x = -7.76, y = 1.96},
-        {x = -8,    y = 0},
-        {x = -7.76, y = -1.96},
-        {x = -7.06, y = -3.70},
-        {x = -5.91, y = -5.08},
-        {x = -4.36, y = -6.06},
-        {x = -2.59, y = -6.54},
-        {x = -0.74, y = -6.49},
+        -- Simple triangular hull pointing up
+        {x = 0,  y = -9},
+        {x = 8,  y = 6},
+        {x = -8, y = 6},
+        -- Explicit cockpit offsets so renderer centers cockpit and turret
+        cockpitOffsetX = 0,
+        cockpitOffsetY = -2,
+        cockpitRadius = 4,
     },
     -- Color layers for texture and detail
     colors = {

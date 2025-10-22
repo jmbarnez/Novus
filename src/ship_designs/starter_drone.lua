@@ -25,7 +25,8 @@ return {
         {x = -6.93, y = -4},
     },
     colors = {
-        base = {0.0, 0.6, 1, 1},         -- Main bright blue hull
+        base = {0.0, 0.6, 1, 1},         -- Main bright blue hull (legacy)
+        stripes = {0.0, 0.6, 1, 1},      -- Explicit stripes layer used by renderer
         cockpit = {0.15, 0.15, 0.22, 1}, -- Dark blue/gray cockpit
         accent = {0.7, 0.9, 1, 1},       -- Light blue accent
         engine = {0.7, 0.7, 0.7, 1},     -- Silver/gray engine pods
