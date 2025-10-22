@@ -6,6 +6,34 @@ local ECS = require('src.ecs')
 
 local AiTurretHelper = {}
 
+-- Estimate base radius from entity components (collidable, polygon vertices, or renderable circle)
+local function estimateBaseRadiusFromEntity(eid)
+    if eid then
+        local collidable = ECS.getComponent(eid, "Collidable")
+        if collidable and collidable.radius then return collidable.radius end
+        local polygon = ECS.getComponent(eid, "PolygonShape")
+        if polygon and polygon.vertices then
+            local r = 0
+            for _, v in ipairs(polygon.vertices) do
+                local dx = (v.x or 0)
+                local dy = (v.y or 0)
+                local d = math.sqrt(dx*dx + dy*dy)
+                if d > r then r = d end
+            end
+            if r > 0 then return r end
+        end
+        local renderable = ECS.getComponent(eid, "Renderable")
+        if renderable and renderable.radius then return renderable.radius end
+    end
+    return 12
+end
+
+local function computeMuzzleDistance(eid)
+    local base = estimateBaseRadiusFromEntity(eid)
+    local overhang = 4
+    return math.max(10, math.floor(base * 0.9) + overhang)
+end
+
 -- Calculate damage multiplier based on laser falloff distance
 -- Returns a value from 0.0 to 1.0 representing damage effectiveness at that distance
 -- @param turretModule: The turret module with FALLOFF_START and FALLOFF_END
@@ -111,7 +139,7 @@ function AiTurretHelper.fireLaserAtTarget(eid, turret, turretModule, targetPos, 
     
     -- Calculate laser start position from barrel
     local fireAngle = math.atan2(dy, dx)
-    local muzzleDistance = 12  -- Should match barrelLength in drawTurret
+    local muzzleDistance = computeMuzzleDistance(eid)
     local laserStartX = pos.x + math.cos(fireAngle) * muzzleDistance
     local laserStartY = pos.y + math.sin(fireAngle) * muzzleDistance
     
@@ -153,14 +181,13 @@ end
 -- @param turret: Turret component
 -- @param shooterPos: Table with x, y of shooter
 -- @param targetPos: Table with x, y of target
-function AiTurretHelper.aimTurretAtTarget(turret, shooterPos, targetPos)
-    if not turret then return end
-    
+function AiTurretHelper.aimTurretAtTarget(eid, turret, shooterPos, targetPos)
+    -- Explicit signature: aimTurretAtTarget(eid, turret, shooterPos, targetPos)
+    if not eid or not turret or not shooterPos or not targetPos then return end
     local dx = targetPos.x - shooterPos.x
     local dy = targetPos.y - shooterPos.y
     local fireAngle = math.atan2(dy, dx)
-    local muzzleDistance = 12
-    
+    local muzzleDistance = computeMuzzleDistance(eid)
     turret.aimX = shooterPos.x + math.cos(fireAngle) * muzzleDistance
     turret.aimY = shooterPos.y + math.sin(fireAngle) * muzzleDistance
 end

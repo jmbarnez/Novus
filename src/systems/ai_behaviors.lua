@@ -105,7 +105,7 @@ local function fireAtTarget(eid, turret, pos, playerPos, dt)
         end
     end
     
-    AiTurretHelper.aimTurretAtTarget(turret, pos, playerPos)
+    AiTurretHelper.aimTurretAtTarget(eid, turret, pos, playerPos)
     TurretSystem.fireTurret(eid, playerPos.x, playerPos.y, dt)
     
     if turretModule and turretModule.CONTINUOUS and turretModule.applyBeam then
@@ -225,7 +225,7 @@ function Behaviors.Chase.update(eid, ai, pos, vel, turret, design, playerPos, dt
     end
     
     if turret and playerPos then
-        AiTurretHelper.aimTurretAtTarget(turret, pos, playerPos)
+    AiTurretHelper.aimTurretAtTarget(eid, turret, pos, playerPos)
     end
     
     if turret and turret.moduleName then
@@ -286,7 +286,7 @@ function Behaviors.Orbit.update(eid, ai, pos, vel, turret, design, playerPos, dt
     end
     
     if turret and playerPos then
-        AiTurretHelper.aimTurretAtTarget(turret, pos, playerPos)
+        AiTurretHelper.aimTurretAtTarget(eid, turret, pos, playerPos)
     end
     
     if turret and turret.moduleName then

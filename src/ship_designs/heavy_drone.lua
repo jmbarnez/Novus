@@ -8,22 +8,15 @@ return {
 
     -- Visual design (symmetrical octagon - scaled 4x from starter drone)
     polygon = {
-        -- Top
-        {x = 0,    y = -32},
-        -- Upper right
-        {x = 27.72, y = -16},
-        -- Right
-        {x = 32,   y = 0},
-        -- Lower right
-        {x = 27.72, y = 16},
-        -- Bottom
-        {x = 0,    y = 32},
-        -- Lower left
-        {x = -27.72, y = 16},
-        -- Left
-        {x = -32,  y = 0},
-        -- Upper left
-        {x = -27.72, y = -16},
+        -- Widened octagon for a more even/frigate silhouette
+        {x = 0,    y = -36},   -- Top
+        {x = 34,   y = -20},   -- Upper right
+        {x = 40,   y = 0},     -- Right
+        {x = 34,   y = 20},    -- Lower right
+        {x = 0,    y = 36},    -- Bottom
+        {x = -34,  y = 20},    -- Lower left
+        {x = -40,  y = 0},     -- Left
+        {x = -34,  y = -20},   -- Upper left
     },
     colors = {
         base = {1, 0.15, 0.15, 1},         -- Main red hull
@@ -76,6 +69,12 @@ return {
             -- Thruster glows
             {x = 16, y = 20, r = 1.2, color = {1, 0.7, 0.2, 0.5}},
             {x = -16, y = 20, r = 1.2, color = {1, 0.7, 0.2, 0.5}},
+        },
+        -- Black panel accents and shadow lines for depth
+        panels = {
+            {x1 = -20, y1 = -4, x2 = 20, y2 = -4, color = {0,0,0,0.6}, lineWidth = 3},
+            {x1 = -18, y1 = 4, x2 = 18, y2 = 4, color = {0,0,0,0.5}, lineWidth = 2},
+            {x = 0, y = 8, r = 10, color = {0,0,0,0.18}}, -- subtle dark belly shadow
         },
         sensors = {
             {x = 10, y = -30, r = 1.2, color = {0.7, 0.7, 1, 0.7}},
