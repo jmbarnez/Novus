@@ -5,6 +5,6 @@ function love.conf(t)
     t.console = true
     
     -- Performance settings
-    t.window.vsync = 0  -- Force VSync OFF (0 = off, 1 = on, -1 = adaptive)
+    t.window.vsync = -1  -- Adaptive VSync (allows higher refresh rates up to monitor limit)
     t.window.msaa = 0   -- Disable MSAA antialiasing for performance
 end

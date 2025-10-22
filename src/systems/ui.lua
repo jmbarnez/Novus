@@ -180,13 +180,17 @@ function UISystem.draw(viewportWidth, viewportHeight)
     -- Draw windows in focus order (least focused first, most focused last)
     for _, windowName in ipairs(windowOrder) do
         local window = windows[windowName]
-        if window then
+        if window and window:getOpen() then
             window:draw(viewportWidth, viewportHeight)
         end
     end
 
     -- Draw any windows not yet in the order (newly opened windows)
     for windowName, window in pairs(windows) do
+        if not window:getOpen() then
+            goto skip_window
+        end
+        
         local inOrder = false
         for _, orderedName in ipairs(windowOrder) do
             if orderedName == windowName then
@@ -197,6 +201,8 @@ function UISystem.draw(viewportWidth, viewportHeight)
         if not inOrder then
             window:draw(viewportWidth, viewportHeight)
         end
+        
+        ::skip_window::
     end
     
     -- Draw confirmation dialog if active (highest priority)
@@ -204,53 +210,22 @@ function UISystem.draw(viewportWidth, viewportHeight)
         Dialogs.drawConfirmDialog()
     end
     
-    -- Draw tooltip if hovering over item and no menus are open
-    if ShipWindow.isOpen and ShipWindow.hoveredItemSlot and not Dialogs.confirmDialog then
-        Tooltips.drawItemTooltip(
-            ShipWindow.hoveredItemSlot.itemId,
-            ShipWindow.hoveredItemSlot.itemDef,
-            ShipWindow.hoveredItemSlot.count,
-            ShipWindow.hoveredItemSlot.mouseX,
-            ShipWindow.hoveredItemSlot.mouseY
-        )
-        -- Not handled by UI
+    -- Draw tooltip for hovered slots (only if ship window is open and no dialog)
+    if not ShipWindow:getOpen() or Dialogs.confirmDialog then
         return false
     end
-
-    -- Draw tooltip for ship window turret slot
-    if ShipWindow.isOpen and ShipWindow.hoveredTurretSlot and not Dialogs.confirmDialog then
+    
+    -- Check for hovered items in priority order
+    local hoveredSlot = ShipWindow.hoveredItemSlot or ShipWindow.hoveredTurretSlot or ShipWindow.hoveredDefensiveSlot
+    
+    if hoveredSlot then
         Tooltips.drawItemTooltip(
-            ShipWindow.hoveredTurretSlot.itemId,
-            ShipWindow.hoveredTurretSlot.itemDef,
-            ShipWindow.hoveredTurretSlot.count,
-            ShipWindow.hoveredTurretSlot.mouseX,
-            ShipWindow.hoveredTurretSlot.mouseY
+            hoveredSlot.itemId,
+            hoveredSlot.itemDef,
+            hoveredSlot.count,
+            hoveredSlot.mouseX,
+            hoveredSlot.mouseY
         )
-        return false
-    end
-
-    -- Draw tooltip for ship window defensive slot
-    if ShipWindow.isOpen and ShipWindow.hoveredDefensiveSlot and not Dialogs.confirmDialog then
-        Tooltips.drawItemTooltip(
-            ShipWindow.hoveredDefensiveSlot.itemId,
-            ShipWindow.hoveredDefensiveSlot.itemDef,
-            ShipWindow.hoveredDefensiveSlot.count,
-            ShipWindow.hoveredDefensiveSlot.mouseX,
-            ShipWindow.hoveredDefensiveSlot.mouseY
-        )
-        return false
-    end
-
-    -- Draw tooltip for ship window available modules
-    if ShipWindow.isOpen and ShipWindow.hoveredItemSlot and not Dialogs.confirmDialog then
-        Tooltips.drawItemTooltip(
-            ShipWindow.hoveredItemSlot.itemId,
-            ShipWindow.hoveredItemSlot.itemDef,
-            ShipWindow.hoveredItemSlot.count,
-            ShipWindow.hoveredItemSlot.mouseX,
-            ShipWindow.hoveredItemSlot.mouseY
-        )
-        return false
     end
 
     return false

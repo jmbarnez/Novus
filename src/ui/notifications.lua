@@ -54,13 +54,18 @@ end
 
 -- Draw all notifications
 function Notifications.draw(cameraX, cameraY, cameraZoom)
+    if #Notifications.notifications == 0 then
+        return
+    end
+    
     local ItemDefs = require('src.items.item_loader')
     
     local x = Scaling.scaleX(20)
     local y = love.graphics.getHeight() - Scaling.scaleY(40)  -- Bottom left
     local lineHeight = Scaling.scaleSize(25)
     
-    love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.normal)))
+    local font = Theme.getFont(Scaling.scaleSize(Theme.fonts.normal))
+    love.graphics.setFont(font)
     
     for _, notif in ipairs(Notifications.notifications) do
         -- Calculate alpha fade (starts at 1, ends at 0)

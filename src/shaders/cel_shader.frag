@@ -3,6 +3,46 @@ extern float Time;
 extern float PlasmaIntensity;
 extern float GlowThreshold;
 
+// Pseudo-random function for noise
+float rand(vec2 c) {
+    return fract(sin(dot(c.xy, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+// Perlin-like noise function (value noise)
+float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    
+    // Interpolation curve
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    
+    float n00 = rand(i + vec2(0.0, 0.0));
+    float n10 = rand(i + vec2(1.0, 0.0));
+    float n01 = rand(i + vec2(0.0, 1.0));
+    float n11 = rand(i + vec2(1.0, 1.0));
+    
+    float nx0 = mix(n00, n10, u.x);
+    float nx1 = mix(n01, n11, u.x);
+    return mix(nx0, nx1, u.y);
+}
+
+// Fractional Brownian motion for natural-looking clouds
+float fbm(vec2 p) {
+    float value = 0.0;
+    float amplitude = 1.0;
+    float frequency = 1.0;
+    float maxValue = 0.0;
+    
+    for (int i = 0; i < 4; i++) {
+        value += amplitude * noise(p * frequency);
+        maxValue += amplitude;
+        amplitude *= 0.5;
+        frequency *= 2.0;
+    }
+    
+    return value / maxValue;
+}
+
 vec4 effect(vec4 color, Image texture, vec2 tex_coords, vec2 screen_coords) {
     vec4 texcolor = Texel(texture, tex_coords);
     
@@ -73,12 +113,15 @@ vec4 effect(vec4 color, Image texture, vec2 tex_coords, vec2 screen_coords) {
     }
     
     // 6. SPACE VIGNETTE - Fade to dark space at edges (optional subtle effect)
-    float distFromCenter = length((screen_coords - ScreenSize * 0.5) / ScreenSize);
-    float vignette = smoothstep(1.0, 0.0, distFromCenter);
-    rgb = mix(rgb, rgb * 0.8, (1.0 - vignette) * 0.1);
+    // Only apply to bright objects, not stars
+    if (brightness > 0.5) {
+        float distFromCenter = length((screen_coords - ScreenSize * 0.5) / ScreenSize);
+        float vignette = smoothstep(1.0, 0.0, distFromCenter);
+        rgb = mix(rgb, rgb * 0.8, (1.0 - vignette) * 0.1);
+    }
     
-    // 7. OVERALL ENERGY SATURATION - Make colors more vivid
-    if (brightness > 0.2) {
+    // 7. OVERALL ENERGY SATURATION - Make colors more vivid (only for bright objects)
+    if (brightness > 0.5) {
         float gray = dot(rgb, vec3(0.299, 0.587, 0.114));
         rgb = mix(vec3(gray), rgb, 1.2);
     }

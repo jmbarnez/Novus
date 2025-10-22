@@ -18,6 +18,7 @@ local Scaling = require('src.scaling')
 local ShipLoader = require('src.ship_loader')
 local AsteroidClusters = require('src.systems.asteroid_clusters')
 local ShaderManager = require('src.shader_manager')
+local EntityPool = require('src.entity_pool')
 
 -- Game initialization
 function Core.init()
@@ -26,6 +27,41 @@ function Core.init()
     
     -- Initialize shader manager
     ShaderManager.init()
+
+    -- Initialize entity pooling for frequently created/destroyed entities
+    -- Laser beam pool: used for combat, mining, and salvage laser beams
+    EntityPool.registerPool(
+        "laser_beam",
+        -- Factory function: creates a new laser beam entity
+        function()
+            local laserEntity = ECS.createEntity()
+            ECS.addComponent(laserEntity, "Position", Components.Position(0, 0))
+            ECS.addComponent(laserEntity, "Collidable", Components.Collidable(50))
+            ECS.addComponent(laserEntity, "LaserBeam", {
+                start = {x = 0, y = 0},
+                endPos = {x = 0, y = 0},
+                color = {1, 1, 1, 1},
+                ownerId = nil
+            })
+            return laserEntity
+        end,
+        -- Reset function: clears laser state for reuse
+        function(laserEntity)
+            local posComp = ECS.getComponent(laserEntity, "Position")
+            if posComp then
+                posComp.x = 0
+                posComp.y = 0
+            end
+            local laserComp = ECS.getComponent(laserEntity, "LaserBeam")
+            if laserComp then
+                laserComp.start = {x = 0, y = 0}
+                laserComp.endPos = {x = 0, y = 0}
+                laserComp.ownerId = nil
+                laserComp.color = {1, 1, 1, 1}
+            end
+        end,
+        64  -- maxSize: pool up to 64 laser beam entities
+    )
 
     -- Set windowed mode, matching start screen size
     local w, h = Constants.screen_width, Constants.screen_height

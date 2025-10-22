@@ -7,6 +7,7 @@ local Components = require('src.components')
 local CollisionSystem = require('src.systems.collision')
 local DebrisSystem = require('src.systems.debris')
 local SkillXP = require('src.systems.skill_xp')
+local EntityPool = require('src.entity_pool')
 
 local SalvageLaser = {
     name = "salvage_laser",
@@ -24,21 +25,21 @@ local SalvageLaser = {
     design = {
         shape = "custom",
         size = 16,
-        color = {0.8, 0.4, 1, 1}
+        color = {0.2, 1, 0, 1}  -- Full vibrant green
     },
     draw = function(self, x, y)
         local size = self.design.size
-        love.graphics.setColor(0.1, 0.15, 0.1, 1)
+        love.graphics.setColor(0.05, 0.15, 0.05, 1)
         love.graphics.rectangle("fill", x - size/2, y - size/3, size, size * 0.6, 3, 3)
-        love.graphics.setColor(0.2, 1, 0.2, 1)
+        love.graphics.setColor(0.2, 1, 0, 1)
         love.graphics.circle("fill", x, y - size/2.5, size/3)
-        love.graphics.setColor(0.4, 1, 0.4, 0.9)
+        love.graphics.setColor(0.5, 1, 0.3, 0.9)
         love.graphics.circle("fill", x, y - size/2.5, size/4.5)
-        love.graphics.setColor(1, 1, 1, 0.6)
+        love.graphics.setColor(0.7, 1, 0.6, 0.6)
         love.graphics.circle("fill", x - size/6, y - size/2.5, size/6)
-        love.graphics.setColor(0.2, 1, 0.2, 0.8)
+        love.graphics.setColor(0.2, 1, 0, 0.8)
         love.graphics.rectangle("fill", x - size/3, y + size/4, size * 0.65, size/4, 2, 2)
-        love.graphics.setColor(0.4, 1, 0.4, 0.7)
+        love.graphics.setColor(0.5, 1, 0.3, 0.7)
         love.graphics.rectangle("fill", x - size/3 + 1, y + size/4 + 1, size/3, size/6)
         love.graphics.setColor(0.12, 0.15, 0.12, 0.9)
         love.graphics.line(x - size/2 + 2, y, x - size/2 + 2, y + size/3)
@@ -51,11 +52,11 @@ function SalvageLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
     -- Store laser on turret component so each turret can have its own laser
     if not turretComp then return end
     
-    -- Destroy old laser if it exists
+    -- Release old laser if it exists (return to pool instead of destroying)
     if turretComp.laserEntity then
         local component = ECS.getComponent(turretComp.laserEntity, "LaserBeam")
         if component then
-            ECS.destroyEntity(turretComp.laserEntity)
+            EntityPool.release("laser_beam", turretComp.laserEntity)
         end
     end
     
@@ -73,8 +74,8 @@ function SalvageLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
         end
     end
     
-    -- Create new laser beam entity
-    turretComp.laserEntity = ECS.createEntity()
+    -- Acquire laser beam entity from pool
+    turretComp.laserEntity = EntityPool.acquire("laser_beam")
     
     -- Calculate midpoint for position (for depth sorting and rendering order)
     local midX = (offsetStartX + endX) / 2
@@ -85,15 +86,26 @@ function SalvageLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
     local dy = endY - offsetStartY
     local beamLength = math.sqrt(dx * dx + dy * dy)
     
-    ECS.addComponent(turretComp.laserEntity, "Position", Components.Position(midX, midY))
-    -- Add collision component so laser can collide with entities
-    ECS.addComponent(turretComp.laserEntity, "Collidable", Components.Collidable(beamLength / 2 + 10))
-    ECS.addComponent(turretComp.laserEntity, "LaserBeam", {
-        start = {x = offsetStartX, y = offsetStartY},
-        endPos = {x = endX, y = endY},
-        color = {0.2, 1, 0.2, 1},  -- Green
-        ownerId = ownerId
-    })
+    -- Update position and collision components on the pooled entity
+    local posComp = ECS.getComponent(turretComp.laserEntity, "Position")
+    if posComp then
+        posComp.x = midX
+        posComp.y = midY
+    end
+    
+    local collidable = ECS.getComponent(turretComp.laserEntity, "Collidable")
+    if collidable then
+        collidable.radius = beamLength / 2 + 10
+    end
+    
+    -- Update laser beam component with new data
+    local laserComp = ECS.getComponent(turretComp.laserEntity, "LaserBeam")
+    if laserComp then
+        laserComp.start = {x = offsetStartX, y = offsetStartY}
+        laserComp.endPos = {x = endX, y = endY}
+        laserComp.color = {0.2, 1, 0, 1}  -- Vibrant green
+        laserComp.ownerId = ownerId
+    end
 end
 
 -- Called every frame while the laser is firing
@@ -173,7 +185,7 @@ function SalvageLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretC
             end
         end
         -- Create impact debris with laser beam color
-        DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, {0.2, 1, 0.2, 1})
+        DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, {0.2, 1, 0, 1})
         return {hit = true, intersection = closestIntersection}
     else
         return {hit = false}
@@ -185,7 +197,7 @@ function SalvageLaser.stopFiring(turretComp)
     if turretComp and turretComp.laserEntity then
         local component = ECS.getComponent(turretComp.laserEntity, "LaserBeam")
         if component then
-            ECS.destroyEntity(turretComp.laserEntity)
+            EntityPool.release("laser_beam", turretComp.laserEntity)
         end
         turretComp.laserEntity = nil
     end
