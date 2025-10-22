@@ -29,6 +29,8 @@ local RenderSystem = {
         Profiler.stop("canvas_setup")
         Profiler.start("background_draw")
 
+    -- Nebula clouds removed (simpler background) -- previously drawn here
+
         -- Draw starfield background
         local starFieldEntities = ECS.getEntitiesWith({"StarField"})
         for _, entityId in ipairs(starFieldEntities) do

@@ -153,6 +153,17 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
         end
         ECS.addComponent(shipId, "Turret", Components.Turret(initialTurretModuleName))
         -- Heat is now part of the Turret component, no separate component needed
+        -- Per-ship turret configuration (optional)
+        if design.turret and type(design.turret) == 'table' then
+            ECS.addComponent(shipId, "TurretConfig", Components.TurretConfig(
+                design.turret.enabled,
+                design.turret.scale,
+                design.turret.overhang
+            ))
+        else
+            -- Default turret config
+            ECS.addComponent(shipId, "TurretConfig", Components.TurretConfig(true, 1.0, 4))
+        end
     end
     
     -- Defensive slots

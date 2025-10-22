@@ -104,4 +104,11 @@ return {
 
     -- Abilities
     hasTrail = true
+    ,
+    -- Per-ship turret configuration: make heavy drone turrets larger and more prominent
+    turret = {
+        enabled = true,
+        scale = 1.6,
+        overhang = 8
+    }
 }

@@ -127,6 +127,7 @@ function Core.init()
     ECS.registerSystem("AsteroidClustersSystem", AsteroidClusters)
     ECS.registerSystem("CrystalFormationSystem", Systems.CrystalFormationSystem)
     ECS.registerSystem("AsteroidHotspotSystem", Systems.AsteroidHotspotSystem)
+    -- NebulaCloudSystem is called explicitly from RenderSystem
 
     -- Initialize asteroid cluster system
     AsteroidClusters.init()
@@ -257,6 +258,10 @@ function Core.init()
     }
     local parallaxObject = Parallax.new(starLayers, 10000)
     ECS.addComponent(starFieldId, "StarField", parallaxObject)
+
+    -- Nebula clouds removed from world initialization
+
+    -- Galaxy backdrop removed
 
     -- Asteroid clusters are initialized via AsteroidClusters.init() above
 

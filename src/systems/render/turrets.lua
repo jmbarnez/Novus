@@ -21,12 +21,15 @@ local function estimateBaseRadius(entityId, polygonShape, renderable)
 end
 
 -- Helper function to draw a turret on top of the drone
-local function drawTurret(x, y, color, turretRotation, baseRadius)
+local function drawTurret(entityId, x, y, color, turretRotation, baseRadius)
     baseRadius = baseRadius or 12
-    local overhang = 4 -- pixels the muzzle should stick past the hull edge
+    local config = ECS.getComponent(entityId, "TurretConfig") or {enabled = true, scale = 1.0, overhang = 4}
+    if config.enabled == false then return nil, nil end
+    local overhang = config.overhang or 4
+    local scaleMult = config.scale or 1.0
     -- Scale barrel length and ensure a small overhang past the ship radius
-    local barrelLength = math.max(10, math.floor(baseRadius * 0.9) + overhang)
-    local barrelHeight = math.max(4, math.floor(baseRadius * 0.2))
+    local barrelLength = math.max(10, math.floor(baseRadius * 0.9 * scaleMult) + overhang)
+    local barrelHeight = math.max(4, math.floor(baseRadius * 0.2 * scaleMult))
 
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.push()
@@ -66,8 +69,8 @@ function RenderTurrets.drawPlayerTurret(entityId, position, polygonShape, render
         local sin = math.sin(polygonShape.rotation)
         local turretWorldX = position.x + (toffX * cos - toffY * sin)
         local turretWorldY = position.y + (toffX * sin + toffY * cos)
-        local baseRadius = estimateBaseRadius(entityId, polygonShape, renderable)
-        drawTurret(turretWorldX, turretWorldY, renderable.color, aimAngle, baseRadius)
+    local baseRadius = estimateBaseRadius(entityId, polygonShape, renderable)
+    drawTurret(entityId, turretWorldX, turretWorldY, renderable.color, aimAngle, baseRadius)
     else
         local toffX = polygonShape.turretOffsetX or polygonShape.cockpitOffsetX or 0
         local toffY = polygonShape.turretOffsetY or polygonShape.cockpitOffsetY or 0
@@ -75,8 +78,8 @@ function RenderTurrets.drawPlayerTurret(entityId, position, polygonShape, render
         local sin = math.sin(polygonShape.rotation)
         local turretWorldX = position.x + (toffX * cos - toffY * sin)
         local turretWorldY = position.y + (toffX * sin + toffY * cos)
-        local baseRadius = estimateBaseRadius(entityId, polygonShape, renderable)
-        drawTurret(turretWorldX, turretWorldY, renderable.color, polygonShape.rotation, baseRadius)
+    local baseRadius = estimateBaseRadius(entityId, polygonShape, renderable)
+    drawTurret(entityId, turretWorldX, turretWorldY, renderable.color, polygonShape.rotation, baseRadius)
     end
 end
 
@@ -95,7 +98,7 @@ function RenderTurrets.drawEnemyTurret(entityId, position, polygonShape, rendera
     local turretWorldX = position.x + (toffX * cosE - toffY * sinE)
     local turretWorldY = position.y + (toffX * sinE + toffY * sinE)
     local baseRadius = estimateBaseRadius(entityId, polygonShape, renderable)
-    drawTurret(turretWorldX, turretWorldY, renderable.color, turretAimAngle, baseRadius)
+    drawTurret(entityId, turretWorldX, turretWorldY, renderable.color, turretAimAngle, baseRadius)
 end
 
 return RenderTurrets

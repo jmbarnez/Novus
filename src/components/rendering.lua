@@ -175,4 +175,137 @@ Components.GalaxyBackdrop = function(size, color, spiralTightness, armCount)
     }
 end
 
+-- NebulaCloud component - Individual nebula cloud rendering
+-- @field particles table: Array of particle positions and properties
+-- @field color table: Base color {r, g, b, a}
+-- @field radius number: Approximate radius of the cloud
+-- @field particleCount number: Number of particles in the cloud
+-- @field seed number: Random seed for particle generation
+Components.NebulaCloud = function(x, y, radius, color, particleCount, seed)
+    seed = seed or math.random(1000000)
+    math.randomseed(seed)
+    
+    local particles = {}
+    local particleCount = particleCount or 80
+    
+    -- Generate wispy, organic cloud shapes
+    for i = 1, particleCount do
+        -- Random angle
+        local angle = math.random() * 2 * math.pi
+        
+        -- Create more organic distribution with multiple density zones
+        local distRandom = math.random()
+        local dist
+        if distRandom < 0.5 then
+            -- Core of cloud - dense particles
+            dist = math.random() * radius * 0.5
+        elseif distRandom < 0.8 then
+            -- Middle zone - medium density
+            dist = radius * 0.5 + math.random() * radius * 0.4
+        else
+            -- Outer wisps - sparse particles
+            dist = radius * 0.9 + math.random() * radius * 0.6
+        end
+        
+        -- Add organic noise to create wispy tendrils
+        local noise1 = math.sin(angle * 2.3) * math.cos(angle * 3.7)
+        local noise2 = math.sin(angle * 5.1) * 0.2
+        local noiseFactor = (noise1 + noise2) * 0.3
+        dist = dist * (1 + noiseFactor)
+        
+        -- More varied particle sizes - smaller particles for wisps
+        local size
+        if dist < radius * 0.4 then
+            -- Core particles - larger
+            size = 3 + math.random() * 5
+        elseif dist < radius * 0.7 then
+            -- Middle particles - medium
+            size = 2 + math.random() * 4
+        else
+            -- Wisp particles - smaller and more varied
+            size = 1 + math.random() * 3
+        end
+        
+        -- Varied brightness based on position
+        local brightness
+        if dist < radius * 0.3 then
+            -- Bright core
+            brightness = 0.7 + math.random() * 0.3
+        elseif dist < radius * 0.6 then
+            -- Medium brightness
+            brightness = 0.4 + math.random() * 0.3
+        else
+            -- Dim wisps
+            brightness = 0.2 + math.random() * 0.3
+        end
+        
+        -- Add tendrils extending outward
+        local tendrilChance = math.random()
+        if tendrilChance > 0.92 then
+            -- Create a wispy tendril
+            local tendrilAngle = angle + (math.random() - 0.5) * 0.5
+            local tendrilLength = radius * 0.8 + math.random() * radius * 0.5
+            local tendrilParticles = 3 + math.random() * 5
+            for j = 1, tendrilParticles do
+                local tendrilDist = dist + j * 15
+                table.insert(particles, {
+                    x = x + math.cos(tendrilAngle) * tendrilDist,
+                    y = y + math.sin(tendrilAngle) * tendrilDist,
+                    size = 1 + math.random() * 2,
+                    brightness = 0.15 + math.random() * 0.15,
+                    alpha = 0.1 + math.random() * 0.2
+                })
+            end
+        end
+        
+        -- Alpha varies with distance from center
+        local alpha
+        if dist < radius * 0.4 then
+            alpha = 0.5 + math.random() * 0.3
+        elseif dist < radius * 0.7 then
+            alpha = 0.3 + math.random() * 0.2
+        else
+            alpha = 0.1 + math.random() * 0.2
+        end
+        
+        table.insert(particles, {
+            x = x + math.cos(angle) * dist,
+            y = y + math.sin(angle) * dist,
+            size = size,
+            brightness = brightness,
+            alpha = alpha
+        })
+    end
+    
+    return {
+        particles = particles,
+        color = color or {0.5, 0.6, 1.0, 0.5},
+        radius = radius or 150,
+        particleCount = particleCount,
+        seed = seed
+    }
+end
+
+-- NebulaBackground component - Procedural nebula cloud rendering
+-- @field shader love.Shader: Shader for nebula rendering
+-- @field intensity number: Intensity of the nebula (0.0-1.0)
+-- @field scale number: Scale of the nebula clouds
+-- @field speed number: Animation speed
+-- @field color1 table: Primary nebula color {r, g, b}
+-- @field color2 table: Secondary nebula color {r, g, b}
+-- @field color3 table: Accent nebula color {r, g, b}
+-- @field parallaxFactor number: Parallax scroll factor (0-1)
+Components.NebulaBackground = function(intensity, scale, speed, color1, color2, color3, parallaxFactor)
+    return {
+        shader = nil, -- Will be initialized by the system
+        intensity = intensity or 0.6,
+        scale = scale or 0.00008,
+        speed = speed or 0.05,
+        color1 = color1 or {0.2, 0.3, 0.6},  -- Cool blue
+        color2 = color2 or {0.5, 0.2, 0.3},  -- Warm pink
+        color3 = color3 or {0.4, 0.15, 0.5},  -- Purple
+        parallaxFactor = parallaxFactor or 0.02
+    }
+end
+
 return Components

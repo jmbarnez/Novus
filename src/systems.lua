@@ -28,6 +28,6 @@ Systems.ProjectileSystem = require('src.systems.projectile')
 Systems.SoundSystem = require('src.systems.sound')
 Systems.WrackageSystem = require('src.systems.wreckage')
 Systems.ShieldImpactSystem = require('src.systems.shield_impact')
-Systems.GalaxyBackdropSystem = require('src.systems.galaxy_backdrop')
+-- Galaxy backdrop and nebula cloud systems removed for simpler background rendering
 
 return Systems

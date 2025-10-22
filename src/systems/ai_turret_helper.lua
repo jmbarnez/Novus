@@ -30,8 +30,17 @@ end
 
 local function computeMuzzleDistance(eid)
     local base = estimateBaseRadiusFromEntity(eid)
+    -- Allow per-ship turret overrides
     local overhang = 4
-    return math.max(10, math.floor(base * 0.9) + overhang)
+    local scaleMult = 1.0
+    if eid then
+        local cfg = ECS.getComponent(eid, "TurretConfig")
+        if cfg then
+            if cfg.overhang then overhang = cfg.overhang end
+            if cfg.scale then scaleMult = cfg.scale end
+        end
+    end
+    return math.max(10, math.floor(base * 0.9 * scaleMult) + overhang)
 end
 
 -- Calculate damage multiplier based on laser falloff distance

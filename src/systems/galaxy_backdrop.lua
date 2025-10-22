@@ -10,6 +10,9 @@ local GalaxyBackdropSystem = {
     priority = 5  -- Render early, behind everything else
 }
 
+-- Shared cached nebula shader (lazy-loaded)
+local nebulaShader = nil
+
 -- Create a galaxy backdrop entity
 -- @param x, y - Center position of the galaxy
 -- @param size - Approximate size of the galaxy
@@ -105,8 +108,8 @@ end
 -- Generate nebula clouds around the galaxy
 function GalaxyBackdropSystem.generateNebulaClouds(galaxy)
     galaxy.nebulaClouds = {}
-    
-    for i = 1, 8 do
+    -- Prefer fewer, larger soft clouds for background depth
+    for i = 1, 3 do
         local angle = math.random() * 2 * math.pi
         local distance = galaxy.size * (0.3 + math.random() * 0.7)
         local x = math.cos(angle) * distance
@@ -154,6 +157,15 @@ end
 -- Render galaxy backdrop
 function GalaxyBackdropSystem.draw()
     local galaxies = ECS.getEntitiesWith({"GalaxyBackdrop", "Position"})
+    -- Lazy-load shared nebula shader once
+    if not nebulaShader then
+        if love.filesystem.getInfo("src/shaders/nebula_background.frag") then
+            local code = love.filesystem.read("src/shaders/nebula_background.frag")
+            if code then
+                nebulaShader = love.graphics.newShader(code)
+            end
+        end
+    end
     
     for _, galaxyId in ipairs(galaxies) do
         local galaxy = ECS.getComponent(galaxyId, "GalaxyBackdrop")
@@ -165,10 +177,33 @@ function GalaxyBackdropSystem.draw()
             
             -- Draw nebula clouds first (behind everything)
             for _, cloud in ipairs(galaxy.nebulaClouds) do
-                love.graphics.setColor(cloud.color)
-                love.graphics.circle("fill", cloud.x, cloud.y, cloud.radius)
-                love.graphics.circle("fill", cloud.x, cloud.y, cloud.radius * 0.7)
-                love.graphics.circle("fill", cloud.x, cloud.y, cloud.radius * 0.4)
+                if nebulaShader then
+                    -- Send uniforms for this cloud
+                    local worldX = position.x + cloud.x
+                    local worldY = position.y + cloud.y
+                    nebulaShader:send("NebulaCenter", {worldX, worldY})
+                    nebulaShader:send("NebulaRadius", cloud.radius)
+                    nebulaShader:send("Intensity", cloud.color[4] or 0.2)
+                    nebulaShader:send("Scale", math.max(0.00002, cloud.radius * 0.00004))
+                    nebulaShader:send("Speed", 0.02)
+                    nebulaShader:send("NebulaColor1", {cloud.color[1], cloud.color[2], cloud.color[3]})
+                    nebulaShader:send("NebulaColor2", {cloud.color[1] * 0.8, cloud.color[2] * 0.7, cloud.color[3] * 0.6})
+                    nebulaShader:send("NebulaColor3", {math.min(1, cloud.color[1] * 1.2), math.min(1, cloud.color[2] * 1.1), math.min(1, cloud.color[3] * 0.9)})
+
+                    love.graphics.setShader(nebulaShader)
+                    love.graphics.setColor(1, 1, 1, 1)
+                    love.graphics.setBlendMode("add")
+                    -- Draw the shader only over the cloud bounds
+                    love.graphics.rectangle("fill", worldX - cloud.radius, worldY - cloud.radius, cloud.radius * 2, cloud.radius * 2)
+                    love.graphics.setBlendMode("alpha")
+                    love.graphics.setShader()
+                else
+                    -- Fallback: draw layered circles
+                    love.graphics.setColor(cloud.color)
+                    love.graphics.circle("fill", cloud.x, cloud.y, cloud.radius)
+                    love.graphics.circle("fill", cloud.x, cloud.y, cloud.radius * 0.7)
+                    love.graphics.circle("fill", cloud.x, cloud.y, cloud.radius * 0.4)
+                end
             end
             
             -- Draw galaxy core

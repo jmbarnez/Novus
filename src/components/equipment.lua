@@ -26,6 +26,18 @@ Components.TurretSlots = function(maxSlots)
     }
 end
 
+-- TurretConfig component - per-ship turret settings
+-- @field enabled boolean: whether turret is drawn/firing
+-- @field scale number: scale multiplier applied to turret size
+-- @field overhang number: pixels turret should extend past hull
+Components.TurretConfig = function(enabled, scale, overhang)
+    return {
+        enabled = (enabled == nil) and true or enabled,
+        scale = scale or 1.0,
+        overhang = overhang or 4
+    }
+end
+
 -- DefensiveSlots component - Holds equipped defensive modules
 -- @field slots table: Array of defensive module names/IDs (max 1 for drone)
 Components.DefensiveSlots = function(maxSlots)
