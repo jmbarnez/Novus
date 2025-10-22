@@ -63,6 +63,38 @@ function Core.init()
         64  -- maxSize: pool up to 64 laser beam entities
     )
 
+    -- Trail particle pool: used for particle trails behind moving entities
+    EntityPool.registerPool(
+        "trail_particle",
+        -- Factory function: creates a new trail particle entity
+        function()
+            local particleEntity = ECS.createEntity()
+            ECS.addComponent(particleEntity, "TrailParticle", Components.TrailParticle(
+                0, 0,           -- x, y position
+                0, 0,           -- vx, vy velocity
+                1.0,            -- life
+                2,              -- size
+                {0.5, 0.8, 1.0, 0.8}  -- color (light blue default)
+            ))
+            return particleEntity
+        end,
+        -- Reset function: clears particle state for reuse
+        function(particleEntity)
+            local particle = ECS.getComponent(particleEntity, "TrailParticle")
+            if particle then
+                particle.x = 0
+                particle.y = 0
+                particle.vx = 0
+                particle.vy = 0
+                particle.life = 1.0
+                particle.maxLife = 1.0
+                particle.size = 2
+                particle.color = {0.5, 0.8, 1.0, 0.8}
+            end
+        end,
+        512  -- maxSize: pool up to 512 trail particles (trails are frequent)
+    )
+
     -- Set windowed mode, matching start screen size
     local w, h = Constants.screen_width, Constants.screen_height
     love.window.setMode(w, h, {fullscreen = false, resizable = false})

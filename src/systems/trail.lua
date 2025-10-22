@@ -5,6 +5,7 @@
 local ECS = require('src.ecs')
 local Components = require('src.components')
 local Constants = require('src.constants')
+local EntityPool = require('src.entity_pool')
 
 -- Track particle count efficiently (outside the table definition)
 local particleCount = 0
@@ -27,9 +28,9 @@ local TrailSystem = {
             -- Update lifetime
             particle.life = particle.life - dt
 
-            -- Remove dead particles
+            -- Remove dead particles (return to pool instead of destroying)
             if particle.life <= 0 then
-                ECS.destroyEntity(entityId)
+                EntityPool.release("trail_particle", entityId)
             else
                 aliveParticles = aliveParticles + 1
             end
@@ -78,11 +79,12 @@ local TrailSystem = {
 
                     -- Use efficient particle count
                     if particleCount < emitter.maxParticles then
-                        -- Calculate emission position (behind the ship)
+                        -- Calculate emission position (at ship center, no offset)
+                        local emitX = position.x
+                        local emitY = position.y
+
+                        -- Calculate angle of movement
                         local angle = math.atan(velocity.vy, velocity.vx)
-                        local offsetDistance = renderable.radius + 2 -- Distance behind ship
-                        local emitX = position.x - math.cos(angle) * offsetDistance
-                        local emitY = position.y - math.sin(angle) * offsetDistance
 
                         -- Add some random spread
                         local spread = (math.random() - 0.5) * emitter.spreadAngle
@@ -93,17 +95,21 @@ local TrailSystem = {
                         local particleVx = -math.cos(emitAngle) * particleSpeed + (math.random() - 0.5) * 20
                         local particleVy = -math.sin(emitAngle) * particleSpeed + (math.random() - 0.5) * 20
 
-                        -- Create particle entity
-                        local particleId = ECS.createEntity()
-                        ECS.addComponent(particleId, "TrailParticle",
-                            Components.TrailParticle(
-                                emitX, emitY, -- position
-                                particleVx, particleVy, -- velocity
-                                scaledLife, -- lifetime
-                                Constants.trail_particle_size_min + math.random() * (Constants.trail_particle_size_max - Constants.trail_particle_size_min), -- size
-                                {emitter.trailColor[1], emitter.trailColor[2], emitter.trailColor[3], scaledAlpha} -- Use emitter's trail color with scaled alpha
-                            )
-                        )
+                        -- Acquire particle entity from pool
+                        local particleId = EntityPool.acquire("trail_particle")
+                        
+                        -- Update particle components with current data
+                        local particle = ECS.getComponent(particleId, "TrailParticle")
+                        if particle then
+                            particle.x = emitX
+                            particle.y = emitY
+                            particle.vx = particleVx
+                            particle.vy = particleVy
+                            particle.life = scaledLife
+                            particle.maxLife = scaledLife
+                            particle.size = Constants.trail_particle_size_min + math.random() * (Constants.trail_particle_size_max - Constants.trail_particle_size_min)
+                            particle.color = {emitter.trailColor[1], emitter.trailColor[2], emitter.trailColor[3], scaledAlpha}
+                        end
                         -- Increment particle count
                         particleCount = particleCount + 1
                     end

@@ -262,9 +262,11 @@ local RenderSystem = {
         local Profiler = require('src.profiler')
         Profiler.start("canvas_setup")
 
-        -- Initialize item rendering counters
+        -- Initialize rendering counters for culling stats
         culledItems = 0
         renderedItems = 0
+        local culledEntities = 0
+        local renderedEntities = 0
 
         local canvasEntities = ECS.getEntitiesWith({"Canvas"})
         if #canvasEntities == 0 then return end
@@ -449,8 +451,10 @@ local RenderSystem = {
                             local collidable = ECS.getComponent(entityId, "Collidable")
                             local radius = collidable and collidable.radius or 20
                             if not isOnScreen(position.x, position.y, radius, cullingCameraPos, cullingCamera) then
+                                culledEntities = culledEntities + 1
                                 goto continue_entity
                             end
+                            renderedEntities = renderedEntities + 1
                         end
 
                         local controlledBy = ECS.getComponent(entityId, "ControlledBy")
@@ -535,6 +539,9 @@ local RenderSystem = {
 
         -- Draw asteroid hotspots
         drawHotspots()
+
+        -- Record culling statistics to profiler
+        Profiler.recordCulling(renderedItems + renderedEntities, culledItems + culledEntities)
 
         Profiler.stop("entity_rendering")
         Profiler.start("canvas_finalize")

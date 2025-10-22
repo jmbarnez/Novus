@@ -5,6 +5,10 @@ Profiler.enabled = false
 Profiler.timers = {}
 Profiler.results = {}
 Profiler.frameCount = 0
+Profiler.cullStats = {
+    itemsRendered = 0,
+    itemsCulled = 0
+}
 
 function Profiler.enable()
     Profiler.enabled = true
@@ -76,11 +80,27 @@ function Profiler.print()
     end
     
     print(string.rep("-", 70))
+    
+    -- Print culling statistics
+    local totalItems = Profiler.cullStats.itemsRendered + Profiler.cullStats.itemsCulled
+    if totalItems > 0 then
+        local cullEfficiency = (Profiler.cullStats.itemsCulled / totalItems) * 100
+        print(string.format("\n=== CULLING STATISTICS ==="))
+        print(string.format("Items rendered: %d", Profiler.cullStats.itemsRendered))
+        print(string.format("Items culled: %d", Profiler.cullStats.itemsCulled))
+        print(string.format("Culling efficiency: %.1f%%", cullEfficiency))
+        print(string.rep("-", 70))
+    end
 end
 
 function Profiler.frame()
     if not Profiler.enabled then return end
     Profiler.frameCount = Profiler.frameCount + 1
+end
+
+function Profiler.recordCulling(rendered, culled)
+    Profiler.cullStats.itemsRendered = Profiler.cullStats.itemsRendered + rendered
+    Profiler.cullStats.itemsCulled = Profiler.cullStats.itemsCulled + culled
 end
 
 return Profiler

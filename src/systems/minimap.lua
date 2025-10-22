@@ -113,7 +113,7 @@ function Minimap.draw()
     minimapY = minimapRadius + minimapMargin
 
     -- Draw minimap background (circle)
-    love.graphics.setColor(0, 0, 0, 0.5)
+    love.graphics.setColor(0, 0, 0, 1.0)
     love.graphics.circle('fill', minimapX, minimapY, minimapRadius)
     love.graphics.setColor(1, 1, 1, 0.7)
     love.graphics.circle('line', minimapX, minimapY, minimapRadius)
