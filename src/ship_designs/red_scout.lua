@@ -13,11 +13,14 @@ return {
         { x = 0,             y = -2 * (16 * math.sqrt(3) / 2) / 3 },
         { x = 16 / 2,        y = (16 * math.sqrt(3) / 2) / 3 },
         { x = -16 / 2,       y = (16 * math.sqrt(3) / 2) / 3 },
-        cockpitOffsetX = 0,
-        cockpitOffsetY = -(16 * math.sqrt(3) / 2) * 0.15,
-        cockpitRadius = 4,
-        -- rotation can be set per-design (in radians) to rotate the whole polygon
-        rotation = 0,
+    cockpitOffsetX = 0,
+    cockpitOffsetY = -(16 * math.sqrt(3) / 2) * 0.2,
+    cockpitRadius = 4,
+    -- Position turret slightly forward toward the triangle tip
+    turretOffsetX = 0,
+    turretOffsetY = -(16 * math.sqrt(3) / 2) * 0.25,
+    -- rotation can be set per-design (in radians) to rotate the whole polygon
+    rotation = 0,
     },
     -- Color layers for texture and detail
     colors = {

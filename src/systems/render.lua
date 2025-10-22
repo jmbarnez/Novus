@@ -112,12 +112,14 @@ local function drawPolygon(x, y, polygonShape, color)
     love.graphics.setColor(colors.stripes[1], colors.stripes[2], colors.stripes[3], colors.stripes[4])
     love.graphics.polygon("fill", worldVertices)
 
-    -- Draw subtle cockpit highlight (overlay)
-    local cx = x + (polygonShape.cockpitOffsetX or 0)
-    local cy = y + (polygonShape.cockpitOffsetY or 0)
-    love.graphics.setColor(colors.cockpit[1], colors.cockpit[2], colors.cockpit[3], (colors.cockpit[4] or 1) * 0.7)
-    -- small circle to suggest cockpit
-    love.graphics.circle("fill", cx, cy, math.max(3, (polygonShape.cockpitRadius or 5)))
+    -- Draw subtle cockpit highlight (overlay) - only if this polygon has a cockpit defined
+    if polygonShape.cockpitRadius then
+        local cx = x + (polygonShape.cockpitOffsetX or 0)
+        local cy = y + (polygonShape.cockpitOffsetY or 0)
+        love.graphics.setColor(colors.cockpit[1], colors.cockpit[2], colors.cockpit[3], (colors.cockpit[4] or 1) * 0.7)
+        -- small circle to suggest cockpit
+        love.graphics.circle("fill", cx, cy, math.max(3, polygonShape.cockpitRadius))
+    end
 
     -- Draw outline (darker)
     love.graphics.setColor(colors.stripes[1] * 0.6, colors.stripes[2] * 0.6, colors.stripes[3] * 0.6, colors.stripes[4])
@@ -382,9 +384,22 @@ local RenderSystem = {
                                 mouseX = (mouseX - canvasComp.offsetX) / canvasComp.scale / cameraComp.zoom + cameraPos.x
                                 mouseY = (mouseY - canvasComp.offsetY) / canvasComp.scale / cameraComp.zoom + cameraPos.y
                                 local aimAngle = math.atan2(mouseY - position.y, mouseX - position.x)
-                                drawTurret(position.x, position.y, renderable.color, aimAngle)
+                                -- Compute turret world position from polygon-local offsets (if present)
+                                local toffX = polygonShape.turretOffsetX or polygonShape.cockpitOffsetX or 0
+                                local toffY = polygonShape.turretOffsetY or polygonShape.cockpitOffsetY or 0
+                                local cos = math.cos(playerRotation)
+                                local sin = math.sin(playerRotation)
+                                local turretWorldX = position.x + (toffX * cos - toffY * sin)
+                                local turretWorldY = position.y + (toffX * sin + toffY * cos)
+                                drawTurret(turretWorldX, turretWorldY, renderable.color, aimAngle)
                             else
-                                drawTurret(position.x, position.y, renderable.color, playerRotation)
+                                local toffX = polygonShape.turretOffsetX or polygonShape.cockpitOffsetX or 0
+                                local toffY = polygonShape.turretOffsetY or polygonShape.cockpitOffsetY or 0
+                                local cos = math.cos(playerRotation)
+                                local sin = math.sin(playerRotation)
+                                local turretWorldX = position.x + (toffX * cos - toffY * sin)
+                                local turretWorldY = position.y + (toffX * sin + toffY * cos)
+                                drawTurret(turretWorldX, turretWorldY, renderable.color, playerRotation)
                             end
                         elseif isShip then
                             local enemyRotation = polygonShape.rotation or 0
@@ -399,7 +414,14 @@ local RenderSystem = {
                             if turretComp and turretComp.aimX and turretComp.aimY then
                                 turretAimAngle = math.atan2(turretComp.aimY - position.y, turretComp.aimX - position.x)
                             end
-                            drawTurret(position.x, position.y, renderable.color, turretAimAngle)
+                            -- Compute turret world position using polygon-local offsets (if present)
+                            local toffX = polygonShape.turretOffsetX or polygonShape.cockpitOffsetX or 0
+                            local toffY = polygonShape.turretOffsetY or polygonShape.cockpitOffsetY or 0
+                            local cosE = math.cos(enemyRotation)
+                            local sinE = math.sin(enemyRotation)
+                            local turretWorldX = position.x + (toffX * cosE - toffY * sinE)
+                            local turretWorldY = position.y + (toffX * sinE + toffY * cosE)
+                            drawTurret(turretWorldX, turretWorldY, renderable.color, turretAimAngle)
                             -- Draw small health bar for polygon enemies (non-player) - only when damaged
                             if ECS.hasComponent(entityId, "Hull") and not (ECS.hasComponent(entityId, "ControlledBy") and ECS.hasComponent(ECS.getComponent(entityId, "ControlledBy").pilotId, "Player")) then
                                 local hull = ECS.getComponent(entityId, "Hull")
