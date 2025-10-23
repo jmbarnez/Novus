@@ -129,8 +129,8 @@ end
 
 -- Draw hover indicator (circle around item/enemy/asteroid - in world space)
 function TargetHUD.drawWorldIndicator()
-    -- Use cyan color for all hover indicators
-    local cyanColor = PlasmaTheme.colors.shieldBarFill
+    -- Use plasma cyan color for all hover indicators (consistent with theme)
+    local cyanColor = Theme.colors.borderNeon
     
     -- Draw indicator for hovered item
     if TargetHUD.hoveredItem then
@@ -359,7 +359,7 @@ function TargetHUD.drawPopup()
             local barTextW = smallFont:getWidth(barText)
             local barTextX = barX + (barWidth - barTextW) / 2
             local barTextY = barY + (barHeight - smallFont:getHeight()) / 2
-            love.graphics.setColor(Theme.colors.textPrimary)
+            love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
             love.graphics.print(barText, barTextX, barTextY)
             
             -- Draw distance and speed

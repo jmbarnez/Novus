@@ -55,11 +55,14 @@ function RenderCanvas.finalizeCanvas(canvasComp)
         _G.postProcessCanvas = love.graphics.newCanvas(w, h)
         _G.postProcessCanvasWidth = w
         _G.postProcessCanvasHeight = h
+        -- Only update shader screen size when dimensions actually change
+        if ShaderManager.isCelShadingEnabled() then
+            ShaderManager.setScreenSize(w, h)
+        end
     end
     
     -- Apply shader effect to game canvas and render to post-process canvas
     if ShaderManager.isCelShadingEnabled() then
-        ShaderManager.setScreenSize(w, h)
         -- Update shader time for animated effects (waves, pulse, etc.)
         ShaderManager.updateTime()
         -- Render main canvas through cel shader into post-process canvas

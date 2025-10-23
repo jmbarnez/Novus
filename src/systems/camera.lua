@@ -4,20 +4,7 @@
 
 local ECS = require('src.ecs')
 
-local CAMERA_ZOOM_STEPS = {0.5, 0.75, 1.0, 1.5, 2.0}
-
-local function nearest_zoom_step(value)
-    local closest = CAMERA_ZOOM_STEPS[1]
-    local min_diff = math.abs(value - closest)
-    for i = 2, #CAMERA_ZOOM_STEPS do
-        local diff = math.abs(value - CAMERA_ZOOM_STEPS[i])
-        if diff < min_diff then
-            closest = CAMERA_ZOOM_STEPS[i]
-            min_diff = diff
-        end
-    end
-    return closest
-end
+-- No zoom steps - smooth continuous zooming
 
 local CameraSystem = {
     name = "CameraSystem",
@@ -47,26 +34,18 @@ local CameraSystem = {
                 local targetCamera = ECS.getComponent(bestTarget, "CameraTarget")
                 local camera = ECS.getComponent(cameraId, "Camera")
 
-                -- Snap camera.targetZoom to nearest step
-                camera.targetZoom = nearest_zoom_step(camera.targetZoom)
+                -- Smooth zoom interpolation
+                local zoomSmoothing = 0.15 -- Smooth zoom transition speed
+                camera.zoom = camera.zoom + (camera.targetZoom - camera.zoom) * zoomSmoothing
 
                 -- Calculate target camera position (centered on player)
                 local targetX = targetPos.x - (camera.width / camera.zoom) / 2
                 local targetY = targetPos.y - (camera.height / camera.zoom) / 2
 
-                -- Apply smooth camera movement (no physics)
-                local smoothing = targetCamera.smoothing or 0.1
+                -- Apply smooth camera movement for normal following (increased smoothing to reduce bouncing)
+                local smoothing = targetCamera.smoothing or 0.2
                 cameraPos.x = cameraPos.x + (targetX - cameraPos.x) * smoothing
                 cameraPos.y = cameraPos.y + (targetY - cameraPos.y) * smoothing
-
-                -- Smoothly interpolate zoom towards targetZoom
-                local zoomSmoothing = 5 * dt -- Adjust this value for faster/slower zoom
-                camera.zoom = camera.zoom + (camera.targetZoom - camera.zoom) * zoomSmoothing
-
-                -- Snap camera.zoom to the target step when very close
-                if math.abs(camera.zoom - camera.targetZoom) < 0.001 then
-                    camera.zoom = camera.targetZoom
-                end
             else
                 -- If no target, keep camera at current position (don't move)
                 -- This ensures camera stays locked when no target is available

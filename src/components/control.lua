@@ -38,7 +38,7 @@ end
 Components.CameraTarget = function(priority, smoothing)
     return {
         priority = priority or 1,
-        smoothing = smoothing or 0.1
+        smoothing = smoothing or 0.2  -- Increased default smoothing to reduce bouncing
     }
 end
 
