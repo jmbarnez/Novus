@@ -42,8 +42,8 @@ local CameraSystem = {
                 local targetX = targetPos.x - (camera.width / camera.zoom) / 2
                 local targetY = targetPos.y - (camera.height / camera.zoom) / 2
 
-                -- Apply smooth camera movement for normal following (increased smoothing to reduce bouncing)
-                local smoothing = targetCamera.smoothing or 0.2
+                -- Apply smooth camera movement for normal following
+                local smoothing = targetCamera.smoothing or 0.1
                 cameraPos.x = cameraPos.x + (targetX - cameraPos.x) * smoothing
                 cameraPos.y = cameraPos.y + (targetY - cameraPos.y) * smoothing
             else
