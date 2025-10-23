@@ -10,7 +10,6 @@ local ShipWindow = require('src.ui.ship_window')
 local Tooltips = require('src.ui.tooltips')
 local Dialogs = require('src.ui.dialogs')
 local Notifications = require('src.ui.notifications')
-local SkillNotifications = require('src.ui.skill_notifications')
 local Scaling = require('src.scaling')
 local SettingsWindow = require('src.ui.settings_window')
 -- Hotbar removed
@@ -168,7 +167,7 @@ function UISystem.draw(viewportWidth, viewportHeight)
     Notifications.draw(0, 0, 1)
     
     -- Draw skill notifications (in screen space)
-    SkillNotifications.draw()
+    -- SkillNotifications.draw() -- REMOVE THIS
     
     -- Draw windows in focus order (background to foreground)
     local windows = {
@@ -234,7 +233,6 @@ end
 -- Update function for UI (handles notifications timing)
 function UISystem.update(dt)
     Notifications.update(dt)
-    SkillNotifications.update(dt)
     -- CargoWindow removed - now integrated into ShipWindow
 end
 
@@ -543,7 +541,8 @@ function UISystem.addSkillExperience(skillName, xpGain)
         requiredXp = skill.requiredXp,
         levelUp = leveledUp
     }
-    SkillNotifications.addNotification(skillName, xpGain, notifData)
+    local Notifications = require('src.ui.notifications')
+    Notifications.addSkillNotification(skillName, xpGain, notifData)
 end
 
 -- Settings Window API

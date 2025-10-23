@@ -113,18 +113,20 @@ function HUDStats.drawEnergyBar(viewportWidth, viewportHeight)
     
     local energyRatio = math.min((energy.current or 0) / energy.max, 1.0)
     
-    -- Draw energy bar background
-    love.graphics.setColor(0.15, 0.15, 0.2, 0.8)
+    -- Draw energy bar using PlasmaTheme for consistency
+    -- Background
+    love.graphics.setColor(PlasmaTheme.colors.healthBarBg)
     love.graphics.rectangle("fill", x, y, barWidth, barHeight, 2, 2)
     
-    -- Draw energy bar fill (bright yellow)
-    love.graphics.setColor(1.0, 0.9, 0.2, 0.9)
+    -- Energy bar fill (bright yellow - plasma energy color)
+    love.graphics.setColor(PlasmaTheme.colors.asteroidBarFill)
     love.graphics.rectangle("fill", x + 1, y + 1, math.max(0, (barWidth - 2) * energyRatio), barHeight - 2, 1, 1)
     
-    -- Draw outline
-    love.graphics.setColor(0.3, 0.3, 0.4, 0.9)
-    love.graphics.setLineWidth(1)
+    -- Thick black outline (consistent with hull/shield bars)
+    love.graphics.setColor(PlasmaTheme.colors.outlineBlack)
+    love.graphics.setLineWidth(PlasmaTheme.colors.outlineThick)
     love.graphics.rectangle("line", x, y, barWidth, barHeight, 2, 2)
+    love.graphics.setLineWidth(1)
     
     love.graphics.setColor(1, 1, 1, 1)
 end

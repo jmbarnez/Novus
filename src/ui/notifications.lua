@@ -6,44 +6,73 @@ local Theme = require('src.ui.theme')
 local Scaling = require('src.scaling')
 
 local Notifications = {
-    notifications = {},  -- {text, timer, maxTimer}
+    notifications = {},  -- {type, text, timer, maxTimer, [extra data for stacking]}
 }
 
--- Add a text notification
-function Notifications.addNotification(itemId, count, playerX, playerY)
-    count = count or 1
-    
-    local ItemDefs = require('src.items.item_loader')
-    local itemDef = ItemDefs[itemId]
-    
-    if itemDef then
-        -- Check if we already have a notification for this item
+-- Adds a notification: type can be 'item' or 'skill'
+function Notifications.addNotification(args)
+    -- Args: type, text, timer, stackKey
+    assert(args.type)
+    assert(args.text)
+    local timer = args.timer or 3.5
+    local stackKey = args.stackKey -- if set, stack with existing notification of same stackKey
+
+    if stackKey then
         for _, notif in ipairs(Notifications.notifications) do
-            if notif.itemId == itemId then
-                -- Stack: increase count and reset timer
-                notif.count = notif.count + count
-                notif.timer = notif.maxTimer
+            if notif.stackKey == stackKey and notif.type == args.type then
+                notif.text = args.text -- Update to new text (for count/xp stack)
+                notif.timer = notif.maxTimer  -- Reset timer
                 return
             end
         end
-        
-        -- Create new notification for this item type
-        table.insert(Notifications.notifications, {
-            itemId = itemId,
-            count = count,
-            timer = 3.0,  -- Display for 3 seconds
-            maxTimer = 3.0,
-        })
+    end
+    table.insert(Notifications.notifications, {
+        type = args.type,
+        text = args.text,
+        timer = timer,
+        maxTimer = timer,
+        stackKey = stackKey,
+    })
+end
+
+-- Helper for item pickups
+function Notifications.addItemNotification(itemId, count)
+    count = count or 1
+    local ItemDefs = require('src.items.item_loader')
+    local itemDef = ItemDefs[itemId]
+    if itemDef then
+        local stackKey = 'item_' .. tostring(itemId)
+        Notifications.addNotification {
+            type = 'item',
+            text = ('Picked up: %s x%d'):format(itemDef.name, count),
+            timer = 3.0,
+            stackKey = stackKey
+        }
     end
 end
 
--- Update notifications (fade out)
+-- Helper for skill XP gain
+function Notifications.addSkillNotification(skillName, xpGain, skillData)
+    local stackKey = 'skill_' .. tostring(skillName)
+    local text = string.format(
+        "%s +%d XP%s",
+        string.upper(skillName),
+        xpGain,
+        (skillData and skillData.levelUp) and "  ↑ LVL UP!" or ""
+    )
+    Notifications.addNotification {
+        type = 'skill',
+        text = text,
+        timer = 4.0,
+        stackKey = stackKey
+    }
+end
+
 function Notifications.update(dt)
     local i = 1
     while i <= #Notifications.notifications do
         local notif = Notifications.notifications[i]
         notif.timer = notif.timer - dt
-        
         if notif.timer <= 0 then
             table.remove(Notifications.notifications, i)
         else
@@ -52,38 +81,36 @@ function Notifications.update(dt)
     end
 end
 
--- Draw all notifications
-function Notifications.draw(cameraX, cameraY, cameraZoom)
-    if #Notifications.notifications == 0 then
-        return
-    end
-    
-    local ItemDefs = require('src.items.item_loader')
-    
+-- Draw notifications (bottom-left, one per line, skill-theme style)
+function Notifications.draw()
+    if #Notifications.notifications == 0 then return end
+    local Scaling = require('src.scaling')
+    local Theme = require('src.ui.theme')
     local x = Scaling.scaleX(20)
-    local y = love.graphics.getHeight() - Scaling.scaleY(40)  -- Bottom left
-    local lineHeight = Scaling.scaleSize(25)
-    
-    local font = Theme.getFont(Scaling.scaleSize(Theme.fonts.normal))
-    love.graphics.setFont(font)
-    
+    local y = love.graphics.getHeight() - Scaling.scaleY(40)
+    local lineHeight = Scaling.scaleSize(44)
+    local notifWidth = Scaling.scaleSize(400)
+    local notifHeight = Scaling.scaleSize(36)
+    local normalFont = Theme.getFont(Scaling.scaleSize(Theme.fonts.normal))
+    love.graphics.setFont(normalFont)
     for _, notif in ipairs(Notifications.notifications) do
-        -- Calculate alpha fade (starts at 1, ends at 0)
         local alpha = notif.timer / notif.maxTimer
-        
-        -- Get item definition
-        local itemDef = ItemDefs[notif.itemId]
-        if itemDef then
-            local text = "Picked up: " .. itemDef.name .. " x" .. notif.count
-            
-            -- Draw text with fade
+        -- BG
+        love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.92)
+        love.graphics.rectangle("fill", x, y, notifWidth, notifHeight, Scaling.scaleSize(8), Scaling.scaleSize(8))
+        -- Border
+        love.graphics.setColor(Theme.colors.borderLight[1], Theme.colors.borderLight[2], Theme.colors.borderLight[3], alpha)
+        love.graphics.setLineWidth(1)
+        love.graphics.rectangle("line", x, y, notifWidth, notifHeight, Scaling.scaleSize(8), Scaling.scaleSize(8))
+        -- Text (XP gain = green if level up, normal for others)
+        if notif.type == 'skill' and notif.text:find('LVL UP!') then
+            love.graphics.setColor(0.2, 1, 0.2, alpha)
+        else
             love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
-            love.graphics.print(text, x, y)
-            
-            y = y - lineHeight  -- Stack upwards from bottom
         end
+        love.graphics.print(notif.text, x + Scaling.scaleX(14), y + Scaling.scaleY(7))
+        y = y - notifHeight - Scaling.scaleY(6)
     end
-    
     love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.title)))
 end
 

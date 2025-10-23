@@ -346,14 +346,30 @@ function InputSystem.wheelmoved(x, y)
         local cameraId = cameraEntities[1]
         local camera = ECS.getComponent(cameraId, "Camera")
 
-        local zoomStep = 0.1 -- How much zoom changes per wheel tick
+        -- These should match camera steps in camera.lua
+        local CAMERA_ZOOM_STEPS = {0.5, 0.75, 1.0, 1.5, 2.0}
+        local function find_zoom_index(value)
+            local closestIdx = 1
+            local minDiff = math.abs(value - CAMERA_ZOOM_STEPS[1])
+            for i = 2, #CAMERA_ZOOM_STEPS do
+                local diff = math.abs(value - CAMERA_ZOOM_STEPS[i])
+                if diff < minDiff then
+                    closestIdx = i
+                    minDiff = diff
+                end
+            end
+            return closestIdx
+        end
 
         if camera then
+            local current = camera.targetZoom or camera.zoom or 1
+            local idx = find_zoom_index(current)
             if y > 0 then -- Mouse wheel up (zoom in)
-                camera.targetZoom = math.min((camera.targetZoom or camera.zoom or 1) + zoomStep, 2.0)
+                idx = math.min(idx + 1, #CAMERA_ZOOM_STEPS)
             elseif y < 0 then -- Mouse wheel down (zoom out)
-                camera.targetZoom = math.max((camera.targetZoom or camera.zoom or 1) - zoomStep, 0.5)
+                idx = math.max(idx - 1, 1)
             end
+            camera.targetZoom = CAMERA_ZOOM_STEPS[idx]
         end
     end
 end

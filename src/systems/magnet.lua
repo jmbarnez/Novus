@@ -66,7 +66,7 @@ function MagnetSystem.update(dt)
                 end
             end
             for itemType, count in pairs(collectedByType) do
-                Notifications.addNotification(itemType, count)
+                Notifications.addItemNotification(itemType, count)
             end
             if next(collectedByType) then
                 if SoundSystem and SoundSystem.play then

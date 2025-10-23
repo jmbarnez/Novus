@@ -58,7 +58,12 @@ end
 function ShaderManager.setScreenSize(width, height)
     if celShader then
         celShader:send("ScreenSize", {width, height})
-        -- Send time for plasma wave effects
+    end
+end
+
+-- Update time for animated effects (call every frame)
+function ShaderManager.updateTime()
+    if celShader then
         celShader:send("Time", love.timer.getTime())
     end
 end

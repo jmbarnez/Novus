@@ -62,6 +62,7 @@ ShipWindow.tabButtons = {}
 -- Initialize cargo and skills state
 ShipWindow.draggedItem = nil
 ShipWindow.hoveredItemSlot = nil
+ShipWindow.hoveredEquipmentSlot = nil
 
 -- Public interface for toggling
 function ShipWindow:toggle()
@@ -202,6 +203,10 @@ function ShipWindow:drawLoadoutContent(windowX, windowY, alpha)
     local contentY = windowY + Theme.window.topBarHeight + TAB_HEIGHT + 10
     local contentWidth = self.width - 20
     local contentHeight = self.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - TAB_HEIGHT - 20
+
+    -- Reset hovered items
+    self.hoveredItemSlot = nil
+    self.hoveredEquipmentSlot = nil
 
     -- Get ship equipment and cargo
     local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
@@ -385,7 +390,6 @@ function ShipWindow:drawCargoGrid(cargoItems, x, y, width, height, alpha)
     local cols = math.max(1, math.floor(width / (slotSize + padding)))
     local mx, my = Scaling.toUI(love.mouse.getPosition())
 
-    self.hoveredItemSlot = nil
     local i = 0
 
     for itemId, count in pairs(cargoItems) do
@@ -466,6 +470,19 @@ function ShipWindow:drawEquipmentSlot(slotName, equippedItemId, x, y, width, alp
         end
     end
     
+    -- Check if hovering over this slot (and it has an equipped item)
+    local isHoveringSlot = mx >= x and mx <= x + width and my >= y and my <= y + slotSize
+    if isHoveringSlot and equippedItemId then
+        self.hoveredEquipmentSlot = {
+            slotName = slotName,
+            itemId = equippedItemId,
+            x = x,
+            y = y,
+            w = width,
+            h = slotSize
+        }
+    end
+    
     -- Slot background (highlight if valid drop zone)
     if isDropZone then
         love.graphics.setColor(0.3, 0.8, 0.3, alpha * 0.5)
@@ -480,13 +497,20 @@ function ShipWindow:drawEquipmentSlot(slotName, equippedItemId, x, y, width, alp
 
     -- Store drop zone for mouse handling
     self.equipmentSlots = self.equipmentSlots or {}
-    self.equipmentSlots[slotName] = {x = x, y = y, w = slotSize, h = slotSize, slotType = slotName}
+    self.equipmentSlots[slotName] = {x = x, y = y, w = slotSize, h = slotSize, slotType = slotName, itemId = equippedItemId}
 
     if equippedItemId then
         -- Show equipped item with icon
         local ItemDefs = require('src.items.item_loader')
         local itemDef = ItemDefs[equippedItemId]
         if itemDef then
+            -- Highlight if hovering
+            if isHoveringSlot then
+                local color = (itemDef.module and itemDef.module.design and itemDef.module.design.color) or (itemDef.design and itemDef.design.color) or {0.7, 0.7, 0.8, 1}
+                love.graphics.setColor(color[1] * 1.3, color[2] * 1.3, color[3] * 1.3, 0.3 * alpha)
+                love.graphics.rectangle("fill", x, y, slotSize, slotSize, 4, 4)
+            end
+            
             -- Draw item icon centered in slot
             local iconSize = slotSize * 0.8
             local iconX = x + (slotSize - iconSize) / 2
@@ -701,14 +725,33 @@ function ShipWindow:mousepressed(x, y, button)
 
     -- Delegate mouse events to the appropriate tab content
     if self.activeTab == "loadout" then
-        -- Equip/unequip buttons removed; only allow drag from cargo
-        if button == 1 and self.hoveredItemSlot then
-            self.draggedItem = {
-                itemId = self.hoveredItemSlot.itemId,
-                itemDef = self.hoveredItemSlot.itemDef,
-                slotIndex = self.hoveredItemSlot.slotIndex,
-                count = self.hoveredItemSlot.count
-            }
+        -- Left click: start dragging from cargo or equipment slots
+        if button == 1 then
+            if self.hoveredItemSlot then
+                -- Dragging from cargo
+                self.draggedItem = {
+                    itemId = self.hoveredItemSlot.itemId,
+                    itemDef = self.hoveredItemSlot.itemDef,
+                    slotIndex = self.hoveredItemSlot.slotIndex,
+                    count = self.hoveredItemSlot.count,
+                    fromEquipment = false
+                }
+            elseif self.hoveredEquipmentSlot then
+                -- Dragging from equipment slot
+                local ItemDefs = require('src.items.item_loader')
+                local itemDef = ItemDefs[self.hoveredEquipmentSlot.itemId]
+                if itemDef then
+                    self.draggedItem = {
+                        itemId = self.hoveredEquipmentSlot.itemId,
+                        itemDef = itemDef,
+                        slotName = self.hoveredEquipmentSlot.slotName,
+                        fromEquipment = true
+                    }
+                end
+            end
+        -- Right click: remove from equipment slot
+        elseif button == 2 and self.hoveredEquipmentSlot then
+            self:unequipModule(self.hoveredEquipmentSlot.slotName, self.hoveredEquipmentSlot.itemId)
         end
     elseif self.activeTab == "skills" then
         -- Skills tab doesn't have interactive elements currently
@@ -759,6 +802,10 @@ function ShipWindow:mousereleased(x, y, button)
                     if (slotName == "Turret Module" and itemDef.type == "turret") or
                        (slotName == "Defensive Module" and string.match(self.draggedItem.itemId, "shield")) or
                        (slotName == "Generator Module" and itemDef.type == "generator") then
+                        -- If dragging from equipment slot, unequip first
+                        if self.draggedItem.fromEquipment and self.draggedItem.slotName then
+                            self:unequipModule(self.draggedItem.slotName, self.draggedItem.itemId)
+                        end
                         -- Equip the item
                         self:equipModule(self.draggedItem.itemId)
                         equippedToSlot = true
@@ -768,19 +815,43 @@ function ShipWindow:mousereleased(x, y, button)
             end
         end
 
-        -- If not equipped and dropped outside window, destroy the item
+        -- If not equipped
         if not equippedToSlot then
             local windowX, windowY = self.position.x, self.position.y
             local windowW, windowH = self.width, self.height
             local isOutsideBounds = x < windowX or x > windowX + windowW or y < windowY or y > windowY + windowH
 
-            if isOutsideBounds then
-                -- Remove the item from cargo permanently
-                local itemId = self.draggedItem.itemId
-                if cargo and cargo.items and cargo.items[itemId] then
-                    cargo.items[itemId] = cargo.items[itemId] - 1
-                    if cargo.items[itemId] <= 0 then
-                        cargo.items[itemId] = nil
+            if self.draggedItem.fromEquipment then
+                -- Dragging from equipment slot: return to cargo if not dropped outside
+                if not isOutsideBounds then
+                    -- Unequip the module and return to cargo
+                    if self.draggedItem.slotName then
+                        self:unequipModule(self.draggedItem.slotName, self.draggedItem.itemId)
+                    end
+                else
+                    -- Dropped outside window - destroy the item
+                    if self.draggedItem.slotName then
+                        self:unequipModule(self.draggedItem.slotName, self.draggedItem.itemId)
+                        -- Remove from cargo
+                        local itemId = self.draggedItem.itemId
+                        if cargo and cargo.items and cargo.items[itemId] then
+                            cargo.items[itemId] = cargo.items[itemId] - 1
+                            if cargo.items[itemId] <= 0 then
+                                cargo.items[itemId] = nil
+                            end
+                        end
+                    end
+                end
+            else
+                -- Dragging from cargo: destroy if dropped outside window
+                if isOutsideBounds then
+                    -- Remove the item from cargo permanently
+                    local itemId = self.draggedItem.itemId
+                    if cargo and cargo.items and cargo.items[itemId] then
+                        cargo.items[itemId] = cargo.items[itemId] - 1
+                        if cargo.items[itemId] <= 0 then
+                            cargo.items[itemId] = nil
+                        end
                     end
                 end
             end

@@ -9,6 +9,7 @@ local HUDSlots = require('src.systems.hud.slots')
 local HUDBars = require('src.systems.hud.bars')
 local Minimap = require('src.systems.minimap')
 local Tooltips = require('src.ui.tooltips')
+local ItemHover = require('src.systems.item_hover')
 
 local HUDSystem = {
     name = "HUDSystem",
@@ -18,6 +19,11 @@ local HUDSystem = {
 
 function HUDSystem.toggle()
     HUDSystem.visible = not HUDSystem.visible
+end
+
+function HUDSystem.update(dt)
+    -- Update item hover detection
+    ItemHover.update()
 end
 
 function HUDSystem.draw(viewportWidth, viewportHeight)
@@ -37,12 +43,13 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     
     -- Notifications & skills
     local Notifications = require('src.ui.notifications')
-    local SkillNotifications = require('src.ui.skill_notifications')
-    Notifications.draw(0, 0, 1)
-    SkillNotifications.draw()
+    Notifications.draw()
     
     -- Draw overlays (targeting indicator/crosshair/tooltips)
     HUDTargeting.drawTargetingPanel(viewportWidth, viewportHeight)
+    
+    -- Draw item hover popup (in screen space, same position as skill notifications)
+    ItemHover.drawPopup()
     
     -- Tooltip popup
     local slot = HUDSystem.hoveredTurretSlot

@@ -60,6 +60,8 @@ function RenderCanvas.finalizeCanvas(canvasComp)
     -- Apply shader effect to game canvas and render to post-process canvas
     if ShaderManager.isCelShadingEnabled() then
         ShaderManager.setScreenSize(w, h)
+        -- Update shader time for animated effects (waves, pulse, etc.)
+        ShaderManager.updateTime()
         -- Render main canvas through cel shader into post-process canvas
         love.graphics.setShader(ShaderManager.getCelShader())
         love.graphics.setCanvas(_G.postProcessCanvas)

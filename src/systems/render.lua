@@ -109,6 +109,10 @@ local RenderSystem = {
         RenderEffects.drawMagneticField()
         RenderEffects.drawTargetingIndicator()
 
+        -- Draw item hover indicator circle (in world space)
+        local ItemHover = require('src.systems.item_hover')
+        ItemHover.drawWorldIndicator()
+
         -- Record culling statistics to profiler
         Profiler.recordCulling(renderedItems + renderedEntities, culledItems + culledEntities)
 
