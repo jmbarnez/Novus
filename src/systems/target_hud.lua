@@ -148,11 +148,33 @@ function TargetHUD.drawWorldIndicator()
     if TargetHUD.hoveredAsteroid then
         local position = ECS.getComponent(TargetHUD.hoveredAsteroid, "Position")
         local collidable = ECS.getComponent(TargetHUD.hoveredAsteroid, "Collidable")
-        if position and collidable then
-            -- Draw circle around hovered asteroid
+        local polygonShape = ECS.getComponent(TargetHUD.hoveredAsteroid, "PolygonShape")
+        
+        if position then
             love.graphics.setColor(cyanColor[1], cyanColor[2], cyanColor[3], 0.6)
             love.graphics.setLineWidth(2)
-            love.graphics.circle("line", position.x, position.y, collidable.radius or 30)
+            
+            if polygonShape and polygonShape.vertices then
+                -- Draw perfect outline using polygon vertices
+                -- Flatten vertices table into array of numbers
+                local flatVertices = {}
+                for i = 1, #polygonShape.vertices do
+                    local v = polygonShape.vertices[i]
+                    table.insert(flatVertices, v.x)
+                    table.insert(flatVertices, v.y)
+                end
+                
+                local rotation = polygonShape.rotation or 0
+                love.graphics.push()
+                love.graphics.translate(position.x, position.y)
+                love.graphics.rotate(rotation)
+                love.graphics.polygon("line", flatVertices)
+                love.graphics.pop()
+            elseif collidable then
+                -- Fallback to circle
+                love.graphics.circle("line", position.x, position.y, collidable.radius or 30)
+            end
+            
             love.graphics.setLineWidth(1)
         end
     end
@@ -161,11 +183,33 @@ function TargetHUD.drawWorldIndicator()
     if TargetHUD.hoveredEnemy then
         local position = ECS.getComponent(TargetHUD.hoveredEnemy, "Position")
         local collidable = ECS.getComponent(TargetHUD.hoveredEnemy, "Collidable")
-        if position and collidable then
-            -- Draw circle around hovered enemy
+        local polygonShape = ECS.getComponent(TargetHUD.hoveredEnemy, "PolygonShape")
+        
+        if position then
             love.graphics.setColor(cyanColor[1], cyanColor[2], cyanColor[3], 0.6)
             love.graphics.setLineWidth(2)
-            love.graphics.circle("line", position.x, position.y, collidable.radius or 30)
+            
+            if polygonShape and polygonShape.vertices then
+                -- Draw perfect outline using polygon vertices
+                -- Flatten vertices table into array of numbers
+                local flatVertices = {}
+                for i = 1, #polygonShape.vertices do
+                    local v = polygonShape.vertices[i]
+                    table.insert(flatVertices, v.x)
+                    table.insert(flatVertices, v.y)
+                end
+                
+                local rotation = polygonShape.rotation or 0
+                love.graphics.push()
+                love.graphics.translate(position.x, position.y)
+                love.graphics.rotate(rotation)
+                love.graphics.polygon("line", flatVertices)
+                love.graphics.pop()
+            elseif collidable then
+                -- Fallback to circle
+                love.graphics.circle("line", position.x, position.y, collidable.radius or 30)
+            end
+            
             love.graphics.setLineWidth(1)
         end
     end
