@@ -125,16 +125,22 @@ local RenderSystem = {
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.setBlendMode("alpha")
         
+        -- Draw enemy health bars FIRST so they render behind UI windows
+        local HUDBars = require('src.systems.hud.bars')
+        local w, h = love.graphics.getDimensions()
+        HUDBars.drawEnemyHealthBars(w, h)
+        HUDBars.drawAsteroidDurabilityBars(w, h)
+        HUDBars.drawWreckageDurabilityBars(w, h)
+        
         -- Draw UI windows (notifications, dialogs, windows)
         local UISystem = ECS.getSystem("UISystem")
         if UISystem and UISystem.draw then
             UISystem.draw(canvasComp.width, canvasComp.height)
         end
 
-        -- Draw HUD overlays in screen space
+        -- Draw HUD overlays in screen space (without enemy health bars)
         local HUDSystem = ECS.getSystem("HUDSystem")
         if HUDSystem and HUDSystem.draw then
-            local w, h = love.graphics.getDimensions()
             HUDSystem.draw(w, h)
         end
 

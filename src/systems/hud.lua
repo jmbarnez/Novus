@@ -25,10 +25,7 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     viewportWidth = viewportWidth or (love.graphics and love.graphics.getWidth and love.graphics.getWidth()) or 1920
     viewportHeight = viewportHeight or (love.graphics and love.graphics.getHeight and love.graphics.getHeight()) or 1080
     
-    -- Draw enemy health bars on screen (before UI, so they render behind)
-    HUDBars.drawEnemyHealthBars(viewportWidth, viewportHeight)
-    HUDBars.drawAsteroidDurabilityBars(viewportWidth, viewportHeight)
-    HUDBars.drawWreckageDurabilityBars(viewportWidth, viewportHeight)
+    -- Note: Enemy health bars are now drawn earlier in RenderSystem to ensure they render behind UI windows
     
     -- Draw HUD elements directly to screen (no canvas, no shader effects)
     HUDStats.drawHullShieldBar(viewportWidth, viewportHeight)
