@@ -190,7 +190,7 @@ function TargetHUD.drawPopup()
         local inputComp = (#controllers > 0) and ECS.getComponent(controllers[1], "InputControlled")
         local isTargeted = inputComp and inputComp.targetedEnemy == TargetHUD.hoveredEnemy
         if isTargeted then
-            popupHeight = Scaling.scaleSize(64) -- Taller for targeted enemies to show stats
+            popupHeight = Scaling.scaleSize(70) -- Taller for targeted enemies to show health bar and stats
         end
     end
     
@@ -289,21 +289,40 @@ function TargetHUD.drawPopup()
             local shieldVal = (targetShield and targetShield.current) or 0
             local shieldMax = (targetShield and targetShield.max) or 0
             
-            -- Draw hull/shield info
-            love.graphics.setFont(normalFont)
-            love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
-            local infoText = string.format("Hull: %d/%d", hullVal, hullMax)
-            if shieldMax > 0 then
-                infoText = infoText .. string.format("  Shield: %d/%d", shieldVal, shieldMax)
+            -- Draw combined hull/shield bar
+            local barWidth = popupWidth - Scaling.scaleX(28)
+            local barHeight = Scaling.scaleSize(20)
+            local barX = x + Scaling.scaleX(14)
+            local barY = y + Scaling.scaleY(6)
+            
+            local hullRatio = math.min(hullVal / hullMax, 1.0)
+            PlasmaTheme.drawHealthBar(barX, barY, barWidth, barHeight, hullRatio, false)
+            
+            if shieldMax > 0 and shieldVal > 0 then
+                local sRatio = math.min(shieldVal / shieldMax, 1.0)
+                PlasmaTheme.drawHealthBar(barX, barY, barWidth, barHeight, sRatio, true)
             end
-            love.graphics.print(infoText, x + Scaling.scaleX(14), y + Scaling.scaleY(6))
+            
+            -- Draw bar text overlay
+            local smallFont = Theme.getFont(Scaling.scaleSize(Theme.fonts.small))
+            love.graphics.setFont(smallFont)
+            local barText
+            if shieldMax > 0 then
+                barText = string.format("Hull %d/%d   Shield %d/%d", hullVal, hullMax, shieldVal, shieldMax)
+            else
+                barText = string.format("Hull %d/%d", hullVal, hullMax)
+            end
+            local barTextW = smallFont:getWidth(barText)
+            local barTextX = barX + (barWidth - barTextW) / 2
+            local barTextY = barY + (barHeight - smallFont:getHeight()) / 2
+            love.graphics.setColor(Theme.colors.textPrimary)
+            love.graphics.print(barText, barTextX, barTextY)
             
             -- Draw distance and speed
-            local smallFont = Theme.getFont(Scaling.scaleSize(Theme.fonts.small))
             love.graphics.setFont(smallFont)
             love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], 1)
             
-            local infoRow = y + Scaling.scaleY(24)
+            local infoRow = y + Scaling.scaleY(32)
             if playerPos and targetPos then
                 local dx, dy = targetPos.x - playerPos.x, targetPos.y - playerPos.y
                 local distance = math.sqrt(dx*dx+dy*dy)
