@@ -6,6 +6,10 @@ extern number alpha;
 extern vec2 offset;
 extern vec2 center;
 extern number cloudScale;
+// New parameters to control procedural shape
+extern number threshold; // how dense the cloud needs to be to be visible
+extern number contrast;  // contrast/sharpness of the noise
+extern number noiseScale; // extra multiplier on noise sampling
 
 // 2D hash and noise
 float hash(vec2 p) {
@@ -45,18 +49,24 @@ vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) 
     // stronger time motion for closer feeling and larger offset influence
     pos += vec2(time * 0.12, time * 0.06) + offset * 0.0025;
 
-    // use fewer high-frequency layers and larger-scale sampling to soften detail
-    float n = fbm(pos * 1.0);
-    float m = fbm(pos * 0.35 + vec2(5.2));
-    // combine layers and reduce contrast for a more distant look
-    float clouds = mix(n, m, 0.5);
-    // sharpen contrast a bit for closer appearance
-    clouds = smoothstep(0.22, 0.68, clouds);
 
-    // radial mask so shader only paints inside the cloud blob (soft edges)
+    // use multiple FBM layers at different frequencies to create richer shapes
+    float base = fbm(pos * (0.6 * noiseScale));
+    float mid  = fbm(pos * (1.2 * noiseScale) + vec2(12.3));
+    float detail = fbm(pos * (2.6 * noiseScale) + vec2(42.7));
+    // combine layers with weights to get interesting islands
+    float clouds = base * 0.6 + mid * 0.3 + detail * 0.1;
+
+    // apply contrast/threshold to carve irregular silhouettes instead of a circular blob
+    // contrast pushes values away from 0.5 (higher = sharper)
+    clouds = pow(clouds, 1.0 - contrast);
+    // threshold determines what intensity counts as cloud; smoothstep for soft edges
+    clouds = smoothstep(threshold - 0.12, threshold + 0.12, clouds);
+
+    // Optional subtle radial fade to slightly soften edges; small influence only
     float dist = length(uv);
-    float mask = smoothstep(1.0, 0.45, dist);
-    clouds *= mask;
+    float radialFade = smoothstep(1.4, 1.0, dist) * 0.18; // keep amount small
+    clouds *= (1.0 - radialFade);
 
     // color mixing with tint; reduce saturation slightly for distance
     // bring tint a bit closer to the original brighter blues/purples

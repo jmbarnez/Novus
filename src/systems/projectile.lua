@@ -127,6 +127,12 @@ function ProjectileSystem.update(dt)
                         hull.current = math.max(0, hull.current - damage)
                     end
                     
+                    -- Trigger aggressive reaction if victim is AI
+                    local AISystem = ECS.getSystem("AISystem")
+                    if AISystem and AISystem.triggerAggressiveReaction then
+                        AISystem.triggerAggressiveReaction(enemyId, projId)
+                    end
+                    
                     -- Destroy missile on impact
                     if projectile.isMissile then
                         local projDur = ECS.getComponent(projId, "Durability")

@@ -24,7 +24,12 @@ Components.AI = function(config)
         
         -- Turret swing state (for idle animation)
         _swingAngle = nil,
-        _swingTimer = 0
+        _swingTimer = 0,
+        
+        -- Aggressive reaction state (when attacked)
+        aggressiveTimer = 0,  -- Time remaining in aggressive state
+        lastAttacker = nil,   -- Entity ID of last attacker
+        aggressiveDuration = 5.0  -- How long to stay aggressive after being attacked
     }
 end
 

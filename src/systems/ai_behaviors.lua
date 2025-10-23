@@ -294,4 +294,55 @@ function Behaviors.Orbit.update(eid, ai, pos, vel, turret, design, playerPos, dt
     end
 end
 
+-- ============================================================================
+-- AGGRESSIVE BEHAVIOR - Reacts to being attacked by pursuing attacker
+-- ============================================================================
+
+Behaviors.Aggressive = {}
+
+function Behaviors.Aggressive.update(eid, ai, pos, vel, turret, design, playerPos, dt)
+    local thrustForce = design.thrustForce or 0
+    if thrustForce == 0 then return end
+    
+    -- Find the attacker's position
+    local targetPos = nil
+    if ai.lastAttacker then
+        local attackerPos = ECS.getComponent(ai.lastAttacker, "Position")
+        if attackerPos then
+            targetPos = attackerPos
+        end
+    end
+    
+    -- If no attacker found, use player position as fallback
+    if not targetPos and playerPos then
+        targetPos = playerPos
+    end
+    
+    if not targetPos then return end
+    
+    -- Move directly toward the attacker at high speed
+    local moveDx = targetPos.x - pos.x
+    local moveDy = targetPos.y - pos.y
+    local moveDist = math.sqrt(moveDx*moveDx + moveDy*moveDy)
+    
+    if moveDist > 0 then
+        local dx_norm = moveDx / moveDist
+        local dy_norm = moveDy / moveDist
+        local physics = ECS.getComponent(eid, "Physics")
+        local base = design.patrolSpeed or 60
+        -- Move faster when aggressive
+        local targetSpeed = math.max(base * 2.5, 150)
+        applySteeringAwareThrust(eid, dx_norm, dy_norm, thrustForce, design.steeringResponsiveness, physics, targetSpeed)
+    end
+    
+    -- Aim and fire at the target
+    if turret and targetPos then
+        AiTurretHelper.aimTurretAtTarget(eid, turret, pos, targetPos)
+    end
+    
+    if turret and turret.moduleName then
+        fireAtTarget(eid, turret, pos, targetPos, dt)
+    end
+end
+
 return Behaviors

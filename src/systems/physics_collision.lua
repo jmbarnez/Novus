@@ -735,6 +735,12 @@ local PhysicsCollisionSystem = {
                             if durability2 then
                                 durability2.current = durability2.current - damage
                             end
+                            
+                            -- Trigger aggressive reaction if victim is AI
+                            local AISystem = ECS.getSystem("AISystem")
+                            if AISystem and AISystem.triggerAggressiveReaction then
+                                AISystem.triggerAggressiveReaction(entity2Id, entity1Id)
+                            end
                             -- If projectile is brittle, mark it for destruction
                             if proj1.brittle then
                                 local pDur = ECS.getComponent(entity1Id, "Durability")
@@ -768,6 +774,12 @@ local PhysicsCollisionSystem = {
                             local durability1 = ECS.getComponent(entity1Id, "Durability")
                             if durability1 then
                                 durability1.current = durability1.current - damage
+                            end
+                            
+                            -- Trigger aggressive reaction if victim is AI
+                            local AISystem = ECS.getSystem("AISystem")
+                            if AISystem and AISystem.triggerAggressiveReaction then
+                                AISystem.triggerAggressiveReaction(entity1Id, entity2Id)
                             end
                             if proj2.brittle then
                                 local pDur = ECS.getComponent(entity2Id, "Durability")

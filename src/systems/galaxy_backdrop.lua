@@ -34,8 +34,7 @@ function GalaxyBackdropSystem.createGalaxy(x, y, size, color, spiralTightness, a
         armPoints = {},
         -- Generate background stars
         backgroundStars = {},
-        -- Generate nebula clouds
-        nebulaClouds = {}
+            -- Nebula clouds removed
     })
     
     local galaxy = ECS.getComponent(galaxyId, "GalaxyBackdrop")
@@ -46,8 +45,7 @@ function GalaxyBackdropSystem.createGalaxy(x, y, size, color, spiralTightness, a
     -- Generate background stars
     GalaxyBackdropSystem.generateBackgroundStars(galaxy)
     
-    -- Generate nebula clouds
-    GalaxyBackdropSystem.generateNebulaClouds(galaxy)
+        -- Nebula clouds removed
     
     return galaxyId
 end
@@ -107,27 +105,7 @@ end
 
 -- Generate nebula clouds around the galaxy
 function GalaxyBackdropSystem.generateNebulaClouds(galaxy)
-    galaxy.nebulaClouds = {}
-    -- Prefer fewer, larger soft clouds for background depth
-    for i = 1, 3 do
-        local angle = math.random() * 2 * math.pi
-        local distance = galaxy.size * (0.3 + math.random() * 0.7)
-        local x = math.cos(angle) * distance
-        local y = math.sin(angle) * distance
-        
-        table.insert(galaxy.nebulaClouds, {
-            x = x,
-            y = y,
-            radius = 400 + math.random() * 800,
-            color = {
-                0.3 + math.random() * 0.4,
-                0.2 + math.random() * 0.3,
-                0.4 + math.random() * 0.4,
-                0.1 + math.random() * 0.2
-            },
-            density = 0.3 + math.random() * 0.4
-        })
-    end
+    -- Nebula clouds removed
 end
 
 -- Update galaxy backdrop (for any animated effects)
@@ -139,11 +117,7 @@ function GalaxyBackdropSystem.update(dt)
         local position = ECS.getComponent(galaxyId, "Position")
         
         if galaxy and position then
-            -- Animate nebula clouds (slow drift)
-            for _, cloud in ipairs(galaxy.nebulaClouds) do
-                cloud.x = cloud.x + math.sin(cloud.x * 0.001) * dt * 10
-                cloud.y = cloud.y + math.cos(cloud.y * 0.001) * dt * 10
-            end
+                -- Nebula cloud animation removed
             
             -- Animate background stars (subtle twinkling)
             for _, star in ipairs(galaxy.backgroundStars) do
@@ -175,66 +149,8 @@ function GalaxyBackdropSystem.draw()
             love.graphics.push()
             love.graphics.translate(position.x, position.y)
             
-            -- Draw nebula clouds first (behind everything)
-            for _, cloud in ipairs(galaxy.nebulaClouds) do
-                local worldX = position.x + cloud.x
-                local worldY = position.y + cloud.y
-                -- If there's a dedicated nebula canvas, draw into it so post-process shaders don't affect nebula
-                if _G.nebulaCanvas then
-                    local prevCanvas = love.graphics.getCanvas()
-                    love.graphics.setCanvas(_G.nebulaCanvas)
-                    love.graphics.push()
-                    love.graphics.translate(0,0)
-                    if nebulaShader then
-                        nebulaShader:send("NebulaCenter", {worldX, worldY})
-                        nebulaShader:send("NebulaRadius", cloud.radius)
-                        nebulaShader:send("Intensity", cloud.color[4] or 0.2)
-                        nebulaShader:send("Scale", math.max(0.00002, cloud.radius * 0.00004))
-                        nebulaShader:send("Speed", 0.02)
-                        nebulaShader:send("NebulaColor1", {cloud.color[1], cloud.color[2], cloud.color[3]})
-                        nebulaShader:send("NebulaColor2", {cloud.color[1] * 0.8, cloud.color[2] * 0.7, cloud.color[3] * 0.6})
-                        nebulaShader:send("NebulaColor3", {math.min(1, cloud.color[1] * 1.2), math.min(1, cloud.color[2] * 1.1), math.min(1, cloud.color[3] * 0.9)})
 
-                        love.graphics.setShader(nebulaShader)
-                        love.graphics.setColor(1, 1, 1, 1)
-                        love.graphics.setBlendMode("add")
-                        love.graphics.rectangle("fill", worldX - cloud.radius, worldY - cloud.radius, cloud.radius * 2, cloud.radius * 2)
-                        love.graphics.setBlendMode("alpha")
-                        love.graphics.setShader()
-                    else
-                        love.graphics.setColor(cloud.color)
-                        love.graphics.circle("fill", worldX, worldY, cloud.radius)
-                        love.graphics.circle("fill", worldX, worldY, cloud.radius * 0.7)
-                        love.graphics.circle("fill", worldX, worldY, cloud.radius * 0.4)
-                    end
-                    love.graphics.pop()
-                    love.graphics.setCanvas(prevCanvas)
-                else
-                    -- No nebula canvas: draw directly (legacy behavior)
-                    if nebulaShader then
-                        nebulaShader:send("NebulaCenter", {worldX, worldY})
-                        nebulaShader:send("NebulaRadius", cloud.radius)
-                        nebulaShader:send("Intensity", cloud.color[4] or 0.2)
-                        nebulaShader:send("Scale", math.max(0.00002, cloud.radius * 0.00004))
-                        nebulaShader:send("Speed", 0.02)
-                        nebulaShader:send("NebulaColor1", {cloud.color[1], cloud.color[2], cloud.color[3]})
-                        nebulaShader:send("NebulaColor2", {cloud.color[1] * 0.8, cloud.color[2] * 0.7, cloud.color[3] * 0.6})
-                        nebulaShader:send("NebulaColor3", {math.min(1, cloud.color[1] * 1.2), math.min(1, cloud.color[2] * 1.1), math.min(1, cloud.color[3] * 0.9)})
 
-                        love.graphics.setShader(nebulaShader)
-                        love.graphics.setColor(1, 1, 1, 1)
-                        love.graphics.setBlendMode("add")
-                        love.graphics.rectangle("fill", worldX - cloud.radius, worldY - cloud.radius, cloud.radius * 2, cloud.radius * 2)
-                        love.graphics.setBlendMode("alpha")
-                        love.graphics.setShader()
-                    else
-                        love.graphics.setColor(cloud.color)
-                        love.graphics.circle("fill", cloud.x, cloud.y, cloud.radius)
-                        love.graphics.circle("fill", cloud.x, cloud.y, cloud.radius * 0.7)
-                        love.graphics.circle("fill", cloud.x, cloud.y, cloud.radius * 0.4)
-                    end
-                end
-            end
             
             -- Draw galaxy core
             love.graphics.setColor(galaxy.color[1], galaxy.color[2], galaxy.color[3], galaxy.color[4] * 0.8)
@@ -264,6 +180,8 @@ function GalaxyBackdropSystem.draw()
     
     -- Reset color
     love.graphics.setColor(1, 1, 1, 1)
+    -- Debug: Confirm draw function is called
+    print("GalaxyBackdropSystem.draw called")
 end
 
 return GalaxyBackdropSystem

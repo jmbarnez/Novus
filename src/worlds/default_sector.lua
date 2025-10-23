@@ -26,7 +26,7 @@ return {
     enemies = {
         -- Enemy type definitions: {enemyType = count}
         types = {
-            ["red_scout"] = 5
+            ["red_scout"] = 2
         },
         
         -- Weapon assignments per enemy type

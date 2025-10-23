@@ -18,6 +18,7 @@ local BehaviorHandlers = {
     patrol = Behaviors.Patrol.update,
     chase = Behaviors.Chase.update,
     orbit = Behaviors.Orbit.update,
+    aggressive = Behaviors.Aggressive.update,
 }
 
 -- ============================================================================
@@ -30,11 +31,37 @@ local function distSq(x1, y1, x2, y2)
     return dx*dx + dy*dy
 end
 
+-- Trigger aggressive state when AI entity takes damage
+function AISystem.triggerAggressiveReaction(victimId, attackerId)
+    local ai = ECS.getComponent(victimId, "AI")
+    if not ai then return end
+    
+    -- Set aggressive state
+    ai.aggressiveTimer = ai.aggressiveDuration or 5.0
+    ai.lastAttacker = attackerId
+    ai.state = "aggressive"
+end
+
 -- ============================================================================
 -- STATE TRANSITIONS - Determine which behavior to use
 -- ============================================================================
 
-local function updateAIState(ai, pos, playerPos, turret, design)
+local function updateAIState(ai, pos, playerPos, turret, design, dt)
+    -- Update aggressive timer
+    if ai.aggressiveTimer > 0 then
+        ai.aggressiveTimer = ai.aggressiveTimer - dt
+        if ai.aggressiveTimer <= 0 then
+            ai.aggressiveTimer = 0
+            ai.lastAttacker = nil
+        end
+    end
+    
+    -- If in aggressive state, stay aggressive regardless of detection range
+    if ai.aggressiveTimer > 0 then
+        ai.state = "aggressive"
+        return
+    end
+    
     if not playerPos then
         ai.state = "patrol"
         return
@@ -113,7 +140,7 @@ function AISystem.update(dt)
         end
 
         -- Update state based on player detection
-        updateAIState(ai, pos, playerPos, turret, design)
+        updateAIState(ai, pos, playerPos, turret, design, dt)
         
         -- Execute behavior for current state
         local behaviorHandler = BehaviorHandlers[ai.state]
