@@ -16,6 +16,7 @@ local ShipLoader = require('src.ship_loader')
 local AsteroidClusters = require('src.systems.asteroid_clusters')
 local ShaderManager = require('src.shader_manager')
 local EntityPool = require('src.entity_pool')
+local WorldLoader = require('src.world_loader')
 
 -- Initialize entity pools
 function GameInit.initPools()
@@ -365,7 +366,10 @@ function GameInit.init()
     -- Register all ECS systems
     GameInit.registerSystems()
 
-    -- Initialize asteroid cluster system
+    -- Load world definitions
+    WorldLoader.loadAllWorlds("src.worlds")
+    
+    -- Initialize asteroid cluster system (will be overridden by world)
     AsteroidClusters.init()
 
     -- Create core entities
@@ -377,12 +381,14 @@ function GameInit.init()
     -- Load sounds
     GameInit.loadSounds()
 
-    -- Spawn enemies
-    GameInit.spawnEnemies()
+    -- Initialize world/sector (loads asteroids and enemies)
+    -- Change this to any world name to load different sectors:
+    -- "default_sector", "asteroid_field", "mining_zone", "combat_sector"
+    WorldLoader.initWorld("default_sector")
 
     print("Game entities created and systems initialized")
     print("Pilot and starting drone spawned at (-1500, 0) - away from asteroid clusters")
-    print("Asteroid cluster spawned: 1 cluster with 30 asteroids and enemies")
+    print("World loaded: " .. (WorldLoader.getCurrentWorld() and WorldLoader.getCurrentWorld().name or "Unknown"))
     print("Player controls: WASD for thrust, ESC to quit")
 end
 
