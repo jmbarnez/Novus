@@ -63,18 +63,10 @@ vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) 
     // threshold determines what intensity counts as cloud; smoothstep for soft edges
     clouds = smoothstep(threshold - 0.12, threshold + 0.12, clouds);
 
-    // Optional subtle radial fade to slightly soften edges; small influence only
-    float dist = length(uv);
-    float radialFade = smoothstep(1.4, 1.0, dist) * 0.18; // keep amount small
-    clouds *= (1.0 - radialFade);
-
     // color mixing with tint; reduce saturation slightly for distance
     // bring tint a bit closer to the original brighter blues/purples
     vec3 baseColor = vec3(0.85, 0.95, 1.0);
     vec3 col = tint * baseColor * clouds * 1.05;
-    // gentle vignette to keep edges soft
-    float vignette = smoothstep(0.0, 0.9, 1.0 - length(uv - 0.5) * 1.1);
-    col *= mix(0.85, 1.0, vignette);
 
     // final alpha with mask applied (boost a bit for closer feel)
     return vec4(col, clamp(clouds * alpha * 1.12, 0.0, 1.0));
