@@ -118,7 +118,7 @@ function GalaxyBackdropSystem.generateNebulaClouds(galaxy)
         table.insert(galaxy.nebulaClouds, {
             x = x,
             y = y,
-            radius = 200 + math.random() * 400,
+            radius = 400 + math.random() * 800,
             color = {
                 0.3 + math.random() * 0.4,
                 0.2 + math.random() * 0.3,
@@ -177,32 +177,62 @@ function GalaxyBackdropSystem.draw()
             
             -- Draw nebula clouds first (behind everything)
             for _, cloud in ipairs(galaxy.nebulaClouds) do
-                if nebulaShader then
-                    -- Send uniforms for this cloud
-                    local worldX = position.x + cloud.x
-                    local worldY = position.y + cloud.y
-                    nebulaShader:send("NebulaCenter", {worldX, worldY})
-                    nebulaShader:send("NebulaRadius", cloud.radius)
-                    nebulaShader:send("Intensity", cloud.color[4] or 0.2)
-                    nebulaShader:send("Scale", math.max(0.00002, cloud.radius * 0.00004))
-                    nebulaShader:send("Speed", 0.02)
-                    nebulaShader:send("NebulaColor1", {cloud.color[1], cloud.color[2], cloud.color[3]})
-                    nebulaShader:send("NebulaColor2", {cloud.color[1] * 0.8, cloud.color[2] * 0.7, cloud.color[3] * 0.6})
-                    nebulaShader:send("NebulaColor3", {math.min(1, cloud.color[1] * 1.2), math.min(1, cloud.color[2] * 1.1), math.min(1, cloud.color[3] * 0.9)})
+                local worldX = position.x + cloud.x
+                local worldY = position.y + cloud.y
+                -- If there's a dedicated nebula canvas, draw into it so post-process shaders don't affect nebula
+                if _G.nebulaCanvas then
+                    local prevCanvas = love.graphics.getCanvas()
+                    love.graphics.setCanvas(_G.nebulaCanvas)
+                    love.graphics.push()
+                    love.graphics.translate(0,0)
+                    if nebulaShader then
+                        nebulaShader:send("NebulaCenter", {worldX, worldY})
+                        nebulaShader:send("NebulaRadius", cloud.radius)
+                        nebulaShader:send("Intensity", cloud.color[4] or 0.2)
+                        nebulaShader:send("Scale", math.max(0.00002, cloud.radius * 0.00004))
+                        nebulaShader:send("Speed", 0.02)
+                        nebulaShader:send("NebulaColor1", {cloud.color[1], cloud.color[2], cloud.color[3]})
+                        nebulaShader:send("NebulaColor2", {cloud.color[1] * 0.8, cloud.color[2] * 0.7, cloud.color[3] * 0.6})
+                        nebulaShader:send("NebulaColor3", {math.min(1, cloud.color[1] * 1.2), math.min(1, cloud.color[2] * 1.1), math.min(1, cloud.color[3] * 0.9)})
 
-                    love.graphics.setShader(nebulaShader)
-                    love.graphics.setColor(1, 1, 1, 1)
-                    love.graphics.setBlendMode("add")
-                    -- Draw the shader only over the cloud bounds
-                    love.graphics.rectangle("fill", worldX - cloud.radius, worldY - cloud.radius, cloud.radius * 2, cloud.radius * 2)
-                    love.graphics.setBlendMode("alpha")
-                    love.graphics.setShader()
+                        love.graphics.setShader(nebulaShader)
+                        love.graphics.setColor(1, 1, 1, 1)
+                        love.graphics.setBlendMode("add")
+                        love.graphics.rectangle("fill", worldX - cloud.radius, worldY - cloud.radius, cloud.radius * 2, cloud.radius * 2)
+                        love.graphics.setBlendMode("alpha")
+                        love.graphics.setShader()
+                    else
+                        love.graphics.setColor(cloud.color)
+                        love.graphics.circle("fill", worldX, worldY, cloud.radius)
+                        love.graphics.circle("fill", worldX, worldY, cloud.radius * 0.7)
+                        love.graphics.circle("fill", worldX, worldY, cloud.radius * 0.4)
+                    end
+                    love.graphics.pop()
+                    love.graphics.setCanvas(prevCanvas)
                 else
-                    -- Fallback: draw layered circles
-                    love.graphics.setColor(cloud.color)
-                    love.graphics.circle("fill", cloud.x, cloud.y, cloud.radius)
-                    love.graphics.circle("fill", cloud.x, cloud.y, cloud.radius * 0.7)
-                    love.graphics.circle("fill", cloud.x, cloud.y, cloud.radius * 0.4)
+                    -- No nebula canvas: draw directly (legacy behavior)
+                    if nebulaShader then
+                        nebulaShader:send("NebulaCenter", {worldX, worldY})
+                        nebulaShader:send("NebulaRadius", cloud.radius)
+                        nebulaShader:send("Intensity", cloud.color[4] or 0.2)
+                        nebulaShader:send("Scale", math.max(0.00002, cloud.radius * 0.00004))
+                        nebulaShader:send("Speed", 0.02)
+                        nebulaShader:send("NebulaColor1", {cloud.color[1], cloud.color[2], cloud.color[3]})
+                        nebulaShader:send("NebulaColor2", {cloud.color[1] * 0.8, cloud.color[2] * 0.7, cloud.color[3] * 0.6})
+                        nebulaShader:send("NebulaColor3", {math.min(1, cloud.color[1] * 1.2), math.min(1, cloud.color[2] * 1.1), math.min(1, cloud.color[3] * 0.9)})
+
+                        love.graphics.setShader(nebulaShader)
+                        love.graphics.setColor(1, 1, 1, 1)
+                        love.graphics.setBlendMode("add")
+                        love.graphics.rectangle("fill", worldX - cloud.radius, worldY - cloud.radius, cloud.radius * 2, cloud.radius * 2)
+                        love.graphics.setBlendMode("alpha")
+                        love.graphics.setShader()
+                    else
+                        love.graphics.setColor(cloud.color)
+                        love.graphics.circle("fill", cloud.x, cloud.y, cloud.radius)
+                        love.graphics.circle("fill", cloud.x, cloud.y, cloud.radius * 0.7)
+                        love.graphics.circle("fill", cloud.x, cloud.y, cloud.radius * 0.4)
+                    end
                 end
             end
             

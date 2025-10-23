@@ -14,8 +14,32 @@ local BoundarySystem = {
             local boundary = ECS.getComponent(entityId, "Boundary")
 
             -- Clamp position to boundary
-            position.x = math.max(boundary.minX, math.min(boundary.maxX, position.x))
-            position.y = math.max(boundary.minY, math.min(boundary.maxY, position.y))
+            local oldX, oldY = position.x, position.y
+            local clampedX = math.max(boundary.minX, math.min(boundary.maxX, position.x))
+            local clampedY = math.max(boundary.minY, math.min(boundary.maxY, position.y))
+            position.x = clampedX
+            position.y = clampedY
+
+            -- If entity was clamped on an axis, nudge slightly inside and zero that velocity component
+            local nudgew = 1.0 -- small inward nudge (pixels)
+            local vel = ECS.getComponent(entityId, "Velocity")
+            if oldX ~= clampedX then
+                -- Nudge inside depending on which side
+                if clampedX <= boundary.minX then
+                    position.x = boundary.minX + nudgew
+                elseif clampedX >= boundary.maxX then
+                    position.x = boundary.maxX - nudgew
+                end
+                if vel then vel.vx = 0 end
+            end
+            if oldY ~= clampedY then
+                if clampedY <= boundary.minY then
+                    position.y = boundary.minY + nudgew
+                elseif clampedY >= boundary.maxY then
+                    position.y = boundary.maxY - nudgew
+                end
+                if vel then vel.vy = 0 end
+            end
         end
     end
 }

@@ -19,6 +19,7 @@ function RenderCanvas.setupCanvas()
     love.graphics.setColor(0.01, 0.01, 0.015, 1)
     love.graphics.rectangle("fill", 0, 0, canvasComp.width, canvasComp.height)
     
+    -- no special nebula canvas here; parallax handles nebula rendering directly
     return canvasComp
 end
 
@@ -59,14 +60,18 @@ function RenderCanvas.finalizeCanvas(canvasComp)
     -- Apply shader effect to game canvas and render to post-process canvas
     if ShaderManager.isCelShadingEnabled() then
         ShaderManager.setScreenSize(w, h)
+        -- Render main canvas through cel shader into post-process canvas
         love.graphics.setShader(ShaderManager.getCelShader())
         love.graphics.setCanvas(_G.postProcessCanvas)
         love.graphics.clear(0, 0, 0, 0)
         love.graphics.draw(canvasComp.canvas, offsetX, offsetY, 0, scale, scale)
         love.graphics.setShader()
         love.graphics.setCanvas()
+
+        -- Draw the processed (shaded) main canvas on top
         love.graphics.draw(_G.postProcessCanvas, 0, 0)
     else
+        -- No post-processing: just draw main canvas
         love.graphics.draw(canvasComp.canvas, offsetX, offsetY, 0, scale, scale)
     end
 end
