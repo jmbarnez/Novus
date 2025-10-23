@@ -1,12 +1,12 @@
 ---@diagnostic disable: undefined-global
--- Item Hover System - Shows hover indicators and popups for items in space
+-- Target HUD System - Shows hover indicators and popups for targets in space
 
 local ECS = require('src.ecs')
 local Theme = require('src.ui.theme')
 local Scaling = require('src.scaling')
 local PlasmaTheme = require('src.ui.plasma_theme')
 
-local ItemHover = {
+local TargetHUD = {
     hoveredItem = nil,
     hoveredEnemy = nil,
     hoveredAsteroid = nil,
@@ -14,24 +14,24 @@ local ItemHover = {
 }
 
 -- Update hover detection
-function ItemHover.update()
+function TargetHUD.update()
     local mouseX, mouseY = love.mouse.getPosition()
     
     -- Convert screen coordinates to world coordinates
     local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
     if #cameraEntities == 0 then
-        ItemHover.hoveredItem = nil
-        ItemHover.hoveredEnemy = nil
-        ItemHover.hoveredAsteroid = nil
+        TargetHUD.hoveredItem = nil
+        TargetHUD.hoveredEnemy = nil
+        TargetHUD.hoveredAsteroid = nil
         return
     end
     
     local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
     local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
     if not cameraComp or not cameraPos then
-        ItemHover.hoveredItem = nil
-        ItemHover.hoveredEnemy = nil
-        ItemHover.hoveredAsteroid = nil
+        TargetHUD.hoveredItem = nil
+        TargetHUD.hoveredEnemy = nil
+        TargetHUD.hoveredAsteroid = nil
         return
     end
     
@@ -49,7 +49,7 @@ function ItemHover.update()
             local dy = worldY - position.y
             local dist = math.sqrt(dx * dx + dy * dy)
             
-            if dist < ItemHover.hoverRadius and dist < closestItemDist then
+            if dist < TargetHUD.hoverRadius and dist < closestItemDist then
                 closestItemDist = dist
                 closestItem = itemId
             end
@@ -109,32 +109,32 @@ function ItemHover.update()
     
     -- Prioritize items > asteroids > enemies if multiple are hovered
     if closestItem then
-        ItemHover.hoveredItem = closestItem
-        ItemHover.hoveredEnemy = nil
-        ItemHover.hoveredAsteroid = nil
+        TargetHUD.hoveredItem = closestItem
+        TargetHUD.hoveredEnemy = nil
+        TargetHUD.hoveredAsteroid = nil
     elseif closestAsteroid then
-        ItemHover.hoveredItem = nil
-        ItemHover.hoveredEnemy = nil
-        ItemHover.hoveredAsteroid = closestAsteroid
+        TargetHUD.hoveredItem = nil
+        TargetHUD.hoveredEnemy = nil
+        TargetHUD.hoveredAsteroid = closestAsteroid
     elseif closestEnemy then
-        ItemHover.hoveredItem = nil
-        ItemHover.hoveredEnemy = closestEnemy
-        ItemHover.hoveredAsteroid = nil
+        TargetHUD.hoveredItem = nil
+        TargetHUD.hoveredEnemy = closestEnemy
+        TargetHUD.hoveredAsteroid = nil
     else
-        ItemHover.hoveredItem = nil
-        ItemHover.hoveredEnemy = nil
-        ItemHover.hoveredAsteroid = nil
+        TargetHUD.hoveredItem = nil
+        TargetHUD.hoveredEnemy = nil
+        TargetHUD.hoveredAsteroid = nil
     end
 end
 
 -- Draw hover indicator (circle around item/enemy/asteroid - in world space)
-function ItemHover.drawWorldIndicator()
+function TargetHUD.drawWorldIndicator()
     -- Use cyan color for all hover indicators
     local cyanColor = PlasmaTheme.colors.shieldBarFill
     
     -- Draw indicator for hovered item
-    if ItemHover.hoveredItem then
-        local position = ECS.getComponent(ItemHover.hoveredItem, "Position")
+    if TargetHUD.hoveredItem then
+        local position = ECS.getComponent(TargetHUD.hoveredItem, "Position")
         if position then
             -- Draw circle around hovered item
             love.graphics.setColor(cyanColor[1], cyanColor[2], cyanColor[3], 0.6)
@@ -145,9 +145,9 @@ function ItemHover.drawWorldIndicator()
     end
     
     -- Draw indicator for hovered asteroid
-    if ItemHover.hoveredAsteroid then
-        local position = ECS.getComponent(ItemHover.hoveredAsteroid, "Position")
-        local collidable = ECS.getComponent(ItemHover.hoveredAsteroid, "Collidable")
+    if TargetHUD.hoveredAsteroid then
+        local position = ECS.getComponent(TargetHUD.hoveredAsteroid, "Position")
+        local collidable = ECS.getComponent(TargetHUD.hoveredAsteroid, "Collidable")
         if position and collidable then
             -- Draw circle around hovered asteroid
             love.graphics.setColor(cyanColor[1], cyanColor[2], cyanColor[3], 0.6)
@@ -158,9 +158,9 @@ function ItemHover.drawWorldIndicator()
     end
     
     -- Draw indicator for hovered enemy
-    if ItemHover.hoveredEnemy then
-        local position = ECS.getComponent(ItemHover.hoveredEnemy, "Position")
-        local collidable = ECS.getComponent(ItemHover.hoveredEnemy, "Collidable")
+    if TargetHUD.hoveredEnemy then
+        local position = ECS.getComponent(TargetHUD.hoveredEnemy, "Position")
+        local collidable = ECS.getComponent(TargetHUD.hoveredEnemy, "Collidable")
         if position and collidable then
             -- Draw circle around hovered enemy
             love.graphics.setColor(cyanColor[1], cyanColor[2], cyanColor[3], 0.6)
@@ -172,14 +172,27 @@ function ItemHover.drawWorldIndicator()
 end
 
 -- Draw popup (in screen space, same style/position as skill notifications)
-function ItemHover.drawPopup()
+function TargetHUD.drawPopup()
     -- Only show popup if hovering an item, asteroid, or enemy
-    if not ItemHover.hoveredItem and not ItemHover.hoveredEnemy and not ItemHover.hoveredAsteroid then return end
+    if not TargetHUD.hoveredItem and not TargetHUD.hoveredEnemy and not TargetHUD.hoveredAsteroid then return end
     
     -- Same positioning as skill notifications
     local screenW = love.graphics.getWidth()
     local popupWidth = Scaling.scaleSize(400)
-    local popupHeight = Scaling.scaleSize(ItemHover.hoveredAsteroid and 72 or 44) -- Taller for asteroids to show durability bar
+    
+    -- Determine popup height based on type
+    local popupHeight = Scaling.scaleSize(44) -- Default height
+    if TargetHUD.hoveredAsteroid then
+        popupHeight = Scaling.scaleSize(72) -- Taller for asteroids to show durability bar
+    elseif TargetHUD.hoveredEnemy then
+        -- Check if enemy is targeted (will show more info)
+        local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
+        local inputComp = (#controllers > 0) and ECS.getComponent(controllers[1], "InputControlled")
+        local isTargeted = inputComp and inputComp.targetedEnemy == TargetHUD.hoveredEnemy
+        if isTargeted then
+            popupHeight = Scaling.scaleSize(64) -- Taller for targeted enemies to show stats
+        end
+    end
     
     -- Calculate starting Y position - below any skill notifications
     local startY = Scaling.scaleY(18)
@@ -202,10 +215,10 @@ function ItemHover.drawPopup()
     love.graphics.rectangle("line", x, y, popupWidth, popupHeight, Scaling.scaleSize(8), Scaling.scaleSize(8))
     
     -- Handle item popup
-    if ItemHover.hoveredItem then
-        local item = ECS.getComponent(ItemHover.hoveredItem, "Item")
+    if TargetHUD.hoveredItem then
+        local item = ECS.getComponent(TargetHUD.hoveredItem, "Item")
         if item and item.def then
-            -- Draw item icon (miniature version)
+            -- Draw item icon (miniature version) - keep icon for items only
             love.graphics.push()
             love.graphics.translate(x + Scaling.scaleSize(24), y + popupHeight / 2)
             love.graphics.scale(0.6, 0.6)
@@ -215,12 +228,12 @@ function ItemHover.drawPopup()
             -- Draw item name
             love.graphics.setFont(normalFont)
             love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
-            love.graphics.print(string.upper(item.def.name), x + Scaling.scaleX(56), y + Scaling.scaleY(14))
+            love.graphics.print(string.upper(item.def.name), x + Scaling.scaleX(48), y + Scaling.scaleY(14))
         end
     -- Handle asteroid popup
-    elseif ItemHover.hoveredAsteroid then
-        local asteroid = ECS.getComponent(ItemHover.hoveredAsteroid, "Asteroid")
-        local durability = ECS.getComponent(ItemHover.hoveredAsteroid, "Durability")
+    elseif TargetHUD.hoveredAsteroid then
+        local asteroid = ECS.getComponent(TargetHUD.hoveredAsteroid, "Asteroid")
+        local durability = ECS.getComponent(TargetHUD.hoveredAsteroid, "Durability")
         
         if asteroid and durability then
             -- Determine asteroid type name
@@ -234,19 +247,15 @@ function ItemHover.drawPopup()
                 iconColor = {0.6, 0.6, 0.6, 1}
             end
             
-            -- Draw asteroid icon (colored circle)
-            love.graphics.setColor(iconColor)
-            love.graphics.circle("fill", x + Scaling.scaleSize(24), y + Scaling.scaleSize(14), Scaling.scaleSize(8))
-            
-            -- Draw asteroid type name
+            -- Draw asteroid type name (no icon, just text)
             love.graphics.setFont(normalFont)
             love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
-            love.graphics.print(asteroidTypeName, x + Scaling.scaleX(48), y + Scaling.scaleY(14))
+            love.graphics.print(asteroidTypeName, x + Scaling.scaleX(14), y + Scaling.scaleY(14))
             
             -- Draw durability bar using PlasmaTheme style
-            local barWidth = popupWidth - Scaling.scaleX(96)
+            local barWidth = popupWidth - Scaling.scaleX(28)
             local barHeight = Scaling.scaleSize(8)
-            local barX = x + Scaling.scaleX(48)
+            local barX = x + Scaling.scaleX(14)
             local barY = y + Scaling.scaleY(32)
             local durabilityPercent = math.min(durability.current / durability.max, 1.0)
             
@@ -261,38 +270,64 @@ function ItemHover.drawPopup()
             love.graphics.print(durabilityText, barX + barWidth - smallFont:getWidth(durabilityText), barY - Scaling.scaleSize(14))
         end
     -- Handle enemy popup
-    elseif ItemHover.hoveredEnemy then
-        -- Check targeting state
+    elseif TargetHUD.hoveredEnemy then
         local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
-        local message = "Ctrl+Click to scan"
-        local iconColor = {1, 0.3, 0.1, 1}
+        local inputComp = (#controllers > 0) and ECS.getComponent(controllers[1], "InputControlled")
+        local isTargeted = inputComp and inputComp.targetedEnemy == TargetHUD.hoveredEnemy
         
-        if #controllers > 0 then
-            local inputComp = ECS.getComponent(controllers[1], "InputControlled")
-            if inputComp then
-                if inputComp.targetingTarget == ItemHover.hoveredEnemy then
-                    -- Currently scanning this enemy
-                    local progress = math.floor((inputComp.targetingProgress or 0) * 100)
-                    message = string.format("Scanning... %d%% (Ctrl+Click to cancel)", progress)
-                    iconColor = {0.7, 0.8, 1, 1} -- Blue for scanning
-                elseif inputComp.targetedEnemy == ItemHover.hoveredEnemy then
-                    -- Already targeted this enemy
-                    message = "Target locked. Ctrl+Click to release"
-                    iconColor = {0.2, 1, 0.2, 1} -- Green for locked
-                end
+        if isTargeted then
+            -- Show detailed info for targeted enemy
+            local targetHull = ECS.getComponent(TargetHUD.hoveredEnemy, "Hull")
+            local targetShield = ECS.getComponent(TargetHUD.hoveredEnemy, "Shield")
+            local targetPos = ECS.getComponent(TargetHUD.hoveredEnemy, "Position")
+            local targetVelocity = ECS.getComponent(TargetHUD.hoveredEnemy, "Velocity")
+            local playerEntity = inputComp.targetEntity
+            local playerPos = playerEntity and ECS.getComponent(playerEntity, "Position")
+            
+            local hullVal = targetHull and targetHull.current or 0
+            local hullMax = targetHull and targetHull.max or 1
+            local shieldVal = (targetShield and targetShield.current) or 0
+            local shieldMax = (targetShield and targetShield.max) or 0
+            
+            -- Draw hull/shield info
+            love.graphics.setFont(normalFont)
+            love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
+            local infoText = string.format("Hull: %d/%d", hullVal, hullMax)
+            if shieldMax > 0 then
+                infoText = infoText .. string.format("  Shield: %d/%d", shieldVal, shieldMax)
             end
+            love.graphics.print(infoText, x + Scaling.scaleX(14), y + Scaling.scaleY(6))
+            
+            -- Draw distance and speed
+            local smallFont = Theme.getFont(Scaling.scaleSize(Theme.fonts.small))
+            love.graphics.setFont(smallFont)
+            love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], 1)
+            
+            local infoRow = y + Scaling.scaleY(24)
+            if playerPos and targetPos then
+                local dx, dy = targetPos.x - playerPos.x, targetPos.y - playerPos.y
+                local distance = math.sqrt(dx*dx+dy*dy)
+                love.graphics.print(string.format("Distance: %.0f u", distance), x + Scaling.scaleX(14), infoRow)
+            end
+            
+            if targetVelocity then
+                local speed = math.sqrt((targetVelocity.vx or 0)^2 + (targetVelocity.vy or 0)^2)
+                love.graphics.print(string.format("Speed: %.0f u/s", speed), x + Scaling.scaleX(180), infoRow)
+            end
+        else
+            -- Show simple message for untargeted enemies
+            local message = "Ctrl+Click to scan"
+            if inputComp and inputComp.targetingTarget == TargetHUD.hoveredEnemy then
+                local progress = math.floor((inputComp.targetingProgress or 0) * 100)
+                message = string.format("Scanning... %d%% (Ctrl+Click to cancel)", progress)
+            end
+            
+            love.graphics.setFont(normalFont)
+            love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
+            love.graphics.print(message, x + Scaling.scaleX(14), y + Scaling.scaleY(14))
         end
-        
-        -- Draw enemy icon placeholder
-        love.graphics.setColor(iconColor)
-        love.graphics.circle("fill", x + Scaling.scaleSize(24), y + popupHeight / 2, Scaling.scaleSize(8))
-        
-        -- Draw message
-        love.graphics.setFont(normalFont)
-        love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
-        love.graphics.print(message, x + Scaling.scaleX(48), y + Scaling.scaleY(14))
     end
 end
 
-return ItemHover
+return TargetHUD
 
