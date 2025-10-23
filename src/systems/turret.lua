@@ -51,6 +51,31 @@ function TurretSystem.fireTurret(entityId, targetX, targetY, dt)
                 end
                 return
             end
+            
+            -- Check energy consumption for laser weapons
+            local energy = ECS.getComponent(entityId, "Energy")
+            local EnergySystem = require('src.systems.energy')
+            local energyCost = 0
+            
+            if turret.moduleName == "mining_laser" then
+                energyCost = EnergySystem.CONSUMPTION.mining_laser * dt
+            elseif turret.moduleName == "combat_laser" then
+                energyCost = EnergySystem.CONSUMPTION.combat_laser * dt
+            elseif turret.moduleName == "salvage_laser" then
+                energyCost = EnergySystem.CONSUMPTION.salvage_laser * dt
+            end
+            
+            -- Consume energy if firing
+            if energy and energyCost > 0 then
+                if not EnergySystem.consume(energy, energyCost) then
+                    -- Not enough energy - stop firing
+                    if turret.laserEntity then
+                        ECS.destroyEntity(turret.laserEntity)
+                        turret.laserEntity = nil
+                    end
+                    return
+                end
+            end
         end
         
         if module and module.fire then

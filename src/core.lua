@@ -127,6 +127,7 @@ function Core.init()
     ECS.registerSystem("AsteroidClustersSystem", AsteroidClusters)
     ECS.registerSystem("CrystalFormationSystem", Systems.CrystalFormationSystem)
     ECS.registerSystem("AsteroidHotspotSystem", Systems.AsteroidHotspotSystem)
+    ECS.registerSystem("EnergySystem", Systems.EnergySystem)
     -- NebulaCloudSystem is called explicitly from RenderSystem
 
     -- Initialize asteroid cluster system
@@ -176,6 +177,7 @@ function Core.init()
         shipCargo.items[salvageLaserId] = 1
         shipCargo.items[missileLauncherId] = 1
         shipCargo.items["basic_shield_module"] = 1  -- Add starting defensive module
+        shipCargo.items["basic_generator"] = 1  -- Add starting generator module
     end
     
     -- Equip default turret on the drone (Basic Cannon!)

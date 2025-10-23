@@ -130,6 +130,9 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
     
     -- Hull/Shield only - no durability component
     
+    -- Energy - All ships get energy component (base regeneration rate)
+    ECS.addComponent(shipId, "Energy", Components.Energy(100, 100, 2))  -- 2 energy/sec base rate
+    
     -- Turret
     if design.turretSlots and design.turretSlots > 0 then
         ECS.addComponent(shipId, "TurretSlots", Components.TurretSlots(design.turretSlots))
@@ -169,6 +172,11 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
     -- Defensive slots
     if design.defensiveSlots and design.defensiveSlots > 0 then
         ECS.addComponent(shipId, "DefensiveSlots", Components.DefensiveSlots(design.defensiveSlots))
+    end
+    
+    -- Generator slots
+    if design.generatorSlots and design.generatorSlots > 0 then
+        ECS.addComponent(shipId, "GeneratorSlots", Components.GeneratorSlots(design.generatorSlots))
     end
     
     -- Trail emitter (for player-controlled ships typically)

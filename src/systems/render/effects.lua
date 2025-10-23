@@ -11,16 +11,14 @@ function RenderEffects.drawLasers()
         if laser then
             local color = laser.color or {1, 1, 0, 1}
 
-            love.graphics.setColor(color[1], color[2], color[3], 0.25)
-            love.graphics.setLineWidth(4)
+            -- Bright, vibrant glow effect
+            love.graphics.setColor(color[1], color[2], color[3], 0.4)
+            love.graphics.setLineWidth(3)
             love.graphics.line(laser.start.x, laser.start.y, laser.endPos.x, laser.endPos.y)
 
-            love.graphics.setColor(color[1], color[2], color[3], 0.9)
-            love.graphics.setLineWidth(1.5)
-            love.graphics.line(laser.start.x, laser.start.y, laser.endPos.x, laser.endPos.y)
-            
-            love.graphics.setColor(0, 0, 0, 0.8)
-            love.graphics.setLineWidth(6)
+            -- Thin, bright core
+            love.graphics.setColor(color[1], color[2], color[3], 1.0)
+            love.graphics.setLineWidth(2)
             love.graphics.line(laser.start.x, laser.start.y, laser.endPos.x, laser.endPos.y)
 
             love.graphics.setLineWidth(1)

@@ -26,6 +26,18 @@ Components.Shield = function(current, max, regen, regenDelay)
     }
 end
 
+-- Energy component - Represents ship energy/power for module operation
+-- @field current number: Current energy value
+-- @field max number: Maximum energy value
+-- @field regenRate number: Energy regeneration rate per second (set by generator module)
+Components.Energy = function(current, max, regenRate)
+    return {
+        current = current or 100,
+        max = max or 100,
+        regenRate = regenRate or 0
+    }
+end
+
 -- Durability component - Represents the health of an entity
 -- @field current number: The current durability of the entity
 -- @field max number: The maximum durability of the entity

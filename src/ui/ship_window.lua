@@ -213,6 +213,7 @@ function ShipWindow:drawLoadoutContent(windowX, windowY, alpha)
 
     local turretSlots = ECS.getComponent(droneId, "TurretSlots")
     local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
+    local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
     local cargo = ECS.getComponent(droneId, "Cargo")
     local hull = ECS.getComponent(droneId, "Hull")
     local shield = ECS.getComponent(droneId, "Shield")
@@ -340,6 +341,12 @@ function ShipWindow:drawLoadoutContent(windowX, windowY, alpha)
     love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha * 0.7)
     love.graphics.printf("DEFENSE", contentX + 10, defenseY, leftPanelWidth - 20, "left")
     self:drawEquipmentSlot("Defensive Module", defensiveSlots and defensiveSlots.slots[1], contentX + (leftPanelWidth - slotSize) / 2, defenseY + 12, slotSize, alpha, droneId)
+    
+    -- Generator Slot
+    local generatorY = defenseY + slotSize + 12
+    love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha * 0.7)
+    love.graphics.printf("GENERATOR", contentX + 10, generatorY, leftPanelWidth - 20, "left")
+    self:drawEquipmentSlot("Generator Module", generatorSlots and generatorSlots.slots[1], contentX + (leftPanelWidth - slotSize) / 2, generatorY + 12, slotSize, alpha, droneId)
 
     -- RIGHT PANEL: Cargo
     local cargoX = dividerX + 5
@@ -451,7 +458,8 @@ function ShipWindow:drawEquipmentSlot(slotName, equippedItemId, x, y, width, alp
         local itemDef = self.draggedItem.itemDef
         -- Check if this item can be equipped in this slot
         if (slotName == "Turret Module" and itemDef.type == "turret") or
-           (slotName == "Defensive Module" and string.match(self.draggedItem.itemId, "shield")) then
+           (slotName == "Defensive Module" and string.match(self.draggedItem.itemId, "shield")) or
+           (slotName == "Generator Module" and itemDef.type == "generator") then
             if mx >= x and mx <= x + width and my >= y and my <= y + slotSize then
                 isDropZone = true
             end
@@ -534,6 +542,21 @@ function ShipWindow:unequipModule(slotType, itemId)
         if defensiveSlots and defensiveSlots.slots[1] == itemId and cargo then
             -- Remove from slot
             defensiveSlots.slots[1] = nil
+            -- Unequip the module
+            local ItemDefs = require('src.items.item_loader')
+            local itemDef = ItemDefs[itemId]
+            if itemDef and itemDef.module and itemDef.module.unequip then
+                itemDef.module.unequip(droneId)
+            end
+            -- Add to cargo
+            cargo.items[itemId] = (cargo.items[itemId] or 0) + 1
+        end
+    elseif slotType == "Generator Module" then
+        local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
+
+        if generatorSlots and generatorSlots.slots[1] == itemId and cargo then
+            -- Remove from slot
+            generatorSlots.slots[1] = nil
             -- Unequip the module
             local ItemDefs = require('src.items.item_loader')
             local itemDef = ItemDefs[itemId]
@@ -630,6 +653,33 @@ function ShipWindow:equipModule(itemId)
                 cargo.items[itemId] = nil
             end
         end
+    elseif itemDef.type == "generator" then
+        local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
+
+        if generatorSlots then
+            -- If there's an old module, unequip it first
+            local oldModuleId = generatorSlots.slots[1]
+            if oldModuleId then
+                cargo.items[oldModuleId] = (cargo.items[oldModuleId] or 0) + 1
+                -- Unequip the old module
+                local oldItemDef = ItemDefs[oldModuleId]
+                if oldItemDef and oldItemDef.module and oldItemDef.module.unequip then
+                    oldItemDef.module.unequip(droneId)
+                end
+            end
+
+            -- Equip the new module
+            generatorSlots.slots[1] = itemId
+            if itemDef.module and itemDef.module.equip then
+                itemDef.module.equip(droneId)
+            end
+
+            -- Remove from cargo
+            cargo.items[itemId] = cargo.items[itemId] - 1
+            if cargo.items[itemId] <= 0 then
+                cargo.items[itemId] = nil
+            end
+        end
     end
 end
 
@@ -707,7 +757,8 @@ function ShipWindow:mousereleased(x, y, button)
                     -- Check if item is valid for this slot
                     local itemDef = self.draggedItem.itemDef
                     if (slotName == "Turret Module" and itemDef.type == "turret") or
-                       (slotName == "Defensive Module" and string.match(self.draggedItem.itemId, "shield")) then
+                       (slotName == "Defensive Module" and string.match(self.draggedItem.itemId, "shield")) or
+                       (slotName == "Generator Module" and itemDef.type == "generator") then
                         -- Equip the item
                         self:equipModule(self.draggedItem.itemId)
                         equippedToSlot = true

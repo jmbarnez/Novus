@@ -61,6 +61,7 @@ return {
     turretSlots = 1,
     defaultTurret = "",
     defensiveSlots = 1,
+    generatorSlots = 1,
     cargoCapacity = 10,
 
     -- Abilities

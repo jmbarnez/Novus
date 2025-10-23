@@ -89,5 +89,38 @@ function HUDStats.drawHullShieldBar(viewportWidth, viewportHeight)
     end
 end
 
+function HUDStats.drawEnergyBar(viewportWidth, viewportHeight)
+    local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+    if #playerEntities == 0 then return end
+    local pilotId = playerEntities[1]
+    local input = ECS.getComponent(pilotId, "InputControlled")
+    if not input or not input.targetEntity then return end
+    local energy = ECS.getComponent(input.targetEntity, "Energy")
+    if not energy then return end
+    
+    local barWidth = Scaling.scaleSize(Constants.ui_health_bar_width)
+    local barHeight = Scaling.scaleSize(Constants.ui_health_bar_height)
+    local padding = Scaling.scaleSize(12)
+    local x = Scaling.scaleX(padding)
+    local y = Scaling.scaleY(padding + barHeight + 8)  -- Below hull/shield bar
+    
+    local energyRatio = math.min((energy.current or 0) / energy.max, 1.0)
+    
+    -- Draw energy bar background
+    love.graphics.setColor(0.15, 0.15, 0.2, 0.8)
+    love.graphics.rectangle("fill", x, y, barWidth, barHeight, 2, 2)
+    
+    -- Draw energy bar fill (bright yellow)
+    love.graphics.setColor(1.0, 0.9, 0.2, 0.9)
+    love.graphics.rectangle("fill", x + 1, y + 1, math.max(0, (barWidth - 2) * energyRatio), barHeight - 2, 1, 1)
+    
+    -- Draw outline
+    love.graphics.setColor(0.3, 0.3, 0.4, 0.9)
+    love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", x, y, barWidth, barHeight, 2, 2)
+    
+    love.graphics.setColor(1, 1, 1, 1)
+end
+
 return HUDStats
 

@@ -120,12 +120,25 @@ local PhysicsSystem = {
         for _, entityId in ipairs(shieldEntities) do
             local shield = ECS.getComponent(entityId, "Shield")
             if not shield then goto continue_shield end
+            
             -- Count down regen delay
             if shield.regenTimer and shield.regenTimer > 0 then
                 shield.regenTimer = shield.regenTimer - dt
             else
                 if shield.regen and shield.regen > 0 and shield.current < shield.max then
-                    shield.current = math.min(shield.max, shield.current + shield.regen * dt)
+                    -- Check if we have energy to regenerate shields
+                    local energy = ECS.getComponent(entityId, "Energy")
+                    local EnergySystem = require('src.systems.energy')
+                    
+                    if energy and EnergySystem.consume(energy, EnergySystem.CONSUMPTION.shield_regen * dt) then
+                        -- Shield regen slows down as it approaches max
+                        -- Scale factor: 1.0 at 0%, ~0.3 at 90%, ~0.1 at 99%
+                        local shieldPercent = shield.current / shield.max
+                        local slowdownFactor = 1.0 - (shieldPercent * shieldPercent * 0.9)  -- Quadratic slowdown
+                        
+                        local regenAmount = shield.regen * dt * slowdownFactor
+                        shield.current = math.min(shield.max, shield.current + regenAmount)
+                    end
                 end
             end
             ::continue_shield::

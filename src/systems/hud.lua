@@ -32,6 +32,7 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     
     -- Draw HUD elements directly to screen (no canvas, no shader effects)
     HUDStats.drawHullShieldBar(viewportWidth, viewportHeight)
+    HUDStats.drawEnergyBar(viewportWidth, viewportHeight)
     HUDSlots.drawTurretSlots(viewportWidth, viewportHeight, HUDSystem)
     if Minimap and Minimap.draw then Minimap.draw() end
     HUDStats.drawSpeedText(viewportWidth, viewportHeight)

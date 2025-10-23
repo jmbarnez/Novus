@@ -47,4 +47,13 @@ Components.DefensiveSlots = function(maxSlots)
     }
 end
 
+-- GeneratorSlots component - Holds equipped generator modules
+-- @field slots table: Array of generator module names/IDs (max 1 for drone)
+Components.GeneratorSlots = function(maxSlots)
+    return {
+        slots = {},
+        maxSlots = maxSlots or 1
+    }
+end
+
 return Components
