@@ -114,7 +114,6 @@ function GameInit.registerSystems()
     ECS.registerSystem("CrystalFormationSystem", Systems.CrystalFormationSystem)
     ECS.registerSystem("AsteroidHotspotSystem", Systems.AsteroidHotspotSystem)
     ECS.registerSystem("EnergySystem", Systems.EnergySystem)
-    ECS.registerSystem("GalaxyBackdropSystem", Systems.GalaxyBackdropSystem)
     -- NebulaCloudSystem is called explicitly from RenderSystem
 end
 
@@ -164,10 +163,6 @@ function GameInit.createCoreEntities()
     }
     local parallaxObject = Parallax.new(starLayers, 10000)
     ECS.addComponent(starFieldId, "StarField", parallaxObject)
-
-    -- Create Galaxy Backdrop Entity
-    local galaxyId = Systems.GalaxyBackdropSystem.createGalaxy(0, 0, 10000, {0.8, 0.6, 1.0, 0.3}, 0.3, 2)
-    -- Note: Galaxy backdrop is positioned at (0,0) and will be drawn relative to camera
 
     return pilotId
 end

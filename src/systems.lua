@@ -29,6 +29,5 @@ Systems.SoundSystem = require('src.systems.sound')
 Systems.WrackageSystem = require('src.systems.wreckage')
 Systems.ShieldImpactSystem = require('src.systems.shield_impact')
 Systems.EnergySystem = require('src.systems.energy')
-Systems.GalaxyBackdropSystem = require('src.systems.galaxy_backdrop')
 
 return Systems

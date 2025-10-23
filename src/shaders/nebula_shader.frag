@@ -51,11 +51,11 @@ vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) 
 
 
     // use multiple FBM layers at different frequencies to create richer shapes
-    float base = fbm(pos * (0.6 * noiseScale));
+    float baseNoise = fbm(pos * (0.6 * noiseScale));
     float mid  = fbm(pos * (1.2 * noiseScale) + vec2(12.3));
     float detail = fbm(pos * (2.6 * noiseScale) + vec2(42.7));
     // combine layers with weights to get interesting islands
-    float clouds = base * 0.6 + mid * 0.3 + detail * 0.1;
+    float clouds = baseNoise * 0.6 + mid * 0.3 + detail * 0.1;
 
     // apply contrast/threshold to carve irregular silhouettes instead of a circular blob
     // contrast pushes values away from 0.5 (higher = sharper)
@@ -70,8 +70,8 @@ vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords) 
 
     // color mixing with tint; reduce saturation slightly for distance
     // bring tint a bit closer to the original brighter blues/purples
-    vec3 base = vec3(0.85, 0.95, 1.0);
-    vec3 col = tint * base * clouds * 1.05;
+    vec3 baseColor = vec3(0.85, 0.95, 1.0);
+    vec3 col = tint * baseColor * clouds * 1.05;
     // gentle vignette to keep edges soft
     float vignette = smoothstep(0.0, 0.9, 1.0 - length(uv - 0.5) * 1.1);
     col *= mix(0.85, 1.0, vignette);

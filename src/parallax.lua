@@ -76,25 +76,35 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
     -- Lazy-load nebula shader and create nebula layers once
     if parallax.nebula.shader == nil then
         -- Attempt to load shader from src/shaders
-        local success, shader = pcall(love.graphics.newShader, 'src/shaders/nebula_shader.vert', 'src/shaders/nebula_shader.frag')
-        if success and shader then
-            parallax.nebula.shader = shader
+        local vertCode = love.filesystem.read('src/shaders/nebula_shader.vert')
+        local fragCode = love.filesystem.read('src/shaders/nebula_shader.frag')
+        
+        if vertCode and fragCode then
+            local success, shader = pcall(love.graphics.newShader, vertCode, fragCode)
+            if success and shader then
+                parallax.nebula.shader = shader
+                print("[Parallax] Nebula shader loaded successfully")
+            else
+                parallax.nebula.shader = false -- mark as unavailable
+                print("[Parallax] Failed to create nebula shader: " .. tostring(shader))
+            end
         else
             parallax.nebula.shader = false -- mark as unavailable
+            print("[Parallax] Failed to read nebula shader files - vert: " .. tostring(vertCode ~= nil) .. ", frag: " .. tostring(fragCode ~= nil))
         end
         -- Set up multiple nebula cloud layers with different parameters
         -- Nearly static, deep background layers with abundant clouds
         parallax.nebula.layers = {
             -- Very far layer 1: extremely slow, abundant small clouds
-            {speed = 0.001, scale = 3.0, tint = {0.2, 0.6, 0.9}, alpha = 0.6, offset = 0, clouds = {}, cloudCount = 18},
+            {speed = 0.001, scale = 3.0, tint = {0.4, 0.7, 1.0}, alpha = 0.8, offset = 0, clouds = {}, cloudCount = 18},
             -- Very far layer 2: extremely slow, abundant medium clouds
-            {speed = 0.0015, scale = 2.5, tint = {0.3, 0.7, 0.8}, alpha = 0.55, offset = 500, clouds = {}, cloudCount = 15},
+            {speed = 0.0015, scale = 2.5, tint = {0.5, 0.8, 0.9}, alpha = 0.75, offset = 500, clouds = {}, cloudCount = 15},
             -- Far layer: nearly static, abundant clouds
-            {speed = 0.002, scale = 2.0, tint = {0.25, 0.85, 0.5}, alpha = 0.5, offset = 1000, clouds = {}, cloudCount = 15},
+            {speed = 0.002, scale = 2.0, tint = {0.45, 0.95, 0.7}, alpha = 0.7, offset = 1000, clouds = {}, cloudCount = 15},
             -- Mid-far layer: slightly more movement, but still slow
-            {speed = 0.005, scale = 1.5, tint = {0.3, 0.9, 0.6}, alpha = 0.6, offset = 1500, clouds = {}, cloudCount = 12},
+            {speed = 0.005, scale = 1.5, tint = {0.5, 1.0, 0.8}, alpha = 0.8, offset = 1500, clouds = {}, cloudCount = 12},
             -- Mid layer: gentle movement
-            {speed = 0.01, scale = 1.2, tint = {0.35, 0.95, 0.7}, alpha = 0.65, offset = 2000, clouds = {}, cloudCount = 12}
+            {speed = 0.01, scale = 1.2, tint = {0.55, 1.0, 0.9}, alpha = 0.85, offset = 2000, clouds = {}, cloudCount = 12}
         }
         -- generate cloud blobs for each layer spread across the world
         for _, nl in ipairs(parallax.nebula.layers) do
@@ -104,13 +114,13 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
                 -- Made much smaller (reduced by ~60-70%)
                 if nl.scale and nl.scale >= 2.5 then
                     -- Very far layers: smaller clouds
-                    r = love.math.random(50, 120) * (nl.scale or 1.0)
+                    r = love.math.random(250, 420) * (nl.scale or 1.0)
                 elseif nl.scale and nl.scale >= 1.5 then
                     -- Mid-far layers: medium clouds
-                    r = love.math.random(80, 160) * (nl.scale or 1.0)
+                    r = love.math.random(280, 460) * (nl.scale or 1.0)
                 else
                     -- Closer layers: larger clouds
-                    r = love.math.random(120, 240) * (nl.scale or 1.0)
+                    r = love.math.random(320, 540) * (nl.scale or 1.0)
                 end
                 
                 -- Spawn clouds in range centered around origin for better visibility
@@ -124,6 +134,13 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
                     radius = r
                 })
             end
+        end
+        if not _G.nebulaInitialized then
+            print("[Parallax] Initialized " .. #parallax.nebula.layers .. " nebula layers")
+            for i, nl in ipairs(parallax.nebula.layers) do
+                print(string.format("[Parallax] Layer %d: %d clouds", i, #nl.clouds))
+            end
+            _G.nebulaInitialized = true
         end
     end
 
@@ -149,30 +166,32 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
             love.graphics.setColor(1,1,1, nl.alpha)
             -- Draw each cloud blob in the layer as a quad centered at cloud position
             for _, cloud in ipairs(nl.clouds) do
-                -- compute world position adjusted by parallax speed, properly handling negative coordinates
-                local adjustedX = cloud.x - cameraX * nl.speed
-                local adjustedY = cloud.y - cameraY * nl.speed
+                -- Compute screen position (like stars do)
+                local offsetX = cameraX * nl.speed
+                local offsetY = cameraY * nl.speed
+                local screenX = cloud.x - offsetX
+                local screenY = cloud.y - offsetY
                 
                 -- Wrap coordinates to keep them in visible range
-                local worldX = adjustedX % parallax.worldSize
-                if worldX < 0 then worldX = worldX + parallax.worldSize end
-                if worldX > parallax.worldSize then worldX = worldX - parallax.worldSize end
+                screenX = screenX % parallax.worldSize
+                if screenX < 0 then screenX = screenX + parallax.worldSize end
+                if screenX > parallax.worldSize then screenX = screenX - parallax.worldSize end
                 
-                local worldY = adjustedY % parallax.worldSize
-                if worldY < 0 then worldY = worldY + parallax.worldSize end
-                if worldY > parallax.worldSize then worldY = worldY - parallax.worldSize end
+                screenY = screenY % parallax.worldSize
+                if screenY < 0 then screenY = screenY + parallax.worldSize end
+                if screenY > parallax.worldSize then screenY = screenY - parallax.worldSize end
 
                 -- send cloud center (in canvas pixel space) and scale/radius
                 if shader and shader.send then
-                    shader:send('center', {worldX, worldY})
+                    shader:send('center', {screenX, screenY})
                     shader:send('cloudScale', cloud.radius)
                     -- small offset to move pattern slightly per-layer
                     shader:send('offset', {( -cameraX * nl.speed + nl.offset ) , ( -cameraY * nl.speed + nl.offset )})
                 end
 
-                -- draw quad covering the cloud radius
-                local left = worldX - cloud.radius
-                local top = worldY - cloud.radius
+                -- draw quad covering the cloud radius at screen coordinates
+                local left = screenX - cloud.radius
+                local top = screenY - cloud.radius
                 love.graphics.rectangle('fill', left, top, cloud.radius * 2, cloud.radius * 2)
             end
             love.graphics.setShader()
