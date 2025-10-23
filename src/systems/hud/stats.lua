@@ -80,12 +80,15 @@ function HUDStats.drawHullShieldBar(viewportWidth, viewportHeight)
     local x = Scaling.scaleX(padding)
     local y = Scaling.scaleY(padding)
 
+    -- Draw hull bar first (at top)
     local hullRatio = math.min((hull.current or 0) / hull.max, 1.0)
     PlasmaTheme.drawHealthBar(x, y, barWidth, barHeight, hullRatio, false)
     
+    -- Draw shield bar below hull bar (if exists)
     if shield and shield.max > 0 then
         local sRatio = math.min((shield.current or 0) / shield.max, 1.0)
-        PlasmaTheme.drawHealthBar(x, y, barWidth, barHeight, sRatio, true)
+        local shieldY = y + barHeight + 4  -- Offset below hull bar
+        PlasmaTheme.drawHealthBar(x, shieldY, barWidth, barHeight, sRatio, true)
     end
 end
 
@@ -102,7 +105,11 @@ function HUDStats.drawEnergyBar(viewportWidth, viewportHeight)
     local barHeight = Scaling.scaleSize(Constants.ui_health_bar_height)
     local padding = Scaling.scaleSize(12)
     local x = Scaling.scaleX(padding)
-    local y = Scaling.scaleY(padding + barHeight + 8)  -- Below hull/shield bar
+    
+    -- Position below hull/shield bars (accounting for both bars if shield exists)
+    local shield = ECS.getComponent(input.targetEntity, "Shield")
+    local offset = shield and shield.max > 0 and (barHeight * 2 + 8) or (barHeight + 4)
+    local y = Scaling.scaleY(padding + offset)
     
     local energyRatio = math.min((energy.current or 0) / energy.max, 1.0)
     

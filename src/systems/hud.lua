@@ -38,14 +38,11 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     HUDStats.drawSpeedText(viewportWidth, viewportHeight)
     HUDStats.drawFpsCounter(viewportWidth, viewportHeight)
     
-    -- Notifications & skills (drawn every other frame for fade)
-    local frameSkip = math.floor(love.timer.getTime() * 30)
-    if frameSkip % 2 == 0 then
-        local Notifications = require('src.ui.notifications')
-        local SkillNotifications = require('src.ui.skill_notifications')
-        Notifications.draw(0, 0, 1)
-        SkillNotifications.draw()
-    end
+    -- Notifications & skills
+    local Notifications = require('src.ui.notifications')
+    local SkillNotifications = require('src.ui.skill_notifications')
+    Notifications.draw(0, 0, 1)
+    SkillNotifications.draw()
     
     -- Draw overlays (targeting indicator/crosshair/tooltips)
     HUDTargeting.drawTargetingPanel(viewportWidth, viewportHeight)
