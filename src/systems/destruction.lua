@@ -62,6 +62,18 @@ function DestructionSystem.spawnItems(x, y, params)
                 ECS.addComponent(itemId, "Stack", Components.Stack(quantity))
                 ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
                 ECS.addComponent(itemId, "Collidable", Components.Collidable(8))
+                -- Add polygon shape if supported by item
+                if itemDef.design and (itemDef.design.shape == "polygon" or itemDef.design.shape == "custom") then
+                    local sz = (itemDef.design.size or 12)
+                    -- Use a diamond/square polygon for universal fallback
+                    local verts = {
+                        {x = 0, y = -sz/2},
+                        {x = sz/2, y = 0},
+                        {x = 0, y = sz/2},
+                        {x = -sz/2, y = 0}
+                    }
+                    ECS.addComponent(itemId, "PolygonShape", Components.PolygonShape(verts, 0))
+                end
             end
         end
     else
@@ -91,6 +103,18 @@ function DestructionSystem.spawnItems(x, y, params)
                 ECS.addComponent(itemId, "Stack", Components.Stack(1))
                 ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
                 ECS.addComponent(itemId, "Collidable", Components.Collidable(8))
+                -- Add polygon shape if supported by item
+                if itemDef.design and (itemDef.design.shape == "polygon" or itemDef.design.shape == "custom") then
+                    local sz = (itemDef.design.size or 12)
+                    -- Use a diamond/square polygon for universal fallback
+                    local verts = {
+                        {x = 0, y = -sz/2},
+                        {x = sz/2, y = 0},
+                        {x = 0, y = sz/2},
+                        {x = -sz/2, y = 0}
+                    }
+                    ECS.addComponent(itemId, "PolygonShape", Components.PolygonShape(verts, 0))
+                end
             end
         end
     end

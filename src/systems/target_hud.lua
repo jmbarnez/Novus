@@ -44,12 +44,14 @@ function TargetHUD.update()
     
     for _, itemId in ipairs(items) do
         local position = ECS.getComponent(itemId, "Position")
+        local collidable = ECS.getComponent(itemId, "Collidable")
         if position then
             local dx = worldX - position.x
             local dy = worldY - position.y
             local dist = math.sqrt(dx * dx + dy * dy)
-            
-            if dist < TargetHUD.hoverRadius and dist < closestItemDist then
+            -- Use bounding radius for hover detection (sufficient for most cases)
+            local hoverRadius = (collidable and collidable.radius or 20) + 16 -- extra fudge room
+            if dist < hoverRadius and dist < closestItemDist then
                 closestItemDist = dist
                 closestItem = itemId
             end
@@ -135,11 +137,29 @@ function TargetHUD.drawWorldIndicator()
     -- Draw indicator for hovered item
     if TargetHUD.hoveredItem then
         local position = ECS.getComponent(TargetHUD.hoveredItem, "Position")
+        local collidable = ECS.getComponent(TargetHUD.hoveredItem, "Collidable")
+        local polygonShape = ECS.getComponent(TargetHUD.hoveredItem, "PolygonShape")
         if position then
-            -- Draw circle around hovered item
             love.graphics.setColor(cyanColor[1], cyanColor[2], cyanColor[3], 0.6)
             love.graphics.setLineWidth(2)
-            love.graphics.circle("line", position.x, position.y, 20)
+            if polygonShape and polygonShape.vertices then
+                -- Polygonal highlight
+                local flatVertices = {}
+                for i = 1, #polygonShape.vertices do
+                    local v = polygonShape.vertices[i]
+                    table.insert(flatVertices, v.x)
+                    table.insert(flatVertices, v.y)
+                end
+                local rotation = polygonShape.rotation or 0
+                love.graphics.push()
+                love.graphics.translate(position.x, position.y)
+                love.graphics.rotate(rotation)
+                love.graphics.polygon("line", flatVertices)
+                love.graphics.pop()
+            else
+                -- Fallback: circle
+                love.graphics.circle("line", position.x, position.y, (collidable and collidable.radius) or 20)
+            end
             love.graphics.setLineWidth(1)
         end
     end

@@ -2,6 +2,7 @@
 
 local ECS = require('src.ecs')
 local PlasmaTheme = require('src.ui.plasma_theme')
+local RenderEffects = require('src.systems.render.effects')
 
 -- Resolve layered colors from a design-like table or fallback to simple color array
 local function resolveColors(colorSpec)
@@ -58,21 +59,18 @@ end
 -- Helper function to draw a polygon shape
 local function drawPolygon(x, y, polygonShape, color, texture)
     local vertices = polygonShape.vertices
-    local rotation = polygonShape.rotation
+    -- local rotation = polygonShape.rotation  -- NO per-vertex rotation here!
     if not polygonShape or not color then return end
-    
+
     local colors = resolveColors(color)
     if not vertices or #vertices < 3 then return end
 
     local worldVertices = {}
     for i = 1, #vertices do
         local v = vertices[i]
-        local cos = math.cos(rotation)
-        local sin = math.sin(rotation)
-        local rotatedX = v.x * cos - v.y * sin
-        local rotatedY = v.x * sin + v.y * cos
-        table.insert(worldVertices, x + rotatedX)
-        table.insert(worldVertices, y + rotatedY)
+        -- Just add x and y, NO rotation (handle in parent love.graphics.rotate context)
+        table.insert(worldVertices, x + v.x)
+        table.insert(worldVertices, y + v.y)
     end
 
     -- Draw main hull (stripes)
@@ -101,11 +99,11 @@ local function drawPolygon(x, y, polygonShape, color, texture)
     love.graphics.setColor(0, 0, 0, colors.stripes[4])
     love.graphics.setLineWidth(4)
     love.graphics.polygon("line", worldVertices)
-    
+
     love.graphics.setColor(colors.stripes[1] * 0.3, colors.stripes[2] * 0.3, colors.stripes[3] * 0.3, colors.stripes[4])
     love.graphics.setLineWidth(2)
     love.graphics.polygon("line", worldVertices)
-    
+
     love.graphics.setLineWidth(1)
 end
 
@@ -242,6 +240,42 @@ function RenderEntities.drawItems(cullingCameraPos, cullingCamera)
         ::continue_entity::
     end
     
+    -- Draw main entities first so effects appear above
+    RenderEffects.drawWarpGates()
+
+    -- Draw tooltips above any warp gates if the player is nearby
+    local ECS = require('src.ecs')
+    local playerShips = ECS.getEntitiesWith({"Player", "Position"})
+    if #playerShips > 0 then
+        local playerPos = ECS.getComponent(playerShips[1], "Position")
+        local gateEntities = ECS.getEntitiesWith({"WarpGate", "Position", "Collidable"})
+        for _, gateId in ipairs(gateEntities) do
+            local gPos = ECS.getComponent(gateId, "Position")
+            local gColl = ECS.getComponent(gateId, "Collidable")
+            local gComp = ECS.getComponent(gateId, "WarpGate")
+            local gx, gy, gr = gPos.x, gPos.y, gColl.radius or 80
+            local dist = math.sqrt((gx - playerPos.x)^2 + (gy - playerPos.y)^2)
+            if dist < 200 then
+                local msg = gComp and not gComp.active and "Warp Gate offline - Approach and repair." or "Warp Gate operational - Ready to activate."
+                local font = love.graphics.newFont(18)
+                love.graphics.setFont(font)
+                local tw = font:getWidth(msg)
+                local th = font:getHeight()
+                local boxW = tw + 32
+                local boxH = th + 16
+                local bx = gx - boxW/2
+                local by = gy - gr - boxH - 10
+                love.graphics.setColor(0,0,0,0.73)
+                love.graphics.rectangle("fill", bx, by, boxW, boxH, 12,12)
+                love.graphics.setColor(0.98,0.98,1,0.9)
+                love.graphics.setLineWidth(2)
+                love.graphics.rectangle("line", bx, by, boxW, boxH, 12,12)
+                love.graphics.setColor(1, 0.82, 0.20, 0.70)
+                love.graphics.print(msg, gx - tw/2, by + (boxH-th)/2)
+                love.graphics.setColor(1,1,1,1)
+            end
+        end
+    end
     return renderedItems, culledItems
 end
 

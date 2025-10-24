@@ -45,7 +45,7 @@ return {
     
     enemies = {
         types = {
-            ["red_scout"] = 2
+            ["red_scout"] = 5
         },
         weapons = {
             ["red_scout"] = "mining_laser"

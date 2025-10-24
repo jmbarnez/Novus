@@ -78,6 +78,16 @@ function WorldLoader.initWorld(worldId)
         WorldLoader.spawnEnemies(world.enemies)
     end
     
+    -- Spawn warp gate at left boundary (visible in every world; use for demo)
+    local gateX = Constants.world_min_x + 120
+    local gateY = 0
+    local gateComponents = require('src.procedural').generateEntity('warp_gate', {x = gateX, y = gateY, active = false})
+    local ecs = require('src.ecs')
+    local gateId = ecs.createEntity()
+    for componentType, componentData in pairs(gateComponents) do
+        ecs.addComponent(gateId, componentType, componentData)
+    end
+    
     print(string.format("[WorldLoader] Initialized world: %s - %s", world.name, world.description))
 end
 

@@ -229,6 +229,19 @@ function Procedural.registerAsteroidTemplate()
     end)
 end
 
+-- Register warp gate template
+Procedural.registerTemplate("warp_gate", function(spawnData)
+    local x = spawnData.x or 0
+    local y = spawnData.y or 0
+    local active = (spawnData.warpGateData and spawnData.warpGateData.active) or spawnData.active or false
+    return {
+        Position = Components.Position(x, y),
+        Renderable = Components.Renderable("circle", nil, nil, 80, active and {0.2, 0.5, 1, 0.28} or {0.88,0.18,0.18,0.28}),
+        Collidable = Components.Collidable(80),
+        WarpGate = Components.WarpGate({active=active, destination = spawnData.destination}),
+    }
+end)
+
 -- Initialize all default templates
 function Procedural.init()
     Procedural.registerAsteroidTemplate()
