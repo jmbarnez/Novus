@@ -411,9 +411,8 @@ function ShipWindow:drawCargoGrid(cargoItems, x, y, width, height, alpha)
             
             if isHoveringSlot then
                 self.hoveredItemSlot = {itemId = itemId, itemDef = itemDef, count = count, mouseX = mx, mouseY = my, slotIndex = i}
-                -- Highlight on hover
-                local color = (itemDef.module and itemDef.module.design and itemDef.module.design.color) or (itemDef.design and itemDef.design.color) or {0.7, 0.7, 0.8, 1}
-                love.graphics.setColor(color[1] * 1.5, color[2] * 1.5, color[3] * 1.5, 0.3 * alpha)
+                -- Highlight always gray
+                love.graphics.setColor(Theme.colors.bgLight[1], Theme.colors.bgLight[2], Theme.colors.bgLight[3], 0.32 * alpha)
                 love.graphics.rectangle("fill", slotX, slotY, slotSize, slotSize, 4, 4)
             end
             

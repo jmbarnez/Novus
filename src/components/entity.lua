@@ -123,4 +123,14 @@ Components.Skills = function()
     }
 end
 
+-- StationDetails component - Pure data for modular station rendering
+Components.StationDetails = function(details)
+    return details or {}
+end
+
+-- Optional: StationLabel text
+Components.StationLabel = function(text)
+    return text or nil
+end
+
 return Components

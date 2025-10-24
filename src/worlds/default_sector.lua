@@ -49,6 +49,26 @@ return {
         salvageEnabled = true,
         miningEnabled = true,
         combatEnabled = true
+    },
+    
+    -- Stations (custom static objects)
+    stations = {
+        {
+            x = -1800, y = 0, size = 100, mass = 1200,
+            color = {0.79, 0.85, 1, 1},
+            detail = {
+                habitatRing = { radius = 60, color = {0.6, 0.6, 0.7, 1} },
+                solarPanels = {
+                    count = 4,
+                    radius = 130,
+                    width = 50,
+                    height = 16,
+                    color = {0.2, 0.7, 1, 0.38}
+                },
+                core = { radius = 35, color = {0.98,0.98,1,0.37} }
+            },
+            label = "Orion Port"
+        }
     }
 }
 

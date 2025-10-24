@@ -10,6 +10,7 @@ local HUDBars = require('src.systems.hud.bars')
 local Minimap = require('src.systems.minimap')
 local Tooltips = require('src.ui.tooltips')
 local TargetHUD = require('src.systems.target_hud')
+local ConstructionButton = require('src.ui.construction_button')
 
 local HUDSystem = {
     name = "HUDSystem",
@@ -62,6 +63,8 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
             slot.mouseY
         )
     end
+    -- Always-on ConstructionButton (HUD layer)
+    ConstructionButton.draw(viewportWidth, viewportHeight)
 end
 
 return HUDSystem

@@ -108,6 +108,30 @@ local function drawPolygon(x, y, polygonShape, color, texture)
     love.graphics.setLineWidth(1)
 end
 
+local function drawDecorativeParts(parts)
+    for _, part in ipairs(parts or {}) do
+        love.graphics.push()
+        if part.x or part.y then
+            love.graphics.translate(part.x or 0, part.y or 0)
+        end
+        if part.rot or part.angle then
+            love.graphics.rotate(part.rot or part.angle)
+        end
+        love.graphics.setColor((part.color or {1,1,1,1}))
+        if part.type == "circle" then
+            love.graphics.circle("fill", 0, 0, part.radius or 10)
+        elseif part.type == "ring" then
+            love.graphics.setLineWidth(part.width or 8)
+            love.graphics.circle("line", 0, 0, part.radius or 12)
+            love.graphics.setLineWidth(1)
+        elseif part.type == "rect" then
+            local w, h = part.width or 20, part.height or 12
+            love.graphics.rectangle("fill", -(w/2), -(h/2), w, h)
+        end
+        love.graphics.pop()
+    end
+end
+
 local RenderEntities = {}
 
 function RenderEntities.drawItems(cullingCameraPos, cullingCamera)
@@ -211,13 +235,13 @@ function RenderEntities.drawItems(cullingCameraPos, cullingCamera)
                             goto continue_entity
                         end
                     end
-
                     local controlledBy = ECS.getComponent(entityId, "ControlledBy")
                     local isPlayerDrone = false
                     if controlledBy and controlledBy.pilotId and ECS.hasComponent(controlledBy.pilotId, "Player") then
                         isPlayerDrone = true
                     end
                     local isShip = ECS.hasComponent(entityId, "Hull")
+                    local isStation = ECS.hasComponent(entityId, "StationDetails")
                     if isPlayerDrone then
                         local playerRotation = polygonShape.rotation or 0
                         love.graphics.push()
@@ -232,6 +256,21 @@ function RenderEntities.drawItems(cullingCameraPos, cullingCamera)
                         love.graphics.rotate(enemyRotation)
                         drawPolygon(0, 0, polygonShape, renderable.color, renderable.texture)
                         love.graphics.pop()
+                    elseif isStation then
+                        -- Draw hull, then modular parts for decorative station
+                        love.graphics.push()
+                        love.graphics.translate(position.x, position.y)
+                        drawPolygon(0, 0, polygonShape, renderable.color, renderable.texture)
+                        local details = ECS.getComponent(entityId, "StationDetails")
+                        if details then
+                            drawDecorativeParts(details)
+                        end
+                        love.graphics.pop()
+                        local label = ECS.getComponent(entityId, "StationLabel")
+                        if label and label[1] then
+                            love.graphics.setColor(1, 1, 1, 0.85)
+                            love.graphics.print(label[1], position.x-40, position.y-14, 0, 1.2, 1.2)
+                        end
                     else
                         drawPolygon(position.x, position.y, polygonShape, renderable.color, renderable.texture)
                     end

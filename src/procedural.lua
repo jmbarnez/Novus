@@ -248,6 +248,80 @@ Procedural.registerTemplate("warp_gate", function(spawnData)
     }
 end)
 
+-- Register station template
+Procedural.registerTemplate("station", function(spawnData)
+    local x = spawnData.x or 0
+    local y = spawnData.y or 0
+    local size = spawnData.size or 120 -- Large space station radius
+    local mass = spawnData.mass or 1500
+    local color = spawnData.color or {0.8, 0.8, 0.95, 1} -- Pale blue-gray
+    local label = spawnData.label -- for on-map station names
+    
+    local detail = spawnData.detail or {}
+    
+    -- Octagonal hull
+    local function regularPolygon(sides, radius)
+        local verts = {}
+        local angleStep = (2 * math.pi) / sides
+        for i = 1, sides do
+            local angle = (i-1) * angleStep
+            table.insert(verts, {x = math.cos(angle) * radius, y = math.sin(angle) * radius})
+        end
+        return verts
+    end
+    local verts = regularPolygon(8, size)
+    local inertia = Components.calculatePolygonInertia(verts, mass)
+    
+    -- Compose details for rendering system
+    local drawDetails = {}
+    -- Habitat ring (no physics, just visual)
+    if detail.habitatRing then
+        table.insert(drawDetails, {
+            type = "ring",
+            radius = detail.habitatRing.radius,
+            color = detail.habitatRing.color or {0.7,0.7,1,0.16},
+            width = 12
+        })
+    end
+    -- Solar panels (visual only, no physics)
+    if detail.solarPanels then
+        local c = detail.solarPanels.count or 4
+        local angleStep = 2*math.pi/c
+        for i = 1, c do
+            local angle = (i-1)*angleStep
+            table.insert(drawDetails, {
+                type = "rect",
+                x = math.cos(angle)*(detail.solarPanels.radius or size+40),
+                y = math.sin(angle)*(detail.solarPanels.radius or size+40),
+                width = detail.solarPanels.width or 50,
+                height = detail.solarPanels.height or 12,
+                rot = angle,
+                color = detail.solarPanels.color or {0.2,0.7,1,0.28}
+            })
+        end
+    end
+    -- Station core glow (visual only)
+    if detail.core then
+        table.insert(drawDetails, {
+            type = "circle",
+            radius = detail.core.radius or (size*0.28),
+            color = detail.core.color or {1,1,1,0.25}
+        })
+    end
+    -- Only the main base polygon/shape gets physics, collidable, etc!
+    return {
+        Position = Components.Position(x, y),
+        Velocity = Components.Velocity(0, 0),  -- Static station with zero velocity
+        Physics = Components.Physics(0.995, mass, 0.999),
+        PolygonShape = Components.PolygonShape(verts, 0),
+        RotationalMass = Components.RotationalMass(inertia),
+        Collidable = Components.Collidable(size),
+        Renderable = Components.Renderable("polygon", nil, nil, nil, color),
+        StationDetails = drawDetails,
+        StationLabel = label and {label} or nil,
+    }
+end)
+
 -- Initialize all default templates
 function Procedural.init()
     Procedural.registerAsteroidTemplate()

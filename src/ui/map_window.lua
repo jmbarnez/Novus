@@ -216,6 +216,29 @@ function MapWindow:draw(viewportWidth, viewportHeight)
     love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
     love.graphics.setFont(Theme.getFontBold(Theme.fonts.title))
     love.graphics.printf("Map", x + 8, y + 4, w - 16, 'left')
+
+    -- Draw stations (as green polygons for clarity)
+    local stations = ECS.getEntitiesWith({'StationDetails', 'Position', 'PolygonShape'})
+    love.graphics.setColor(0.15, 1, 0.35, 1 * alpha)
+    for _, id in ipairs(stations) do
+        local pos = ECS.getComponent(id, 'Position')
+        local poly = ECS.getComponent(id, 'PolygonShape')
+        if pos and poly and poly.vertices then
+            local mx, my = worldToMap(pos.x, pos.y)
+            -- Only draw if inside map rectangle
+            if mx >= mapX and mx <= mapX + mapW and my >= mapY and my <= mapY + mapH then
+                local verts = {}
+                local rot = poly.rotation or 0
+                for _, v in ipairs(poly.vertices) do
+                    local px = v.x * math.cos(rot) - v.y * math.sin(rot)
+                    local py = v.x * math.sin(rot) + v.y * math.cos(rot)
+                    table.insert(verts, mx + px * scale)
+                    table.insert(verts, my + py * scale)
+                end
+                love.graphics.polygon('fill', verts)
+            end
+        end
+    end
 end
 
 -- Input handling for panning

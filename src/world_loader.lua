@@ -88,6 +88,55 @@ function WorldLoader.initWorld(worldId)
         ecs.addComponent(gateId, componentType, componentData)
     end
     
+    -- Spawn stations if specified in world
+    if world.stations then
+        -- Gather exclusion zones from asteroid clusters and enemies
+        local exclusionCenters = {}
+        -- Asteroid clusters
+        if world.asteroidClusters and world.asteroidClusters.clusters then
+            for _, cluster in ipairs(world.asteroidClusters.clusters) do
+                table.insert(exclusionCenters, {x = cluster.x, y = cluster.y})
+            end
+        end
+        -- Enemy types (only for their spawn center, doesn't guarantee min distance after movement)
+        if world.enemies and world.enemies.types then
+            -- enemies don't have fixed spawn, but we can avoid cluster areas again for simplicity
+            -- Optionally, check known enemy spawn points here if available
+        end
+        -- Attempt to spawn station with no other object too close
+        local maxAttempts = 40
+        local attempts = 0
+        local minDistance = 350
+        local placed = false
+        local stationDef = world.stations[1]  -- Only one station for now
+        local x, y
+        while attempts < maxAttempts and not placed do
+            attempts = attempts + 1
+            x = Constants.world_min_x + math.random() * (Constants.world_max_x - Constants.world_min_x)
+            y = Constants.world_min_y + math.random() * (Constants.world_max_y - Constants.world_min_y)
+            placed = true
+            for _, obj in ipairs(exclusionCenters) do
+                local dx, dy = x - obj.x, y - obj.y
+                if math.sqrt(dx*dx + dy*dy) < minDistance then
+                    placed = false
+                    break
+                end
+            end
+        end
+        if placed then
+            stationDef.x, stationDef.y = x, y
+        else
+            -- fallback: just in the center
+            stationDef.x, stationDef.y = 0, 0
+        end
+        local stationComponents = require('src.procedural').generateEntity('station', stationDef)
+        local ecs = require('src.ecs')
+        local stationId = ecs.createEntity()
+        for compType, compData in pairs(stationComponents) do
+            ecs.addComponent(stationId, compType, compData)
+        end
+    end
+    
     print(string.format("[WorldLoader] Initialized world: %s - %s", world.name, world.description))
 end
 

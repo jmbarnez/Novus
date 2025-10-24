@@ -13,6 +13,7 @@ local Notifications = require('src.ui.notifications')
 local Scaling = require('src.scaling')
 local SettingsWindow = require('src.ui.settings_window')
 local DeathOverlay = require('src.ui.death_overlay')
+local ConstructionButton = require('src.ui.construction_button')
 -- Hotbar removed
 -- CargoWindow removed - now integrated into ShipWindow
 -- SkillsWindow removed - now a panel within ShipWindow
@@ -228,6 +229,9 @@ function UISystem.draw(viewportWidth, viewportHeight)
         )
     end
 
+    -- Remove or comment out:
+    -- ConstructionButton.draw(viewportWidth, viewportHeight)
+
     return false
 end
 
@@ -276,6 +280,12 @@ function UISystem.mousepressed(x, y, button)
     end
     -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale)
     local mx, my = Scaling.toUI(x, y)
+    -- Check construction button (screen-space, not UI-space)
+    if ConstructionButton.checkPressed(x, y, button) then
+        print("Construction button pressed! (TODO: implement construction interface)")
+        UISystem.captureMouse()
+        return true
+    end
 
     -- Check focused window first (if it exists and is open)
     if focusedWindow and interactiveMap[focusedWindow] then
