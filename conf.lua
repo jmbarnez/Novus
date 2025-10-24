@@ -1,6 +1,6 @@
 ---@diagnostic disable: undefined-global
 function love.conf(t)
-    t.title = "Space Drone Adventure"
+    t.title = "NOVUS"
     t.version = "11.3"
     t.console = true
     

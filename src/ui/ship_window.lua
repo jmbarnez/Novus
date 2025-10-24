@@ -400,10 +400,7 @@ function ShipWindow:drawCargoGrid(cargoItems, x, y, width, height, alpha)
             local slotX = x + col * (slotSize + padding)
             local slotY = y + row * (slotSize + padding)
 
-            -- Check if slot is visible in available height
-            if slotY + slotSize > y + height then
-                break -- Simple clipping for now
-            end
+            -- Removed clipping: allow drawing all items, even if they overflow
 
             -- Draw slot background
             love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.8)
@@ -428,7 +425,7 @@ function ShipWindow:drawCargoGrid(cargoItems, x, y, width, height, alpha)
             love.graphics.push()
             love.graphics.translate(slotX + slotSize / 2, slotY + slotSize / 2)
             love.graphics.scale(1, 1)
-            if itemDef.module and itemDef.module.draw then
+            if type(itemDef.module) == "table" and itemDef.module.draw then
                 love.graphics.setColor(1, 1, 1, alpha)
                 itemDef.module.draw(itemDef.module, 0, 0)
             elseif itemDef.draw then

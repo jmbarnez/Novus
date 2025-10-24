@@ -1,9 +1,9 @@
 @echo off
-REM Space Drone Adventure - Developer Runner
+REM NOVUS - Developer Runner
 REM Quickly launches the game from the current project folder
 
 echo.
-echo === Space Drone Adventure - Developer Mode ===
+echo === NOVUS - Developer Mode ===
 echo.
 
 REM Check if we're in the right directory
@@ -72,7 +72,7 @@ exit /b 1
 
 :run_game
 echo.
-echo [*] Launching Space Drone Adventure in developer mode...
+echo [*] Launching NOVUS in developer mode...
 echo.
 
 REM Run the game

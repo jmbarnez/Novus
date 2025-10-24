@@ -1,5 +1,5 @@
 @echo off
-REM Space Drone Adventure - Minimal Build Script
+REM NOVUS - Minimal Build Script
 REM Builds a .love (LÖVE) package of the game
 
 setlocal enabledelayedexpansion

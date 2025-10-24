@@ -116,36 +116,50 @@ function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
     local slotSize = Theme.spacing.slotSize  -- Cargo slot size
     local padding = Theme.spacing.iconGridPadding
     local gridTop = windowY + Theme.window.topBarHeight + padding
-    local availableWidth = self.width - padding * 2
-    local cols = math.max(1, math.floor(availableWidth / (slotSize + padding)))
+    local bottomBarH = Theme.window.bottomBarHeight
+
+    -- Compute available vertical space (account for top and bottom bars)
+    local availableHeight = self.height - Theme.window.topBarHeight - bottomBarH - padding * 2
+    local labelHeight = 14 -- approximate label height in pixels (small font)
+    local cellHeight = slotSize + padding + labelHeight
+
+    -- Collect and sort item keys for deterministic layout
+    local ItemDefs = require('src.items.item_loader')
+    local itemKeys = {}
+    for itemId, _ in pairs(cargo.items) do table.insert(itemKeys, itemId) end
+    table.sort(itemKeys)
+    local totalItems = #itemKeys
+
+    -- Determine how many rows fit vertically, then compute columns needed
+    local maxRows = math.max(1, math.floor(availableHeight / cellHeight))
+    local cols = math.max(1, math.ceil(totalItems / maxRows))
 
     local mx, my = Scaling.toUI(love.mouse.getPosition())
     self.hoveredItemSlot = nil
 
-    local ItemDefs = require('src.items.item_loader')
     local i = 0
-
-    -- Grid starts from the left edge
     local gridLeftX = windowX + padding
-    
-    for itemId, count in pairs(cargo.items) do
-        local row = math.floor(i / cols)
-        local col = i % cols
+
+    for _, itemId in ipairs(itemKeys) do
+        local count = cargo.items[itemId]
+        -- Layout column-first so rows fill vertically and nothing gets clipped
+        local col = math.floor(i / maxRows)
+        local row = i % maxRows
         local iconX = gridLeftX + padding + col * (slotSize + padding)
-        local iconY = gridTop + row * (slotSize + padding)
+        local iconY = gridTop + row * (slotSize + padding + labelHeight)
         love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-        
+
         local uiIconX, uiIconY = iconX, iconY
         local uiIconSize = slotSize
-        
+
         local isHovering = mx >= uiIconX and mx <= uiIconX + uiIconSize and my >= uiIconY and my <= uiIconY + uiIconSize
-        
+
         local itemDef = ItemDefs[itemId]
         local TurretModule = nil
         if itemDef and itemDef.type == "turret" and itemDef.module then
             TurretModule = itemDef.module
         end
-        
+
         if isHovering then
             self.hoveredItemSlot = {itemId = itemId, itemDef = itemDef, count = count, mouseX = mx, mouseY = my, slotIndex = i}
             -- Draw hover highlight
@@ -153,7 +167,7 @@ function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
             love.graphics.setColor(color[1] * 1.5, color[2] * 1.5, color[3] * 1.5, 0.3 * alpha)
             love.graphics.rectangle("fill", iconX, iconY, slotSize, slotSize, 4, 4)
         end
-        
+
         -- Draw item using its draw method, scaled to slot size
         love.graphics.push()
         love.graphics.translate(iconX + slotSize / 2, iconY + slotSize / 2)
@@ -170,13 +184,19 @@ function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
             love.graphics.circle("fill", 0, 0, slotSize / 4)
         end
         love.graphics.pop()
-        
+
+        -- Draw item name for clarity (helps finding new items like railgun)
+        love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+        love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+        local label = (itemDef and itemDef.name) or tostring(itemId)
+        love.graphics.printf(label, iconX, iconY + slotSize + 4, slotSize, "center")
+
         if count > 1 then
             love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
             love.graphics.setFont(Theme.getFont(Theme.fonts.small))
             love.graphics.printf(tostring(count), iconX, iconY + slotSize - 8, slotSize, "center")
         end
-        
+
         i = i + 1
     end
 end

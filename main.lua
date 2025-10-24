@@ -1,5 +1,5 @@
 ---@diagnostic disable: undefined-global
--- Space Drone Adventure - Love2D Entry Point
+-- NOVUS - Love2D Entry Point
 -- Minimal Love2D main file that delegates to core game logic
 
 local Core = require('src.core')

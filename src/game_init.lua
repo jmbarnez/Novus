@@ -198,11 +198,20 @@ function GameInit.setupPlayerShip(pilotId)
     if shipCargo then
         shipCargo.items[miningLaserId] = 1
         shipCargo.items[basicCannonId] = 1
+    shipCargo.items["railgun"] = 1 -- Add a railgun to starter cargo (powerful but slow)
         shipCargo.items[combatLaserId] = 1
         shipCargo.items[salvageLaserId] = 1
         shipCargo.items[missileLauncherId] = 1
         shipCargo.items["basic_shield_module"] = 1  -- Add starting defensive module
         shipCargo.items["basic_generator"] = 1  -- Add starting generator module
+    end
+
+    -- Debug: print starter cargo contents so we can verify item addition at runtime
+    if shipCargo then
+        print("[GameInit] Starter ship cargo contents:")
+        for id, count in pairs(shipCargo.items) do
+            print(string.format("  - %s: %d", tostring(id), tonumber(count) or 0))
+        end
     end
     
     -- Equip default turret on the drone (Basic Cannon!)
@@ -347,7 +356,7 @@ end
 
 -- Main initialization function
 function GameInit.init()
-    print("=== Space Drone Adventure Loading ===")
+    print("=== NOVUS Loading ===")
     Scaling.update()
     
     -- Initialize shader manager

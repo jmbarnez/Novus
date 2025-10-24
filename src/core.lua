@@ -1,5 +1,5 @@
 ---@diagnostic disable: undefined-global
--- Space Drone Adventure - Core Game Logic
+-- NOVUS - Core Game Logic
 -- Coordinates game initialization, update loop, and input handling
 
 local Core = {}
@@ -63,7 +63,7 @@ end
 
 -- Game cleanup - completely reset all game state
 function Core.quit()
-    print("Space Drone Adventure shutting down...")
+    print("NOVUS shutting down...")
     
     -- Close all UI windows
     if UISystem then
