@@ -7,6 +7,7 @@ local CollisionSystem = require('src.systems.collision')
 local DebrisSystem = require('src.systems.debris')
 local SkillXP = require('src.systems.skill_xp')
 local EntityPool = require('src.entity_pool')
+local EntityHelpers = require('src.entity_helpers')
 
 local CombatLaser = {
     name = "combat_laser",
@@ -186,10 +187,7 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
 
             if shield and shield.current > 0 then
                 -- Shield absorbed damage - create impact effect
-                local ShieldImpactSystem = ECS.getSystem("ShieldImpactSystem")
-                if ShieldImpactSystem and ShieldImpactSystem.createImpact then
-                    ShieldImpactSystem.createImpact(closestIntersection.x, closestIntersection.y, hitEntityId)
-                end
+                EntityHelpers.createShieldImpact(closestIntersection.x, closestIntersection.y, hitEntityId)
 
                 local remaining = shield.current - damage
                 shield.current = math.max(0, remaining)

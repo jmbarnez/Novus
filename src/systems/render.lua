@@ -4,10 +4,45 @@
 
 local ECS = require('src.ecs')
 local Parallax = require('src.parallax')
+local CameraUtils = require('src.camera_utils')
 local RenderEntities = require('src.systems.render.entities')
 local RenderTurrets = require('src.systems.render.turrets')
 local RenderEffects = require('src.systems.render.effects')
 local RenderCanvas = require('src.systems.render.canvas')
+
+-- Lazy-load subsystems to avoid circular dependencies
+local ShieldImpactSystem
+local WorldTooltipsSystem
+local UISystem
+local HUDSystem
+
+local function getShieldImpactSystem()
+    if not ShieldImpactSystem then
+        ShieldImpactSystem = require('src.systems.shield_impact')
+    end
+    return ShieldImpactSystem
+end
+
+local function getWorldTooltipsSystem()
+    if not WorldTooltipsSystem then
+        WorldTooltipsSystem = require('src.systems.world_tooltips')
+    end
+    return WorldTooltipsSystem
+end
+
+local function getUISystem()
+    if not UISystem then
+        UISystem = require('src.systems.ui')
+    end
+    return UISystem
+end
+
+local function getHUDSystem()
+    if not HUDSystem then
+        HUDSystem = require('src.systems.hud')
+    end
+    return HUDSystem
+end
 
 local RenderSystem = {
     name = "RenderSystem",
@@ -50,10 +85,7 @@ local RenderSystem = {
         Profiler.stop("background_draw")
         Profiler.start("camera_transform")
 
-        local CameraSystem = ECS.getSystem("CameraSystem")
-        if CameraSystem and CameraSystem.applyTransform then
-            CameraSystem.applyTransform()
-        end
+        CameraUtils.applyTransform()
 
         Profiler.stop("camera_transform")
         Profiler.start("entity_rendering")
@@ -98,9 +130,9 @@ local RenderSystem = {
         end
 
         -- Draw shield impact effects
-        local ShieldImpactSystem = ECS.getSystem("ShieldImpactSystem")
-        if ShieldImpactSystem and ShieldImpactSystem.draw then
-            ShieldImpactSystem.draw()
+        local shieldImpact = getShieldImpactSystem()
+        if shieldImpact and shieldImpact.draw then
+            shieldImpact.draw()
         end
 
         -- Draw effects
@@ -114,9 +146,9 @@ local RenderSystem = {
         TargetHUD.drawWorldIndicator()
         
         -- Draw world tooltips (warp gates, etc.)
-        local WorldTooltipsSystem = ECS.getSystem("WorldTooltipsSystem")
-        if WorldTooltipsSystem and WorldTooltipsSystem.draw then
-            WorldTooltipsSystem.draw()
+        local worldTooltips = getWorldTooltipsSystem()
+        if worldTooltips and worldTooltips.draw then
+            worldTooltips.draw()
         end
 
         -- Record culling statistics to profiler
@@ -135,26 +167,39 @@ local RenderSystem = {
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.setBlendMode("alpha")
         
-        -- Draw enemy health bars FIRST so they render behind UI windows
+        -- Begin batching for all UI/HUD elements
+        local BatchRenderer = require('src.ui.batch_renderer')
+        BatchRenderer.begin()
+        
+        -- Queue enemy health bars FIRST so they render behind UI windows
         local HUDBars = require('src.systems.hud.bars')
         local w, h = love.graphics.getDimensions()
         HUDBars.drawEnemyHealthBars(w, h)
         HUDBars.drawAsteroidDurabilityBars(w, h)
         HUDBars.drawWreckageDurabilityBars(w, h)
         
-        -- Draw UI windows (notifications, dialogs, windows)
-        local UISystem = ECS.getSystem("UISystem")
-        if UISystem and UISystem.draw then
-            UISystem.draw(canvasComp.width, canvasComp.height)
+        -- Flush health/durability bars first (render layer below windows)
+        BatchRenderer.flush()
+        
+        -- Draw UI windows (notifications, dialogs, windows) - these use immediate mode
+        local ui = getUISystem()
+        if ui and ui.draw then
+            ui.draw(canvasComp.width, canvasComp.height)
         end
 
-        -- Draw HUD overlays in screen space (without enemy health bars)
-        local HUDSystem = ECS.getSystem("HUDSystem")
-        if HUDSystem and HUDSystem.draw then
-            HUDSystem.draw(w, h)
+        -- Begin new batch for HUD overlays on top of windows
+        BatchRenderer.begin()
+        
+        -- Draw HUD overlays in screen space (queued to batch)
+        local hud = getHUDSystem()
+        if hud and hud.draw then
+            hud.draw(canvasComp.width, canvasComp.height)
         end
+        
+        -- Flush HUD overlay batch
+        BatchRenderer.flush()
 
-        -- Draw the death overlay, if visible
+        -- Draw the death overlay, if visible (immediate mode, always on top)
         local DeathOverlay = require('src.ui.death_overlay')
         DeathOverlay.draw()
 

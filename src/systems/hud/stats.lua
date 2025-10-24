@@ -1,4 +1,6 @@
+---@diagnostic disable: undefined-global
 -- HUD Stats Module - FPS counter, speed text, hull/shield bars
+-- Uses batched rendering and text caching for performance
 
 local ECS = require('src.ecs')
 local Theme = require('src.ui.theme')
@@ -6,23 +8,37 @@ local Scaling = require('src.scaling')
 local Constants = require('src.constants')
 local TimeManager = require('src.time_manager')
 local PlasmaTheme = require('src.ui.plasma_theme')
+local BatchRenderer = require('src.ui.batch_renderer')
 
 local HUDStats = {}
+
+-- Text caching to avoid string formatting every frame
+local cachedFpsText = ""
+local cachedSpeedText = ""
+local lastFps = 0
+local lastSpeed = 0
+local lastTargetFps = nil
+local textCacheFrames = 0
+local TEXT_CACHE_INTERVAL = 5  -- Update text every N frames
 
 function HUDStats.drawFpsCounter(viewportWidth, viewportHeight)
     local fps = TimeManager.getFps()
     local targetFps = TimeManager.getTargetFps()
     
-    love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
-    
-    local fpsText = string.format("FPS: %d", fps)
-    if targetFps then
-        fpsText = fpsText .. string.format(" / %d", targetFps)
-    else
-        fpsText = fpsText .. " (Unlocked)"
+    -- Only update text if FPS changed significantly or cache expired
+    textCacheFrames = textCacheFrames + 1
+    if textCacheFrames >= TEXT_CACHE_INTERVAL or math.abs(fps - lastFps) > 2 or targetFps ~= lastTargetFps then
+        if targetFps then
+            cachedFpsText = string.format("FPS: %d / %d", fps, targetFps)
+        else
+            cachedFpsText = string.format("FPS: %d (Unlocked)", fps)
+        end
+        lastFps = fps
+        lastTargetFps = targetFps
+        textCacheFrames = 0
     end
     
-    local color = Theme.colors.textPrimary
+    local color
     if targetFps then
         if fps >= targetFps * 0.95 then
             color = {0.2, 1, 0.2, 0.8}
@@ -35,15 +51,12 @@ function HUDStats.drawFpsCounter(viewportWidth, viewportHeight)
         color = {0.2, 0.8, 1, 0.8}
     end
     
-    love.graphics.setColor(color)
-    
-    local textWidth = Theme.getFont(Theme.fonts.tiny):getWidth(fpsText)
+    local font = Theme.getFont(Theme.fonts.tiny)
+    local textWidth = font:getWidth(cachedFpsText)
     local x = viewportWidth - textWidth - 10
     local y = 10
     
-    love.graphics.print(fpsText, x, y)
-    
-    love.graphics.setColor(1, 1, 1, 1)
+    BatchRenderer.queueText(cachedFpsText, x, y, font, color[1], color[2], color[3], color[4])
 end
 
 function HUDStats.drawSpeedText(viewportWidth, viewportHeight)
@@ -56,13 +69,19 @@ function HUDStats.drawSpeedText(viewportWidth, viewportHeight)
     if not velocity then return end
     local speed = math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy)
 
+    -- Cache speed text if it hasn't changed much
+    if math.abs(speed - lastSpeed) > 0.5 or cachedSpeedText == "" then
+        cachedSpeedText = string.format("%.1f u/s", speed)
+        lastSpeed = speed
+    end
+
     local minimapSize = 150
     local x = viewportWidth - minimapSize - 20
     local y = 150 + 30
+    local font = Theme.getFont(Theme.fonts.normal)
+    local color = Theme.colors.textPrimary
 
-    love.graphics.setColor(Theme.colors.textPrimary)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-    love.graphics.printf(string.format("%.1f u/s", speed), x, y, minimapSize, "center")
+    BatchRenderer.queueText(cachedSpeedText, x, y, font, color[1], color[2], color[3], color[4], "center", minimapSize)
 end
 
 function HUDStats.drawHullShieldBar(viewportWidth, viewportHeight)
@@ -71,24 +90,52 @@ function HUDStats.drawHullShieldBar(viewportWidth, viewportHeight)
     local pilotId = playerEntities[1]
     local input = ECS.getComponent(pilotId, "InputControlled")
     if not input or not input.targetEntity then return end
+    -- Get hull and shield from the player's drone
     local hull = ECS.getComponent(input.targetEntity, "Hull")
     local shield = ECS.getComponent(input.targetEntity, "Shield")
     if not hull then return end
+    
     local barWidth = Scaling.scaleSize(Constants.ui_health_bar_width)
     local barHeight = Scaling.scaleSize(Constants.ui_health_bar_height)
     local padding = Scaling.scaleSize(12)
     local x = Scaling.scaleX(padding)
     local y = Scaling.scaleY(padding)
 
-    -- Draw hull bar first (at top)
+    -- Draw hull bar first (at top) using batched rendering
     local hullRatio = math.min((hull.current or 0) / hull.max, 1.0)
-    PlasmaTheme.drawHealthBar(x, y, barWidth, barHeight, hullRatio, false)
+    
+    -- Background
+    local bgColor = PlasmaTheme.colors.healthBarBg
+    BatchRenderer.queueRect(x, y, barWidth, barHeight, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 2)
+    
+    -- Hull fill
+    local fillColor = PlasmaTheme.colors.healthBarFill
+    local fillWidth = math.max(0, (barWidth - 2) * hullRatio)
+    if fillWidth > 0 then
+        BatchRenderer.queueRect(x + 1, y + 1, fillWidth, barHeight - 2, fillColor[1], fillColor[2], fillColor[3], fillColor[4], 1)
+    end
+    
+    -- Outline
+    local outlineColor = PlasmaTheme.colors.outlineBlack
+    BatchRenderer.queueRectLine(x, y, barWidth, barHeight, outlineColor[1], outlineColor[2], outlineColor[3], outlineColor[4], PlasmaTheme.colors.outlineThick, 2)
     
     -- Draw shield bar below hull bar (if exists)
     if shield and shield.max > 0 then
         local sRatio = math.min((shield.current or 0) / shield.max, 1.0)
         local shieldY = y + barHeight + 4  -- Offset below hull bar
-        PlasmaTheme.drawHealthBar(x, shieldY, barWidth, barHeight, sRatio, true)
+        
+        -- Background
+        BatchRenderer.queueRect(x, shieldY, barWidth, barHeight, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 2)
+        
+        -- Shield fill
+        local shieldColor = PlasmaTheme.colors.shieldBarFill
+        local shieldWidth = math.max(0, (barWidth - 2) * sRatio)
+        if shieldWidth > 0 then
+            BatchRenderer.queueRect(x + 1, shieldY + 1, shieldWidth, barHeight - 2, shieldColor[1], shieldColor[2], shieldColor[3], shieldColor[4], 1)
+        end
+        
+        -- Outline
+        BatchRenderer.queueRectLine(x, shieldY, barWidth, barHeight, outlineColor[1], outlineColor[2], outlineColor[3], outlineColor[4], PlasmaTheme.colors.outlineThick, 2)
     end
 end
 
@@ -113,22 +160,21 @@ function HUDStats.drawEnergyBar(viewportWidth, viewportHeight)
     
     local energyRatio = math.min((energy.current or 0) / energy.max, 1.0)
     
-    -- Draw energy bar using PlasmaTheme for consistency
+    -- Draw energy bar using batched rendering
     -- Background
-    love.graphics.setColor(PlasmaTheme.colors.healthBarBg)
-    love.graphics.rectangle("fill", x, y, barWidth, barHeight, 2, 2)
+    local bgColor = PlasmaTheme.colors.healthBarBg
+    BatchRenderer.queueRect(x, y, barWidth, barHeight, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 2)
     
     -- Energy bar fill (bright yellow - plasma energy color)
-    love.graphics.setColor(PlasmaTheme.colors.asteroidBarFill)
-    love.graphics.rectangle("fill", x + 1, y + 1, math.max(0, (barWidth - 2) * energyRatio), barHeight - 2, 1, 1)
+    local fillColor = PlasmaTheme.colors.asteroidBarFill
+    local fillWidth = math.max(0, (barWidth - 2) * energyRatio)
+    if fillWidth > 0 then
+        BatchRenderer.queueRect(x + 1, y + 1, fillWidth, barHeight - 2, fillColor[1], fillColor[2], fillColor[3], fillColor[4], 1)
+    end
     
     -- Thick black outline (consistent with hull/shield bars)
-    love.graphics.setColor(PlasmaTheme.colors.outlineBlack)
-    love.graphics.setLineWidth(PlasmaTheme.colors.outlineThick)
-    love.graphics.rectangle("line", x, y, barWidth, barHeight, 2, 2)
-    love.graphics.setLineWidth(1)
-    
-    love.graphics.setColor(1, 1, 1, 1)
+    local outlineColor = PlasmaTheme.colors.outlineBlack
+    BatchRenderer.queueRectLine(x, y, barWidth, barHeight, outlineColor[1], outlineColor[2], outlineColor[3], outlineColor[4], PlasmaTheme.colors.outlineThick, 2)
 end
 
 return HUDStats

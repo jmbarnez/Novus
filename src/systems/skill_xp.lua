@@ -3,7 +3,7 @@
 -- Provides consistent experience scaling across all skills
 
 local ECS = require('src.ecs')
-local UISystem = nil  -- Lazy loaded to avoid circular dependencies
+local SkillUtils = require('src.skill_utils')
 
 local SkillXP = {}
 
@@ -27,10 +27,6 @@ local SKILL_CONFIG = {
 -- @param skillName string: The name of the skill ("mining", "salvaging", "combat", etc.)
 -- @return number: The amount of XP to award
 function SkillXP.getXpGain(skillName)
-    if UISystem == nil then
-        UISystem = ECS.getSystem("UISystem")
-    end
-    
     local config = SKILL_CONFIG[skillName]
     if not config then
         return 0  -- Unknown skill
@@ -55,15 +51,11 @@ end
 -- @param skillName string: The name of the skill ("mining", "salvaging", "combat", etc.)
 -- @param xpAmount number: Optional - if provided, awards exactly this amount. Otherwise uses getXpGain()
 function SkillXP.awardXp(skillName, xpAmount)
-    if UISystem == nil then
-        UISystem = ECS.getSystem("UISystem")
-    end
-    
     if xpAmount == nil then
         xpAmount = SkillXP.getXpGain(skillName)
     end
     
-    UISystem.addSkillExperience(skillName, xpAmount)
+    SkillUtils.addSkillExperience(skillName, xpAmount)
 end
 
 return SkillXP

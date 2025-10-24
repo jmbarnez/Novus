@@ -1,6 +1,7 @@
 -- Render Canvas Module - Handles canvas setup, shader effects, and final rendering
 
 local ECS = require('src.ecs')
+local CameraUtils = require('src.camera_utils')
 local ShaderManager = require('src.shader_manager')
 local Scaling = require('src.scaling')
 
@@ -16,7 +17,8 @@ function RenderCanvas.setupCanvas()
     love.graphics.setCanvas(canvasComp.canvas)
     love.graphics.clear()
 
-    love.graphics.setColor(0.01, 0.01, 0.015, 1)
+    -- Pure black space background (realistic deep space)
+    love.graphics.setColor(0, 0, 0, 1)
     love.graphics.rectangle("fill", 0, 0, canvasComp.width, canvasComp.height)
     
     -- no special nebula canvas here; parallax handles nebula rendering directly
@@ -24,10 +26,7 @@ function RenderCanvas.setupCanvas()
 end
 
 function RenderCanvas.finalizeCanvas(canvasComp)
-    local CameraSystem = ECS.getSystem("CameraSystem")
-    if CameraSystem and CameraSystem.resetTransform then
-        CameraSystem.resetTransform()
-    end
+    CameraUtils.resetTransform()
     
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setCanvas()

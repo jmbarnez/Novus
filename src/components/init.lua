@@ -16,6 +16,7 @@ local equipment = require('src.components.equipment')
 local cargo = require('src.components.cargo')
 local entity = require('src.components.entity')
 local warp_gate = require('src.components.warp_gate')
+local quest = require('src.components.quest')
 
 -- Merge all component definitions into the main Components table
 for k, v in pairs(physics) do Components[k] = v end
@@ -28,5 +29,6 @@ for k, v in pairs(equipment) do Components[k] = v end
 for k, v in pairs(cargo) do Components[k] = v end
 for k, v in pairs(entity) do Components[k] = v end
 for k, v in pairs(warp_gate) do Components[k] = v end
+for k, v in pairs(quest) do Components[k] = v end
 
 return Components

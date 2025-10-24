@@ -12,6 +12,9 @@ local WorldTooltips = {
     priority = 21
 }
 
+-- Track nearby interactive entities for keyboard input
+local nearbyInteractables = {}
+
 -- Track active tooltips and their data
 local activeTooltips = {}
 
@@ -37,6 +40,13 @@ function WorldTooltips.update(dt)
         local coll = ECS.getComponent(gateId, "Collidable")
         
         if not gate or not pos or not coll then goto continue end
+        
+        -- Skip stations - they should never show warp gate tooltips
+        local station = ECS.getComponent(gateId, "Station")
+        if station then goto continue end
+        
+        -- Only show repair tooltip if explicitly enabled
+        if not gate.showRepairTooltip then goto continue end
         
         -- Get player cargo to check resources
         local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
@@ -115,9 +125,56 @@ function WorldTooltips.draw()
         
         if dist < triggerDistance then
             WorldTooltips.drawTooltip(entityId, pos, coll, data)
+            -- Track this as a nearby interactable
+            nearbyInteractables[entityId] = data
+        else
+            -- Remove from nearby if out of range
+            nearbyInteractables[entityId] = nil
         end
         
         ::continue::
+    end
+end
+
+-- Handle keyboard input for nearby interactables
+function WorldTooltips.handleKeyPress(key)
+    if key == "e" or key == "return" then
+        -- Find nearby stations (no tooltip needed, just proximity check)
+        local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+        if #playerEntities == 0 then return end
+        
+        local pilotId = playerEntities[1]
+        local input = ECS.getComponent(pilotId, "InputControlled")
+        if not input or not input.targetEntity then return end
+        
+        local playerPos = ECS.getComponent(input.targetEntity, "Position")
+        if not playerPos then return end
+        
+        -- Check for nearby stations
+        local stations = ECS.getEntitiesWith({"Station", "Position", "Collidable"})
+        local closestStationId = nil
+        local closestDist = math.huge
+        local interactionRange = 800
+        
+        for _, stationId in ipairs(stations) do
+            local pos = ECS.getComponent(stationId, "Position")
+            if pos then
+                local dist = math.sqrt((pos.x - playerPos.x)^2 + (pos.y - playerPos.y)^2)
+                if dist < interactionRange and dist < closestDist then
+                    closestDist = dist
+                    closestStationId = stationId
+                end
+            end
+        end
+        
+        -- Open quest window if near a station
+        if closestStationId then
+            local UISystem = require('src.systems.ui')
+            local QuestWindow = require('src.ui.quest_window')
+            QuestWindow.currentStationId = closestStationId
+            UISystem.setQuestWindowOpen(true)
+            print(string.format("[Station] Interacted with station %d", closestStationId))
+        end
     end
 end
 
@@ -137,9 +194,23 @@ function WorldTooltips.drawTooltip(entityId, pos, coll, data)
     local boxW = math.max(tw + 32, 260)
     local boxH = th + 16
     
+    -- Add space for message if provided
+    if data.message then
+        local smallFont = Theme.getFont(12)
+        love.graphics.setFont(smallFont)
+        local msgW = smallFont:getWidth(data.message)
+        boxW = math.max(boxW, msgW + 32)
+        boxH = boxH + 16 + 8
+    end
+    
     -- Add space for content if provided
     if data.hasResources then
         boxH = boxH + 18 + 8 + 48 + 12 + 30 + 8
+    end
+    
+    -- Add space for button if provided
+    if data.buttonText then
+        boxH = boxH + 30 + 8
     end
     
     local bx = gx - boxW/2
@@ -160,9 +231,24 @@ function WorldTooltips.drawTooltip(entityId, pos, coll, data)
     love.graphics.setFont(font)
     love.graphics.print(data.title, bx + (boxW - tw) / 2, by + 8)
     
-    -- Draw resources and button if needed
+    -- Draw message if provided
+    local yOffset = by + th + 16
+    if data.message then
+        local smallFont = Theme.getFont(12)
+        love.graphics.setFont(smallFont)
+        love.graphics.setColor(Theme.colors.textPrimary)
+        love.graphics.print(data.message, bx + 16, yOffset)
+        yOffset = yOffset + 16 + 8
+    end
+    
+    -- Draw resources if needed
     if data.hasResources then
         WorldTooltips.drawResources(bx, by, th, boxW, boxH, data)
+    end
+    
+    -- Draw button if provided (and not already drawn via resources)
+    if data.buttonText and not data.hasResources then
+        WorldTooltips.drawButton(bx, by, boxW, boxH, data)
     end
     
     love.graphics.setColor(1, 1, 1, 1)
@@ -216,6 +302,34 @@ function WorldTooltips.drawResources(bx, by, th, boxW, boxH, data)
         local buttonTextW = font:getWidth(data.buttonText)
         love.graphics.print(data.buttonText, buttonX + (buttonW - buttonTextW) / 2, buttonY + (buttonH - font:getHeight()) / 2)
     end
+end
+
+-- Draw button helper function
+function WorldTooltips.drawButton(bx, by, boxW, boxH, data)
+    local buttonW = 200
+    local buttonH = 30
+    local buttonX = bx + (boxW - buttonW) / 2
+    local buttonY = by + boxH - buttonH - 8
+    
+    local buttonBgColor = data.buttonEnabled and Theme.colors.buttonYes or Theme.colors.bgMedium
+    local buttonTextColor = data.buttonEnabled and Theme.colors.textPrimary or Theme.colors.textMuted
+    
+    -- Draw button background
+    love.graphics.setColor(buttonBgColor)
+    love.graphics.rectangle("fill", buttonX, buttonY, buttonW, buttonH, 4, 4)
+    
+    -- Draw button border
+    love.graphics.setColor(Theme.colors.borderDark)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", buttonX, buttonY, buttonW, buttonH, 4, 4)
+    love.graphics.setLineWidth(1)
+    
+    -- Draw button text
+    love.graphics.setColor(buttonTextColor)
+    local font = Theme.getFont(16)
+    love.graphics.setFont(font)
+    local buttonTextW = font:getWidth(data.buttonText)
+    love.graphics.print(data.buttonText, buttonX + (buttonW - buttonTextW) / 2, buttonY + (buttonH - font:getHeight()) / 2)
 end
 
 -- Handle mouse clicks on world tooltips

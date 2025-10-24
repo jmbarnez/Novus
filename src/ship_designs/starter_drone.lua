@@ -5,24 +5,20 @@ return {
     name = "Starter Drone",
     description = "A lightweight starter drone - fast and agile but fragile",
 
-    -- Visual design (symmetrical circular)
+    -- Visual design (regular hexagon)
     polygon = {
         -- Top
-        {x = 0,    y = -8},
+        {x = 0,     y = -12},
         -- Upper right
-        {x = 6.93, y = -4},
-        -- Right
-        {x = 8,    y = 0},
+        {x = 10.39, y = -6},
         -- Lower right
-        {x = 6.93, y = 4},
+        {x = 10.39, y = 6},
         -- Bottom
-        {x = 0,    y = 8},
+        {x = 0,     y = 12},
         -- Lower left
-        {x = -6.93, y = 4},
-        -- Left
-        {x = -8,   y = 0},
+        {x = -10.39, y = 6},
         -- Upper left
-        {x = -6.93, y = -4},
+        {x = -10.39, y = -6},
     },
     colors = {
         base = {0.0, 0.6, 1, 1},         -- Main bright blue hull (legacy)
@@ -34,19 +30,19 @@ return {
     },
     texture = {
         stripes = {
-            {x1 = 0, y1 = -8, x2 = 0, y2 = 7, color = {0.7, 0.9, 1, 0.4}}, -- Center accent stripe
-            {x1 = 3, y1 = -5, x2 = 2, y2 = 6, color = {0.3, 0.8, 1, 0.3}}, -- Right accent
-            {x1 = -3, y1 = -5, x2 = -2, y2 = 6, color = {0.3, 0.8, 1, 0.3}}, -- Left accent
+            {x1 = 0, y1 = -12, x2 = 0, y2 = 10.5, color = {0.7, 0.9, 1, 0.4}}, -- Center accent stripe
+            {x1 = 4.5, y1 = -7.5, x2 = 3, y2 = 9, color = {0.3, 0.8, 1, 0.3}}, -- Right accent
+            {x1 = -4.5, y1 = -7.5, x2 = -3, y2 = 9, color = {0.3, 0.8, 1, 0.3}}, -- Left accent
         },
         cockpit = {
-            {x = 0, y = -5.5, r = 1.2, color = {0.15, 0.15, 0.22, 1}}, -- Cockpit dome
+            {x = 0, y = -8.25, r = 1.8, color = {0.15, 0.15, 0.22, 1}}, -- Cockpit dome
         },
         engineGlow = {
-            {x = 2, y = 6, r = 0.7, color = {0.3, 0.8, 1, 0.7}}, -- Right engine glow
-            {x = -2, y = 6, r = 0.7, color = {0.3, 0.8, 1, 0.7}}, -- Left engine glow
+            {x = 3, y = 9, r = 1.05, color = {0.3, 0.8, 1, 0.7}}, -- Right engine glow
+            {x = -3, y = 9, r = 1.05, color = {0.3, 0.8, 1, 0.7}}, -- Left engine glow
         }
     },
-    collisionRadius = 6,
+    collisionRadius = 9,
 
     -- Stats (fragile starter ship)
     hull = {current = 60, max = 60},

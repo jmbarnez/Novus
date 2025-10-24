@@ -149,10 +149,12 @@ function AISystem._respawnEnemy()
     WorldLoader.spawnEnemy(enemyType, config)
 end
 
--- Patch/update function to include respawner
-local _oldUpdate = AISystem.update
+-- ============================================================================
+-- MAIN UPDATE LOOP
+-- ============================================================================
+
 function AISystem.update(dt)
-    _oldUpdate(dt)
+    -- Enemy respawn logic
     respawnTimer = respawnTimer + dt
     if respawnTimer >= respawnInterval then
         respawnTimer = 0
@@ -162,12 +164,7 @@ function AISystem.update(dt)
             AISystem._respawnEnemy()
         end
     end
-end
--- ============================================================================
--- MAIN UPDATE LOOP
--- ============================================================================
-
-function AISystem.update(dt)
+    
     -- Get player position
     local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
     local playerPos = nil

@@ -133,4 +133,19 @@ Components.StationLabel = function(text)
     return text or nil
 end
 
+-- FloatingQuestionMark component - Creates a hovering question mark effect
+Components.FloatingQuestionMark = function(amplitude, speed, color)
+    return {
+        amplitude = amplitude or 8,  -- How high the question mark bobs
+        speed = speed or 2,          -- How fast it bobs
+        color = color or {1, 1, 0.3, 0.8},  -- Yellow with slight transparency
+        time = 0  -- Internal timer for animation
+    }
+end
+
+-- Station component - Marks entity as a station (prevents conflicting behaviors)
+Components.Station = function()
+    return {}
+end
+
 return Components

@@ -4,24 +4,16 @@
 local ECS = require('src.ecs')
 local Components = require('src.components')
 local TurretRange = require('src.systems.turret_range')
+local TurretRegistry = require('src.turret_registry')
 
 local TurretSystem = {
     name = "TurretSystem",
-    turretModules = {} -- Stores loaded turret modules
+    turretModules = TurretRegistry.modules -- Backwards compatibility: reference to registry
 }
 
 -- Load all turret modules from a directory
 function TurretSystem.loadTurretModules(path)
-    local files = love.filesystem.getDirectoryItems(path)
-    for _, file in ipairs(files) do
-        if file:match("%.lua$") then
-            local moduleName = file:match("(.+)%.lua$")
-            local fullPath = path .. "." .. moduleName
-            local module = require(fullPath)
-            TurretSystem.turretModules[moduleName] = module
-            print("Loaded turret module: " .. moduleName)
-        end
-    end
+    TurretRegistry.loadModules(path)
 end
 
 function TurretSystem.fireTurret(entityId, targetX, targetY, dt)
@@ -35,7 +27,7 @@ function TurretSystem.fireTurret(entityId, targetX, targetY, dt)
         return
     end
 
-    local module = TurretSystem.turretModules[turret.moduleName]
+    local module = TurretRegistry.getModule(turret.moduleName)
     -- If module is continuous (laser), bypass simple cooldown and call fire every frame.
     if module and module.CONTINUOUS then
         -- Check if it's a laser turret
@@ -109,7 +101,7 @@ function TurretSystem.update(dt)
     for _, eid in ipairs(turretEntities) do
         local t = ECS.getComponent(eid, "Turret")
         if not t then goto cont end
-        local module = TurretSystem.turretModules[t.moduleName]
+        local module = TurretRegistry.getModule(t.moduleName)
         
         -- Only laser turrets should use Heat component, but be safe
         local isLaserTurret = t.moduleName == "mining_laser" or t.moduleName == "combat_laser" or t.moduleName == "salvage_laser"

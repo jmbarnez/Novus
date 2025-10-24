@@ -87,6 +87,9 @@ function Core.quit()
         end
     end
     
+    -- Clear all entity pools before clearing ECS
+    local EntityPool = require('src.entity_pool')
+    EntityPool.clearAll()
     -- Clear all ECS entities, components, and systems
     ECS.clear()
     

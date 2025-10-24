@@ -5,6 +5,7 @@ Components.WarpGate = function(data)
     return {
         destination = data and data.destination or nil,
         active = data and (data.active ~= nil) and data.active or false, -- default: broken
+        showRepairTooltip = true, -- Whether to show repair tooltip (default: true for broken gates)
     }
 end
 

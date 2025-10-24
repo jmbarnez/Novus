@@ -6,6 +6,17 @@
 local ECS = require('src.ecs')
 local ForceUtils = require('src.systems.force_utils')
 local AiTurretHelper = require('src.systems.ai_turret_helper')
+local TurretRegistry = require('src.turret_registry')
+
+-- Lazy-load TurretSystem to avoid circular dependencies
+local TurretSystem
+
+local function getTurretSystem()
+    if not TurretSystem then
+        TurretSystem = require('src.systems.turret')
+    end
+    return TurretSystem
+end
 
 local Behaviors = {}
 
@@ -89,8 +100,8 @@ local function fireAtTarget(eid, turret, pos, playerPos, dt)
         return
     end
     
-    local TurretSystem = ECS.getSystem("TurretSystem")
-    if not (TurretSystem and TurretSystem.fireTurret) then
+    local turretSys = getTurretSystem()
+    if not (turretSys and turretSys.fireTurret) then
         return
     end
     
@@ -98,7 +109,7 @@ local function fireAtTarget(eid, turret, pos, playerPos, dt)
     local dy = playerPos.y - pos.y
     local dist = math.sqrt(dx*dx + dy*dy)
     
-    local turretModule = TurretSystem.turretModules[turret.moduleName]
+    local turretModule = TurretRegistry.getModule(turret.moduleName)
     if turretModule and turretModule.ZERO_DAMAGE_RANGE then
         if dist > turretModule.ZERO_DAMAGE_RANGE then
             return
@@ -106,7 +117,7 @@ local function fireAtTarget(eid, turret, pos, playerPos, dt)
     end
     
     AiTurretHelper.aimTurretAtTarget(eid, turret, pos, playerPos)
-    TurretSystem.fireTurret(eid, playerPos.x, playerPos.y, dt)
+    turretSys.fireTurret(eid, playerPos.x, playerPos.y, dt)
     
     if turretModule and turretModule.CONTINUOUS and turretModule.applyBeam then
         AiTurretHelper.fireLaserAtTarget(eid, turret, turretModule, playerPos, dt)

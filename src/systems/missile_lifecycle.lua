@@ -5,7 +5,7 @@ local ECS = require('src.ecs')
 
 local MissileLifecycleSystem = {
     name = "MissileLifecycleSystem",
-    priority = 5  -- Run before destruction system
+    priority = 99  -- Disabled - functionality moved to MissileSystem
 }
 
 function MissileLifecycleSystem.update(dt)

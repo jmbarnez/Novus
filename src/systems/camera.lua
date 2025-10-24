@@ -3,6 +3,7 @@
 -- Smoothly follows target entities and manages view transformations
 
 local ECS = require('src.ecs')
+local CameraUtils = require('src.camera_utils')
 
 -- No zoom steps - smooth continuous zooming
 
@@ -55,20 +56,12 @@ local CameraSystem = {
 
     -- Apply camera transform for rendering
     applyTransform = function()
-        local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
-        if #cameraEntities > 0 then
-            local cameraId = cameraEntities[1]
-            local cameraPos = ECS.getComponent(cameraId, "Position")
-            local camera = ECS.getComponent(cameraId, "Camera")
-            love.graphics.push()
-            love.graphics.scale(camera.zoom, camera.zoom)
-            love.graphics.translate(-cameraPos.x, -cameraPos.y)
-        end
+        CameraUtils.applyTransform()
     end,
 
     -- Reset camera transform
     resetTransform = function()
-        love.graphics.pop()
+        CameraUtils.resetTransform()
     end
 }
 

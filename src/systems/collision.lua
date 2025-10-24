@@ -3,6 +3,9 @@
 -- Physics-based collisions between entities are handled by PhysicsCollisionSystem
 
 local ECS = require('src.ecs')
+local Constants = require('src.constants')
+local Quadtree = require('src.systems.quadtree')
+local CollisionUtils = require('src.collision_utils')
 
 local CollisionSystem = {
     name = "CollisionSystem",
@@ -65,185 +68,6 @@ function linePolygonIntersect(x1, y1, x2, y2, entityId)
     end
 
     return closestIntersection
-end
-local function checkBoundingCircles(pos1, coll1, pos2, coll2)
-    local dx = pos2.x - pos1.x
-    local dy = pos2.y - pos1.y
-    local distance = math.sqrt(dx * dx + dy * dy)
-    return distance < (coll1.radius + coll2.radius)
-end
-
-local function pointInPolygon(x, y, vertices)
-    local inside = false
-    local j = #vertices
-    
-    for i = 1, #vertices do
-        local vi = vertices[i]
-        local vj = vertices[j]
-        
-        if ((vi.y > y) ~= (vj.y > y)) and (x < (vj.x - vi.x) * (y - vi.y) / (vj.y - vi.y) + vi.x) then
-            inside = not inside
-        end
-        j = i
-    end
-    
-    return inside
-end
-
-local function pointToLineSegmentDistance(px, py, x1, y1, x2, y2)
-    local A = px - x1
-    local B = py - y1
-    local C = x2 - x1
-    local D = y2 - y1
-    
-    local dot = A * C + B * D
-    local lenSq = C * C + D * D
-    
-    if lenSq == 0 then
-        -- Line segment is actually a point
-        return math.sqrt(A * A + B * B)
-    end
-    
-    local param = dot / lenSq
-    
-    local xx, yy
-    if param < 0 then
-        xx, yy = x1, y1
-    elseif param > 1 then
-        xx, yy = x2, y2
-    else
-        xx = x1 + param * C
-        yy = y1 + param * D
-    end
-    
-    local dx = px - xx
-    local dy = py - yy
-    return math.sqrt(dx * dx + dy * dy)
-end
-
--- Check collision between polygon and circle using SAT (Separating Axis Theorem)
--- @param polygonPos table: Polygon entity position
--- @param polygonShape table: Polygon shape component
--- @param circlePos table: Circle position
--- @param circleRadius number: Circle radius
--- @return boolean: True if collision detected
-local function checkPolygonCircleCollision(polygonPos, polygonShape, circlePos, circleRadius)
-    local vertices = polygonShape.vertices
-    local rotation = polygonShape.rotation
-    
-    if #vertices < 3 then return false end
-    
-    -- Transform circle position to polygon's local space
-    local dx = circlePos.x - polygonPos.x
-    local dy = circlePos.y - polygonPos.y
-    
-    -- Apply inverse rotation
-    local cos = math.cos(-rotation)
-    local sin = math.sin(-rotation)
-    local localX = dx * cos - dy * sin
-    local localY = dx * sin + dy * cos
-    
-    -- Check if circle center is inside polygon
-    local inside = pointInPolygon(localX, localY, vertices)
-    if inside then return true end
-    
-    -- Check distance from circle to each edge
-    for i = 1, #vertices do
-        local v1 = vertices[i]
-        local v2 = vertices[(i % #vertices) + 1]
-        
-        local dist = pointToLineSegmentDistance(localX, localY, v1.x, v1.y, v2.x, v2.y)
-        if dist <= circleRadius then
-            return true
-        end
-    end
-    
-    return false
-end
-
--- Check collision between two polygons using SAT (Separating Axis Theorem)
--- @param polygon1Pos table: First polygon entity position
--- @param polygon1Shape table: First polygon shape component
--- @param polygon2Pos table: Second polygon entity position
--- @param polygon2Shape table: Second polygon shape component
--- @return boolean: True if collision detected
-local function checkPolygonPolygonCollision(polygon1Pos, polygon1Shape, polygon2Pos, polygon2Shape)
-    local function getTransformedVertices(pos, vertices, rotation)
-        local transformed = {}
-        local cos = math.cos(rotation)
-        local sin = math.sin(rotation)
-        for _, v in ipairs(vertices) do
-            local rx = v.x * cos - v.y * sin
-            local ry = v.x * sin + v.y * cos
-            table.insert(transformed, {x = pos.x + rx, y = pos.y + ry})
-        end
-        return transformed
-    end
-
-    local function getAxes(vertices)
-        local axes = {}
-        for i = 1, #vertices do
-            local p1 = vertices[i]
-            local p2 = vertices[(i % #vertices) + 1]
-            local edge = {x = p2.x - p1.x, y = p2.y - p1.y}
-            local normal = {x = -edge.y, y = edge.x} -- Perpendicular vector
-            local length = math.sqrt(normal.x * normal.x + normal.y * normal.y)
-            if length > 0 then
-                table.insert(axes, {x = normal.x / length, y = normal.y / length}) -- Normalized normal
-            end
-        end
-        return axes
-    end
-
-    local function project(axis, vertices)
-        local minProjection = (vertices[1].x * axis.x) + (vertices[1].y * axis.y)
-        local maxProjection = minProjection
-        for i = 2, #vertices do
-            local projection = (vertices[i].x * axis.x) + (vertices[i].y * axis.y)
-            minProjection = math.min(minProjection, projection)
-            maxProjection = math.max(maxProjection, projection)
-        end
-        return minProjection, maxProjection
-    end
-
-    local transformedVertices1 = getTransformedVertices(polygon1Pos, polygon1Shape.vertices, polygon1Shape.rotation)
-    local transformedVertices2 = getTransformedVertices(polygon2Pos, polygon2Shape.vertices, polygon2Shape.rotation)
-
-    local axes = getAxes(transformedVertices1)
-    for _, axis in ipairs(getAxes(transformedVertices2)) do
-        table.insert(axes, axis)
-    end
-
-    local minOverlap = nil
-    local smallestAxis = nil
-
-    for _, axis in ipairs(axes) do
-        local min1, max1 = project(axis, transformedVertices1)
-        local min2, max2 = project(axis, transformedVertices2)
-
-        local overlap = math.min(max1, max2) - math.max(min1, min2)
-
-        if overlap < 0 then
-            return false, nil, nil -- No collision
-        end
-
-        if minOverlap == nil or overlap < minOverlap then
-            minOverlap = overlap
-            smallestAxis = axis
-        end
-    end
-
-    if smallestAxis then
-        -- Ensure the normal is pointing from polygon1 to polygon2
-        local direction = {x = polygon2Pos.x - polygon1Pos.x, y = polygon2Pos.y - polygon1Pos.y}
-        if (direction.x * smallestAxis.x + direction.y * smallestAxis.y) < 0 then
-            smallestAxis.x = -smallestAxis.x
-            smallestAxis.y = -smallestAxis.y
-        end
-        return true, smallestAxis, minOverlap
-    end
-
-    return false, nil, nil
 end
 
 local function handleCollision(entity1Id, entity2Id, normal, depth)
@@ -311,53 +135,96 @@ local CollisionSystem = {
         -- Get all collidable entities
         local collidableEntities = ECS.getEntitiesWith({"Collidable", "Position"})
         
-    -- Get the pilot and their controlled drone
-    local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-    if #playerEntities == 0 then return end
+        -- Get the pilot and their controlled drone
+        local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+        if #playerEntities == 0 then return end
         
-    local pilotId = playerEntities[1]
-    local input = ECS.getComponent(pilotId, "InputControlled")
-    if not input or not input.targetEntity then return end
-    local playerId = input.targetEntity
+        local pilotId = playerEntities[1]
+        local input = ECS.getComponent(pilotId, "InputControlled")
+        if not input or not input.targetEntity then return end
+        local playerId = input.targetEntity
         local playerPos = ECS.getComponent(playerId, "Position")
         local playerCollidable = ECS.getComponent(playerId, "Collidable")
         
-        -- Check collisions between player and all other collidables
-        -- Note: Items are handled by PhysicsCollisionSystem for automatic physics responses
+        if not playerPos or not playerCollidable then return end
+        
+        -- [QUADTREE OPTIMIZATION] Build quadtree for spatial partitioning
+        -- Only query nearby entities instead of checking all collidables
+        local quadtree = Quadtree.create(
+            Constants.world_min_x,
+            Constants.world_min_y,
+            Constants.world_width,
+            Constants.world_height,
+            0  -- Starting depth
+        )
+        
+        -- Insert all collidable entities into quadtree
         for _, entityId in ipairs(collidableEntities) do
-            if entityId ~= playerId then -- Don't check player with itself
-                local entityPos = ECS.getComponent(entityId, "Position")
-                local entityCollidable = ECS.getComponent(entityId, "Collidable")
-                
-                -- Broad-phase: Check bounding circles
-                local broadPhaseHit = checkBoundingCircles(playerPos, playerCollidable, entityPos, entityCollidable)
-
-                if broadPhaseHit then
-                    local playerPolygon = ECS.getComponent(playerId, "PolygonShape")
-                    local entityPolygon = ECS.getComponent(entityId, "PolygonShape")
-
-                    if playerPolygon and entityPolygon then
-                        -- Both are polygons, use polygon-polygon collision
-                        local isColliding, normal, depth = checkPolygonPolygonCollision(playerPos, playerPolygon, entityPos, entityPolygon)
-                        if isColliding then
-                            handleCollision(playerId, entityId, normal, depth)
-                        end
-                    elseif playerPolygon then
-                        -- Player is polygon, entity is circle (for future use)
-                        if checkPolygonCircleCollision(playerPos, playerPolygon, entityPos, entityCollidable.radius) then
-                            handleCollision(playerId, entityId)
-                        end
-                    elseif entityPolygon then
-                        -- Player is circle, entity is polygon (this is for asteroids, but player is now polygon)
-                        if checkPolygonCircleCollision(entityPos, entityPolygon, playerPos, playerCollidable.radius) then
-                            handleCollision(playerId, entityId)
-                        end
-                    else
-                        -- Both are circles (should not happen with asteroids or player now)
-                        handleCollision(playerId, entityId)
-                    end
+            if entityId ~= playerId then  -- Skip player itself
+                local pos = ECS.getComponent(entityId, "Position")
+                local coll = ECS.getComponent(entityId, "Collidable")
+                if pos and coll then
+                    Quadtree.insert(quadtree, entityId, pos, coll.radius)
                 end
             end
+        end
+        
+        -- Query quadtree for nearby entities (use radius * 3 for safety margin)
+        local searchRadius = playerCollidable.radius * 3
+        local nearbyEntities = Quadtree.getNearby(quadtree, playerPos.x, playerPos.y, searchRadius)
+        
+        -- Check collisions between player and nearby collidables
+        -- Note: Items are handled by PhysicsCollisionSystem for automatic physics responses
+        for _, entityData in ipairs(nearbyEntities) do
+            local entityId = entityData.id  -- Extract ID from quadtree result
+            local entityPos = ECS.getComponent(entityId, "Position")
+            local entityCollidable = ECS.getComponent(entityId, "Collidable")
+            
+            if not entityPos or not entityCollidable then
+                goto continue_entity
+            end
+            -- Broad-phase: Check bounding circles
+            local broadPhaseHit = CollisionUtils.checkBoundingCircles(playerPos.x, playerPos.y, playerCollidable.radius, entityPos.x, entityPos.y, entityCollidable.radius)
+
+            if broadPhaseHit then
+                local playerPolygon = ECS.getComponent(playerId, "PolygonShape")
+                local entityPolygon = ECS.getComponent(entityId, "PolygonShape")
+
+                if playerPolygon and entityPolygon then
+                    -- Both are polygons, use polygon-polygon collision
+                    -- Transform polygons to world space for CollisionUtils
+                    local playerWorldPoly = CollisionUtils.transformPolygon(playerPos, playerPolygon)
+                    local entityWorldPoly = CollisionUtils.transformPolygon(entityPos, entityPolygon)
+                    
+                    local isColliding = CollisionUtils.checkPolygonPolygonCollision(playerWorldPoly, entityWorldPoly)
+                    if isColliding then
+                        -- Calculate normal and depth manually for handleCollision
+                        local dx = entityPos.x - playerPos.x
+                        local dy = entityPos.y - playerPos.y
+                        local dist = math.sqrt(dx * dx + dy * dy)
+                        local normal = dist > 0 and {x = dx / dist, y = dy / dist} or {x = 0, y = 1}
+                        local depth = playerCollidable.radius + entityCollidable.radius - dist
+                        handleCollision(playerId, entityId, normal, depth)
+                    end
+                elseif playerPolygon then
+                    -- Player is polygon, entity is circle
+                    local playerWorldPoly = CollisionUtils.transformPolygon(playerPos, playerPolygon)
+                    if CollisionUtils.checkPolygonCircleCollision(playerWorldPoly, entityPos.x, entityPos.y, entityCollidable.radius) then
+                        handleCollision(playerId, entityId)
+                    end
+                elseif entityPolygon then
+                    -- Player is circle, entity is polygon
+                    local entityWorldPoly = CollisionUtils.transformPolygon(entityPos, entityPolygon)
+                    if CollisionUtils.checkPolygonCircleCollision(entityWorldPoly, playerPos.x, playerPos.y, playerCollidable.radius) then
+                        handleCollision(playerId, entityId)
+                    end
+                else
+                    -- Both are circles (should not happen with asteroids or player now)
+                    handleCollision(playerId, entityId)
+                end
+            end
+            
+            ::continue_entity::
         end
     end
 }

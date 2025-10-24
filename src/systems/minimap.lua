@@ -1,8 +1,11 @@
 ---@diagnostic disable: undefined-global
 -- Minimap System
 -- Draws a circular minimap with player, asteroids, and items
+-- Uses batched rendering for performance
 
 local ECS = require('src.ecs')
+local BatchRenderer = require('src.ui.batch_renderer')
+
 local Minimap = {}
 local minimapWorldRadius = 2000  -- World radius shown on minimap (tune as needed)
 
@@ -124,7 +127,7 @@ function Minimap.draw()
     minimapX = screenW - minimapRadius - minimapMargin
     minimapY = minimapRadius + minimapMargin
 
-    -- Draw minimap background (circle)
+    -- Draw minimap background and border (immediate mode for this frame's backdrop)
     love.graphics.setColor(0, 0, 0, 1.0)
     love.graphics.circle('fill', minimapX, minimapY, minimapRadius)
     love.graphics.setColor(1, 1, 1, 0.7)
@@ -160,30 +163,35 @@ function Minimap.draw()
         lastPlayerX, lastPlayerY = playerX, playerY
         lastPlayerSpeed = playerSpeed
     end
-    -- Render from cache:
+    -- Render from cache (batched):
     if cachedBlips then
-        love.graphics.setColor(0.7, 0.7, 0.7, 1) -- asteroid color
+        -- Asteroid blips (gray)
+        local asteroidColor = {0.7, 0.7, 0.7, 1}
         for _, p in ipairs(cachedBlips.asteroids) do
-            if p[3] then
+            if p[3] and #p[3] >= 6 then
                 -- Draw polygon shape if available
-                love.graphics.polygon('fill', p[3])
+                BatchRenderer.queuePolygon(p[3], asteroidColor[1], asteroidColor[2], asteroidColor[3], asteroidColor[4])
             else
-                -- Fallback to circle for backward compatibility
-                love.graphics.circle('fill', p[1], p[2], 2)
+                -- Fallback to circle
+                BatchRenderer.queueCircle(p[1], p[2], 2, asteroidColor[1], asteroidColor[2], asteroidColor[3], asteroidColor[4])
             end
         end
-        love.graphics.setColor(0.2, 0.8, 0.2, 1) -- item color
+        
+        -- Item blips (green)
+        local itemColor = {0.2, 0.8, 0.2, 1}
         for _, p in ipairs(cachedBlips.items) do
-            love.graphics.circle('fill', p[1], p[2], 1.5)
+            BatchRenderer.queueCircle(p[1], p[2], 1.5, itemColor[1], itemColor[2], itemColor[3], itemColor[4])
         end
-        love.graphics.setColor(1, 0.2, 0.2, 1) -- enemy color
+        
+        -- Enemy blips (red)
+        local enemyColor = {1, 0.2, 0.2, 1}
         for _, p in ipairs(cachedBlips.enemies) do
-            love.graphics.circle('fill', p[1], p[2], 2)
+            BatchRenderer.queueCircle(p[1], p[2], 2, enemyColor[1], enemyColor[2], enemyColor[3], enemyColor[4])
         end
-        -- Player blip
-        love.graphics.setColor(0.2, 0.6, 1, 1)
-        love.graphics.circle('fill', minimapX, minimapY, 3)
-        love.graphics.setColor(1,1,1,1)
+        
+        -- Player blip (blue)
+        local playerColor = {0.2, 0.6, 1, 1}
+        BatchRenderer.queueCircle(minimapX, minimapY, 3, playerColor[1], playerColor[2], playerColor[3], playerColor[4])
     end
 end
 

@@ -4,9 +4,11 @@
 
 local ECS = require('src.ecs')
 local Constants = require('src.constants')
+local SkillUtils = require('src.skill_utils')
 local Theme = require('src.ui.theme')
 local MapWindow = require('src.ui.map_window')
 local ShipWindow = require('src.ui.ship_window')
+local QuestWindow = require('src.ui.quest_window')
 local Tooltips = require('src.ui.tooltips')
 local Dialogs = require('src.ui.dialogs')
 local Notifications = require('src.ui.notifications')
@@ -14,6 +16,7 @@ local Scaling = require('src.scaling')
 local SettingsWindow = require('src.ui.settings_window')
 local DeathOverlay = require('src.ui.death_overlay')
 local ConstructionButton = require('src.ui.construction_button')
+local QuestOverlay = require('src.ui.quest_overlay')
 -- Hotbar removed
 -- CargoWindow removed - now integrated into ShipWindow
 -- SkillsWindow removed - now a panel within ShipWindow
@@ -122,6 +125,15 @@ end, function(x, y, button)
     return true
 end)
 
+-- Quest window
+UISystem.registerInteractive('quest_window', function(x, y, button)
+    return QuestWindow.isOpen and QuestWindow.position and x >= QuestWindow.position.x and x <= QuestWindow.position.x + QuestWindow.width
+           and y >= QuestWindow.position.y and y <= QuestWindow.position.y + QuestWindow.height
+end, function(x, y, button)
+    QuestWindow:mousepressed(x, y, button)
+    return true
+end)
+
 -- Ship window (contains loadout, inventory, and skills panels)
 -- Ship window integration removed; handled by ShipWindow module itself if needed
 
@@ -171,10 +183,14 @@ function UISystem.draw(viewportWidth, viewportHeight)
     -- Draw skill notifications (in screen space)
     -- SkillNotifications.draw() -- REMOVE THIS
     
+    -- Draw quest overlay (always visible when there are accepted quests)
+    QuestOverlay.draw()
+    
     -- Draw windows in focus order (background to foreground)
     local windows = {
         map_window = MapWindow,
         ship_window = ShipWindow,
+        quest_window = QuestWindow,
         settings_window = SettingsWindow
     }
 
@@ -256,6 +272,10 @@ function UISystem.keypressed(key)
         end
         if MapWindow:getOpen() then
             MapWindow:setOpen(false)
+            return
+        end
+        if QuestWindow:getOpen() then
+            QuestWindow:setOpen(false)
             return
         end
         -- If no windows open, open settings window
@@ -394,6 +414,12 @@ function UISystem.mousereleased(x, y, button)
         local mx, my = Scaling.toUI(x, y)
         SettingsWindow:mousereleased(mx, my, button)
     end
+    
+    -- Forward to quest window
+    if QuestWindow and QuestWindow.isOpen and QuestWindow.mousereleased then
+        local mx, my = Scaling.toUI(x, y)
+        QuestWindow:mousereleased(mx, my, button)
+    end
 
     -- Release capture on mouse release (assumes left click)
     if button == 1 then
@@ -409,7 +435,8 @@ function UISystem.mousemoved(x, y, dx, dy, isTouch)
     -- Forward to windows in focus order (most focused first)
     local windows = {
         map_window = MapWindow,
-        ship_window = ShipWindow
+        ship_window = ShipWindow,
+        quest_window = QuestWindow
     }
 
     for i = #windowOrder, 1, -1 do
@@ -437,6 +464,12 @@ function UISystem.mousemoved(x, y, dx, dy, isTouch)
     if SettingsWindow and SettingsWindow.isOpen and SettingsWindow.mousemoved then
         local mx, my = Scaling.toUI(x, y)
         SettingsWindow:mousemoved(mx, my, dx, dy)
+    end
+    
+    -- Forward to quest window
+    if QuestWindow and QuestWindow.isOpen and QuestWindow.mousemoved then
+        local mx, my = Scaling.toUI(x, y)
+        QuestWindow:mousemoved(mx, my, dx, dy)
     end
 end
 
@@ -507,6 +540,25 @@ function UISystem.isMapWindowOpen()
     return MapWindow:getOpen()
 end
 
+-- Quest window functions
+function UISystem.setQuestWindowOpen(state)
+    QuestWindow:setOpen(state)
+    if state then
+        UISystem.setWindowFocus('quest_window')
+    end
+end
+
+function UISystem.toggleQuestWindow()
+    QuestWindow:toggle()
+    if QuestWindow:getOpen() then
+        UISystem.setWindowFocus('quest_window')
+    end
+end
+
+function UISystem.isQuestWindowOpen()
+    return QuestWindow:getOpen()
+end
+
 -- Skills panel is now integrated into ShipWindow
 -- No separate API functions needed
 
@@ -530,35 +582,7 @@ end
 
 -- Public API for adding skill experience
 function UISystem.addSkillExperience(skillName, xpGain)
-    local playerEntities = ECS.getEntitiesWith({"Player", "Skills"})
-    if #playerEntities == 0 then return end
-    
-    local playerId = playerEntities[1]
-    local skills = ECS.getComponent(playerId, "Skills")
-    if not skills or not skills.skills[skillName] then return end
-    
-    local skill = skills.skills[skillName]
-    skill.experience = skill.experience + xpGain
-    skill.totalXp = skill.totalXp + xpGain
-    
-    -- Check for level up
-    local leveledUp = false
-    while skill.experience >= skill.requiredXp do
-        skill.experience = skill.experience - skill.requiredXp
-        skill.level = skill.level + 1
-        skill.requiredXp = math.ceil(skill.requiredXp * 1.1)  -- 10% increase per level
-        leveledUp = true
-    end
-    
-    -- Show notification
-    local notifData = {
-        level = skill.level,
-        experience = skill.experience,
-        requiredXp = skill.requiredXp,
-        levelUp = leveledUp
-    }
-    local Notifications = require('src.ui.notifications')
-    Notifications.addSkillNotification(skillName, xpGain, notifData)
+    SkillUtils.addSkillExperience(skillName, xpGain)
 end
 
 -- Settings Window API

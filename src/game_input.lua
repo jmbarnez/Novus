@@ -10,6 +10,14 @@ local Systems = require('src.systems')
 local UISystem = require('src.systems.ui')
 
 function GameInput.keypressed(key)
+    -- Handle station/world interactions first (E key)
+    if key == "e" or key == "return" then
+        local WorldTooltipsSystem = Systems.WorldTooltipsSystem
+        if WorldTooltipsSystem and WorldTooltipsSystem.handleKeyPress then
+            WorldTooltipsSystem.handleKeyPress(key)
+        end
+    end
+    
     -- If a window is currently open, let UISystem handle closing it first
     if key == HotkeyConfig.getHotkey("settings_window") then
         if UISystem.isShipWindowOpen and UISystem.isShipWindowOpen() then

@@ -121,19 +121,12 @@ function AsteroidClusters.createAsteroid(x, y)
     ECS.addComponent(asteroidId, "Durability", Components.Durability(size * 2, size * 2))
     
     -- Determine asteroid type
-    -- Change: no standalone "crystal" asteroid. Instead iron asteroids can rarely have crystal formations.
     local asteroidType = "stone"
     local rand = math.random()
     if rand < 0.55 then
         asteroidType = "iron"
     else
         asteroidType = "stone"
-    end
-
-    -- Small chance (e.g. 5%) that an iron asteroid has crystal formations
-    local crystalFormation = false
-    if asteroidType == "iron" and math.random() < 0.05 then
-        crystalFormation = true
     end
 
     -- Set XP reward based on asteroid type
@@ -153,29 +146,6 @@ function AsteroidClusters.createAsteroid(x, y)
     end
     ECS.addComponent(asteroidId, "Renderable", Components.Renderable("polygon", nil, nil, nil, color))
     
-    -- If this asteroid has a crystal formation flag, spawn an attached formation at one of its outer vertices
-    if crystalFormation then
-        -- Pick a random vertex from the polygon (vertices are local to asteroid)
-        local poly = ECS.getComponent(asteroidId, "PolygonShape")
-        if poly and poly.vertices and #poly.vertices > 0 then
-            local v = poly.vertices[math.random(#poly.vertices)]
-            print(string.format("[CrystalFormation] Creating formation at asteroid (%f, %f), vertex offset (%f, %f)", x, y, v.x, v.y))
-            -- Create formation entity
-            local formId = ECS.createEntity()
-            -- Compute an initial world position for the formation
-            local posComp = Components.Position(x + v.x, y + v.y)
-            ECS.addComponent(formId, "Position", posComp)
-            ECS.addComponent(formId, "Collidable", Components.Collidable(6))
-            ECS.addComponent(formId, "Durability", Components.Durability(8, 8)) -- small HP to mine off
-            -- Add CrystalFormation marker with visual params
-            ECS.addComponent(formId, "CrystalFormation", Components.CrystalFormation(12, 5, {0.7, 0.5, 1, 1}))
-            -- Add small polygon shape so mining lasers (which check polygons) can hit the formation
-            local formVerts = Procedural.generatePolygonVertices(6, 8)
-            ECS.addComponent(formId, "PolygonShape", Components.PolygonShape(formVerts, 0))
-            ECS.addComponent(formId, "Attached", Components.Attached(asteroidId, v.x, v.y))
-            print(string.format("[CrystalFormation] Formation entity created with ID %d", formId))
-        end
-    end
     return asteroidId
 end
 

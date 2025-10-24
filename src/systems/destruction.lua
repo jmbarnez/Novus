@@ -8,6 +8,7 @@ local WrackageSystem = require('src.systems.wreckage') -- Import WrackageSystem
 local ItemDefs = require('src.items.item_loader')
 local AsteroidClusters = require('src.systems.asteroid_clusters')
 local SkillXP = require('src.systems.skill_xp')
+local QuestUtils = require('src.quest_utils')
 local DeathOverlay = require('src.ui.death_overlay')
 
 local DestructionSystem = {
@@ -243,11 +244,29 @@ function DestructionSystem.update(dt)
                     wasDestroyedByEnemy = true
                 end
             end
+            
+            -- Check if enemy was destroyed by player
+            local wasDestroyedByPlayer = false
+            if ai and lastDamager then
+                -- Check if the last damager was a player-controlled entity
+                local damagerEntity = ECS.getComponent(lastDamager.pilotId, "Player")
+                if damagerEntity then
+                    wasDestroyedByPlayer = true
+                end
+            end
 
             -- Award mining XP if asteroid was destroyed by player
             if asteroid and not wasDestroyedByEnemy then
                 local xpAmount = asteroid.xpReward
                 SkillXP.awardXp("mining", xpAmount)
+                
+                -- Update quest progress for mining
+                QuestUtils.updateMiningProgress()
+            end
+            
+            -- Update combat quest progress if enemy was destroyed by player
+            if ai and wasDestroyedByPlayer then
+                QuestUtils.updateCombatProgress()
             end
 
             -- Wreckage shatters into bits

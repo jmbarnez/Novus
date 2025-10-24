@@ -5,6 +5,8 @@
 local ECS = require('src.ecs')
 local Constants = require('src.constants')
 local Quadtree = require('src.systems.quadtree')
+local CollisionUtils = require('src.collision_utils')
+local EntityHelpers = require('src.entity_helpers')
 
 -- Frame counter for optimization
 local frameCounter = 0
@@ -14,13 +16,6 @@ local function hasRotationChanged(poly1, poly2, rotationThreshold)
     local rot1Changed = poly1 and math.abs(poly1.rotation - (poly1.prevRotation or 0)) > rotationThreshold or false
     local rot2Changed = poly2 and math.abs(poly2.rotation - (poly2.prevRotation or 0)) > rotationThreshold or false
     return rot1Changed or rot2Changed
-end
-
-local function checkBoundingCircles(pos1, coll1, pos2, coll2)
-    local dx = pos2.x - pos1.x
-    local dy = pos2.y - pos1.y
-    local distance = math.sqrt(dx * dx + dy * dy)
-    return distance < (coll1.radius + coll2.radius)
 end
 
 local function checkSweptCircleCircle(oldPos, newPos, radius1, staticPos, radius2)
@@ -66,26 +61,76 @@ local function checkSweptCircleCircle(oldPos, newPos, radius1, staticPos, radius
     return false, 1
 end
 
--- Helper: Point in polygon test
-local function pointInPolygon(x, y, vertices)
-    local inside = false
-    local j = #vertices
+-- Helper: Swept circle-polygon collision for CCD
+-- Checks if a circle swept from oldPos to newPos collides with a static polygon
+local function checkSweptCirclePolygon(oldPos, newPos, radius, polygonPos, polygonShape)
+    -- Transform polygon to world space
+    local polygonWorld = CollisionUtils.transformPolygon(polygonPos, polygonShape)
     
-    for i = 1, #vertices do
-        local vi = vertices[i]
-        local vj = vertices[j]
-        
-        if ((vi.y > y) ~= (vj.y > y)) and (x < (vj.x - vi.x) * (y - vi.y) / (vj.y - vi.y) + vi.x) then
-            inside = not inside
-        end
-        j = i
+    -- Check collision at current position first
+    if CollisionUtils.checkPolygonCircleCollision(polygonWorld, newPos.x, newPos.y, radius) then
+        return true, newPos
     end
-    
-    return inside
+    -- Check collision at previous position
+    if CollisionUtils.checkPolygonCircleCollision(polygonWorld, oldPos.x, oldPos.y, radius) then
+        return true, oldPos
+    end
+    -- Check if sweep line intersects polygon edges
+    local vertices = polygonShape.vertices
+    local rotation = polygonShape.rotation
+    local cos = math.cos(rotation)
+    local sin = math.sin(rotation)
+    -- Transform vertices to world space
+    local transformedVertices = {}
+    for _, v in ipairs(vertices) do
+        local rx = v.x * cos - v.y * sin
+        local ry = v.x * sin + v.y * cos
+        table.insert(transformedVertices, {x = polygonPos.x + rx, y = polygonPos.y + ry})
+    end
+    -- Check sweep line against each edge
+    local sweepRadius = radius
+    local closestImpact = nil
+    local closestDist = math.huge
+    for i = 1, #transformedVertices do
+        local v1 = transformedVertices[i]
+        local v2 = transformedVertices[(i % #transformedVertices) + 1]
+        local edgeDx = v2.x - v1.x
+        local edgeDy = v2.y - v1.y
+        local edgeLen = math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy)
+        if edgeLen > 0 then
+            local sweepDx = newPos.x - oldPos.x
+            local sweepDy = newPos.y - oldPos.y
+            local f1x = oldPos.x - v1.x
+            local f1y = oldPos.y - v1.y
+            local sweepDot = sweepDx * sweepDx + sweepDy * sweepDy
+            if sweepDot > 0.0001 then
+                local t = -(f1x * sweepDx + f1y * sweepDy) / sweepDot
+                t = math.max(0, math.min(1, t))
+                local px = oldPos.x + t * sweepDx
+                local py = oldPos.y + t * sweepDy
+                local edgeDot2 = (px - v1.x) * edgeDx + (py - v1.y) * edgeDy
+                local s = edgeDot2 / (edgeLen * edgeLen)
+                s = math.max(0, math.min(1, s))
+                local ex = v1.x + s * edgeDx
+                local ey = v1.y + s * edgeDy
+                local dx = px - ex
+                local dy = py - ey
+                local dist = math.sqrt(dx * dx + dy * dy)
+                if dist < sweepRadius and dist < closestDist then
+                    closestDist = dist
+                    closestImpact = {x = px, y = py}
+                end
+            end
+        end
+    end
+    if closestImpact then
+        return true, closestImpact
+    end
+    return false
 end
 
--- Check collision between two polygons using SAT (Separating Axis Theorem)
-local function checkPolygonPolygonCollision(polygon1Pos, polygon1Shape, polygon2Pos, polygon2Shape)
+-- Local SAT implementation for polygon-polygon with normal/depth return
+local function checkPolygonPolygonCollisionSAT(polygon1Pos, polygon1Shape, polygon2Pos, polygon2Shape)
     local function getTransformedVertices(pos, vertices, rotation)
         local transformed = {}
         local cos = math.cos(rotation)
@@ -162,126 +207,6 @@ local function checkPolygonPolygonCollision(polygon1Pos, polygon1Shape, polygon2
     end
 
     return false, nil, nil
-end
-
--- Check collision between polygon and circle
-local function checkPolygonCircleCollision(polygonPos, polygonShape, circlePos, circleRadius)
-    local vertices = polygonShape.vertices
-    local rotation = polygonShape.rotation
-    
-    if #vertices < 3 then return false end
-    
-    -- Transform circle position to polygon's local space
-    local dx = circlePos.x - polygonPos.x
-    local dy = circlePos.y - polygonPos.y
-    
-    -- Apply inverse rotation
-    local cos = math.cos(-rotation)
-    local sin = math.sin(-rotation)
-    local localX = dx * cos - dy * sin
-    local localY = dx * sin + dy * cos
-    
-    -- Check if circle center is inside polygon
-    local inside = pointInPolygon(localX, localY, vertices)
-    if inside then return true end
-    
-    -- Check distance from circle to each edge
-    for i = 1, #vertices do
-        local v1 = vertices[i]
-        local v2 = vertices[(i % #vertices) + 1]
-        
-        -- Find closest point on edge
-        local A = localX - v1.x
-        local B = localY - v1.y
-        local C = v2.x - v1.x
-        local D = v2.y - v1.y
-        
-        local dot = A * C + B * D
-        local lenSq = C * C + D * D
-        
-        local param = 0
-        if lenSq > 0 then
-            param = math.max(0, math.min(1, dot / lenSq))
-        end
-        
-        local px = v1.x + param * C
-        local py = v1.y + param * D
-        
-        local pdx = localX - px
-        local pdy = localY - py
-        local dist = math.sqrt(pdx * pdx + pdy * pdy)
-        
-        if dist <= circleRadius then
-            return true
-        end
-    end
-    
-    return false
-end
-
--- Helper: Swept circle-polygon collision for CCD
--- Checks if a circle swept from oldPos to newPos collides with a static polygon
-local function checkSweptCirclePolygon(oldPos, newPos, radius, polygonPos, polygonShape)
-    -- Check collision at current position first
-    if checkPolygonCircleCollision(polygonPos, polygonShape, newPos, radius) then
-        return true, newPos
-    end
-    -- Check collision at previous position
-    if checkPolygonCircleCollision(polygonPos, polygonShape, oldPos, radius) then
-        return true, oldPos
-    end
-    -- Check if sweep line intersects polygon edges
-    local vertices = polygonShape.vertices
-    local rotation = polygonShape.rotation
-    local cos = math.cos(rotation)
-    local sin = math.sin(rotation)
-    -- Transform vertices to world space
-    local transformedVertices = {}
-    for _, v in ipairs(vertices) do
-        local rx = v.x * cos - v.y * sin
-        local ry = v.x * sin + v.y * cos
-        table.insert(transformedVertices, {x = polygonPos.x + rx, y = polygonPos.y + ry})
-    end
-    -- Check sweep line against each edge
-    local sweepRadius = radius
-    local closestImpact = nil
-    local closestDist = math.huge
-    for i = 1, #transformedVertices do
-        local v1 = transformedVertices[i]
-        local v2 = transformedVertices[(i % #transformedVertices) + 1]
-        local edgeDx = v2.x - v1.x
-        local edgeDy = v2.y - v1.y
-        local edgeLen = math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy)
-        if edgeLen > 0 then
-            local sweepDx = newPos.x - oldPos.x
-            local sweepDy = newPos.y - oldPos.y
-            local f1x = oldPos.x - v1.x
-            local f1y = oldPos.y - v1.y
-            local sweepDot = sweepDx * sweepDx + sweepDy * sweepDy
-            if sweepDot > 0.0001 then
-                local t = -(f1x * sweepDx + f1y * sweepDy) / sweepDot
-                t = math.max(0, math.min(1, t))
-                local px = oldPos.x + t * sweepDx
-                local py = oldPos.y + t * sweepDy
-                local edgeDot2 = (px - v1.x) * edgeDx + (py - v1.y) * edgeDy
-                local s = edgeDot2 / (edgeLen * edgeLen)
-                s = math.max(0, math.min(1, s))
-                local ex = v1.x + s * edgeDx
-                local ey = v1.y + s * edgeDy
-                local dx = px - ex
-                local dy = py - ey
-                local dist = math.sqrt(dx * dx + dy * dy)
-                if dist < sweepRadius and dist < closestDist then
-                    closestDist = dist
-                    closestImpact = {x = px, y = py}
-                end
-            end
-        end
-    end
-    if closestImpact then
-        return true, closestImpact
-    end
-    return false
 end
 
 -- Find closest point on polygon to a circle, with proper normal
@@ -537,9 +462,9 @@ local PhysicsCollisionSystem = {
                 local maxVel = math.max(vel1Mag, vel2Mag)
                 
                 -- Broad-phase: check swept bounding circles
-                local bboxCheck1 = checkBoundingCircles(pos1, coll1, pos2, coll2)
-                local bboxCheck2 = checkBoundingCircles(prevPos1, coll1, pos2, coll2)
-                local bboxCheck3 = checkBoundingCircles(pos1, coll1, prevPos2, coll2)
+                local bboxCheck1 = CollisionUtils.checkBoundingCircles(pos1.x, pos1.y, coll1.radius, pos2.x, pos2.y, coll2.radius)
+                local bboxCheck2 = CollisionUtils.checkBoundingCircles(prevPos1.x, prevPos1.y, coll1.radius, pos2.x, pos2.y, coll2.radius)
+                local bboxCheck3 = CollisionUtils.checkBoundingCircles(pos1.x, pos1.y, coll1.radius, prevPos2.x, prevPos2.y, coll2.radius)
                 
                 -- For very fast objects, also check mid-frame position
                 local bboxCheckMid = false
@@ -547,7 +472,7 @@ local PhysicsCollisionSystem = {
                     -- Check collision at mid-frame for fast-moving objects
                     local midPos1 = {x = pos1.x - vel1.vx * dt * 0.5, y = pos1.y - vel1.vy * dt * 0.5}
                     local midPos2 = {x = pos2.x - vel2.vx * dt * 0.5, y = pos2.y - vel2.vy * dt * 0.5}
-                    bboxCheckMid = checkBoundingCircles(midPos1, coll1, midPos2, coll2)
+                    bboxCheckMid = CollisionUtils.checkBoundingCircles(midPos1.x, midPos1.y, coll1.radius, midPos2.x, midPos2.y, coll2.radius)
                 end
                 
                 if bboxCheck1 or bboxCheck2 or bboxCheck3 or bboxCheckMid then
@@ -563,7 +488,7 @@ local PhysicsCollisionSystem = {
                             local shouldCheckSAT = rotationChanged or bboxCheck1 or (frameCounter % 2) == 0
                             
                             if shouldCheckSAT then
-                                local isColliding, axis, overlap = checkPolygonPolygonCollision(pos1, poly1, pos2, poly2)
+                                local isColliding, axis, overlap = checkPolygonPolygonCollisionSAT(pos1, poly1, pos2, poly2)
                                 if isColliding and axis and overlap then
                                     normal = axis
                                     depth = overlap or 0
@@ -714,12 +639,9 @@ local PhysicsCollisionSystem = {
                             local hull2 = ECS.getComponent(entity2Id, "Hull")
                             if shield2 and shield2.current > 0 then
                                 -- Shield absorbed damage - create impact effect
-                                local ShieldImpactSystem = ECS.getSystem("ShieldImpactSystem")
-                                if ShieldImpactSystem and ShieldImpactSystem.createImpact then
-                                    local pos1 = ECS.getComponent(entity1Id, "Position")
-                                    if pos1 then
-                                        ShieldImpactSystem.createImpact(pos1.x, pos1.y, entity2Id)
-                                    end
+                                local pos1 = ECS.getComponent(entity1Id, "Position")
+                                if pos1 then
+                                    EntityHelpers.createShieldImpact(pos1.x, pos1.y, entity2Id)
                                 end
                                 
                                 local remaining = shield2.current - damage
@@ -737,10 +659,7 @@ local PhysicsCollisionSystem = {
                             end
                             
                             -- Trigger aggressive reaction if victim is AI
-                            local AISystem = ECS.getSystem("AISystem")
-                            if AISystem and AISystem.triggerAggressiveReaction then
-                                AISystem.triggerAggressiveReaction(entity2Id, entity1Id)
-                            end
+                            EntityHelpers.notifyAIDamage(entity2Id, entity1Id)
                             -- If projectile is brittle, mark it for destruction
                             if proj1.brittle then
                                 local pDur = ECS.getComponent(entity1Id, "Durability")
@@ -754,12 +673,9 @@ local PhysicsCollisionSystem = {
                             local hull1 = ECS.getComponent(entity1Id, "Hull")
                             if shield1 and shield1.current > 0 then
                                 -- Shield absorbed damage - create impact effect
-                                local ShieldImpactSystem = ECS.getSystem("ShieldImpactSystem")
-                                if ShieldImpactSystem and ShieldImpactSystem.createImpact then
-                                    local pos2 = ECS.getComponent(entity2Id, "Position")
-                                    if pos2 then
-                                        ShieldImpactSystem.createImpact(pos2.x, pos2.y, entity1Id)
-                                    end
+                                local pos2 = ECS.getComponent(entity2Id, "Position")
+                                if pos2 then
+                                    EntityHelpers.createShieldImpact(pos2.x, pos2.y, entity1Id)
                                 end
                                 
                                 local remaining = shield1.current - damage
@@ -777,10 +693,7 @@ local PhysicsCollisionSystem = {
                             end
                             
                             -- Trigger aggressive reaction if victim is AI
-                            local AISystem = ECS.getSystem("AISystem")
-                            if AISystem and AISystem.triggerAggressiveReaction then
-                                AISystem.triggerAggressiveReaction(entity1Id, entity2Id)
-                            end
+                            EntityHelpers.notifyAIDamage(entity1Id, entity2Id)
                             if proj2.brittle then
                                 local pDur = ECS.getComponent(entity2Id, "Durability")
                                 if pDur then pDur.current = 0 end

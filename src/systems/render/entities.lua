@@ -178,45 +178,17 @@ function RenderEntities.drawItems(cullingCameraPos, cullingCamera)
                     renderable.height)
                 love.graphics.setLineWidth(1)
             elseif renderable.shape == "circle" and renderable.radius then
-                if ECS.hasComponent(entityId, "CrystalFormation") then
-                    local cf = ECS.getComponent(entityId, "CrystalFormation")
-                    if not cf then goto continue_entity end
-                    if not isOnScreen(position.x, position.y, cf.size * 2, cullingCameraPos, cullingCamera) then
-                        goto continue_entity
-                    end
-                    love.graphics.push()
-                    love.graphics.translate(position.x, position.y)
-                    for i = 1, cf.shardCount do
-                        local angle = (i / cf.shardCount) * (2 * math.pi) + (i % 2 == 0 and 0.2 or -0.2)
-                        local len = cf.size * (0.6 + math.random() * 0.6)
-                        local w = cf.size * 0.35
-                        local x1, y1 = 0, 0
-                        local x2 = math.cos(angle) * len
-                        local y2 = math.sin(angle) * len
-                        local bx = math.cos(angle + math.pi/2) * w
-                        local by = math.sin(angle + math.pi/2) * w
-                        local px1 = x2 + bx
-                        local py1 = y2 + by
-                        local px2 = x2 - bx
-                        local py2 = y2 - by
-                        love.graphics.setColor(cf.color[1], cf.color[2], cf.color[3], cf.color[4] or 1)
-                        love.graphics.polygon("fill", x1, y1, px1, py1, px2, py2)
-                        love.graphics.setColor(1, 1, 1, 0.6)
-                        love.graphics.polygon("fill", 0, 0, x2 * 0.6, y2 * 0.6, x2 * 0.4, y2 * 0.4)
-                    end
-                    love.graphics.pop()
-                else
-                    if renderable.color then
-                        local cols = resolveColors(renderable.color)
-                        love.graphics.setColor(cols.stripes[1], cols.stripes[2], cols.stripes[3], cols.stripes[4])
-                    end
-                    love.graphics.circle("fill", position.x, position.y, renderable.radius)
-                    
-                    love.graphics.setColor(0, 0, 0, 1)
-                    love.graphics.setLineWidth(3)
-                    love.graphics.circle("line", position.x, position.y, renderable.radius)
-                    love.graphics.setLineWidth(1)
+                -- Regular circle rendering
+                if renderable.color then
+                    local cols = resolveColors(renderable.color)
+                    love.graphics.setColor(cols.stripes[1], cols.stripes[2], cols.stripes[3], cols.stripes[4])
                 end
+                love.graphics.circle("fill", position.x, position.y, renderable.radius)
+                
+                love.graphics.setColor(0, 0, 0, 1)
+                love.graphics.setLineWidth(3)
+                love.graphics.circle("line", position.x, position.y, renderable.radius)
+                love.graphics.setLineWidth(1)
                 
                 local cannonballBorder = ECS.getComponent(entityId, "CannonballBorder")
                 if cannonballBorder then
@@ -270,6 +242,39 @@ function RenderEntities.drawItems(cullingCameraPos, cullingCamera)
                         if label and label[1] then
                             love.graphics.setColor(1, 1, 1, 0.85)
                             love.graphics.print(label[1], position.x-40, position.y-14, 0, 1.2, 1.2)
+                        end
+                        
+                        -- Draw floating question mark effect
+                        local questionMark = ECS.getComponent(entityId, "FloatingQuestionMark")
+                        if questionMark then
+                            -- Update animation timer (use love.timer.getTime for frame-independent animation)
+                            questionMark.time = love.timer.getTime() * questionMark.speed
+                            
+                            -- Calculate bobbing offset
+                            local bobOffset = math.sin(questionMark.time) * questionMark.amplitude
+                            
+                            -- Position above the station
+                            local markX = position.x
+                            local markY = position.y - 80 - bobOffset
+                            
+                            -- Draw question mark with black border and huge size
+                            local fontSize = 64
+                            local borderSize = 4
+                            
+                            -- Black border (draw multiple times for thick border)
+                            love.graphics.setColor(0, 0, 0, questionMark.color[4])
+                            love.graphics.setFont(love.graphics.newFont(fontSize))
+                            for i = -borderSize, borderSize do
+                                for j = -borderSize, borderSize do
+                                    if i ~= 0 or j ~= 0 then
+                                        love.graphics.print("?", markX - 16 + i, markY - 16 + j)
+                                    end
+                                end
+                            end
+                            
+                            -- Bright core
+                            love.graphics.setColor(questionMark.color[1], questionMark.color[2], questionMark.color[3], questionMark.color[4])
+                            love.graphics.print("?", markX - 16, markY - 16)
                         end
                     else
                         drawPolygon(position.x, position.y, polygonShape, renderable.color, renderable.texture)

@@ -7,8 +7,9 @@ local function generate_hd_background(w, h)
 	-- require image API
 	local id = love.image.newImageData(w, h)
 	local seed = love.math.random() * 10000
-	local octaves = 5
-	local baseScale = 600.0
+    -- Make nebula details a bit coarser and less dense so generated clouds are thinner
+    local octaves = 4
+    local baseScale = 900.0
 
 	for y = 0, h - 1 do
 		for x = 0, w - 1 do
@@ -188,34 +189,136 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
             parallax.nebula.backgroundImage = generate_hd_background(1920, 1080)
             print("[Parallax] Generated procedural HD background (1920x1080) as fallback")
         end
-        -- use nearest-neighbor filtering for crisp scaling (no blur)
-        parallax.nebula.backgroundImage:setFilter('nearest', 'nearest')
-         -- 0 => fully static background; set small value (e.g. 0.02) for slight parallax if desired
-         parallax.nebula.backgroundParallax = 0
-         parallax.nebula.backgroundLoaded = true
+        -- Use linear filtering for smoother, scaled-down band rendering
+    parallax.nebula.backgroundImage:setFilter('linear', 'linear')
+    -- 0 => fully static background; small value gives light parallax
+    parallax.nebula.backgroundParallax = 0.02
+    
+    -- Create a realistic wispy nebula shader using multiple octaves of noise
+    if love.graphics and love.graphics.newShader then
+        local nebulaShaderCode = [[
+            extern vec2 resolution;
+            extern number time;
+            extern vec2 cameraOffset;
+            
+            // Simplex-like noise approximation
+            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
+            
+            float snoise(vec2 v) {
+                const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+                vec2 i  = floor(v + dot(v, C.yy));
+                vec2 x0 = v - i + dot(i, C.xx);
+                vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+                vec4 x12 = x0.xyxy + C.xxzz;
+                x12.xy -= i1;
+                i = mod289(i);
+                vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+                vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+                m = m*m; m = m*m;
+                vec3 x = 2.0 * fract(p * C.www) - 1.0;
+                vec3 h = abs(x) - 0.5;
+                vec3 ox = floor(x + 0.5);
+                vec3 a0 = x - ox;
+                m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);
+                vec3 g;
+                g.x  = a0.x  * x0.x  + h.x  * x0.y;
+                g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+                return 130.0 * dot(m, g);
+            }
+            
+            // Multi-octave noise for wispy clouds
+            float fbm(vec2 p) {
+                float value = 0.0;
+                float amplitude = 0.5;
+                float frequency = 1.0;
+                for(int i = 0; i < 5; i++) {
+                    value += amplitude * snoise(p * frequency);
+                    frequency *= 2.0;
+                    amplitude *= 0.5;
+                }
+                return value;
+            }
+            
+            vec4 effect(vec4 color, Image tex, vec2 tc, vec2 pc)
+            {
+                // World position with parallax
+                vec2 worldPos = (pc - resolution * 0.5) * 0.8 + cameraOffset * 0.02;
+                
+                // Multiple noise layers for realistic nebula
+                float scale = 0.0008;
+                float n1 = fbm(worldPos * scale);
+                float n2 = fbm(worldPos * scale * 1.8 + vec2(100.0, 50.0));
+                float n3 = fbm(worldPos * scale * 3.2 + vec2(200.0, 150.0));
+                
+                // Combine noise layers to create wispy tendrils
+                float density = n1 * 0.5 + n2 * 0.3 + n3 * 0.2;
+                density = smoothstep(0.0, 0.6, density);
+                
+                // Add turbulence for more detail
+                float turbulence = snoise(worldPos * scale * 5.0 + time * 0.02) * 0.15;
+                density += turbulence;
+                
+                // Vertical gradient (thinner at top/bottom)
+                float verticalGradient = 1.0 - abs(tc.y - 0.5) * 2.0;
+                verticalGradient = smoothstep(0.2, 0.8, verticalGradient);
+                density *= verticalGradient;
+                
+                // Color variations (blue to cyan-green nebula)
+                vec3 color1 = vec3(0.1, 0.3, 0.95);  // Deep blue
+                vec3 color2 = vec3(0.08, 0.85, 0.6); // Cyan-green
+                vec3 color3 = vec3(0.3, 0.6, 1.0);   // Light blue
+                
+                float colorMix = snoise(worldPos * scale * 0.5) * 0.5 + 0.5;
+                vec3 nebulaColor = mix(color1, color2, colorMix);
+                nebulaColor = mix(nebulaColor, color3, n3 * 0.5 + 0.5);
+                
+                // Final nebula with soft glow
+                float alpha = density * 0.35;
+                return vec4(nebulaColor * (1.0 + density * 0.5), alpha);
+            }
+        ]]
+        local ok, shader = pcall(love.graphics.newShader, nebulaShaderCode)
+        if ok and shader then
+            parallax.nebula.shaderEnabled = true
+            parallax.nebula.shader = shader
+            print("[Parallax] Nebula shader compiled successfully")
+        else
+            parallax.nebula.shaderEnabled = false
+            print("[Parallax] Nebula shader failed to compile: " .. tostring(shader))
+        end
+    end
+    
+    parallax.nebula.backgroundLoaded = true
      end
 
-    -- Draw HD background (centered; can be static or slightly parallaxed)
-    if parallax.nebula.backgroundImage and parallax.nebula.backgroundImage ~= false then
-        -- save current shader, disable for background draw, then restore
+    -- Draw realistic wispy nebula using shader
+    if parallax.nebula.backgroundLoaded and parallax.nebula.shaderEnabled and parallax.nebula.shader then
         local savedShader = love.graphics.getShader()
-        love.graphics.setShader()
         
-         local img = parallax.nebula.backgroundImage
-         local iw, ih = img:getWidth(), img:getHeight()
-         -- use provided screen size or fall back to actual window dimensions
-         local winW = screenWidth or love.graphics.getWidth()
-         local winH = screenHeight or love.graphics.getHeight()
-         -- scale to cover the window while preserving aspect ratio (cover)
-         local scale = math.max(winW / iw, winH / ih)
-         local drawW, drawH = iw * scale, ih * scale
-         -- center the scaled image; apply small parallax offset if configured
-         local px = (winW * 0.5) - (drawW * 0.5) - ((cameraX or 0) * (parallax.nebula.backgroundParallax or 0))
-         local py = (winH * 0.5) - (drawH * 0.5) - ((cameraY or 0) * (parallax.nebula.backgroundParallax or 0))
-         love.graphics.setColor(1,1,1,1)
-         love.graphics.draw(img, px, py, 0, scale, scale)
+        local winW = screenWidth or love.graphics.getWidth()
+        local winH = screenHeight or love.graphics.getHeight()
+        local t = love.timer.getTime()
         
-        -- restore the saved shader
+        -- Create a small dummy texture if needed (shaders need a texture)
+        if not parallax.nebula.dummyCanvas then
+            parallax.nebula.dummyCanvas = love.graphics.newCanvas(2, 2)
+        end
+        
+        -- Set shader uniforms
+        parallax.nebula.shader:send('resolution', {winW, winH})
+        parallax.nebula.shader:send('time', t)
+        parallax.nebula.shader:send('cameraOffset', {cameraX or 0, cameraY or 0})
+        
+        -- Draw full-screen quad with nebula shader
+        love.graphics.setShader(parallax.nebula.shader)
+        love.graphics.setBlendMode('add')
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.draw(parallax.nebula.dummyCanvas, 0, 0, 0, winW/2, winH/2)
+        love.graphics.setBlendMode('alpha')
+        
+        -- Restore shader
         love.graphics.setShader(savedShader)
     end
     

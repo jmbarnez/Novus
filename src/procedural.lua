@@ -317,8 +317,10 @@ Procedural.registerTemplate("station", function(spawnData)
         RotationalMass = Components.RotationalMass(inertia),
         Collidable = Components.Collidable(size),
         Renderable = Components.Renderable("polygon", nil, nil, nil, color),
+        Station = Components.Station(),  -- Explicit station marker
         StationDetails = drawDetails,
         StationLabel = label and {label} or nil,
+        FloatingQuestionMark = Components.FloatingQuestionMark(12, 1.5, {1, 1, 0.2, 0.9}),
     }
 end)
 

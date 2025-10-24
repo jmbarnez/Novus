@@ -4,6 +4,7 @@
 
 local ECS = require('src.ecs')
 local Components = require('src.components')
+local TurretRegistry = require('src.turret_registry')
 local Theme = require('src.ui.theme')
 local WindowBase = require('src.ui.window_base')
 local Scaling = require('src.scaling')
@@ -261,19 +262,16 @@ function ShipWindow:drawLoadoutContent(windowX, windowY, alpha)
     local effectiveDPS = 0
     
     if turret and turret.moduleName and turret.moduleName ~= "" then
-        local TurretSystem = ECS.getSystem("TurretSystem")
-        if TurretSystem and TurretSystem.turretModules then
-            local turretModule = TurretSystem.turretModules[turret.moduleName]
-            if turretModule then
-                turretDPS = turretModule.DPS or 0
-                turretRange = turretModule.RANGE or 0
-                
-                if turretModule.CONTINUOUS then
-                    effectiveDPS = turretDPS
-                else
-                    turretCooldown = turretModule.COOLDOWN or 1
-                    effectiveDPS = turretDPS / turretCooldown
-                end
+        local turretModule = TurretRegistry.getModule(turret.moduleName)
+        if turretModule then
+            turretDPS = turretModule.DPS or 0
+            turretRange = turretModule.RANGE or 0
+            
+            if turretModule.CONTINUOUS then
+                effectiveDPS = turretDPS
+            else
+                turretCooldown = turretModule.COOLDOWN or 1
+                effectiveDPS = turretDPS / turretCooldown
             end
         end
     end
@@ -632,8 +630,7 @@ function ShipWindow:equipModule(itemId)
             if itemDef.module and itemDef.module.name then
                 playerTurret.moduleName = itemDef.module.name
                 -- Validate the module exists
-                local TurretSystem = require('src.systems.turret')
-                if not TurretSystem.turretModules or not TurretSystem.turretModules[playerTurret.moduleName] then
+                if not TurretRegistry.hasModule(playerTurret.moduleName) then
                     playerTurret.moduleName = nil
                 end
             else

@@ -14,8 +14,10 @@ local gameState = "start" -- Possible values: "start", "loading", "game"
 local loadingTimer = 0
 local loadingDuration = 0.8 -- seconds
 
--- Global function to return to main menu
-function returnToMainMenu()
+-- Game state management module (exposed for UI)
+_G.Game = _G.Game or {}
+
+function _G.Game.returnToMainMenu()
     if gameState == "game" then
         Core.quit()
         gameState = "start"

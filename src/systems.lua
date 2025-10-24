@@ -21,7 +21,7 @@ Systems.DestructionSystem = require('src.systems.destruction')
 Systems.DebrisSystem = require('src.systems.debris')
 Systems.TurretSystem = require('src.systems.turret')
 Systems.TurretEffectsSystem = require('src.systems.turret_effects')
-Systems.CrystalFormationSystem = require('src.systems.crystal_formation')
+-- CrystalFormationSystem removed
 Systems.AsteroidHotspotSystem = require('src.systems.asteroid_hotspots')
 Systems.MissileSystem = require('src.systems.homing_missile')
 Systems.ProjectileSystem = require('src.systems.projectile')

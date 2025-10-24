@@ -111,10 +111,11 @@ function GameInit.registerSystems()
     ECS.registerSystem("ProjectileSystem", Systems.ProjectileSystem)
     ECS.registerSystem("ShieldImpactSystem", Systems.ShieldImpactSystem)
     ECS.registerSystem("AsteroidClustersSystem", AsteroidClusters)
-    ECS.registerSystem("CrystalFormationSystem", Systems.CrystalFormationSystem)
+    -- CrystalFormationSystem removed
     ECS.registerSystem("AsteroidHotspotSystem", Systems.AsteroidHotspotSystem)
     ECS.registerSystem("EnergySystem", Systems.EnergySystem)
     ECS.registerSystem("WorldTooltipsSystem", Systems.WorldTooltipsSystem)
+    ECS.registerSystem("QuestSystem", require('src.systems.quest_system'))
     -- NebulaCloudSystem is called explicitly from RenderSystem
 end
 
@@ -155,12 +156,13 @@ function GameInit.createCoreEntities()
     ECS.addComponent(uiId, "UITag", Components.UITag())
 
     -- Create Starfield Entity (background) with static twinkling layer
+    -- Much brighter stars for better visibility in dark space
     local starFieldId = ECS.createEntity()
     local starLayers = {
-        {count = 40, brightness = 0.9, parallaxFactor = 0},      -- Static twinkling stars
-        {count = 400, brightness = 0.7, parallaxFactor = 0.01},  -- Very far distant stars
-        {count = 300, brightness = 0.5, parallaxFactor = 0.03},  -- Far distant stars
-        {count = 200, brightness = 0.35, parallaxFactor = 0.08}  -- Medium distant stars
+        {count = 40, brightness = 0.85, parallaxFactor = 0},      -- Static twinkling stars (much brighter)
+        {count = 400, brightness = 0.65, parallaxFactor = 0.01},  -- Very far distant stars (brighter)
+        {count = 300, brightness = 0.5, parallaxFactor = 0.03},   -- Far distant stars (brighter)
+        {count = 200, brightness = 0.4, parallaxFactor = 0.08}    -- Medium distant stars (brighter)
     }
     local parallaxObject = Parallax.new(starLayers, 10000)
     ECS.addComponent(starFieldId, "StarField", parallaxObject)

@@ -2,6 +2,7 @@
 
 local ECS = require('src.ecs')
 local Components = require('src.components')
+local EntityHelpers = require('src.entity_helpers')
 
 local ProjectileSystem = {
     name = "ProjectileSystem",
@@ -111,10 +112,7 @@ function ProjectileSystem.update(dt)
                     -- Apply damage to shield first, then hull
                     if shield and shield.current > 0 then
                         -- Shield absorbed damage - create impact effect
-                        local ShieldImpactSystem = ECS.getSystem("ShieldImpactSystem")
-                        if ShieldImpactSystem and ShieldImpactSystem.createImpact then
-                            ShieldImpactSystem.createImpact(projPos.x, projPos.y, enemyId)
-                        end
+                        EntityHelpers.createShieldImpact(projPos.x, projPos.y, enemyId)
                         
                         local remaining = shield.current - damage
                         shield.current = math.max(0, remaining)
@@ -128,10 +126,7 @@ function ProjectileSystem.update(dt)
                     end
                     
                     -- Trigger aggressive reaction if victim is AI
-                    local AISystem = ECS.getSystem("AISystem")
-                    if AISystem and AISystem.triggerAggressiveReaction then
-                        AISystem.triggerAggressiveReaction(enemyId, projId)
-                    end
+                    EntityHelpers.notifyAIDamage(enemyId, projId)
                     
                     -- Destroy missile on impact
                     if projectile.isMissile then

@@ -675,8 +675,8 @@ function SettingsWindow:mousepressed(mx, my, button)
     if self._exitBtn and uiMx >= self._exitBtn.x and uiMx <= self._exitBtn.x + self._exitBtn.w and
        uiMy >= self._exitBtn.y and uiMy <= self._exitBtn.y + self._exitBtn.h then
         self:closeWindow()
-        if returnToMainMenu then
-            returnToMainMenu()
+        if _G.Game and _G.Game.returnToMainMenu then
+            _G.Game.returnToMainMenu()
         end
         return true
     end

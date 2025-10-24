@@ -8,7 +8,7 @@ local SoundSystem = require('src.systems.sound')
 
 local MagnetSystem = {
     name = "MagnetSystem",
-    priority = 5
+    priority = 5.5  -- Run after projectiles but before destruction
 }
 
 function MagnetSystem.update(dt)

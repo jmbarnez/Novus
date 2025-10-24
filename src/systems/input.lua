@@ -5,7 +5,18 @@
 local ECS = require('src.ecs')
 local Constants = require('src.constants')
 local TurretSystem = require('src.systems.turret')
+local TurretRegistry = require('src.turret_registry')
 local HotkeyConfig = require('src.hotkey_config')
+
+-- Lazy-load UISystem to avoid circular dependencies
+local UISystem
+
+local function getUISystem()
+    if not UISystem then
+        UISystem = require('src.systems.ui')
+    end
+    return UISystem
+end
 
 local InputSystem = {
     name = "InputSystem",
@@ -95,8 +106,8 @@ function InputSystem.update(dt)
 
     -- Handle weapon firing for entities with turrets
     -- If UI has captured mouse input, do not fire turrets
-    local UIS = ECS.getSystem("UISystem")
-    if UIS and UIS.isMouseCaptured and UIS.isMouseCaptured() then
+    local uiSys = getUISystem()
+    if uiSys and uiSys.isMouseCaptured and uiSys.isMouseCaptured() then
         -- If turret beams exist, clean them up (as a safety) for the player's controlled drone
         local controllersList = ECS.getEntitiesWith({"InputControlled"})
         local controllerId = controllersList[1]
@@ -147,7 +158,7 @@ function InputSystem.update(dt)
         local turret = ECS.getComponent(turretOwner, "Turret")
         
         -- Get the module for this turret
-        local turretModule = TurretSystem.turretModules[turret.moduleName]
+        local turretModule = TurretRegistry.getModule(turret.moduleName)
 
         -- Check if turret has a valid module installed (moduleName is not nil)
         if not turret or not turret.moduleName or not turretModule then
@@ -230,7 +241,7 @@ function InputSystem.update(dt)
             end
         else
             -- Mouse released - destroy laser
-            local turretModule = TurretSystem.turretModules[turret.moduleName]
+            local turretModule = TurretRegistry.getModule(turret.moduleName)
             local turretComp = ECS.getComponent(turretOwner, "Turret")
             local laserEntityId = turretComp and turretComp.laserEntity
             if laserEntityId then
@@ -349,8 +360,8 @@ function InputSystem.wheelmoved(x, y)
         if camera then
             local current = camera.targetZoom or camera.zoom or 1
             local zoomSpeed = 0.05 -- Speed of zoom adjustment per scroll tick
-            local minZoom = 0.5
-            local maxZoom = 1.0
+            local minZoom = 1.0  -- Zoom out limit (1.0 = normal view)
+            local maxZoom = 2.0  -- Zoom in limit (2.0 = 2x magnification)
             
             if y > 0 then -- Mouse wheel up (zoom in)
                 camera.targetZoom = math.min(current + zoomSpeed, maxZoom)
