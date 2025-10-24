@@ -58,17 +58,45 @@ function AsteroidClusters.spawnCluster(clusterId)
     if not cluster then return end
     
     local count = cluster.maxAsteroids
+    local spawnedPositions = {}  -- Track positions for collision avoidance
+    local minDistance = 150  -- Minimum distance between asteroid centers
     
     for i = 1, count do
-        -- Random position within cluster radius
-        local angle = math.random() * 2 * math.pi
-        local distance = math.random() * cluster.radius
-        local x = cluster.centerX + math.cos(angle) * distance
-        local y = cluster.centerY + math.sin(angle) * distance
+        local maxAttempts = 20
+        local attempts = 0
+        local validPosition = false
+        local x, y
         
-        local asteroidId = AsteroidClusters.createAsteroid(x, y)
-        if asteroidId then
-            table.insert(cluster.asteroids, asteroidId)
+        while attempts < maxAttempts and not validPosition do
+            -- Random position within cluster radius
+            local angle = math.random() * 2 * math.pi
+            local distance = math.random() * cluster.radius
+            x = cluster.centerX + math.cos(angle) * distance
+            y = cluster.centerY + math.sin(angle) * distance
+            
+            -- Check collision with existing asteroids
+            validPosition = true
+            for _, pos in ipairs(spawnedPositions) do
+                local dx = x - pos.x
+                local dy = y - pos.y
+                local dist = math.sqrt(dx * dx + dy * dy)
+                
+                if dist < minDistance then
+                    validPosition = false
+                    break
+                end
+            end
+            
+            attempts = attempts + 1
+        end
+        
+        -- Only spawn if we found a valid position
+        if validPosition then
+            local asteroidId = AsteroidClusters.createAsteroid(x, y)
+            if asteroidId then
+                table.insert(cluster.asteroids, asteroidId)
+                table.insert(spawnedPositions, {x = x, y = y})
+            end
         end
     end
 end
@@ -108,7 +136,13 @@ function AsteroidClusters.createAsteroid(x, y)
         crystalFormation = true
     end
 
-    ECS.addComponent(asteroidId, "Asteroid", Components.Asteroid(asteroidType, crystalFormation))
+    -- Set XP reward based on asteroid type
+    local xpReward = nil  -- Default (uses SkillXP calculation)
+    if asteroidType == "iron" then
+        xpReward = 18  -- Iron asteroids give 18 XP
+    end
+
+    ECS.addComponent(asteroidId, "Asteroid", Components.Asteroid(asteroidType, crystalFormation, xpReward))
     
     -- Different colors for different asteroid types
     local color
@@ -183,14 +217,42 @@ function AsteroidClusters.update(dt)
                     -- Time to spawn!
                     local asteroidCount = #cluster.asteroids
                     if asteroidCount < cluster.maxAsteroids then
-                        local angle = math.random() * 2 * math.pi
-                        local distance = math.random() * cluster.radius
-                        local x = cluster.centerX + math.cos(angle) * distance
-                        local y = cluster.centerY + math.sin(angle) * distance
+                        -- Collision check against existing asteroids
+                        local minDistance = 150
+                        local maxAttempts = 20
+                        local attempts = 0
+                        local validPosition = false
+                        local x, y
                         
-                        local newAsteroidId = AsteroidClusters.createAsteroid(x, y)
-                        if newAsteroidId then
-                            table.insert(cluster.asteroids, newAsteroidId)
+                        while attempts < maxAttempts and not validPosition do
+                            local angle = math.random() * 2 * math.pi
+                            local distance = math.random() * cluster.radius
+                            x = cluster.centerX + math.cos(angle) * distance
+                            y = cluster.centerY + math.sin(angle) * distance
+                            
+                            validPosition = true
+                            for _, asteroidId in ipairs(cluster.asteroids) do
+                                local pos = ECS.getComponent(asteroidId, "Position")
+                                if pos then
+                                    local dx = x - pos.x
+                                    local dy = y - pos.y
+                                    local dist = math.sqrt(dx * dx + dy * dy)
+                                    
+                                    if dist < minDistance then
+                                        validPosition = false
+                                        break
+                                    end
+                                end
+                            end
+                            
+                            attempts = attempts + 1
+                        end
+                        
+                        if validPosition then
+                            local newAsteroidId = AsteroidClusters.createAsteroid(x, y)
+                            if newAsteroidId then
+                                table.insert(cluster.asteroids, newAsteroidId)
+                            end
                         end
                     end
                 else

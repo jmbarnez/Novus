@@ -23,10 +23,12 @@ end
 -- @field asteroidType string: Type of asteroid ("stone" or "iron")
 -- Optional: some iron asteroids may have a crystal formation attached
 -- @field crystalFormation boolean: true if this asteroid has crystal clusters on its surface
-Components.Asteroid = function(asteroidType, crystalFormation)
+-- @field xpReward number: Amount of mining XP this asteroid awards when destroyed (nil = use default from SkillXP)
+Components.Asteroid = function(asteroidType, crystalFormation, xpReward)
     return {
         asteroidType = asteroidType or "stone",
-        crystalFormation = crystalFormation or false
+        crystalFormation = crystalFormation or false,
+        xpReward = xpReward  -- nil means use default XP calculation
     }
 end
 

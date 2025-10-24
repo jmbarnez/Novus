@@ -7,6 +7,8 @@ local DebrisSystem = require('src.systems.debris') -- Import DebrisSystem
 local WrackageSystem = require('src.systems.wreckage') -- Import WrackageSystem
 local ItemDefs = require('src.items.item_loader')
 local AsteroidClusters = require('src.systems.asteroid_clusters')
+local SkillXP = require('src.systems.skill_xp')
+local DeathOverlay = require('src.ui.death_overlay')
 
 local DestructionSystem = {
     name = "DestructionSystem",
@@ -151,9 +153,16 @@ function DestructionSystem.update(dt)
             if controlledBy and controlledBy.pilotId then
                 local pilot = ECS.getComponent(controlledBy.pilotId, "Player")
                 if pilot then
-                    -- This is the player's drone - respawn it
-                    print("[Destruction] Player drone destroyed! Respawning...")
-                    DestructionSystem.respawnPlayer(entityId, controlledBy.pilotId)
+                    -- This is the player's drone - trigger death overlay UI, not instant respawn
+                    print("[Destruction] Player drone destroyed! Showing death UI...")
+                    DeathOverlay.show(
+                        function() -- respawn callback
+                            DestructionSystem.respawnPlayer(entityId, controlledBy.pilotId, true) -- 'true' = random spawn
+                        end,
+                        function() -- rage quit callback
+                            love.event.quit('restart') -- Reload game, handled in main
+                        end
+                    )
                     goto continue_entity
                 end
             end
@@ -235,6 +244,12 @@ function DestructionSystem.update(dt)
                 end
             end
 
+            -- Award mining XP if asteroid was destroyed by player
+            if asteroid and not wasDestroyedByEnemy then
+                local xpAmount = asteroid.xpReward
+                SkillXP.awardXp("mining", xpAmount)
+            end
+
             -- Wreckage shatters into bits
             if wreckage and pos then
                 local collidable = ECS.getComponent(entityId, "Collidable")
@@ -254,38 +269,41 @@ function DestructionSystem.update(dt)
 end
 
 -- Respawn the player's drone at the start position with full hull
-function DestructionSystem.respawnPlayer(droneId, pilotId)
-    -- Reset drone position to start
+function DestructionSystem.respawnPlayer(droneId, pilotId, randomLoc)
+    -- If randomLoc: pick a random spawn point in world bounds
     local pos = ECS.getComponent(droneId, "Position")
     if pos then
-        pos.x = 0
-        pos.y = 0
-        pos.prevX = 0
-        pos.prevY = 0
+        if randomLoc then
+            local minX, maxX = -4000, 4000
+            local minY, maxY = -3000, 3000
+            pos.x = math.random(minX, maxX)
+            pos.y = math.random(minY, maxY)
+        else
+            pos.x = 0
+            pos.y = 0
+        end
+        pos.prevX = pos.x
+        pos.prevY = pos.y
     end
-    
     -- Reset velocity
     local vel = ECS.getComponent(droneId, "Velocity")
     if vel then
         vel.vx = 0
         vel.vy = 0
     end
-    
     -- Restore full hull
     local hull = ECS.getComponent(droneId, "Hull")
     if hull then
         hull.current = hull.max
         print("[Destruction] Player hull restored to full: " .. hull.current .. "/" .. hull.max)
     end
-    
     -- Restore shield to full if present
     local shield = ECS.getComponent(droneId, "Shield")
     if shield then
         shield.current = shield.max
         shield.lastDamageTime = 0  -- Reset shield regen timer
     end
-    
-    print("[Destruction] Player respawned at (0, 0)")
+    print("[Destruction] Player respawned at (" .. pos.x .. ", " .. pos.y .. ")")
 end
 
 return DestructionSystem

@@ -112,6 +112,12 @@ local RenderSystem = {
         -- Draw target HUD indicator circle (in world space)
         local TargetHUD = require('src.systems.target_hud')
         TargetHUD.drawWorldIndicator()
+        
+        -- Draw world tooltips (warp gates, etc.)
+        local WorldTooltipsSystem = ECS.getSystem("WorldTooltipsSystem")
+        if WorldTooltipsSystem and WorldTooltipsSystem.draw then
+            WorldTooltipsSystem.draw()
+        end
 
         -- Record culling statistics to profiler
         Profiler.recordCulling(renderedItems + renderedEntities, culledItems + culledEntities)
@@ -147,6 +153,10 @@ local RenderSystem = {
         if HUDSystem and HUDSystem.draw then
             HUDSystem.draw(w, h)
         end
+
+        -- Draw the death overlay, if visible
+        local DeathOverlay = require('src.ui.death_overlay')
+        DeathOverlay.draw()
 
         Profiler.stop("ui_overlay")
     end

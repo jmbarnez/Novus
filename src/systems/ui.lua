@@ -12,6 +12,7 @@ local Dialogs = require('src.ui.dialogs')
 local Notifications = require('src.ui.notifications')
 local Scaling = require('src.scaling')
 local SettingsWindow = require('src.ui.settings_window')
+local DeathOverlay = require('src.ui.death_overlay')
 -- Hotbar removed
 -- CargoWindow removed - now integrated into ShipWindow
 -- SkillsWindow removed - now a panel within ShipWindow
@@ -268,6 +269,11 @@ end
 
 -- Mouse pressed handler
 function UISystem.mousepressed(x, y, button)
+    -- Death overlay blocks all other UI when visible
+    if DeathOverlay and DeathOverlay.isVisible then
+        DeathOverlay.mousepressed(x, y, button)
+        return true
+    end
     -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale)
     local mx, my = Scaling.toUI(x, y)
 

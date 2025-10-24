@@ -36,6 +36,11 @@ function AISystem.triggerAggressiveReaction(victimId, attackerId)
     local ai = ECS.getComponent(victimId, "AI")
     if not ai then return end
     
+    -- NEVER trigger aggressive state for mining AI - they should only mine asteroids
+    if ai.type == "mining" then
+        return
+    end
+    
     -- Set aggressive state
     ai.aggressiveTimer = ai.aggressiveDuration or 5.0
     ai.lastAttacker = attackerId
@@ -47,6 +52,11 @@ end
 -- ============================================================================
 
 local function updateAIState(ai, pos, playerPos, turret, design, dt)
+    -- NEVER allow mining AI to enter combat states
+    if ai.type == "mining" then
+        return
+    end
+    
     -- Update aggressive timer
     if ai.aggressiveTimer > 0 then
         ai.aggressiveTimer = ai.aggressiveTimer - dt
@@ -89,6 +99,70 @@ local function updateAIState(ai, pos, playerPos, turret, design, dt)
     end
 end
 
+-- ==== Enemy Respawn Logic BEGIN ====
+local respawnTimer = 0
+local respawnInterval = 60  -- seconds between enemy respawns (slow)
+
+function AISystem._getEnemyCap()
+    -- Determine cap from current world config (if available)
+    local WorldLoader = require('src.world_loader')
+    local world = WorldLoader.getCurrentWorld and WorldLoader.getCurrentWorld()
+    if world and world.enemies and world.enemies.types then
+        local cap = 0
+        for _, count in pairs(world.enemies.types) do
+            cap = cap + count
+        end
+        return cap or 10
+    end
+    return 10 -- fallback
+end
+
+function AISystem._countEnemies()
+    local ECS = require('src.ecs')
+    local aiEntities = ECS.getEntitiesWith({"AI", "Position"})
+    local active = 0
+    for _, eid in ipairs(aiEntities) do
+        -- Only count enemies not controlled by player
+        if not ECS.hasComponent(eid, "ControlledBy") then
+            active = active + 1
+        end
+    end
+    return active
+end
+
+function AISystem._respawnEnemy()
+    local WorldLoader = require('src.world_loader')
+    local world = WorldLoader.getCurrentWorld and WorldLoader.getCurrentWorld()
+    if not world or not world.enemies then return end
+    -- Choose enemy type to spawn (weighted random if multiple)
+    local candidates = {}
+    for k, v in pairs(world.enemies.types or {}) do
+        for i=1, v do
+            table.insert(candidates, k)
+        end
+    end
+    if #candidates == 0 then return end
+    local enemyType = candidates[math.random(#candidates)]
+
+    -- Pick spawn location (use logic from initial spawn, e.g., random in world bounds)
+    local config = world.enemies
+    WorldLoader.spawnEnemy(enemyType, config)
+end
+
+-- Patch/update function to include respawner
+local _oldUpdate = AISystem.update
+function AISystem.update(dt)
+    _oldUpdate(dt)
+    respawnTimer = respawnTimer + dt
+    if respawnTimer >= respawnInterval then
+        respawnTimer = 0
+        local count = AISystem._countEnemies()
+        local cap = AISystem._getEnemyCap()
+        if count < cap then
+            AISystem._respawnEnemy()
+        end
+    end
+end
 -- ============================================================================
 -- MAIN UPDATE LOOP
 -- ============================================================================
@@ -116,7 +190,10 @@ function AISystem.update(dt)
         if not (ai and pos and vel) then goto continue end
 
         -- Skip mining AI if handled by separate system
+        -- CRITICAL: Never allow mining AI to switch to combat modes
         if ai.type == "mining" then
+            -- Ensure mining AI stays in mining state (defensive check)
+            ai.state = "mining"
             goto continue
         end
         

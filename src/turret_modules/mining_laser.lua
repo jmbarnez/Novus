@@ -5,7 +5,6 @@ local ECS = require('src.ecs')
 local Components = require('src.components')
 local CollisionSystem = require('src.systems.collision')
 local DebrisSystem = require('src.systems.debris')
-local SkillXP = require('src.systems.skill_xp')
 local EntityPool = require('src.entity_pool')
 
 local MiningLaser = {
@@ -214,11 +213,6 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
                 -- Mark asteroid as being mined (for hotspot spawning)
                 local currentTime = love.timer.getTime()
                 ECS.addComponent(hitAsteroidId, "BeingMined", Components.BeingMined(currentTime))
-
-                -- Only grant XP if asteroid is destroyed this frame
-                if durability.current <= 0 then
-                    SkillXP.awardXp("mining")
-                end
                 
                 -- Enhanced visual feedback: More particles as asteroid gets damaged
                 local asteroidHealthPercent = durability.current / durability.max

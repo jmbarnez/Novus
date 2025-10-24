@@ -46,9 +46,10 @@ function Minimap._buildBlipCache(minimapX, minimapY, minimapRadius, playerX, pla
     local blips = {asteroids = {}, items = {}, enemies = {}, player = nil, boundary = nil}
 
     -- Asteroids
-    for _, id in ipairs(ECS.getEntitiesWith({ 'Asteroid', 'Position' })) do
+    for _, id in ipairs(ECS.getEntitiesWith({ 'Asteroid', 'Position', 'PolygonShape' })) do
         local pos = ECS.getComponent(id, 'Position')
-        if pos then
+        local poly = ECS.getComponent(id, 'PolygonShape')
+        if pos and poly and poly.vertices then
             local dx, dy = pos.x - playerX, pos.y - playerY
             local r2 = dx * dx + dy * dy
             if r2 < minimapWorldRadius * minimapWorldRadius then -- let's early discard outlier objects
@@ -56,7 +57,18 @@ function Minimap._buildBlipCache(minimapX, minimapY, minimapRadius, playerX, pla
                 local mx, my = minimapX + dx * scale, minimapY + dy * scale
                 local blipRadius = 2
                 if ((mx - minimapX) ^ 2 + (my - minimapY) ^ 2) <= (minimapRadius - blipRadius) ^ 2 then
-                    table.insert(blips.asteroids, {mx, my})
+                    -- Transform polygon vertices to minimap space
+                    local transformedVertices = {}
+                    local rot = poly.rotation or 0
+                    for _, v in ipairs(poly.vertices) do
+                        -- Scale and rotate vertex
+                        local localX = v.x * math.cos(rot) - v.y * math.sin(rot)
+                        local localY = v.x * math.sin(rot) + v.y * math.cos(rot)
+                        -- Apply minimap scale and offset
+                        table.insert(transformedVertices, mx + localX * scale * 0.1)
+                        table.insert(transformedVertices, my + localY * scale * 0.1)
+                    end
+                    table.insert(blips.asteroids, {mx, my, transformedVertices})
                 end
             end
         end
@@ -152,7 +164,13 @@ function Minimap.draw()
     if cachedBlips then
         love.graphics.setColor(0.7, 0.7, 0.7, 1) -- asteroid color
         for _, p in ipairs(cachedBlips.asteroids) do
-            love.graphics.circle('fill', p[1], p[2], 2)
+            if p[3] then
+                -- Draw polygon shape if available
+                love.graphics.polygon('fill', p[3])
+            else
+                -- Fallback to circle for backward compatibility
+                love.graphics.circle('fill', p[1], p[2], 2)
+            end
         end
         love.graphics.setColor(0.2, 0.8, 0.2, 1) -- item color
         for _, p in ipairs(cachedBlips.items) do

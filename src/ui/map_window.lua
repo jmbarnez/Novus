@@ -114,16 +114,34 @@ function MapWindow:draw(viewportWidth, viewportHeight)
     self._minX, self._minY, self._maxX, self._maxY = minX, minY, maxX, maxY
 
     -- Draw asteroids
-    local asteroids = ECS.getEntitiesWith({'Asteroid', 'Position'})
+    local asteroids = ECS.getEntitiesWith({'Asteroid', 'Position', 'PolygonShape'})
     love.graphics.setColor(0.7, 0.7, 0.7, 1 * alpha)
     for _, id in ipairs(asteroids) do
         local pos = ECS.getComponent(id, 'Position')
-        local coll = ECS.getComponent(id, 'Collidable')
-        if pos then
+        local poly = ECS.getComponent(id, 'PolygonShape')
+        if pos and poly and poly.vertices then
+            local mx, my = worldToMap(pos.x, pos.y)
+            -- Only draw if inside map rectangle
+            if mx >= mapX and mx <= mapX + mapW and my >= mapY and my <= mapY + mapH then
+                -- Transform polygon vertices to map space
+                local transformedVertices = {}
+                local rot = poly.rotation or 0
+                for _, v in ipairs(poly.vertices) do
+                    -- Rotate vertex
+                    local localX = v.x * math.cos(rot) - v.y * math.sin(rot)
+                    local localY = v.x * math.sin(rot) + v.y * math.cos(rot)
+                    -- Apply map scale and offset
+                    table.insert(transformedVertices, mx + localX * scale)
+                    table.insert(transformedVertices, my + localY * scale)
+                end
+                love.graphics.polygon('fill', transformedVertices)
+            end
+        elseif pos then
+            -- Fallback for asteroids without polygon shape
+            local coll = ECS.getComponent(id, 'Collidable')
             local mx, my = worldToMap(pos.x, pos.y)
             local radius = (coll and coll.radius) or 8
             local blip = math.max(1.5, radius * scale)
-            -- Only draw if inside map rectangle
             if mx >= mapX and mx <= mapX + mapW and my >= mapY and my <= mapY + mapH then
                 love.graphics.circle('fill', mx, my, blip)
             end

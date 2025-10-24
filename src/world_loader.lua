@@ -127,16 +127,45 @@ function WorldLoader.initAsteroidClusters(config)
         
         -- Spawn initial asteroids in cluster manually
         local count = cluster.maxAsteroids
+        local spawnedPositions = {}  -- Track positions for collision avoidance
+        local minDistance = 150  -- Minimum distance between asteroid centers
+        
         for j = 1, count do
-            -- Random position within cluster radius
-            local angle = math.random() * 2 * math.pi
-            local distance = math.random() * cluster.radius
-            local x = cluster.centerX + math.cos(angle) * distance
-            local y = cluster.centerY + math.sin(angle) * distance
+            local maxAttempts = 20
+            local attempts = 0
+            local validPosition = false
+            local x, y
             
-            local asteroidId = AsteroidClusters.createAsteroid(x, y)
-            if asteroidId then
-                table.insert(cluster.asteroids, asteroidId)
+            while attempts < maxAttempts and not validPosition do
+                -- Random position within cluster radius
+                local angle = math.random() * 2 * math.pi
+                local distance = math.random() * cluster.radius
+                x = cluster.centerX + math.cos(angle) * distance
+                y = cluster.centerY + math.sin(angle) * distance
+                
+                -- Check collision with existing asteroids
+                validPosition = true
+                for _, pos in ipairs(spawnedPositions) do
+                    local dx = x - pos.x
+                    local dy = y - pos.y
+                    local dist = math.sqrt(dx * dx + dy * dy)
+                    
+                    if dist < minDistance then
+                        validPosition = false
+                        break
+                    end
+                end
+                
+                attempts = attempts + 1
+            end
+            
+            -- Only spawn if we found a valid position
+            if validPosition then
+                local asteroidId = AsteroidClusters.createAsteroid(x, y)
+                if asteroidId then
+                    table.insert(cluster.asteroids, asteroidId)
+                    table.insert(spawnedPositions, {x = x, y = y})
+                end
             end
         end
     end
@@ -165,39 +194,60 @@ function WorldLoader.spawnEnemy(enemyType, config)
     -- Get random position
     local x = Constants.world_min_x + math.random() * (Constants.world_max_x - Constants.world_min_x)
     local y = Constants.world_min_y + math.random() * (Constants.world_max_y - Constants.world_min_y)
-    
+
     -- Make sure not too close to spawn point
     local distanceFromSpawn = math.sqrt(x * x + y * y)
     if distanceFromSpawn < 500 then
-        -- Too close, push it away
         local angle = math.atan2(y, x)
         x = math.cos(angle) * 500
         y = math.sin(angle) * 500
     end
-    
+
     local shipId = ShipLoader.createShip(enemyType, x, y, "ai")
     if shipId then
-        -- Configure turret
+        -- Set up turret weapon (random choice if weapons table is a list)
         local turret = ECS.getComponent(shipId, "Turret")
+        local weapon = "basic_cannon"
         if turret then
-            local weapon = config.weapons and config.weapons[enemyType] or "basic_cannon"
+            local weaponConf = config.weapons and config.weapons[enemyType]
+            if type(weaponConf) == "table" then
+                -- Table of options; randomly choose
+                weapon = weaponConf[math.random(1, #weaponConf)] or "basic_cannon"
+            elseif type(weaponConf) == "string" then
+                weapon = weaponConf
+            end
             turret.moduleName = weapon
+        else
+            print("[WorldLoader][BUG] Spawned enemy with no Turret!", enemyType, shipId)
         end
-        
-        -- Configure AI
+
+        -- Automatically set AI type based on weapon (mining lasers = mining AI)
         local ai = ECS.getComponent(shipId, "AI")
         if ai then
-            ai.type = config.aiType or "combat"
-            ai.state = config.aiState or "patrol"
-            local design = ShipLoader.getDesign(enemyType)
-            if design then
-                if design.combatDetectionRange then
-                    ai.detectionRadius = design.combatDetectionRange
-                end
+            local isMiningWeapon = (weapon == "mining_laser" or weapon == "salvage_laser")
+            if isMiningWeapon then
+                ai.type = "mining"
+                ai.state = "mining"
+            else
+                ai.type = config.aiType or "combat"
+                ai.state = config.aiState or "patrol"
             end
+        else
+            print("[WorldLoader][BUG] Spawned enemy with no AI!", enemyType, shipId)
         end
+
+        -- Ensure Wreckage sourceShip is assigned (enables design lookup in AI)
+        local wreckage = ECS.getComponent(shipId, "Wreckage")
+        if wreckage then
+            wreckage.sourceShip = enemyType
+        end
+
+        -- Debugging: Print entity spawn details
+        print(string.format("[WorldLoader] Spawned enemy: ID=%s, Type=%s, Weapon=%s, AIType=%s, State=%s", shipId, enemyType, turret and turret.moduleName or "NONE", ai and ai.type or "NONE", ai and ai.state or "NONE"))
+    else
+        print("[WorldLoader][BUG] ShipLoader.createShip failed for enemy type:", enemyType)
     end
-    
+
     return shipId
 end
 

@@ -183,7 +183,7 @@ function Procedural.registerAsteroidTemplate()
         
         -- Heavy asteroid mass based on size (much heavier - not easily pushed)
         -- Density scales cubically with size for realistic mass
-        local asteroidMass = size * size * 0.5  -- Much heavier than drone (which is mass 1)
+        local asteroidMass = size * size * 0.25  -- Halved mass (previously 0.5)
         
         -- Calculate realistic rotational inertia based on actual polygon shape
         local rotationalInertia = Components.calculatePolygonInertia(vertices, asteroidMass)
@@ -214,6 +214,12 @@ function Procedural.registerAsteroidTemplate()
             color = {0.5, 0.5, 0.5, 1}  -- Gray stone asteroid
         end
         
+        -- Set XP reward based on asteroid type
+        local xpReward = nil  -- Default (uses SkillXP calculation)
+        if asteroidType == "iron" then
+            xpReward = 18  -- Iron asteroids give 18 XP
+        end
+        
         return {
             Position = Components.Position(spawnData.x, spawnData.y),
             Velocity = Components.Velocity(velocity.vx, velocity.vy),
@@ -223,7 +229,7 @@ function Procedural.registerAsteroidTemplate()
             RotationalMass = Components.RotationalMass(rotationalInertia), -- Calculated from shape - hard to spin
             Collidable = Components.Collidable(size / 2), -- Bounding radius
             Durability = Components.Durability(size * 2, size * 2),
-            Asteroid = Components.Asteroid(asteroidType, crystalFormation),
+            Asteroid = Components.Asteroid(asteroidType, crystalFormation, xpReward),
             Renderable = Components.Renderable("polygon", nil, nil, nil, color)
         }
     end)

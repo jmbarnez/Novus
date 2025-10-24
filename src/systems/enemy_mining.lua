@@ -61,7 +61,12 @@ function EnemyMiningSystem.update(dt)
             local asteroids = ECS.getEntitiesWith({"Asteroid", "Position", "Durability"})
             local closestAsteroid = nil
             local closestDistSq = MINING_DETECTION_RANGE * MINING_DETECTION_RANGE
-
+            
+            -- Extra: Function to verify a valid asteroid target (defensive, in case of future entity confusion)
+            local function isAsteroidEntity(entId)
+                return ECS.hasComponent(entId, "Asteroid")
+            end
+            
             for _, asteroidId in ipairs(asteroids) do
                 local asteroidPos = ECS.getComponent(asteroidId, "Position")
                 if asteroidPos then
@@ -75,55 +80,52 @@ function EnemyMiningSystem.update(dt)
                 end
             end
 
-            -- Miners ONLY target asteroids, never players
-            if closestAsteroid then
-                local asteroidPos = ECS.getComponent(closestAsteroid, "Position")
-                if asteroidPos then
-                    -- Move toward asteroid to stay in mining range (orbit behavior)
-                    local dx = asteroidPos.x - pos.x
-                    local dy = asteroidPos.y - pos.y
-                    local distToAsteroid = math.sqrt(dx * dx + dy * dy)
-                    -- Maintain distance of ~150 pixels from asteroid center
-                    local targetDistance = 150
-                    local ForceUtils = require('src.systems.force_utils')
-                    local physics = ECS.getComponent(minerId, "Physics")
-                    
-                    if distToAsteroid > targetDistance then
-                        if distToAsteroid > 0 and physics then
-                            local desiredVx = (dx / distToAsteroid) * thrustForce * 0.5
-                            local desiredVy = (dy / distToAsteroid) * thrustForce * 0.5
-                            local thrustX = (desiredVx - vel.vx) * 0.6 * physics.mass
-                            local thrustY = (desiredVy - vel.vy) * 0.6 * physics.mass
-                            ForceUtils.applyForce(minerId, thrustX, thrustY)
-                        end
-                    else
-                        if physics then
-                            local time = love.timer.getTime()
-                            local orbitAngle = time * 2
-                            local desiredVx = math.cos(orbitAngle) * thrustForce * 0.15
-                            local desiredVy = math.sin(orbitAngle) * thrustForce * 0.15
-                            local thrustX = (desiredVx - vel.vx) * 0.6 * physics.mass
-                            local thrustY = (desiredVy - vel.vy) * 0.6 * physics.mass
-                            ForceUtils.applyForce(minerId, thrustX, thrustY)
-                        end
+            -- Miners ONLY target asteroids, never players (defensive double-check)
+            -- Check for a valid asteroid target FIRST and clean up any beam proactively (before doing any targeting work)
+            if not (closestAsteroid and isAsteroidEntity(closestAsteroid)) then
+                EnemyMiningSystem.destroyMinerLaser(minerId)
+                goto continue
+            end
+
+            -- If here, we have a valid asteroid. All beam logic is safe now.
+            local asteroidPos = ECS.getComponent(closestAsteroid, "Position")
+            if asteroidPos then
+                -- Move toward asteroid to stay in mining range (orbit behavior)
+                local dx = asteroidPos.x - pos.x
+                local dy = asteroidPos.y - pos.y
+                local distToAsteroid = math.sqrt(dx * dx + dy * dy)
+                local targetDistance = 150
+                local ForceUtils = require('src.systems.force_utils')
+                local physics = ECS.getComponent(minerId, "Physics")
+                if distToAsteroid > targetDistance then
+                    if distToAsteroid > 0 and physics then
+                        local desiredVx = (dx / distToAsteroid) * thrustForce * 0.5
+                        local desiredVy = (dy / distToAsteroid) * thrustForce * 0.5
+                        local thrustX = (desiredVx - vel.vx) * 0.6 * physics.mass
+                        local thrustY = (desiredVy - vel.vy) * 0.6 * physics.mass
+                        ForceUtils.applyForce(minerId, thrustX, thrustY)
                     end
-                    EnemyMiningSystem.updateMinerLaser(minerId, pos.x, pos.y, asteroidPos.x, asteroidPos.y)
-                    EnemyMiningSystem.applyMinerDamage(minerId, closestAsteroid, asteroidPos.x, asteroidPos.y, dt)
-                    
-                    -- Update turret aim position for rendering
-                    local turret = ECS.getComponent(minerId, "Turret")
-                    if turret then
-                        local dx = asteroidPos.x - pos.x
-                        local dy = asteroidPos.y - pos.y
-                        local fireAngle = math.atan2(dy, dx)
-                        local muzzleDistance = 12
-                        turret.aimX = pos.x + math.cos(fireAngle) * muzzleDistance
-                        turret.aimY = pos.y + math.sin(fireAngle) * muzzleDistance
+                else
+                    if physics then
+                        local time = love.timer.getTime()
+                        local orbitAngle = time * 2
+                        local desiredVx = math.cos(orbitAngle) * thrustForce * 0.15
+                        local desiredVy = math.sin(orbitAngle) * thrustForce * 0.15
+                        local thrustX = (desiredVx - vel.vx) * 0.6 * physics.mass
+                        local thrustY = (desiredVy - vel.vy) * 0.6 * physics.mass
+                        ForceUtils.applyForce(minerId, thrustX, thrustY)
                     end
                 end
-            else
-                -- No asteroid found: stop mining laser (thrust forces naturally decay)
-                EnemyMiningSystem.destroyMinerLaser(minerId)
+                EnemyMiningSystem.updateMinerLaser(minerId, pos.x, pos.y, asteroidPos.x, asteroidPos.y)
+                EnemyMiningSystem.applyMinerDamage(minerId, closestAsteroid, asteroidPos.x, asteroidPos.y, dt)
+                -- Update turret aim for rendering
+                local turret = ECS.getComponent(minerId, "Turret")
+                if turret then
+                    local fireAngle = math.atan2(dy, dx)
+                    local muzzleDistance = 12
+                    turret.aimX = pos.x + math.cos(fireAngle) * muzzleDistance
+                    turret.aimY = pos.y + math.sin(fireAngle) * muzzleDistance
+                end
             end
         end
         

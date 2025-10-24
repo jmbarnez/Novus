@@ -69,7 +69,7 @@ return {
     -- AI settings (only used when AI-controlled)
     aiType = "patrol",
     patrolPoints = {},  -- Empty patrol points - AI will wander randomly
-    detectionRange = 1600,
+    detectionRange = 800,
     engageRange = 240,
     patrolSpeed = 60,
     

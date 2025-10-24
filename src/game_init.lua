@@ -114,6 +114,7 @@ function GameInit.registerSystems()
     ECS.registerSystem("CrystalFormationSystem", Systems.CrystalFormationSystem)
     ECS.registerSystem("AsteroidHotspotSystem", Systems.AsteroidHotspotSystem)
     ECS.registerSystem("EnergySystem", Systems.EnergySystem)
+    ECS.registerSystem("WorldTooltipsSystem", Systems.WorldTooltipsSystem)
     -- NebulaCloudSystem is called explicitly from RenderSystem
 end
 

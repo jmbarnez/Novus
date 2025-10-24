@@ -26,17 +26,15 @@ return {
     enemies = {
         -- Enemy type definitions: {enemyType = count}
         types = {
-            ["red_scout"] = 2
+            ["red_scout"] = 10,
         },
-        
-        -- Weapon assignments per enemy type
+        -- Weapon assignments pool (both weapons valid for red_scout)
         weapons = {
-            ["red_scout"] = "basic_cannon"
+            ["red_scout"] = {"basic_cannon", "mining_laser"}
         },
-        
         -- AI behavior settings
         aiType = "combat",
-        aiState = "patrol"
+        aiState = "patrol",
     },
     
     -- Visual theme
