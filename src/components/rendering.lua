@@ -42,6 +42,8 @@ Components.Canvas = function(width, height)
         width = width,
         height = height,
         scale = 1,
+        scaleX = 1,
+        scaleY = 1,
         offsetX = 0,
         offsetY = 0
     }
@@ -59,6 +61,11 @@ function Components.resizeCanvas(canvasComp, newWidth, newHeight)
         canvasComp.canvas = love.graphics.newCanvas(newWidth, newHeight)
         canvasComp.width = newWidth
         canvasComp.height = newHeight
+        canvasComp.scale = 1
+        canvasComp.scaleX = 1
+        canvasComp.scaleY = 1
+        canvasComp.offsetX = 0
+        canvasComp.offsetY = 0
     end
 end
 

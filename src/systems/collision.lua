@@ -6,6 +6,7 @@ local ECS = require('src.ecs')
 local Constants = require('src.constants')
 local Quadtree = require('src.systems.quadtree')
 local CollisionUtils = require('src.collision_utils')
+local EntityHelpers = require('src.entity_helpers')
 
 local CollisionSystem = {
     name = "CollisionSystem",
@@ -135,14 +136,10 @@ local CollisionSystem = {
         -- Get all collidable entities
         local collidableEntities = ECS.getEntitiesWith({"Collidable", "Position"})
         
-        -- Get the pilot and their controlled drone
-        local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-        if #playerEntities == 0 then return end
+        -- Get the player ship using helper function
+        local playerId = EntityHelpers.getPlayerShip()
+        if not playerId then return end
         
-        local pilotId = playerEntities[1]
-        local input = ECS.getComponent(pilotId, "InputControlled")
-        if not input or not input.targetEntity then return end
-        local playerId = input.targetEntity
         local playerPos = ECS.getComponent(playerId, "Position")
         local playerCollidable = ECS.getComponent(playerId, "Collidable")
         

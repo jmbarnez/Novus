@@ -332,4 +332,15 @@ function MapWindow:wheelmoved(dx, dy)
     self.zoom = newZoom
 end
 
+function MapWindow:onResize(screenW, screenH)
+    screenW = screenW or love.graphics.getWidth()
+    screenH = screenH or love.graphics.getHeight()
+    WindowBase.onResize(self, screenW, screenH)
+    if self.isOpen then
+        self.width = screenW
+        self.height = screenH
+        self.position = {x = 0, y = 0}
+    end
+end
+
 return MapWindow

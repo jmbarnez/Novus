@@ -4,9 +4,9 @@ function love.conf(t)
     t.version = "11.3"
     t.console = true
     
-    -- Window settings - single resolution to avoid scaling issues
-    t.window.width = 1600
-    t.window.height = 900
+    -- Window settings - default to common 1080p while allowing in-game changes
+    t.window.width = 1920
+    t.window.height = 1080
     t.window.borderless = false  -- Start in windowed mode
     t.window.fullscreen = false
     t.window.resizable = false  -- Disable resizing

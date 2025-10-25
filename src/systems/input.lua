@@ -4,6 +4,7 @@
 
 local ECS = require('src.ecs')
 local Constants = require('src.constants')
+local EntityHelpers = require('src.entity_helpers')
 local TurretSystem = require('src.systems.turret')
 local TurretRegistry = require('src.turret_registry')
 local HotkeyConfig = require('src.hotkey_config')
@@ -27,31 +28,34 @@ local InputSystem = {
 
 function InputSystem.update(dt)
     -- Handle targeting progress
-    local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
-    for _, controllerId in ipairs(controllers) do
-        local input = ECS.getComponent(controllerId, "InputControlled")
-        if input and input.targetingTarget then
-            -- Check if target still exists
-            local targetPos = ECS.getComponent(input.targetingTarget, "Position")
+    local pilotId = EntityHelpers.getPlayerPilot()
+    if pilotId then
+        local controllers = {pilotId}
+        for _, controllerId in ipairs(controllers) do
+            local input = ECS.getComponent(controllerId, "InputControlled")
+            if input and input.targetingTarget then
+                -- Check if target still exists
+                local targetPos = ECS.getComponent(input.targetingTarget, "Position")
 
-            if targetPos then
-                -- Progress the lock-on regardless of mouse position
-                local currentTime = love.timer.getTime()
-                local elapsed = currentTime - input.targetingStartTime
-                input.targetingProgress = math.min(elapsed / 3.0, 1.0)  -- 3 second lock-on time
+                if targetPos then
+                    -- Progress the lock-on regardless of mouse position
+                    local currentTime = love.timer.getTime()
+                    local elapsed = currentTime - input.targetingStartTime
+                    input.targetingProgress = math.min(elapsed / 3.0, 1.0)  -- 3 second lock-on time
 
-                -- Complete targeting when progress reaches 1.0
-                if input.targetingProgress >= 1.0 then
-                    input.targetedEnemy = input.targetingTarget
+                    -- Complete targeting when progress reaches 1.0
+                    if input.targetingProgress >= 1.0 then
+                        input.targetedEnemy = input.targetingTarget
+                        input.targetingTarget = nil
+                        input.targetingProgress = 0
+                        input.targetingStartTime = 0
+                    end
+                else
+                    -- Target no longer exists, cancel targeting
                     input.targetingTarget = nil
                     input.targetingProgress = 0
                     input.targetingStartTime = 0
                 end
-            else
-                -- Target no longer exists, cancel targeting
-                input.targetingTarget = nil
-                input.targetingProgress = 0
-                input.targetingStartTime = 0
             end
         end
     end

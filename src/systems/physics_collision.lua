@@ -366,6 +366,44 @@ local function resolveCollision(entity1, entity2, normal, depth)
     end
 end
 
+local function applyProjectileDamage(projectileId, targetId)
+    local proj = ECS.getComponent(projectileId, "Projectile")
+    if not proj then return end
+
+    local damage = proj.damage or 10
+    -- Apply to Shield first, then Hull
+    local shield = ECS.getComponent(targetId, "Shield")
+    local hull = ECS.getComponent(targetId, "Hull")
+    if shield and shield.current > 0 then
+        -- Shield absorbed damage - create impact effect
+        local pos = ECS.getComponent(projectileId, "Position")
+        if pos then
+            EntityHelpers.createShieldImpact(pos.x, pos.y, targetId)
+        end
+        
+        local remaining = shield.current - damage
+        shield.current = math.max(0, remaining)
+        damage = math.max(0, -remaining)
+        shield.regenTimer = shield.regenDelay or 0
+    end
+    if damage > 0 and hull then
+        hull.current = math.max(0, hull.current - damage)
+    end
+    -- Also apply to Durability if present (asteroids and hull)
+    local durability = ECS.getComponent(targetId, "Durability")
+    if durability then
+        durability.current = durability.current - damage
+    end
+    
+    -- Trigger aggressive reaction if victim is AI
+    EntityHelpers.notifyAIDamage(targetId, projectileId)
+    -- If projectile is brittle, mark it for destruction
+    if proj.brittle then
+        local pDur = ECS.getComponent(projectileId, "Durability")
+        if pDur then pDur.current = 0 end
+    end
+end
+
 local PhysicsCollisionSystem = {
     name = "PhysicsCollisionSystem",
 
@@ -548,155 +586,43 @@ local PhysicsCollisionSystem = {
                         
                         -- CRITICAL: Prevent projectiles/lasers from colliding with their owner ship
                         -- Check immunity timer to ensure projectile can't hit its own ship
-                        if proj1 and proj1.ownerId == entity2Id then
-                            if proj1.ownerImmunityTime and proj1.ownerImmunityTime > 0 then
-                                -- Owner immunity still active - skip collision entirely
-                                goto continue_nearby
-                            end
-                        end
-                        if proj2 and proj2.ownerId == entity1Id then
-                            if proj2.ownerImmunityTime and proj2.ownerImmunityTime > 0 then
-                                -- Owner immunity still active - skip collision entirely
-                                goto continue_nearby
-                            end
-                        end
-                        if laser1 and laser1.ownerId == entity2Id then
-                            -- Laser originated from this ship - never collide
+                        if (proj1 and proj1.ownerId == entity2Id and proj1.ownerImmunityTime and proj1.ownerImmunityTime > 0) or
+                           (proj2 and proj2.ownerId == entity1Id and proj2.ownerImmunityTime and proj2.ownerImmunityTime > 0) or
+                           (laser1 and laser1.ownerId == entity2Id) or
+                           (laser2 and laser2.ownerId == entity1Id) or
+                           (proj1 and proj2) then
                             goto continue_nearby
-                        end
-                        if laser2 and laser2.ownerId == entity1Id then
-                            -- Laser originated from this ship - never collide
-                            goto continue_nearby
-                        end
-                        
-                        -- CRITICAL: Skip all projectile-to-projectile collisions entirely
-                        -- Projectiles should never collide with each other
-                        if proj1 and proj2 then 
-                            goto continue_nearby 
                         end
                         
                         -- CRITICAL: Enemy projectiles should NOT collide with other enemies
                         -- They should only collide with the player and asteroids/wreckage
-                        if proj1 then
-                            local owner1 = ECS.getComponent(proj1.ownerId, "ControlledBy")
-                            -- If projectile owner is AI-controlled (enemy), check target
-                            if not owner1 then  -- No ControlledBy = enemy AI
-                                local target2AI = ECS.getComponent(entity2Id, "AI")
-                                if target2AI then
-                                    -- Both are enemies - skip this collision
-                                    goto continue_nearby
-                                end
-                            end
-                        end
-                        if proj2 then
-                            local owner2 = ECS.getComponent(proj2.ownerId, "ControlledBy")
-                            -- If projectile owner is AI-controlled (enemy), check target
-                            if not owner2 then  -- No ControlledBy = enemy AI
-                                local target1AI = ECS.getComponent(entity1Id, "AI")
-                                if target1AI then
-                                    -- Both are enemies - skip this collision
-                                    goto continue_nearby
-                                end
-                            end
+                        if (proj1 and not ECS.getComponent(proj1.ownerId, "ControlledBy") and ECS.getComponent(entity2Id, "AI")) or
+                           (proj2 and not ECS.getComponent(proj2.ownerId, "ControlledBy") and ECS.getComponent(entity1Id, "AI")) then
+                            goto continue_nearby
                         end
                         
                         -- Skip items colliding with player ship
                         -- Items should ignore player ship collisions
                         local item1 = ECS.getComponent(entity1Id, "Item")
                         local item2 = ECS.getComponent(entity2Id, "Item")
-                        local playerCtrl = ECS.getComponent(entity2Id, "ControlledBy")
-                        if item1 and playerCtrl then
-                            -- Item colliding with player ship - skip
-                            goto continue_nearby
-                        end
-                        playerCtrl = ECS.getComponent(entity1Id, "ControlledBy")
-                        if item2 and playerCtrl then
-                            -- Item colliding with player ship - skip
+                        if (item1 and ECS.getComponent(entity2Id, "ControlledBy")) or
+                           (item2 and ECS.getComponent(entity1Id, "ControlledBy")) then
                             goto continue_nearby
                         end
                         
                         -- CRITICAL: Missiles should ONLY collide with enemies (Hull component)
                         -- Skip missiles hitting asteroids, wreckages, or other non-enemy entities
-                        if proj1 and proj1.isMissile then
-                            local hull2 = ECS.getComponent(entity2Id, "Hull")
-                            if not hull2 then
-                                goto continue_nearby
-                            end
-                        end
-                        if proj2 and proj2.isMissile then
-                            local hull1 = ECS.getComponent(entity1Id, "Hull")
-                            if not hull1 then
-                                goto continue_nearby
-                            end
+                        if (proj1 and proj1.isMissile and not ECS.getComponent(entity2Id, "Hull")) or
+                           (proj2 and proj2.isMissile and not ECS.getComponent(entity1Id, "Hull")) then
+                            goto continue_nearby
                         end
                         
                         -- If either entity is a projectile, apply its damage to the other
                         if proj1 then
-                            local damage = proj1.damage or 10
-                            -- Apply to Shield first, then Hull
-                            local shield2 = ECS.getComponent(entity2Id, "Shield")
-                            local hull2 = ECS.getComponent(entity2Id, "Hull")
-                            if shield2 and shield2.current > 0 then
-                                -- Shield absorbed damage - create impact effect
-                                local pos1 = ECS.getComponent(entity1Id, "Position")
-                                if pos1 then
-                                    EntityHelpers.createShieldImpact(pos1.x, pos1.y, entity2Id)
-                                end
-                                
-                                local remaining = shield2.current - damage
-                                shield2.current = math.max(0, remaining)
-                                damage = math.max(0, -remaining)
-                                shield2.regenTimer = shield2.regenDelay or 0
-                            end
-                            if damage > 0 and hull2 then
-                                hull2.current = math.max(0, hull2.current - damage)
-                            end
-                            -- Also apply to Durability if present (asteroids and hull)
-                            local durability2 = ECS.getComponent(entity2Id, "Durability")
-                            if durability2 then
-                                durability2.current = durability2.current - damage
-                            end
-                            
-                            -- Trigger aggressive reaction if victim is AI
-                            EntityHelpers.notifyAIDamage(entity2Id, entity1Id)
-                            -- If projectile is brittle, mark it for destruction
-                            if proj1.brittle then
-                                local pDur = ECS.getComponent(entity1Id, "Durability")
-                                if pDur then pDur.current = 0 end
-                            end
+                            applyProjectileDamage(entity1Id, entity2Id)
                         end
                         if proj2 then
-                            local damage = proj2.damage or 10
-                            -- Apply to Shield first, then Hull
-                            local shield1 = ECS.getComponent(entity1Id, "Shield")
-                            local hull1 = ECS.getComponent(entity1Id, "Hull")
-                            if shield1 and shield1.current > 0 then
-                                -- Shield absorbed damage - create impact effect
-                                local pos2 = ECS.getComponent(entity2Id, "Position")
-                                if pos2 then
-                                    EntityHelpers.createShieldImpact(pos2.x, pos2.y, entity1Id)
-                                end
-                                
-                                local remaining = shield1.current - damage
-                                shield1.current = math.max(0, remaining)
-                                damage = math.max(0, -remaining)
-                                shield1.regenTimer = shield1.regenDelay or 0
-                            end
-                            if damage > 0 and hull1 then
-                                hull1.current = math.max(0, hull1.current - damage)
-                            end
-                            -- Also apply to Durability if present
-                            local durability1 = ECS.getComponent(entity1Id, "Durability")
-                            if durability1 then
-                                durability1.current = durability1.current - damage
-                            end
-                            
-                            -- Trigger aggressive reaction if victim is AI
-                            EntityHelpers.notifyAIDamage(entity1Id, entity2Id)
-                            if proj2.brittle then
-                                local pDur = ECS.getComponent(entity2Id, "Durability")
-                                if pDur then pDur.current = 0 end
-                            end
+                            applyProjectileDamage(entity2Id, entity1Id)
                         end
 
                         resolveCollision(

@@ -69,15 +69,15 @@ function RenderCanvas.finalizeCanvas(canvasComp)
 
     local w, h = love.graphics.getDimensions()
     
-    -- Calculate scale to fill the entire window (stretch to fit)
     local scaleX = w / canvasComp.width
     local scaleY = h / canvasComp.height
-    
-    -- Set canvas transform to fill the window completely
+
     canvasComp.offsetX = 0
     canvasComp.offsetY = 0
-    canvasComp.scale = 1.0
-    Scaling.setCanvasTransform(0, 0, 1.0)
+    canvasComp.scaleX = scaleX
+    canvasComp.scaleY = scaleY
+    canvasComp.scale = scaleX
+    Scaling.setCanvasTransform(0, 0, scaleX, scaleY)
 
     -- Create or reuse post-processing canvas for shader effects
     if not _G.postProcessCanvas or _G.postProcessCanvasWidth ~= w or _G.postProcessCanvasHeight ~= h then
@@ -102,12 +102,12 @@ function RenderCanvas.finalizeCanvas(canvasComp)
         love.graphics.setShader(ShaderManager.getCelShader())
         love.graphics.setCanvas(_G.postProcessCanvas)
         love.graphics.clear(0, 0, 0, 0)
-        love.graphics.draw(canvasComp.canvas, 0, 0)
+        love.graphics.draw(canvasComp.canvas, 0, 0, 0, scaleX, scaleY)
         love.graphics.setShader()
         love.graphics.setCanvas()
 
-        -- Draw the processed (shaded) main canvas on top
-        love.graphics.draw(_G.postProcessCanvas, 0, 0, 0, scaleX, scaleY)
+        -- Draw the processed (shaded) main canvas stretched to the window
+        love.graphics.draw(_G.postProcessCanvas, 0, 0)
     else
         -- No post-processing: just draw main canvas directly
         love.graphics.draw(canvasComp.canvas, 0, 0, 0, scaleX, scaleY)
@@ -115,4 +115,3 @@ function RenderCanvas.finalizeCanvas(canvasComp)
 end
 
 return RenderCanvas
-

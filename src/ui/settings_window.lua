@@ -680,7 +680,7 @@ function SettingsWindow:mousepressed(mx, my, button)
     self:updateDropdownPositions()
     
     -- Convert screen coordinates to UI coordinates
-    local uiMx, uiMy = Scaling.toUI(mx, my)
+    local uiMx, uiMy = mx, my
     
     -- Check Exit to Main Menu button FIRST (before any scrollable content)
     -- This prevents click-through to content behind it
@@ -833,7 +833,7 @@ function SettingsWindow:mousereleased(mx, my, button)
     self:updateDropdownPositions()
     
     -- Convert screen coordinates to UI coordinates
-    local uiMx, uiMy = Scaling.toUI(mx, my)
+    local uiMx, uiMy = mx, my
     
     -- Handle slider mouse release (use raw UI coordinates)
     if self.masterVolumeSlider and self.masterVolumeSlider:mousereleased(uiMx, uiMy, button) then return true end
@@ -848,7 +848,7 @@ function SettingsWindow:mousemoved(mx, my, dx, dy)
     self:updateDropdownPositions()
     
     -- Handle scroll bar dragging
-    if self.scrollBar and self.scrollBar.dragging then
+    if self.scrollBAr and self.scrollBar.dragging then
         local sb = self.scrollBar
         local newThumbY = my - sb.dragOffset
         local relativeY = newThumbY - sb.y
@@ -859,7 +859,7 @@ function SettingsWindow:mousemoved(mx, my, dx, dy)
     end
     
     -- Convert screen coordinates to UI coordinates
-    local uiMx, uiMy = Scaling.toUI(mx, my)
+    local uiMx, uiMy = mx, my
     
     -- Handle slider mouse move (use raw UI coordinates)
     if self.masterVolumeSlider and self.masterVolumeSlider:mousemoved(uiMx, uiMy, dx, dy) then return true end

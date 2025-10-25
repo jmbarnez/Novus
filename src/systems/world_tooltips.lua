@@ -6,6 +6,7 @@
 local ECS = require('src.ecs')
 local Theme = require('src.ui.theme')
 local Scaling = require('src.scaling')
+local BatchRenderer = require('src.ui.batch_renderer')
 
 local WorldTooltips = {
     name = "WorldTooltipsSystem",
@@ -216,27 +217,19 @@ function WorldTooltips.drawTooltip(entityId, pos, coll, data)
     local by = gy - gr - boxH - 10
     
     -- Draw tooltip background (plasma-style dark background)
-    love.graphics.setColor(Theme.colors.bgDark)
-    love.graphics.rectangle("fill", bx, by, boxW, boxH, 6, 6)
+    BatchRenderer.queueRect(bx, by, boxW, boxH, Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], 1, 6)
     
     -- Draw thick plasma-style border
-    love.graphics.setColor(Theme.colors.borderDark)
-    love.graphics.setLineWidth(3)
-    love.graphics.rectangle("line", bx, by, boxW, boxH, 6, 6)
-    love.graphics.setLineWidth(1)
+    BatchRenderer.queueRectLine(bx, by, boxW, boxH, Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1, 3, 6)
     
     -- Draw title with plasma accent color
-    love.graphics.setColor(Theme.colors.textAccent)
-    love.graphics.setFont(font)
-    love.graphics.print(data.title, bx + (boxW - tw) / 2, by + 8)
+    BatchRenderer.queueText(data.title, bx + (boxW - tw) / 2, by + 8, font, Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], 1)
     
     -- Draw message if provided
     local yOffset = by + th + 16
     if data.message then
         local smallFont = Theme.getFont(12)
-        love.graphics.setFont(smallFont)
-        love.graphics.setColor(Theme.colors.textPrimary)
-        love.graphics.print(data.message, bx + 16, yOffset)
+        BatchRenderer.queueText(data.message, bx + 16, yOffset, smallFont, Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
         yOffset = yOffset + 16 + 8
     end
     
@@ -260,16 +253,14 @@ function WorldTooltips.drawResources(bx, by, th, boxW, boxH, data)
     local yOffset = by + th + 16
     
     -- Draw "Required Resources:" label
-    love.graphics.setColor(Theme.colors.textPrimary)
-    love.graphics.print("Required Resources:", bx + 12, yOffset)
+    BatchRenderer.queueText("Required Resources:", bx + 12, yOffset, smallFont, Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
     yOffset = yOffset + 18 + 8
     
     -- Draw resource list
     if data.resources then
         for i, resource in ipairs(data.resources) do
             local color = resource.hasEnough and {0.1, 0.8, 0.5, 1} or {1, 0.2, 0.5, 1}
-            love.graphics.setColor(color)
-            love.graphics.print(string.format("%s: %d/%d", resource.name, resource.current, resource.required), bx + 16, yOffset)
+            BatchRenderer.queueText(string.format("%s: %d/%d", resource.name, resource.current, resource.required), bx + 16, yOffset, smallFont, color[1], color[2], color[3], 1)
             yOffset = yOffset + 16
         end
     end
@@ -285,21 +276,15 @@ function WorldTooltips.drawResources(bx, by, th, boxW, boxH, data)
         local buttonTextColor = data.buttonEnabled and Theme.colors.textPrimary or Theme.colors.textMuted
         
         -- Draw button background
-        love.graphics.setColor(buttonBgColor)
-        love.graphics.rectangle("fill", buttonX, buttonY, buttonW, buttonH, 4, 4)
+        BatchRenderer.queueRect(buttonX, buttonY, buttonW, buttonH, buttonBgColor[1], buttonBgColor[2], buttonBgColor[3], 1, 4)
         
         -- Draw button border
-        love.graphics.setColor(Theme.colors.borderDark)
-        love.graphics.setLineWidth(2)
-        love.graphics.rectangle("line", buttonX, buttonY, buttonW, buttonH, 4, 4)
-        love.graphics.setLineWidth(1)
+        BatchRenderer.queueRectLine(buttonX, buttonY, buttonW, buttonH, Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1, 2, 4)
         
         -- Draw button text
-        love.graphics.setColor(buttonTextColor)
         local font = Theme.getFont(16)
-        love.graphics.setFont(font)
         local buttonTextW = font:getWidth(data.buttonText)
-        love.graphics.print(data.buttonText, buttonX + (buttonW - buttonTextW) / 2, buttonY + (buttonH - font:getHeight()) / 2)
+        BatchRenderer.queueText(data.buttonText, buttonX + (buttonW - buttonTextW) / 2, buttonY + (buttonH - font:getHeight()) / 2, font, buttonTextColor[1], buttonTextColor[2], buttonTextColor[3], 1)
     end
 end
 
@@ -314,21 +299,15 @@ function WorldTooltips.drawButton(bx, by, boxW, boxH, data)
     local buttonTextColor = data.buttonEnabled and Theme.colors.textPrimary or Theme.colors.textMuted
     
     -- Draw button background
-    love.graphics.setColor(buttonBgColor)
-    love.graphics.rectangle("fill", buttonX, buttonY, buttonW, buttonH, 4, 4)
+    BatchRenderer.queueRect(buttonX, buttonY, buttonW, buttonH, buttonBgColor[1], buttonBgColor[2], buttonBgColor[3], 1, 4)
     
     -- Draw button border
-    love.graphics.setColor(Theme.colors.borderDark)
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", buttonX, buttonY, buttonW, buttonH, 4, 4)
-    love.graphics.setLineWidth(1)
+    BatchRenderer.queueRectLine(buttonX, buttonY, buttonW, buttonH, Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1, 2, 4)
     
     -- Draw button text
-    love.graphics.setColor(buttonTextColor)
     local font = Theme.getFont(16)
-    love.graphics.setFont(font)
     local buttonTextW = font:getWidth(data.buttonText)
-    love.graphics.print(data.buttonText, buttonX + (buttonW - buttonTextW) / 2, buttonY + (buttonH - font:getHeight()) / 2)
+    BatchRenderer.queueText(data.buttonText, buttonX + (buttonW - buttonTextW) / 2, buttonY + (buttonH - font:getHeight()) / 2, font, buttonTextColor[1], buttonTextColor[2], buttonTextColor[3], 1)
 end
 
 -- Handle mouse clicks on world tooltips

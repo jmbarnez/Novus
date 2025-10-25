@@ -9,6 +9,7 @@ local WindowBase = {}
 WindowBase.__index = WindowBase
 
 function WindowBase:new(opts)
+    opts = opts or {}
     local o = setmetatable({}, self)
     o.position = opts.position or nil  -- Will be centered on first open if nil
     o.width = opts.width or 400
@@ -26,22 +27,19 @@ function WindowBase:new(opts)
     o.elasticitySpring = opts.elasticitySpring or 18
     o.elasticityDamping = opts.elasticityDamping or 0.7
     o.positionInitialized = false  -- Track if position has been centered
+    o.autoCenter = opts.position == nil
+    o.userMoved = false
     return o
 end
 
 function WindowBase:setOpen(state)
     self.isOpen = state
     
-    -- Center window on first open if not explicitly positioned
-    if state and not self.positionInitialized and not self.position then
-        -- Use display dimensions for centering
-        local uiW = 1600
-        local uiH = 900
-        self.position = {
-            x = math.floor((uiW - self.width) / 2),
-            y = math.floor((uiH - self.height) / 2)
-        }
-        self.positionInitialized = true
+    -- Center window if it has no explicit position or has not yet been initialized
+    if state then
+        if (not self.positionInitialized and not self.position) or (self.autoCenter and not self.userMoved) then
+            self:centerOnScreen()
+        end
     end
     
     if state then
@@ -51,13 +49,43 @@ function WindowBase:setOpen(state)
     end
 end
 
+function WindowBase:centerOnScreen(screenW, screenH)
+    screenW = screenW or Scaling.REFERENCE_WIDTH
+    screenH = screenH or Scaling.REFERENCE_HEIGHT
+    local w = self.width or 0
+    local h = self.height or 0
+    local x = math.floor(((screenW or 0) - w) / 2)
+    local y = math.floor(((screenH or 0) - h) / 2)
+    if x ~= x then x = 0 end -- handle NaN
+    if y ~= y then y = 0 end
+    self.position = {
+        x = math.max(0, x),
+        y = math.max(0, y)
+    }
+    self.positionInitialized = true
+end
+
+function WindowBase:onResize(screenW, screenH)
+    if not self.position then return end
+    local uiWidth = Scaling.REFERENCE_WIDTH
+    local uiHeight = Scaling.REFERENCE_HEIGHT
+    if self.autoCenter and not self.userMoved then
+        self:centerOnScreen(uiWidth, uiHeight)
+        return
+    end
+    local maxX = math.max(0, uiWidth - (self.width or 0))
+    local maxY = math.max(0, uiHeight - (self.height or 0))
+    self.position.x = math.max(0, math.min(self.position.x or 0, maxX))
+    self.position.y = math.max(0, math.min(self.position.y or 0, maxY))
+end
+
 function WindowBase:update(dt)
     -- No fade or sliding/elasticity: do nothing
 end
 
 function WindowBase:mousepressed(x, y, button)
     if not self.isOpen or not self.position then return end
-    local mx, my = x, y
+    local mx, my = Scaling.toUI(x, y)
     -- Close button handling (if present)
     if self.closeButtonRect and button == 1 then
         if mx >= self.closeButtonRect.x and mx <= self.closeButtonRect.x + self.closeButtonRect.w
@@ -102,9 +130,10 @@ end
 
 function WindowBase:mousemoved(x, y, dx, dy)
     if self.isDragging and self.position then
-        local mx, my = x, y
+        local mx, my = Scaling.toUI(x, y)
         self.position.x = mx - self.dragOffset.x
         self.position.y = my - self.dragOffset.y
+        self.userMoved = true
     end
 end
 

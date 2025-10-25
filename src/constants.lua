@@ -13,8 +13,8 @@ end
 
 -- Backwards compatibility - these will be removed in favor of dynamic functions
 -- NOTE: These are now deprecated and should not be used. Use Constants.getScreenWidth() and Constants.getScreenHeight() instead.
-Constants.screen_width = 1600
-Constants.screen_height = 900
+Constants.screen_width = 1920
+Constants.screen_height = 1080
 
 -- World dimensions (much larger than screen for exploration)
 Constants.world_width = 4000
@@ -23,6 +23,7 @@ Constants.world_min_x = -2000
 Constants.world_max_x = 2000
 Constants.world_min_y = -2000
 Constants.world_max_y = 2000
+Constants.WORLD_RADIUS = Constants.world_width / 2 -- Assuming world_width is the diameter
 
 -- Player physics
 Constants.player_friction = 0.9999  -- Near-zero friction for space (nearly no deceleration)

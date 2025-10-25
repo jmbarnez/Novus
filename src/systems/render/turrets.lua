@@ -1,6 +1,7 @@
 -- Render Turrets Module - Handles turret rendering
 
 local ECS = require('src.ecs')
+local Scaling = require('src.scaling')
 
 -- Estimate an appropriate base radius for turret sizing from available components
 local function estimateBaseRadius(entityId, polygonShape, renderable)
@@ -52,16 +53,16 @@ end
 local RenderTurrets = {}
 
 function RenderTurrets.drawPlayerTurret(entityId, position, polygonShape, renderable)
-    local mouseX, mouseY = love.mouse.getPosition()
-    local canvasEntities = ECS.getEntitiesWith({"Canvas"})
-    local canvasComp = ECS.getComponent(canvasEntities[1], "Canvas")
+    local mouseScreenX, mouseScreenY = love.mouse.getPosition()
     local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
     local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
     local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
     
-    if canvasComp and cameraComp and cameraPos then
-        mouseX = (mouseX - canvasComp.offsetX) / canvasComp.scale / cameraComp.zoom + cameraPos.x
-        mouseY = (mouseY - canvasComp.offsetY) / canvasComp.scale / cameraComp.zoom + cameraPos.y
+    if cameraComp and cameraPos then
+        local uiX, uiY = Scaling.toUI(mouseScreenX, mouseScreenY)
+        local camZoom = cameraComp.zoom or 1
+        local mouseX = uiX / camZoom + cameraPos.x
+        local mouseY = uiY / camZoom + cameraPos.y
         local aimAngle = math.atan2(mouseY - position.y, mouseX - position.x)
         local toffX = polygonShape.turretOffsetX or polygonShape.cockpitOffsetX or 0
         local toffY = polygonShape.turretOffsetY or polygonShape.cockpitOffsetY or 0

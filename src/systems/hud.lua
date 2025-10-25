@@ -12,6 +12,7 @@ local Tooltips = require('src.ui.tooltips')
 local TargetHUD = require('src.systems.target_hud')
 local ConstructionButton = require('src.ui.construction_button')
 local QuestOverlay = require('src.ui.quest_overlay')
+local BatchRenderer = require('src.ui.batch_renderer')
 
 local HUDSystem = {
     name = "HUDSystem",
@@ -26,12 +27,16 @@ end
 function HUDSystem.update(dt)
     -- Update target HUD detection
     TargetHUD.update()
+    ConstructionButton.update(dt)
 end
 
 function HUDSystem.draw(viewportWidth, viewportHeight)
     if not HUDSystem.visible then return end
-    viewportWidth = viewportWidth or (love.graphics and love.graphics.getWidth and love.graphics.getWidth()) or 1600
-    viewportHeight = viewportHeight or (love.graphics and love.graphics.getHeight and love.graphics.getHeight()) or 900
+    
+    BatchRenderer.begin()
+
+    viewportWidth = viewportWidth or (love.graphics and love.graphics.getWidth and love.graphics.getWidth()) or 1920
+    viewportHeight = viewportHeight or (love.graphics and love.graphics.getHeight and love.graphics.getHeight()) or 1080
     
     -- Note: Enemy health bars are now drawn earlier in RenderSystem to ensure they render behind UI windows
     
@@ -69,6 +74,8 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     end
     -- Always-on ConstructionButton (HUD layer)
     ConstructionButton.draw(viewportWidth, viewportHeight)
+
+    BatchRenderer.flush()
 end
 
 return HUDSystem

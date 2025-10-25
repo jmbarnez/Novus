@@ -105,8 +105,9 @@ end
 
 function Core.onResize(w, h)
     Scaling.update()
-    -- If you want systems (like ECS, HUD) to react, call them here
-    -- Example: UISystem.onResize(w, h) (if such a method exists)
+    if UISystem and UISystem.onResize then
+        UISystem.onResize(w, h)
+    end
 end
 
 return Core

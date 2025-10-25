@@ -4,6 +4,7 @@
 
 local ECS = require('src.ecs')
 local Behaviors = require('src.systems.ai_behaviors')
+local EntityHelpers = require('src.entity_helpers')
 
 local AISystem = {
     name = "AISystem",
@@ -165,24 +166,20 @@ function AISystem.update(dt)
         end
     end
     
-    -- Get player position
-    local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+    -- Get player position using helper function
+    local playerX, playerY = EntityHelpers.getPlayerPosition()
     local playerPos = nil
-    if #playerEntities > 0 then
-        local pilotId = playerEntities[1]
-        local input = ECS.getComponent(pilotId, "InputControlled")
-        if input and input.targetEntity then
-            playerPos = ECS.getComponent(input.targetEntity, "Position")
-        end
+    if playerX ~= 0 or playerY ~= 0 then
+        playerPos = {x = playerX, y = playerY}
     end
 
     -- Update all AI entities
     local aiEntities = ECS.getEntitiesWith({"AI", "Position", "Velocity"})
-    for _, eid in ipairs(aiEntities) do
-        local ai = ECS.getComponent(eid, "AI")
-        local pos = ECS.getComponent(eid, "Position")
-        local vel = ECS.getComponent(eid, "Velocity")
-        local turret = ECS.getComponent(eid, "Turret")
+    for _, entityId in ipairs(aiEntities) do
+        local ai = ECS.getComponent(entityId, "AI")
+        local pos = ECS.getComponent(entityId, "Position")
+        local vel = ECS.getComponent(entityId, "Velocity")
+        local turret = ECS.getComponent(entityId, "Turret")
         
         if not (ai and pos and vel) then goto continue end
 
@@ -195,7 +192,7 @@ function AISystem.update(dt)
         end
         
         -- Get ship design
-        local wreckage = ECS.getComponent(eid, "Wreckage")
+        local wreckage = ECS.getComponent(entityId, "Wreckage")
         local ShipLoader = require('src.ship_loader')
         local design = wreckage and ShipLoader.getDesign(wreckage.sourceShip)
         local thrustForce = design and design.thrustForce or 0
@@ -220,13 +217,13 @@ function AISystem.update(dt)
         local behaviorHandler = BehaviorHandlers[ai.state]
         if behaviorHandler then
         if ai.state == "patrol" then
-                behaviorHandler(eid, ai, pos, vel, turret, design, dt)
+                behaviorHandler(entityId, ai, pos, vel, turret, design, dt)
                 -- Swing turret when idle
                 if not playerPos then
                     Behaviors.Patrol.swingTurret(turret, pos, dt)
                 end
             else
-                behaviorHandler(eid, ai, pos, vel, turret, design, playerPos, dt)
+                behaviorHandler(entityId, ai, pos, vel, turret, design, playerPos, dt)
             end
         end
 

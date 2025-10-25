@@ -3,6 +3,7 @@
 -- Creates emergent gameplay where attacking one enemy can alert others
 
 local ECS = require('src.ecs')
+local EntityHelpers = require('src.entity_helpers')
 
 local CombatAlertSystem = {
     name = "CombatAlertSystem",
@@ -16,14 +17,8 @@ local ALERT_RADIUS = 2000
 local recentPlayerAttacks = {}
 
 function CombatAlertSystem.update(dt)
-    -- Get the player
-    local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-    if #playerEntities == 0 then return end
-    
-    local pilotId = playerEntities[1]
-    local input = ECS.getComponent(pilotId, "InputControlled")
-    local playerDroneId = input and input.targetEntity
-    
+    -- Get the player ship using helper function
+    local playerDroneId = EntityHelpers.getPlayerShip()
     if not playerDroneId then return end
     
     -- Check all entities with projectiles to see if any were fired by the player
@@ -52,7 +47,7 @@ end
 
 -- Check all enemies and alert them if they're near an attack
 function CombatAlertSystem.checkAndAlertEnemies(attackX, attackY, playerDroneId)
-    local enemies = ECS.getEntitiesWith({"AI", "Position", "Hull"})
+    local enemies = EntityHelpers.getEnemyShips()
     local currentTime = love.timer.getTime()
     
     for _, enemyId in ipairs(enemies) do

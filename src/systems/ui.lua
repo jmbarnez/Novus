@@ -600,4 +600,13 @@ function UISystem.isSettingsWindowOpen()
     return SettingsWindow:getOpen()
 end
 
+function UISystem.onResize(screenW, screenH)
+    screenW = screenW or love.graphics.getWidth()
+    screenH = screenH or love.graphics.getHeight()
+    if ShipWindow and ShipWindow.onResize then ShipWindow:onResize(screenW, screenH) end
+    if QuestWindow and QuestWindow.onResize then QuestWindow:onResize(screenW, screenH) end
+    if SettingsWindow and SettingsWindow.onResize then SettingsWindow:onResize(screenW, screenH) end
+    if MapWindow and MapWindow.onResize then MapWindow:onResize(screenW, screenH) end
+end
+
 return UISystem

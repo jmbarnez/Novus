@@ -102,6 +102,14 @@
 - **Descriptive names**: `parallax_starfield.lua` not `stars.lua`
 - **No abbreviations** unless universally understood
 
+### Linter Configuration
+
+- **Ignoring Globals**: For linters that don't recognize the LÖVE framework's global `love` object, you can disable the warning on a per-file basis by adding the following comment at the top of the file:
+  ```lua
+  ---@diagnostic disable: undefined-global
+  ```
+- **Justification**: This is preferred over globally disabling the warning, as it keeps the linter active for catching legitimate undefined global variables elsewhere in the codebase.
+
 ### Import Strategy
 ```lua
 -- GOOD: Explicit, namespaced imports with full paths

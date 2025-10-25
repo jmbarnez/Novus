@@ -18,6 +18,7 @@ local currentCircles = {}
 local currentLines = {}
 local currentTexts = {}
 local currentPolys = {}
+local currentCanvases = {}
 
 -- Helper to create color key for batching
 local function colorKey(r, g, b, a)
@@ -33,6 +34,7 @@ function BatchRenderer.begin()
     for k in pairs(currentLines) do currentLines[k] = nil end
     for k in pairs(currentTexts) do currentTexts[k] = nil end
     for k in pairs(currentPolys) do currentPolys[k] = nil end
+    for k in pairs(currentCanvases) do currentCanvases[k] = nil end
     for i = #rectOrder, 1, -1 do rectOrder[i] = nil end
 end
 
@@ -78,6 +80,11 @@ function BatchRenderer.queuePolygon(vertices, r, g, b, a)
     table.insert(currentPolys[key], vertices)
 end
 
+-- Queue a canvas
+function BatchRenderer.queueCanvas(canvas, x, y, r, g, b, a)
+    table.insert(currentCanvases, {canvas=canvas, x=x, y=y, r=r or 1, g=g or 1, b=b or 1, a=a or 1})
+end
+
 -- Queue text
 function BatchRenderer.queueText(text, x, y, font, r, g, b, a, align, width)
     local fontKey = tostring(font)
@@ -106,6 +113,12 @@ function BatchRenderer.flush()
         end
     end
     
+    -- Draw all canvases
+    for _, item in ipairs(currentCanvases) do
+        love.graphics.setColor(item.r, item.g, item.b, item.a)
+        love.graphics.draw(item.canvas, item.x, item.y)
+    end
+
     -- Draw all filled circles (batched by color)
     for key, circles in pairs(currentCircles) do
         if #circles.fill > 0 then
@@ -174,6 +187,7 @@ function BatchRenderer.flush()
     for k in pairs(currentLines) do currentLines[k] = nil end
     for k in pairs(currentTexts) do currentTexts[k] = nil end
     for k in pairs(currentPolys) do currentPolys[k] = nil end
+    for k in pairs(currentCanvases) do currentCanvases[k] = nil end
     for i = #rectOrder, 1, -1 do rectOrder[i] = nil end
 end
 

@@ -98,8 +98,8 @@ end
 function TurretSystem.update(dt)
     -- Heat management for continuous laser weapons
     local turretEntities = ECS.getEntitiesWith({"Turret"})
-    for _, eid in ipairs(turretEntities) do
-        local t = ECS.getComponent(eid, "Turret")
+    for _, entityId in ipairs(turretEntities) do
+        local t = ECS.getComponent(entityId, "Turret")
         if not t then goto cont end
         local module = TurretRegistry.getModule(t.moduleName)
         
