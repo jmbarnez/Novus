@@ -37,6 +37,8 @@ HotkeyConfig.descriptions = {
 
 -- Initialize hotkey configuration
 function HotkeyConfig.init()
+    -- Start from a clean table so removed/defaulted hotkeys don't linger
+    HotkeyConfig.current = {}
     -- Copy defaults to current (in a real game, you'd load from save file)
     for key, value in pairs(HotkeyConfig.defaults) do
         HotkeyConfig.current[key] = value
@@ -72,9 +74,7 @@ end
 
 -- Reset all hotkeys to defaults
 function HotkeyConfig.resetToDefaults()
-    for key, value in pairs(HotkeyConfig.defaults) do
-        HotkeyConfig.current[key] = value
-    end
+    HotkeyConfig.init()
 end
 
 -- Check if a key is currently mapped to any action
