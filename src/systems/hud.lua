@@ -2,17 +2,14 @@
 -- HUD System - Coordinates all HUD rendering subsystems
 -- Delegates to specialized HUD modules for different HUD elements
 
-local ECS = require('src.ecs')
 local HUDStats = require('src.systems.hud.stats')
 local HUDTargeting = require('src.systems.hud.targeting')
 local HUDSlots = require('src.systems.hud.slots')
-local HUDBars = require('src.systems.hud.bars')
 local Minimap = require('src.systems.minimap')
 local Tooltips = require('src.ui.tooltips')
 local TargetHUD = require('src.systems.target_hud')
 local ConstructionButton = require('src.ui.construction_button')
 local QuestOverlay = require('src.ui.quest_overlay')
-local BatchRenderer = require('src.ui.batch_renderer')
 
 local HUDSystem = {
     name = "HUDSystem",
@@ -33,8 +30,6 @@ end
 function HUDSystem.draw(viewportWidth, viewportHeight)
     if not HUDSystem.visible then return end
     
-    BatchRenderer.begin()
-
     viewportWidth = viewportWidth or (love.graphics and love.graphics.getWidth and love.graphics.getWidth()) or 1920
     viewportHeight = viewportHeight or (love.graphics and love.graphics.getHeight and love.graphics.getHeight()) or 1080
     
@@ -75,7 +70,6 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     -- Always-on ConstructionButton (HUD layer)
     ConstructionButton.draw(viewportWidth, viewportHeight)
 
-    BatchRenderer.flush()
 end
 
 return HUDSystem
