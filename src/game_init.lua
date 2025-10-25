@@ -120,6 +120,7 @@ function GameInit.registerSystems()
     ECS.registerSystem("EnergySystem", Systems.EnergySystem)
     ECS.registerSystem("WorldTooltipsSystem", Systems.WorldTooltipsSystem)
     ECS.registerSystem("QuestSystem", require('src.systems.quest_system'))
+    ECS.registerSystem("WrackageSystem", Systems.WrackageSystem)
     -- NebulaCloudSystem is called explicitly from RenderSystem
 end
 

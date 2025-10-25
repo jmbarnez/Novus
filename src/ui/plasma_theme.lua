@@ -24,7 +24,7 @@ PlasmaTheme.colors = {
     asteroidBarFill = {1, 1, 0, 1},  -- Brilliant mining-laser yellow
     
     wreckageBarBg = {0.05, 0.1, 0.1, 1},
-    wreckageBarFill = {0.1, 1, 0.8, 1},  -- Bright mint green energy
+    wreckageBarFill = {0.2, 1, 0.2, 1},  -- Bright green energy
     
     -- Text (high contrast with energy glow)
     textBright = {1, 1, 1, 1},

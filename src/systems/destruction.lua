@@ -265,6 +265,20 @@ function DestructionSystem.update(dt)
                 QuestUtils.updateCombatProgress()
             end
 
+            -- Spawn wreckage when ships are destroyed (AI-controlled or with Hull)
+            if (ai or hull) and pos then
+                local WrackageSystem = require('src.systems.wreckage')
+                local sourceShip = "unknown"
+                
+                -- Try to get ship type from wreckage component if it exists
+                local existingWreckage = ECS.getComponent(entityId, "Wreckage")
+                if existingWreckage and existingWreckage.sourceShip then
+                    sourceShip = existingWreckage.sourceShip
+                end
+                
+                WrackageSystem.spawnWrackage(pos.x, pos.y, sourceShip)
+            end
+
             -- Wreckage shatters into bits
             if wreckage and pos then
                 local collidable = ECS.getComponent(entityId, "Collidable")
