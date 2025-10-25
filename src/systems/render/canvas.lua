@@ -4,113 +4,100 @@ local ECS = require('src.ecs')
 local CameraUtils = require('src.camera_utils')
 local ShaderManager = require('src.shader_manager')
 local Scaling = require('src.scaling')
+local DisplayManager = require('src.display_manager')
 
 local RenderCanvas = {}
 
-function RenderCanvas.setupCanvas()
+local function ensureCanvasComponent()
     local canvasEntities = ECS.getEntitiesWith({"Canvas"})
     if #canvasEntities == 0 then return nil end
-    local canvasId = canvasEntities[1]
-    local canvasComp = ECS.getComponent(canvasId, "Canvas")
-    if not canvasComp or not canvasComp.canvas or not canvasComp.width or not canvasComp.height then return nil end
+    local canvasComp = ECS.getComponent(canvasEntities[1], "Canvas")
+    if not canvasComp then return nil end
 
-    love.graphics.setCanvas(canvasComp.canvas)
-    love.graphics.clear()
+    local renderW, renderH = DisplayManager.getRenderDimensions()
+    if not canvasComp.canvas or canvasComp.width ~= renderW or canvasComp.height ~= renderH then
+        local Components = require('src/components')
+        Components.resizeCanvas(canvasComp, renderW, renderH)
+    end
 
-    -- Pure black space background (realistic deep space)
-    love.graphics.setColor(0, 0, 0, 1)
-    love.graphics.rectangle("fill", 0, 0, canvasComp.width, canvasComp.height)
-
-    -- no special nebula canvas here; parallax handles nebula rendering directly
     return canvasComp
 end
 
--- Resize the main canvas to match current window resolution
+function RenderCanvas.setupCanvas()
+    local canvasComp = ensureCanvasComponent()
+    if not canvasComp or not canvasComp.canvas then return nil end
+
+    love.graphics.setCanvas(canvasComp.canvas)
+    love.graphics.clear(0, 0, 0, 1)
+
+    -- Fill background with deep space color to avoid residual artifacts
+    love.graphics.setColor(0, 0, 0, 1)
+    love.graphics.rectangle("fill", 0, 0, canvasComp.width, canvasComp.height)
+    love.graphics.setColor(1, 1, 1, 1)
+
+    return canvasComp
+end
+
 function RenderCanvas.resizeCanvas()
-    local canvasEntities = ECS.getEntitiesWith({"Canvas"})
-    if #canvasEntities == 0 then return end
+    local canvasComp = ensureCanvasComponent()
+    if not canvasComp then return end
 
-    local canvasId = canvasEntities[1]
-    local canvasComp = ECS.getComponent(canvasId, "Canvas")
-
-    if canvasComp then
-        local Constants = require('src.constants')
-        local newWidth = Constants.getScreenWidth()
-        local newHeight = Constants.getScreenHeight()
-
-        -- Only resize if dimensions actually changed
-        if canvasComp.width ~= newWidth or canvasComp.height ~= newHeight then
-            local Components = require('src/components')
-            Components.resizeCanvas(canvasComp, newWidth, newHeight)
-        end
-    end
-
-    -- Also update camera viewport dimensions
+    -- Update camera viewport dimensions to match render resolution
     local cameraEntities = ECS.getEntitiesWith({"Camera"})
     if #cameraEntities > 0 then
-        local cameraId = cameraEntities[1]
-        local cameraComp = ECS.getComponent(cameraId, "Camera")
+        local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
         if cameraComp then
-            local Constants = require('src.constants')
-            cameraComp.width = Constants.getScreenWidth()
-            cameraComp.height = Constants.getScreenHeight()
+            local renderW, renderH = DisplayManager.getRenderDimensions()
+            cameraComp.width = renderW
+            cameraComp.height = renderH
         end
     end
 end
 
-function RenderCanvas.finalizeCanvas(canvasComp)
-    CameraUtils.resetTransform()
+function RenderCanvas.setRenderResolution(newWidth, newHeight)
+    if not DisplayManager.setRenderResolution(newWidth, newHeight) then
+        return
+    end
+    RenderCanvas.resizeCanvas()
+end
 
+function RenderCanvas.finalizeCanvas(canvasComp)
+    if not canvasComp or not canvasComp.canvas then return end
+
+    CameraUtils.resetTransform()
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setCanvas()
 
-    -- Clear the screen
+    -- Clear the screen to black before drawing the canvas (handles letterboxing)
     love.graphics.clear(0, 0, 0, 1)
 
-    local w, h = love.graphics.getDimensions()
-    
-    local scaleX = w / canvasComp.width
-    local scaleY = h / canvasComp.height
+    local windowW, windowH = DisplayManager.getWindowSize()
+    local scaleX, scaleY, offsetX, offsetY = DisplayManager.computeDrawParameters(canvasComp.width, canvasComp.height)
 
-    canvasComp.offsetX = 0
-    canvasComp.offsetY = 0
+    canvasComp.offsetX = offsetX
+    canvasComp.offsetY = offsetY
     canvasComp.scaleX = scaleX
     canvasComp.scaleY = scaleY
-    canvasComp.scale = scaleX
-    Scaling.setCanvasTransform(0, 0, scaleX, scaleY)
+    canvasComp.scale = math.min(scaleX, scaleY)
 
-    -- Create or reuse post-processing canvas for shader effects
-    if not _G.postProcessCanvas or _G.postProcessCanvasWidth ~= w or _G.postProcessCanvasHeight ~= h then
-        -- Release old post-process canvas if it exists
-        if _G.postProcessCanvas then
-            _G.postProcessCanvas:release()
-        end
-        _G.postProcessCanvas = love.graphics.newCanvas(w, h)
-        _G.postProcessCanvasWidth = w
-        _G.postProcessCanvasHeight = h
-        -- Only update shader screen size when dimensions actually change
-        if ShaderManager.isCelShadingEnabled() then
-            ShaderManager.setScreenSize(w, h)
-        end
-    end
+    Scaling.setCanvasTransform(offsetX, offsetY, scaleX, scaleY)
 
-    -- Apply shader effect to game canvas and render to post-process canvas
+    -- Apply optional shader effects using a post-process canvas sized to the window
     if ShaderManager.isCelShadingEnabled() then
-        -- Update shader time for animated effects (waves, pulse, etc.)
         ShaderManager.updateTime()
-        -- Render main canvas through cel shader into post-process canvas
-        love.graphics.setShader(ShaderManager.getCelShader())
-        love.graphics.setCanvas(_G.postProcessCanvas)
+        ShaderManager.setScreenSize(windowW, windowH)
+
+        local postCanvas = DisplayManager.getPostProcessCanvas(windowW, windowH)
+        love.graphics.setCanvas(postCanvas)
         love.graphics.clear(0, 0, 0, 0)
-        love.graphics.draw(canvasComp.canvas, 0, 0, 0, scaleX, scaleY)
+        love.graphics.setShader(ShaderManager.getCelShader())
+        love.graphics.draw(canvasComp.canvas, offsetX, offsetY, 0, scaleX, scaleY)
         love.graphics.setShader()
         love.graphics.setCanvas()
 
-        -- Draw the processed (shaded) main canvas stretched to the window
-        love.graphics.draw(_G.postProcessCanvas, 0, 0)
+        love.graphics.draw(postCanvas, 0, 0)
     else
-        -- No post-processing: just draw main canvas directly
-        love.graphics.draw(canvasComp.canvas, 0, 0, 0, scaleX, scaleY)
+        love.graphics.draw(canvasComp.canvas, offsetX, offsetY, 0, scaleX, scaleY)
     end
 end
 

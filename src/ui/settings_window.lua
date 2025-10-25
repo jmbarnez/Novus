@@ -16,6 +16,8 @@ local Theme = require('src.ui.theme')
 local Scaling = require('src.scaling')
 local TimeManager = require('src.time_manager')
 local HotkeyConfig = require('src.hotkey_config')
+local DisplayManager = require('src.display_manager')
+local RenderCanvas = require('src.systems.render.canvas')
 
 -- Import settings panels
 local HotkeyConfigPanel = require('src.ui.settings.hotkey_config_panel')
@@ -42,13 +44,46 @@ local SettingsWindow = WindowBase:new{
     savedSettings = {}
 }
 
+-- Canvas used to render a downscaled copy of the screen for a blur-like background
+SettingsWindow._blurCanvas = nil
+SettingsWindow._screenW = nil
+SettingsWindow._screenH = nil
+
+-- FPS Configuration
+SettingsWindow.fpsOptions = {30, 60, 90, 120, 144, 240, nil}
+SettingsWindow.fpsLabels = {"30", "60", "90", "120", "144", "240", "Unlimited"}
+
+-- Window modes
+SettingsWindow.modes = { 'Windowed', 'Borderless', 'Fullscreen' }
+
+-- Resolutions (render resolution options)
+SettingsWindow.resolutions = DisplayManager.renderResolutions
+
+-- Audio volume range (0-100%)
+SettingsWindow.volumeMin = 0
+SettingsWindow.volumeMax = 100
+
+-- Get current FPS index
+function SettingsWindow:currentFpsIndex()
+    local curFps = TimeManager.getTargetFps()
+    for i, v in ipairs(self.fpsOptions) do
+        if v == curFps then return i end
+    end
+    return #self.fpsOptions
+end
 
 -- Save current settings state as baseline
 function SettingsWindow:saveSettingsSnapshot()
     self.savedSettings = {
-        display = self.displayPanel and self.displayPanel:getSettings() or {},
-        audio = self.audioPanel and self.audioPanel:getSettings() or {},
-        hotkeys = self.hotkeyPanel and self.hotkeyPanel:getSettings() or {}
+        fps = TimeManager.getTargetFps(),
+        windowMode = self:currentModeIndex(),
+        resolution = DisplayManager.getRenderResolution(),
+        hotkeys = {},
+        audio = {
+            masterVolume = SoundSystem.getVolume and SoundSystem.getVolume("master") or 100,
+            musicVolume = SoundSystem.getVolume and SoundSystem.getVolume("music") or 100,
+            sfxVolume = SoundSystem.getVolume and SoundSystem.getVolume("sfx") or 100
+        }
     }
 end
 
@@ -57,6 +92,135 @@ function SettingsWindow:closeWindow()
     self:setOpen(false)
 end
 
+-- Get current window mode index
+function SettingsWindow:currentModeIndex()
+    local mode = DisplayManager.getWindowMode()
+    if mode == 'fullscreen' then return 3 end
+    if mode == 'borderless' then return 2 end
+    return 1
+end
+
+-- Get current resolution index
+function SettingsWindow:getCurrentResIndex()
+    local index = DisplayManager.getRenderResolutionIndex()
+    if index then return index end
+    return 4  -- Default to 1920x1080 if not found
+end
+
+-- Get current volume value for a given volume type
+function SettingsWindow:getCurrentVolume(volumeType)
+    local SoundSystem = require('src.systems.sound')
+    return SoundSystem.getVolume and SoundSystem.getVolume(volumeType) or 100
+end
+
+-- Draw hotkey configuration buttons
+function SettingsWindow:drawHotkeyButtons(alpha)
+    if not self.hotkeyButtons then return end
+    
+    local mx, my = Scaling.toUI(love.mouse.getPosition())
+    
+    for i, button in ipairs(self.hotkeyButtons) do
+        local hovered = mx >= button.x and mx <= button.x + button.width and 
+                       my >= button.y and my <= button.y + button.height
+        local selected = self.selectedHotkey == button.action
+        
+        -- Button background
+        if selected or self.waitingForKey then
+            love.graphics.setColor(Theme.colors.buttonHover[1], Theme.colors.buttonHover[2], 
+                                 Theme.colors.buttonHover[3], alpha * 0.8)
+        elseif hovered then
+            love.graphics.setColor(Theme.colors.buttonHover[1], Theme.colors.buttonHover[2], 
+                                 Theme.colors.buttonHover[3], alpha * 0.4)
+        else
+            love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], 
+                                 Theme.colors.bgMedium[3], alpha * 0.6)
+        end
+        
+        love.graphics.rectangle("fill", button.x, button.y, button.width, button.height, 4, 4)
+        
+        -- Button border
+        love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], 
+                             Theme.colors.borderMedium[3], alpha)
+        love.graphics.setLineWidth(1)
+        love.graphics.rectangle("line", button.x, button.y, button.width, button.height, 4, 4)
+        
+        -- Button text
+        love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], 
+                             Theme.colors.textPrimary[3], alpha)
+        love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+        
+        local displayText = HotkeyConfig.getDisplayText(button.action)
+        if self.waitingForKey and selected then
+            displayText = "Press any key..."
+        end
+        
+        love.graphics.printf(displayText, button.x + 8, button.y + 4, button.width - 16, "left")
+    end
+end
+
+-- Update scroll position
+function SettingsWindow:updateScroll(deltaY)
+    -- Always allow scroll updates, even if maxScrollY is 0 initially
+    local scrollSpeed = 30
+    self.contentScrollY = self.contentScrollY + deltaY * scrollSpeed
+    
+    -- Clamp scroll position if maxScrollY is available
+    if self.maxScrollY > 0 then
+        self.contentScrollY = math.max(0, math.min(self.maxScrollY, self.contentScrollY))
+        
+        -- Update scroll bar thumb position
+        self.scrollBar.thumbY = self.scrollBar.y + (self.contentScrollY / self.maxScrollY) * (self.scrollBar.height - self.scrollBar.thumbHeight)
+    else
+        -- If no maxScrollY yet, just ensure we don't scroll below 0
+        self.contentScrollY = math.max(0, self.contentScrollY)
+    end
+    
+    -- Update all content positions
+    self:updateDropdownPositions()
+end
+
+-- Draw scroll bar
+function SettingsWindow:drawScrollBar(alpha)
+    local sb = self.scrollBar
+    local topBarH = Theme.window.topBarHeight
+    
+    -- Position scroll bar within content area only
+    local contentAreaY = self.position.y + topBarH + 3
+    local contentAreaH = self.height - topBarH - 3 - 3 - Theme.window.bottomBarHeight
+    
+    -- Update scroll bar position to be within content area
+    sb.x = self.position.x + self.width - 20
+    sb.y = contentAreaY
+    sb.height = contentAreaH
+    
+    -- Always draw scroll bar background
+    love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], 
+                          Theme.colors.bgDark[3], alpha * 0.8)
+    love.graphics.rectangle("fill", sb.x, sb.y, sb.width, sb.height, 2, 2)
+    
+    -- Scroll bar border
+    love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], 
+                          Theme.colors.borderMedium[3], alpha)
+    love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", sb.x, sb.y, sb.width, sb.height, 2, 2)
+    
+    -- Only draw thumb if there's scrollable content
+    if self.maxScrollY > 0 then
+        -- Scroll bar thumb
+        local mx, my = Scaling.toUI(love.mouse.getPosition())
+        local thumbHovered = mx >= sb.x and mx <= sb.x + sb.width and 
+                            my >= sb.thumbY and my <= sb.thumbY + sb.thumbHeight
+        
+        if thumbHovered then
+            love.graphics.setColor(Theme.colors.buttonHover[1], Theme.colors.buttonHover[2], 
+                                 Theme.colors.buttonHover[3], alpha)
+        else
+            love.graphics.setColor(Theme.colors.borderLight[1], Theme.colors.borderLight[2], 
+                                 Theme.colors.borderLight[3], alpha)
+        end
+        love.graphics.rectangle("fill", sb.x + 1, sb.thumbY, sb.width - 2, sb.thumbHeight, 2, 2)
+    end
+end
 
 
 -- Initialize panels on first draw
@@ -69,7 +233,111 @@ function SettingsWindow:initialize()
     local x, y = self.position.x + 30, self.position.y + 60
     local dropdownWidth = self.width - 60
     
-    -- Calculate proper content height
+    -- FPS Dropdown
+    self.fpsDropdown = Dropdown:new(self.fpsLabels, self:currentFpsIndex(), x, y, dropdownWidth, function(idx, val)
+        TimeManager.setTargetFps(self.fpsOptions[idx])
+        self:saveSettingsSnapshot()
+    end)
+    
+    -- Mode Dropdown
+    self.modeDropdown = Dropdown:new(self.modes, self:currentModeIndex(), x, y + 60, dropdownWidth, function(idx, val)
+        local renderRes = DisplayManager.getRenderResolution()
+        if idx == 1 then
+            -- Windowed: use current render resolution as window size
+            DisplayManager.applyWindowMode('windowed', { width = renderRes.w, height = renderRes.h })
+        elseif idx == 2 then
+            -- Borderless: match desktop resolution
+            DisplayManager.applyWindowMode('borderless')
+        elseif idx == 3 then
+            -- Fullscreen desktop (no exclusive mode flicker)
+            DisplayManager.applyWindowMode('fullscreen')
+        end
+        self:saveSettingsSnapshot()
+    end)
+    
+    -- Resolution Dropdown
+    local resLabels = {}
+    for i, res in ipairs(self.resolutions) do
+        table.insert(resLabels, res.label)
+    end
+    
+    self.resDropdown = Dropdown:new(
+        resLabels,
+        self:getCurrentResIndex(), 
+        x, y + 120, 
+        dropdownWidth, 
+        function(idx, val)
+            local res = self.resolutions[idx]
+            if not res then return end
+
+            RenderCanvas.setRenderResolution(res.w, res.h)
+
+            if DisplayManager.getWindowMode() == 'windowed' then
+                DisplayManager.applyWindowMode('windowed', { width = res.w, height = res.h })
+            end
+
+            self:saveSettingsSnapshot()
+        end
+    )
+    
+    -- Audio Volume Sliders
+    self.masterVolumeSlider = Slider:new(
+        self.volumeMin,
+        self.volumeMax,
+        self:getCurrentVolume("master"),
+        x, y + 180,
+        dropdownWidth - 50,  -- Leave space for value text
+        20,
+        function(value)
+            local SoundSystem = require('src.systems.sound')
+            if SoundSystem.setVolume then
+                SoundSystem.setVolume("master", value)
+            end
+            self:saveSettingsSnapshot()
+        end
+    )
+    
+    self.musicVolumeSlider = Slider:new(
+        self.volumeMin,
+        self.volumeMax,
+        self:getCurrentVolume("music"),
+        x, y + 240,
+        dropdownWidth - 50,
+        20,
+        function(value)
+            local SoundSystem = require('src.systems.sound')
+            if SoundSystem.setVolume then
+                SoundSystem.setVolume("music", value)
+            end
+            self:saveSettingsSnapshot()
+        end
+    )
+    
+    self.sfxVolumeSlider = Slider:new(
+        self.volumeMin,
+        self.volumeMax,
+        self:getCurrentVolume("sfx"),
+        x, y + 300,
+        dropdownWidth - 50,
+        20,
+        function(value)
+            local SoundSystem = require('src.systems.sound')
+            if SoundSystem.setVolume then
+                SoundSystem.setVolume("sfx", value)
+            end
+            self:saveSettingsSnapshot()
+        end
+    )
+    
+    -- Initialize hotkey buttons
+    self:initializeHotkeyButtons()
+    
+    self._initialized = true
+end
+
+-- Initialize hotkey configuration buttons
+function SettingsWindow:initializeHotkeyButtons()
+    self.hotkeyButtons = {}
     local hotkeys = HotkeyConfig.getAllHotkeys()
     local buttonHeight = 20
     local buttonSpacing = 5
