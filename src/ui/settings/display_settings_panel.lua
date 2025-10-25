@@ -8,6 +8,8 @@ local Constants = require('src.constants')
 local Theme = require('src.ui.theme')
 local TimeManager = require('src.time_manager')
 local Dropdown = require('src.ui.dropdown')
+local DisplayManager = require('src.display_manager')
+local RenderCanvas = require('src.systems.render.canvas')
 
 local DisplaySettingsPanel = {}
 
@@ -78,7 +80,15 @@ function DisplaySettingsPanel:initialize(position, width, onSettingsChange)
         width, 
         function(idx, val)
             local res = self.resolutions[idx]
-            love.window.setMode(res.w, res.h, {fullscreen = false, borderless = false})
+            if res then
+                -- Use DisplayManager to properly set render resolution
+                RenderCanvas.setRenderResolution(res.w, res.h)
+                
+                -- Update window mode if in windowed mode
+                if DisplayManager.getWindowMode() == 'windowed' then
+                    DisplayManager.applyWindowMode('windowed', { width = res.w, height = res.h })
+                end
+            end
             if self.onSettingsChange then
                 self.onSettingsChange()
             end
@@ -126,14 +136,9 @@ end
 
 -- Get current resolution index
 function DisplaySettingsPanel:getCurrentResIndex()
-    local w, h = love.graphics.getWidth(), love.graphics.getHeight()
+    local renderW, renderH = DisplayManager.getRenderDimensions()
     for i, res in ipairs(self.resolutions) do
-        if res.w == w and res.h == h then return i end
-    end
-    -- Default to current window resolution
-    local currentW, currentH = Constants.getScreenWidth(), Constants.getScreenHeight()
-    for i, res in ipairs(self.resolutions) do
-        if res.w == currentW and res.h == currentH then return i end
+        if res.w == renderW and res.h == renderH then return i end
     end
     return 4  -- Default to 1920x1080 if not found
 end
@@ -141,21 +146,15 @@ end
 -- Set window mode based on index
 function DisplaySettingsPanel:setWindowMode(idx)
     if idx == 1 then
-        -- Windowed: restore a sane default windowed resolution
-        local currentW, currentH = Constants.getScreenWidth(), Constants.getScreenHeight()
-        love.window.setMode(currentW, currentH, {fullscreen = false, borderless = false})
+        -- Windowed: use current render resolution as window size
+        local renderRes = DisplayManager.getRenderResolution()
+        DisplayManager.applyWindowMode('windowed', { width = renderRes.w, height = renderRes.h })
     elseif idx == 2 then
-        -- Borderless: set to desktop resolution and borderless to avoid mode-switch flashes
-        local ok, dw, dh = pcall(love.window.getDesktopDimensions)
-        if ok and dw and dh and dw > 0 then
-            love.window.setMode(dw, dh, {fullscreen = false, borderless = true})
-        else
-            -- Fallback to current size
-            love.window.setMode(love.graphics.getWidth(), love.graphics.getHeight(), {fullscreen = false, borderless = true})
-        end
+        -- Borderless: match desktop resolution
+        DisplayManager.applyWindowMode('borderless')
     elseif idx == 3 then
-        -- Fullscreen: use desktop/fullscreen desktop type to avoid exclusive mode flicker
-        love.window.setMode(0, 0, {fullscreen = true, fullscreentype = "desktop"})
+        -- Fullscreen desktop (no exclusive mode flicker)
+        DisplayManager.applyWindowMode('fullscreen')
     end
 end
 
@@ -205,7 +204,7 @@ function DisplaySettingsPanel:getSettings()
     return {
         fps = TimeManager.getTargetFps(),
         windowMode = self:currentModeIndex(),
-        resolution = {w = love.graphics.getWidth(), h = love.graphics.getHeight()}
+        resolution = DisplayManager.getRenderResolution()
     }
 end
 
@@ -222,7 +221,7 @@ function DisplaySettingsPanel:restoreSettings(settings)
     end
     
     if settings.resolution then
-        love.window.setMode(settings.resolution.w, settings.resolution.h, {fullscreen = false, borderless = false})
+        RenderCanvas.setRenderResolution(settings.resolution.w, settings.resolution.h)
     end
 end
 

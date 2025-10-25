@@ -10,6 +10,8 @@ local RenderEntities = require('src.systems.render.entities')
 local RenderTurrets = require('src.systems.render.turrets')
 local RenderEffects = require('src.systems.render.effects')
 local RenderCanvas = require('src.systems.render.canvas')
+local DisplayManager = require('src.display_manager')
+local Scaling = require('src.scaling')
 
 -- Lazy-load subsystems to avoid circular dependencies
 local ShieldImpactSystem
@@ -166,6 +168,11 @@ local RenderSystem = {
 
         -- Reset camera transform before drawing screen-space UI
         CameraUtils.resetTransform()
+
+        -- Update canvas transform for HUD elements before drawing them
+        local windowW, windowH = DisplayManager.getWindowSize()
+        local scaleX, scaleY, offsetX, offsetY = DisplayManager.computeDrawParameters(canvasComp.width, canvasComp.height)
+        Scaling.setCanvasTransform(offsetX, offsetY, scaleX, scaleY)
 
         -- Reset graphics state before drawing UI
         love.graphics.setColor(1, 1, 1, 1)

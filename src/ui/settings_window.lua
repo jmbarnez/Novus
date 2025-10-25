@@ -18,6 +18,8 @@ local TimeManager = require('src.time_manager')
 local HotkeyConfig = require('src.hotkey_config')
 local DisplayManager = require('src.display_manager')
 local RenderCanvas = require('src.systems.render.canvas')
+local Dropdown = require('src.ui.dropdown')
+local Slider = require('src.ui.slider')
 
 -- Import settings panels
 local HotkeyConfigPanel = require('src.ui.settings.hotkey_config_panel')
@@ -79,6 +81,7 @@ end
 
 -- Save current settings state as baseline
 function SettingsWindow:saveSettingsSnapshot()
+    local SoundSystem = require('src.systems.sound')
     self.savedSettings = {
         fps = TimeManager.getTargetFps(),
         windowMode = self:currentModeIndex(),
@@ -359,6 +362,10 @@ function SettingsWindow:initializeHotkeyButtons()
     local hotkeyStartY = 360  -- Start position for hotkey buttons
     local bottomPadding = 20
     local contentHeight = hotkeyStartY + hotkeyButtonsHeight + bottomPadding
+    
+    -- Define position and width variables for panel initialization
+    local x, y = self.position.x + 30, self.position.y + 60
+    local dropdownWidth = self.width - 60
     
     -- Initialize scroll handler
     self.scrollHandler = ScrollHandler:new()
