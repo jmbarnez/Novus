@@ -4,11 +4,17 @@ local Constants = {}
 
 -- Dynamic screen dimensions - get current window resolution
 function Constants.getScreenWidth()
-    return love.graphics.getWidth()
+    if love and love.graphics and love.graphics.getWidth then
+        return love.graphics.getWidth()
+    end
+    return Constants.screen_width
 end
 
 function Constants.getScreenHeight()
-    return love.graphics.getHeight()
+    if love and love.graphics and love.graphics.getHeight then
+        return love.graphics.getHeight()
+    end
+    return Constants.screen_height
 end
 
 -- Backwards compatibility - these will be removed in favor of dynamic functions
