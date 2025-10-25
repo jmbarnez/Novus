@@ -3,7 +3,6 @@
 
 local Constants = require('src.constants')
 local Scaling = require('src.scaling')
-local DisplayManager = require('src.display_manager')
 
 print("=== Testing Dynamic Resolution System ===")
 
@@ -12,10 +11,6 @@ print("Current window resolution:")
 local w, h = Constants.getScreenWidth(), Constants.getScreenHeight()
 print(string.format("  Constants.getScreenWidth(): %d", w))
 print(string.format("  Constants.getScreenHeight(): %d", h))
-local renderW, renderH = DisplayManager.getRenderDimensions()
-print(string.format("  DisplayManager render resolution: %dx%d", renderW, renderH))
-print(string.format("  Constants.getRenderWidth(): %d", Constants.getRenderWidth()))
-print(string.format("  Constants.getRenderHeight(): %d", Constants.getRenderHeight()))
 
 -- Test scaling system
 print("\nScaling system:")

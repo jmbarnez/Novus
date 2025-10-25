@@ -5,7 +5,6 @@
 local Core = require('src.core')
 local Constants = require('src.constants')
 local Scaling = require('src.scaling')
-local DisplayManager = require('src.display_manager')
 local StartScreen = require('src.start_screen')
 local LoadingScreen = require('src.loading_screen')
 local TimeManager = require('src.time_manager')
@@ -31,14 +30,12 @@ function love.load()
     -- Initialize time manager with unlocked FPS
     TimeManager.init()
     TimeManager.setTargetFps(nil)  -- nil = unlimited FPS
-
-    DisplayManager.init()
-
+    
     -- Display settings confirmation (window already set by conf.lua)
     print("=== Display Settings ===")
     print("VSync enabled:", love.window.getVSync())
     print("Display count:", love.window.getDisplayCount())
-
+    
     Scaling.update()
     -- Only initialize game when leaving start screen
 end
@@ -174,13 +171,14 @@ function love.quit()
 end
 
 function love.resize(w, h)
-    DisplayManager.onResize(w, h)
+    Scaling.update()
+    if gameState == "game" then
+        -- Resize the main canvas to match new window dimensions
+        local RenderCanvas = require('src.systems.render.canvas')
+        RenderCanvas.resizeCanvas()
 
-    -- Always ensure the canvas matches the active render resolution
-    local RenderCanvas = require('src.systems.render.canvas')
-    RenderCanvas.resizeCanvas()
-
-    if gameState == "game" and Core.onResize then
-        Core.onResize(w, h)
+        if Core.onResize then
+            Core.onResize(w, h)
+        end
     end
 end
