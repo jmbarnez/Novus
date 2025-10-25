@@ -11,6 +11,7 @@ local UISystem = require('src.systems.ui')
 local GameInit = require('src.game_init')
 local GameInput = require('src.game_input')
 local Scaling = require('src.scaling')
+local DisplayManager = require('src.display_manager')
 
 -- Game initialization
 function Core.init()
@@ -81,11 +82,12 @@ function Core.quit()
     local canvasEntities = ECS.getEntitiesWith({"Canvas"})
     for _, canvasId in ipairs(canvasEntities) do
         local canvasComp = ECS.getComponent(canvasId, "Canvas")
-        if canvasComp and canvasComp.canvas then
-            canvasComp.canvas:release()
+        if canvasComp then
             canvasComp.canvas = nil
         end
     end
+
+    DisplayManager.shutdown()
     
     -- Clear all entity pools before clearing ECS
     local EntityPool = require('src.entity_pool')

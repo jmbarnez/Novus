@@ -16,6 +16,8 @@ local TimeManager = require('src.time_manager')
 local Dropdown = require('src.ui.dropdown')
 local Slider = require('src.ui.slider')
 local HotkeyConfig = require('src.hotkey_config')
+local DisplayManager = require('src.display_manager')
+local RenderCanvas = require('src.systems.render.canvas')
 
 local SettingsWindow = WindowBase:new{
     width = 600,
@@ -70,14 +72,8 @@ SettingsWindow.fpsLabels = {"30", "60", "90", "120", "144", "240", "Unlimited"}
 -- Window modes
 SettingsWindow.modes = { 'Windowed', 'Borderless', 'Fullscreen' }
 
--- Resolutions
-SettingsWindow.resolutions = {
-    {w = 1280, h = 720, label = "1280x720"},
-    {w = 1366, h = 768, label = "1366x768"},
-    {w = 1600, h = 900, label = "1600x900"},
-    {w = 1920, h = 1080, label = "1920x1080"},
-    {w = 2560, h = 1440, label = "2560x1440"},
-}
+-- Resolutions (render resolution options)
+SettingsWindow.resolutions = DisplayManager.renderResolutions
 
 -- Audio volume range (0-100%)
 SettingsWindow.volumeMin = 0
@@ -98,7 +94,7 @@ function SettingsWindow:saveSettingsSnapshot()
     self.savedSettings = {
         fps = TimeManager.getTargetFps(),
         windowMode = self:currentModeIndex(),
-        resolution = {w = love.graphics.getWidth(), h = love.graphics.getHeight()},
+        resolution = DisplayManager.getRenderResolution(),
         hotkeys = {},
         audio = {
             masterVolume = SoundSystem.getVolume and SoundSystem.getVolume("master") or 100,
@@ -121,23 +117,16 @@ end
 
 -- Get current window mode index
 function SettingsWindow:currentModeIndex()
-    local _, _, flags = love.window.getMode()
-    if flags.fullscreen then return 3 end
-    if flags.borderless then return 2 end
+    local mode = DisplayManager.getWindowMode()
+    if mode == 'fullscreen' then return 3 end
+    if mode == 'borderless' then return 2 end
     return 1
 end
 
 -- Get current resolution index
 function SettingsWindow:getCurrentResIndex()
-    local w, h = love.graphics.getWidth(), love.graphics.getHeight()
-    for i, res in ipairs(self.resolutions) do
-        if res.w == w and res.h == h then return i end
-    end
-    -- Default to current window resolution
-    local currentW, currentH = Constants.getScreenWidth(), Constants.getScreenHeight()
-    for i, res in ipairs(self.resolutions) do
-        if res.w == currentW and res.h == currentH then return i end
-    end
+    local index = DisplayManager.getRenderResolutionIndex()
+    if index then return index end
     return 4  -- Default to 1920x1080 if not found
 end
 
@@ -300,25 +289,16 @@ function SettingsWindow:initialize()
     
     -- Mode Dropdown
     self.modeDropdown = Dropdown:new(self.modes, self:currentModeIndex(), x, y + 60, dropdownWidth, function(idx, val)
+        local renderRes = DisplayManager.getRenderResolution()
         if idx == 1 then
-            -- Windowed: restore a sane default windowed resolution
-            local currentW, currentH = Constants.getScreenWidth(), Constants.getScreenHeight()
-            love.window.setMode(currentW, currentH, {fullscreen = false, borderless = false})
-            -- Canvas will be automatically resized by love.resize() callback
+            -- Windowed: use current render resolution as window size
+            DisplayManager.applyWindowMode('windowed', { width = renderRes.w, height = renderRes.h })
         elseif idx == 2 then
-            -- Borderless: set to desktop resolution and borderless to avoid mode-switch flashes
-            local ok, dw, dh = pcall(love.window.getDesktopDimensions)
-            if ok and dw and dh and dw > 0 then
-                love.window.setMode(dw, dh, {fullscreen = false, borderless = true})
-            else
-                -- Fallback to current size
-                love.window.setMode(love.graphics.getWidth(), love.graphics.getHeight(), {fullscreen = false, borderless = true})
-            end
-            -- Canvas will be automatically resized by love.resize() callback
+            -- Borderless: match desktop resolution
+            DisplayManager.applyWindowMode('borderless')
         elseif idx == 3 then
-            -- Fullscreen: use desktop/fullscreen desktop type to avoid exclusive mode flicker
-            love.window.setMode(0, 0, {fullscreen = true, fullscreentype = "desktop"})
-            -- Canvas will be automatically resized by love.resize() callback
+            -- Fullscreen desktop (no exclusive mode flicker)
+            DisplayManager.applyWindowMode('fullscreen')
         end
         self:saveSettingsSnapshot()
     end)
@@ -336,8 +316,14 @@ function SettingsWindow:initialize()
         dropdownWidth, 
         function(idx, val)
             local res = self.resolutions[idx]
-            love.window.setMode(res.w, res.h, {fullscreen = false, borderless = false})
-            -- Canvas will be automatically resized by love.resize() callback
+            if not res then return end
+
+            RenderCanvas.setRenderResolution(res.w, res.h)
+
+            if DisplayManager.getWindowMode() == 'windowed' then
+                DisplayManager.applyWindowMode('windowed', { width = res.w, height = res.h })
+            end
+
             self:saveSettingsSnapshot()
         end
     )

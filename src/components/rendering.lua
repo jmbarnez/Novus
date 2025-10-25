@@ -1,5 +1,6 @@
 ---@diagnostic disable: undefined-global
 local Constants = require('src.constants')
+local DisplayManager = require('src.display_manager')
 local Components = {}
 
 -- Renderable component - Visual representation
@@ -37,8 +38,14 @@ end
 -- @field offsetX number: The x offset to draw the canvas at
 -- @field offsetY number: The y offset to draw the canvas at
 Components.Canvas = function(width, height)
+    if width and height then
+        DisplayManager.setRenderResolution(width, height)
+    else
+        width, height = DisplayManager.getRenderDimensions()
+    end
+
     return {
-        canvas = love.graphics.newCanvas(width, height),
+        canvas = DisplayManager.getWorldCanvas(),
         width = width,
         height = height,
         scale = 1,
@@ -54,19 +61,25 @@ end
 -- @param newWidth number: New width
 -- @param newHeight number: New height
 function Components.resizeCanvas(canvasComp, newWidth, newHeight)
-    if canvasComp and canvasComp.canvas then
-        -- Release old canvas
-        canvasComp.canvas:release()
-        -- Create new canvas with updated dimensions
-        canvasComp.canvas = love.graphics.newCanvas(newWidth, newHeight)
-        canvasComp.width = newWidth
-        canvasComp.height = newHeight
-        canvasComp.scale = 1
-        canvasComp.scaleX = 1
-        canvasComp.scaleY = 1
-        canvasComp.offsetX = 0
-        canvasComp.offsetY = 0
+    if not canvasComp then return end
+
+    local width, height
+    if newWidth and newHeight then
+        width, height = newWidth, newHeight
+    else
+        width, height = DisplayManager.getRenderDimensions()
     end
+
+    DisplayManager.ensureWorldCanvas()
+
+    canvasComp.canvas = DisplayManager.getWorldCanvas()
+    canvasComp.width = width
+    canvasComp.height = height
+    canvasComp.scale = 1
+    canvasComp.scaleX = 1
+    canvasComp.scaleY = 1
+    canvasComp.offsetX = 0
+    canvasComp.offsetY = 0
 end
 
 -- TrailParticle component - Individual trail particle data
