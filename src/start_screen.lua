@@ -175,8 +175,8 @@ function start_screen.draw()
     if auroraShader then
         local t = love.timer.getTime()
 
-        -- Cycle through aurora colors over time
-        local colorIndex1 = math.floor(t * 0.3) % #auroraColors + 1
+        -- Cycle through aurora colors over time (slower for better visibility)
+        local colorIndex1 = math.floor(t * 0.1) % #auroraColors + 1
         local colorIndex2 = (colorIndex1) % #auroraColors + 1
         local colorIndex3 = (colorIndex2 + 1) % #auroraColors + 1
 
@@ -188,9 +188,15 @@ function start_screen.draw()
         ShaderManager.setAuroraColors(color1, color2, color3)
         ShaderManager.setAuroraResolution(width, height)
 
-        -- Calculate text bounds for shader
-        local textHeight = font:getHeight()
-        ShaderManager.setAuroraTextBounds(titleX, titleY, titleWidth, textHeight)
+        -- Calculate text bounds for shader (extend bounds for aurora glow effect)
+        local textHeight = font:getHeight() * 1.5 -- Make taller for aurora effect
+        local glowPadding = titleWidth * 0.3 -- Add horizontal padding for glow
+        ShaderManager.setAuroraTextBounds(
+            titleX - glowPadding,
+            titleY - textHeight * 0.2,
+            titleWidth + glowPadding * 2,
+            textHeight
+        )
 
         -- Apply shader and draw title
         love.graphics.setShader(auroraShader)

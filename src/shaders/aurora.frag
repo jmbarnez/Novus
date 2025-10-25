@@ -36,10 +36,11 @@ void main() {
     float distanceFromCenter = length(toCenter);
 
     // Create a falloff based on distance from text center
-    float textInfluence = 1.0 - smoothstep(0.0, textBounds.w * 0.8, distanceFromCenter);
+    float maxDistance = length(vec2(textBounds.z * 0.8, textBounds.w * 0.8));
+    float textInfluence = 1.0 - smoothstep(0.0, maxDistance, distanceFromCenter);
 
-    // Only apply aurora effect if we're near the text
-    if (textInfluence < 0.01) {
+    // Only apply aurora effect if we're near the text (lower threshold)
+    if (textInfluence < 0.02) {
         discard; // Don't draw pixels far from text
     }
 
@@ -47,65 +48,66 @@ void main() {
     vec2 p = (screenPos - textCenter) / (textBounds.w * 0.5);
     p.x *= resolution.x / resolution.y;
 
-    // Create flowing wave patterns
-    float wave1 = sin(p.x * 2.0 + time * 1.2) * 0.5 + 0.5;
-    float wave2 = sin(p.x * 1.5 - time * 0.8 + 1.5) * 0.5 + 0.5;
-    float wave3 = sin(p.x * 3.0 + time * 1.8 - 0.7) * 0.5 + 0.5;
+    // Create flowing wave patterns with higher frequency for more detail
+    float wave1 = sin(p.x * 4.0 + time * 1.2) * 0.5 + 0.5;
+    float wave2 = sin(p.x * 3.0 - time * 0.8 + 1.5) * 0.5 + 0.5;
+    float wave3 = sin(p.x * 5.0 + time * 1.8 - 0.7) * 0.5 + 0.5;
+    float wave4 = sin(p.x * 2.5 + p.y * 2.0 + time * 0.6) * 0.3 + 0.7;
 
     // Combine waves for complex motion
-    float wavePattern = (wave1 * 0.4 + wave2 * 0.3 + wave3 * 0.3);
+    float wavePattern = (wave1 * 0.3 + wave2 * 0.3 + wave3 * 0.2 + wave4 * 0.2);
 
-    // Add vertical flow
-    float verticalFlow = sin(p.y * 1.5 + time * 0.9) * 0.3 + 0.7;
+    // Add vertical flow with more variation
+    float verticalFlow = sin(p.y * 3.0 + time * 0.9) * 0.4 + 0.6;
+    verticalFlow += sin(p.y * 1.5 - time * 1.3) * 0.2;
 
-    // Create intensity variation
-    float intensity = wavePattern * verticalFlow * textInfluence;
+    // Create intensity variation with higher base values
+    float intensity = wavePattern * verticalFlow * textInfluence * 1.2;
 
     // Add some noise for realism
     float noiseValue = fbm(p * 2.0 + time * 0.5) * 0.3 + 0.7;
     intensity *= noiseValue;
 
-    // Create smooth color transitions through aurora spectrum
+    // Simple time-based color cycling
     vec3 auroraColor;
 
-    // Create a 0-1 gradient that smoothly transitions through all colors
-    float colorPhase = intensity * 3.0; // Scale to cover 3 color transitions
-    float phase1 = smoothstep(0.0, 1.0, colorPhase);
-    float phase2 = smoothstep(1.0, 2.0, colorPhase);
-    float phase3 = smoothstep(2.0, 3.0, colorPhase);
+    // Create a 0-1 cycling value based on time
+    float cycle = (sin(time * 0.5 + p.x * 0.3) + 1.0) * 0.5;
 
-    // Create smooth transitions between colors
-    if (colorPhase < 1.0) {
-        // Transition from color1 to color2
-        auroraColor = mix(color1, color2, phase1);
-    } else if (colorPhase < 2.0) {
-        // Transition from color2 to color3
-        auroraColor = mix(color2, color3, phase2);
+    // Create smooth transitions between the three colors
+    float phase = cycle * 3.0; // Scale to 0-3 range for 3 transitions
+
+    if (phase < 1.0) {
+        auroraColor = mix(color1, color2, smoothstep(0.0, 1.0, phase));
+    } else if (phase < 2.0) {
+        auroraColor = mix(color2, color3, smoothstep(1.0, 2.0, phase));
     } else {
-        // Transition from color3 back to color1 (brighter)
-        auroraColor = mix(color3, color1 * 1.3, phase3);
+        auroraColor = mix(color3, color1 * 1.2, smoothstep(2.0, 3.0, phase));
     }
 
-    // Add some color variation based on position and time
-    float colorShift = sin(time * 0.5 + p.x * 2.0) * 0.1;
-    auroraColor.r += colorShift * 0.5;
-    auroraColor.g += colorShift * 0.3;
-    auroraColor.b -= colorShift * 0.2;
+    // Add some variation based on vertical position
+    float verticalVariation = (sin(time * 0.3 + p.y * 2.0) + 1.0) * 0.1;
+    auroraColor.r += verticalVariation;
+    auroraColor.g -= verticalVariation * 0.5;
+    auroraColor.b += verticalVariation * 0.3;
+
+    // Clamp colors to valid range
+    auroraColor = clamp(auroraColor, 0.0, 1.0);
 
     // Add some brightness variation
     float brightness = 0.6 + 0.4 * sin(time * 2.0 + p.x * 2.0);
     auroraColor *= brightness;
 
     // Create alpha based on intensity with smooth falloff
-    float alpha = intensity * intensity * (3.0 - 2.0 * intensity); // Smoothstep
+    float alpha = smoothstep(0.1, 0.9, intensity); // Wider visible range
     alpha *= smoothstep(0.1, 0.9, noiseValue); // Use noise for natural edges
     alpha *= textInfluence; // Fade out away from text
 
     // Add some transparency variation over time
-    alpha *= 0.8 + 0.2 * sin(time * 1.5 + p.x * 3.0);
+    alpha *= 0.95 + 0.05 * sin(time * 1.5 + p.x * 3.0);
 
-    // Ensure alpha doesn't go completely transparent
-    alpha = max(alpha, 0.05);
+    // Ensure minimum visibility but allow natural fading
+    alpha = max(alpha, 0.15);
 
     gl_FragColor = vec4(auroraColor, alpha);
 }
