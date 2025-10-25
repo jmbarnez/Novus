@@ -119,10 +119,16 @@ function Core.onResize(w, h)
         CameraSystem.onResize(w, h)
     end
 
+    -- Update canvas system
+    local RenderCanvas = require('src.systems.render.canvas')
+    if RenderCanvas and RenderCanvas.onResize then
+        RenderCanvas.onResize(w, h)
+    end
+
     -- Update any other systems that have onResize functions
     local Systems = require('src.systems')
     for systemName, system in pairs(Systems) do
-        if system.onResize and systemName ~= "UISystem" and systemName ~= "CameraSystem" then
+        if system.onResize and systemName ~= "UISystem" and systemName ~= "CameraSystem" and systemName ~= "RenderSystem" then
             system.onResize(w, h)
         end
     end
