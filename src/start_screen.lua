@@ -1,6 +1,7 @@
 -- src/start_screen.lua
 -- Start screen module
 
+local Constants = require('src.constants')
 local start_screen = {}
 
 
@@ -96,8 +97,8 @@ for i = 1, starCount do
         color = {1, 0.95, 0.85} -- yellow-white
     end
     stars[i] = {
-        x = math.random(0, Constants.screen_width),
-        y = math.random(0, Constants.screen_height),
+        x = math.random(0, Constants.getScreenWidth()),
+        y = math.random(0, Constants.getScreenHeight()),
         baseAlpha = brightness * math.random(12, 32) / 100,
         twinkleSpeed = math.random(12, 32) / 10,
         size = math.random(1, 2),

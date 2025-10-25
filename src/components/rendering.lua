@@ -47,6 +47,21 @@ Components.Canvas = function(width, height)
     }
 end
 
+-- Resize canvas to new dimensions
+-- @param canvasComp table: The canvas component to resize
+-- @param newWidth number: New width
+-- @param newHeight number: New height
+function Components.resizeCanvas(canvasComp, newWidth, newHeight)
+    if canvasComp and canvasComp.canvas then
+        -- Release old canvas
+        canvasComp.canvas:release()
+        -- Create new canvas with updated dimensions
+        canvasComp.canvas = love.graphics.newCanvas(newWidth, newHeight)
+        canvasComp.width = newWidth
+        canvasComp.height = newHeight
+    end
+end
+
 -- TrailParticle component - Individual trail particle data
 -- @field x number: Particle X position
 -- @field y number: Particle Y position

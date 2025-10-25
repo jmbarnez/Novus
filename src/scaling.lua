@@ -3,9 +3,9 @@
 
 local Scaling = {}
 
--- Reference resolution (designed for 1080p, easily modifiable)
-Scaling.REFERENCE_WIDTH = 1920
-Scaling.REFERENCE_HEIGHT = 1080
+-- Reference resolution (matches display resolution)
+Scaling.REFERENCE_WIDTH = 1600
+Scaling.REFERENCE_HEIGHT = 900
 
 Scaling.windowWidth = love.graphics.getWidth()
 Scaling.windowHeight = love.graphics.getHeight()
@@ -18,6 +18,9 @@ Scaling.maintainAspect = true -- set false to stretch to any shape
 function Scaling.update()
     Scaling.windowWidth = love.graphics.getWidth()
     Scaling.windowHeight = love.graphics.getHeight()
+    -- Update reference resolution to match current window size for proper scaling
+    Scaling.REFERENCE_WIDTH = Scaling.windowWidth
+    Scaling.REFERENCE_HEIGHT = Scaling.windowHeight
     Scaling._scaleX = Scaling.windowWidth / Scaling.REFERENCE_WIDTH
     Scaling._scaleY = Scaling.windowHeight / Scaling.REFERENCE_HEIGHT
 end
@@ -31,6 +34,17 @@ function Scaling.getScale()
     end
 end
 
+function Scaling.toScreen(x, y)
+    local s, _ = Scaling.getScale()
+    return x * s, y * s
+end
+
+function Scaling.scaleSize(size)
+    if type(size) ~= 'number' then return size end
+    local s, _ = Scaling.getScale()
+    return size * s
+end
+
 function Scaling.scaleX(x)
     local s, _ = Scaling.getScale()
     return x * s
@@ -41,17 +55,6 @@ function Scaling.scaleY(y)
     return y * s
 end
 
-function Scaling.scaleSize(size)
-    if type(size) ~= 'number' then return size end
-    local s, _ = Scaling.getScale()
-    return size * s
-end
-
-function Scaling.toScreen(x, y)
-    local s, _ = Scaling.getScale()
-    return x * s, y * s
-end
-
 function Scaling.toGame(x, y)
     local s, _ = Scaling.getScale()
     return x / s, y / s
@@ -60,10 +63,9 @@ end
 -- Convert screen coordinates to canvas/UI coordinates, accounting for canvas offset and scale
 -- This is used for UI hit testing and mouse interactions
 function Scaling.toUI(x, y)
-    -- Use cached canvas transform if available
+    local s = Scaling.canvasScale or 1.0
     local offsetX = Scaling.canvasOffsetX or 0
     local offsetY = Scaling.canvasOffsetY or 0
-    local s = Scaling.canvasScale or Scaling.getScale()
     local uiX = (x - offsetX) / s
     local uiY = (y - offsetY) / s
     return uiX, uiY
@@ -71,7 +73,7 @@ end
 
 -- Convert UI/reference coordinates (1920x1080) to screen coordinates, accounting for canvas offset and scale
 function Scaling.toScreenCanvas(x, y)
-    local s = Scaling.canvasScale or Scaling.getScale()
+    local s = Scaling.canvasScale or 1.0
     local offsetX = Scaling.canvasOffsetX or 0
     local offsetY = Scaling.canvasOffsetY or 0
     return x * s + offsetX, y * s + offsetY
@@ -91,6 +93,21 @@ function Scaling.toWorld(screenX, screenY, cameraComp, cameraPos)
     local worldX = uiX / camZoom + (cameraPos and cameraPos.x or 0)
     local worldY = uiY / camZoom + (cameraPos and cameraPos.y or 0)
     return worldX, worldY
+end
+
+-- Get current window resolution
+function Scaling.getCurrentResolution()
+    return love.graphics.getWidth(), love.graphics.getHeight()
+end
+
+-- Get current window width
+function Scaling.getCurrentWidth()
+    return love.graphics.getWidth()
+end
+
+-- Get current window height
+function Scaling.getCurrentHeight()
+    return love.graphics.getHeight()
 end
 
 return Scaling

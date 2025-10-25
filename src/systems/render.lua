@@ -2,6 +2,7 @@
 -- Render System - Coordinates all rendering subsystems
 -- Delegates to specialized render modules for different types of rendering
 
+local Constants = require('src.constants')
 local ECS = require('src.ecs')
 local Parallax = require('src.parallax')
 local CameraUtils = require('src.camera_utils')
@@ -32,14 +33,18 @@ end
 
 local function getUISystem()
     if not UISystem then
-        UISystem = require('src.systems.ui')
+        -- Get from Systems table to ensure same instance for input handling
+        local Systems = require('src.systems')
+        UISystem = Systems.UISystem
     end
     return UISystem
 end
 
 local function getHUDSystem()
     if not HUDSystem then
-        HUDSystem = require('src.systems.hud')
+        -- Get from Systems table to ensure same instance for input handling
+        local Systems = require('src.systems')
+        HUDSystem = Systems.HUDSystem
     end
     return HUDSystem
 end
@@ -155,55 +160,66 @@ local RenderSystem = {
         Profiler.recordCulling(renderedItems + renderedEntities, culledItems + culledEntities)
 
         Profiler.stop("entity_rendering")
+
+        -- UI OVERLAY - Draw all UI and HUD elements into the main canvas before it's finalized
+        Profiler.start("ui_overlay")
+
+        -- Reset camera transform before drawing screen-space UI
+        CameraUtils.resetTransform()
+
+        -- Reset graphics state before drawing UI
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.setBlendMode("alpha")
+
+        -- Begin batching for all UI/HUD elements
+        local BatchRenderer = require('src.ui.batch_renderer')
+        BatchRenderer.begin()
+
+        -- Draw durability bars for asteroids and wreckages (world-space UI)
+        Profiler.start("ui_durability_bars")
+        local HUDBars = require('src.systems.hud.bars')
+        local w, h = love.graphics.getDimensions()
+        HUDBars.drawAsteroidDurabilityBars(w, h)
+        HUDBars.drawWreckageDurabilityBars(w, h)
+        HUDBars.drawEnemyHealthBars(w, h)
+        Profiler.stop("ui_durability_bars")
+
+        -- Draw UI windows (notifications, dialogs, windows) - these use immediate mode
+        Profiler.start("ui_windows")
+        local ui = getUISystem()
+        if ui and ui.draw then
+            local screenWidth, screenHeight = Constants.getScreenWidth(), Constants.getScreenHeight()
+            ui.draw(screenWidth, screenHeight) -- Pass display resolution
+        end
+        Profiler.stop("ui_windows")
+
+        -- Draw HUD overlays in screen space (queued to batch)
+        Profiler.start("ui_hud_overlays")
+        local hud = getHUDSystem()
+        if hud and hud.draw then
+            hud.draw(screenWidth, screenHeight) -- Pass display resolution
+        end
+        Profiler.stop("ui_hud_overlays")
+
+        -- Flush all batched UI
+        Profiler.start("ui_hud_flush")
+        BatchRenderer.flush()
+        Profiler.stop("ui_hud_flush")
+
+        -- Draw the death overlay, if visible (immediate mode, always on top)
+        Profiler.start("ui_death_overlay")
+        local DeathOverlay = require('src.ui.death_overlay')
+        DeathOverlay.draw()
+        Profiler.stop("ui_death_overlay")
+
+        Profiler.stop("ui_overlay")
+
         Profiler.start("canvas_finalize")
 
         -- Finalize canvas (apply shaders, draw to screen)
         RenderCanvas.finalizeCanvas(canvasComp)
         
         Profiler.stop("canvas_finalize")
-        Profiler.start("ui_overlay")
-
-        -- Reset graphics state before drawing UI
-        love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.setBlendMode("alpha")
-        
-        -- Begin batching for all UI/HUD elements
-        local BatchRenderer = require('src.ui.batch_renderer')
-        BatchRenderer.begin()
-        
-        -- Queue enemy health bars FIRST so they render behind UI windows
-        local HUDBars = require('src.systems.hud.bars')
-        local w, h = love.graphics.getDimensions()
-        HUDBars.drawEnemyHealthBars(w, h)
-        HUDBars.drawAsteroidDurabilityBars(w, h)
-        HUDBars.drawWreckageDurabilityBars(w, h)
-        
-        -- Flush health/durability bars first (render layer below windows)
-        BatchRenderer.flush()
-        
-        -- Draw UI windows (notifications, dialogs, windows) - these use immediate mode
-        local ui = getUISystem()
-        if ui and ui.draw then
-            ui.draw(canvasComp.width, canvasComp.height)
-        end
-
-        -- Begin new batch for HUD overlays on top of windows
-        BatchRenderer.begin()
-        
-        -- Draw HUD overlays in screen space (queued to batch)
-        local hud = getHUDSystem()
-        if hud and hud.draw then
-            hud.draw(canvasComp.width, canvasComp.height)
-        end
-        
-        -- Flush HUD overlay batch
-        BatchRenderer.flush()
-
-        -- Draw the death overlay, if visible (immediate mode, always on top)
-        local DeathOverlay = require('src.ui.death_overlay')
-        DeathOverlay.draw()
-
-        Profiler.stop("ui_overlay")
     end
 }
 

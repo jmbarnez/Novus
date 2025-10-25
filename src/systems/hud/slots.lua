@@ -5,6 +5,7 @@ local Scaling = require('src.scaling')
 local TurretSystem = require('src.systems.turret')
 local TurretRange = require('src.systems.turret_range')
 local ItemDefs = require('src.items.item_loader')
+local PlasmaTheme = require('src.ui.plasma_theme')
 
 local HUDSlots = {}
 
@@ -49,14 +50,18 @@ function HUDSlots.drawTurretSlots(viewportWidth, viewportHeight, hudSystem)
                 local slotX = startX + (slotIndex - 1) * (slotSize + slotSpacing)
                 local slotY = startY
                 
-                local bgColor = {0.1, 0.1, 0.15, 0.9}
+                -- Plasma theme background (darker energy-infused background)
+                local bgColor = {0.05, 0.05, 0.08, 0.95}
                 love.graphics.setColor(bgColor)
                 love.graphics.rectangle("fill", slotX, slotY, slotSize, slotSize, 4, 4)
                 
-                local borderColor = {0.4, 0.4, 0.5, 0.8}
-                if turretSlots.slots[slotIndex] then borderColor = {0.2, 0.8, 1.0, 1.0} end
+                -- Plasma theme borders with thick black outlines
+                local borderColor = {0.2, 0.4, 0.6, 0.8}  -- Default plasma blue
+                if turretSlots.slots[slotIndex] then 
+                    borderColor = {0.2, 0.8, 1.0, 1.0}  -- Bright cyan when occupied
+                end
                 love.graphics.setColor(borderColor)
-                love.graphics.setLineWidth(2)
+                love.graphics.setLineWidth(PlasmaTheme.colors.outlineThick)
                 love.graphics.rectangle("line", slotX, slotY, slotSize, slotSize, 4, 4)
                 love.graphics.setLineWidth(1)
                 
@@ -93,7 +98,8 @@ function HUDSlots.drawTurretSlots(viewportWidth, viewportHeight, hudSystem)
                                     local cooldownTimer = heat.cooldownTimer or 0
                                     local blinkPhase = math.floor((cooldownTimer * 4)) % 2
                                     if blinkPhase == 0 then
-                                        love.graphics.setColor(1.0, 0.2, 0.2, 0.8)
+                                        -- Plasma energy overheat warning (electric pink/magenta)
+                                        love.graphics.setColor(1.0, 0.2, 0.5, 0.8)
                                         local pad = math.max(2, math.floor(slotSize * 0.08))
                                         local innerH = slotSize - pad * 2
                                         local innerW = slotSize - pad * 2
@@ -105,7 +111,8 @@ function HUDSlots.drawTurretSlots(viewportWidth, viewportHeight, hudSystem)
                                     local innerH = slotSize - pad * 2
                                     local innerW = slotSize - pad * 2
                                     local overlayInnerWidth = math.floor(innerW * heatRatio)
-                                    love.graphics.setColor(0.9, 0.3, 0.2, 0.4)
+                                    -- Plasma energy heat buildup (orange to red energy)
+                                    love.graphics.setColor(1.0, 0.4, 0.1, 0.5)
                                     if overlayInnerWidth > 0 then
                                         love.graphics.rectangle("fill", slotX + pad, slotY + pad, overlayInnerWidth, innerH, 3, 3)
                                     end
@@ -120,15 +127,20 @@ function HUDSlots.drawTurretSlots(viewportWidth, viewportHeight, hudSystem)
                             local innerH = slotSize - pad * 2
                             local innerW = slotSize - pad * 2
                             local overlayInnerWidth = math.floor(innerW * cooldownRatio)
-                            love.graphics.setColor(0.2, 0.8, 0.2, 0.28)
+                            -- Plasma energy cooldown (bright cyan energy)
+                            love.graphics.setColor(0.2, 0.8, 1.0, 0.4)
                             if overlayInnerWidth > 0 then
                                 love.graphics.rectangle("fill", slotX + pad, slotY + pad, overlayInnerWidth, innerH, 3, 3)
                             end
                         end
                     end
                 else
-                    love.graphics.setColor(0.3, 0.3, 0.35, 0.5)
+                    -- Plasma energy glow for empty slots
+                    love.graphics.setColor(0.1, 0.3, 0.5, 0.6)  -- Subtle plasma blue glow
                     love.graphics.circle("line", slotX + slotSize / 2, slotY + slotSize / 2, slotSize / 4)
+                    -- Add inner energy pulse
+                    love.graphics.setColor(0.2, 0.4, 0.7, 0.3)
+                    love.graphics.circle("fill", slotX + slotSize / 2, slotY + slotSize / 2, slotSize / 6)
                 end
             end
         end)

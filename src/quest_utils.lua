@@ -17,12 +17,10 @@ function QuestUtils.updateMiningProgress()
                 if quest.accepted and not quest.completed and quest.type == "mining" then
                     if quest.requirements and quest.requirements.current then
                         quest.requirements.current = quest.requirements.current + 1
-                        print(string.format("[QuestUtils] Mining progress: %d/%d", quest.requirements.current, quest.requirements.count))
                         
                         -- Check completion
                         if quest.requirements.current >= quest.requirements.count then
                             quest.completed = true
-                            print(string.format("[QuestUtils] Quest completed: %s", quest.title))
                         end
                     end
                 end
@@ -42,12 +40,10 @@ function QuestUtils.updateCombatProgress()
                 if quest.accepted and not quest.completed and quest.type == "combat" then
                     if quest.requirements and quest.requirements.current then
                         quest.requirements.current = quest.requirements.current + 1
-                        print(string.format("[QuestUtils] Combat progress: %d/%d", quest.requirements.current, quest.requirements.count))
                         
                         -- Check completion
                         if quest.requirements.current >= quest.requirements.count then
                             quest.completed = true
-                            print(string.format("[QuestUtils] Quest completed: %s", quest.title))
                         end
                     end
                 end
@@ -67,12 +63,10 @@ function QuestUtils.updateSalvagingProgress()
                 if quest.accepted and not quest.completed and quest.type == "salvaging" then
                     if quest.requirements and quest.requirements.current then
                         quest.requirements.current = quest.requirements.current + 1
-                        print(string.format("[QuestUtils] Salvaging progress: %d/%d", quest.requirements.current, quest.requirements.count))
                         
                         -- Check completion
                         if quest.requirements.current >= quest.requirements.count then
                             quest.completed = true
-                            print(string.format("[QuestUtils] Quest completed: %s", quest.title))
                         end
                     end
                 end

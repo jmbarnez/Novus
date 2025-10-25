@@ -1,16 +1,37 @@
 ---@diagnostic disable: undefined-global
 -- Quest Overlay - Super minimal quest display under minimap
+-- Optimized with caching and batched rendering
 
 local ECS = require('src.ecs')
 local Theme = require('src.ui.theme')
+local BatchRenderer = require('src.ui.batch_renderer')
 
 local QuestOverlay = {}
 
 QuestOverlay.isOpen = true -- Always visible when there are accepted quests
 
--- Get all accepted quests
+-- Cache for quest data to avoid querying every frame
+local cachedQuests = {}
+local cacheVersion = 0
+local lastUpdateFrame = 0
+local CACHE_UPDATE_INTERVAL = 30 -- Update cache every 30 frames (~0.5 seconds at 60fps)
+
+-- Invalidate cache when quests change (call this from quest system when accepting/completing quests)
+function QuestOverlay.invalidateCache()
+    cacheVersion = cacheVersion + 1
+end
+
+-- Get all accepted quests (cached version)
 function QuestOverlay.getAcceptedQuests()
-    local acceptedQuests = {}
+    local currentFrame = love.timer.getTime() * 60 -- Approximate frame count
+    
+    -- Only update cache periodically
+    if currentFrame - lastUpdateFrame < CACHE_UPDATE_INTERVAL and #cachedQuests > 0 then
+        return cachedQuests
+    end
+    
+    lastUpdateFrame = currentFrame
+    cachedQuests = {}
     
     -- Find all stations with quest boards - no need for QuestSystem
     local stations = ECS.getEntitiesWith({"Station", "QuestBoard"})
@@ -20,13 +41,13 @@ function QuestOverlay.getAcceptedQuests()
         if questBoard then
             for _, quest in ipairs(questBoard.quests) do
                 if quest.accepted and not quest.completed then
-                    table.insert(acceptedQuests, quest)
+                    table.insert(cachedQuests, quest)
                 end
             end
         end
     end
     
-    return acceptedQuests
+    return cachedQuests
 end
 
 -- Draw the quest overlay
@@ -59,14 +80,15 @@ function QuestOverlay.draw()
     local dividerHeight = 2
     local totalHeight = (#quests * questHeight) + ((#quests - 1) * dividerHeight)
     
-    -- Background
-    love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha)
-    love.graphics.rectangle("fill", overlayX, overlayY, overlayWidth, totalHeight, 2, 2)
+    -- Background (batched)
+    local bgColor = Theme.colors.bgDark
+    BatchRenderer.queueRect(overlayX, overlayY, overlayWidth, totalHeight, 
+        bgColor[1], bgColor[2], bgColor[3], alpha, 2)
     
-    -- Border
-    love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], alpha)
-    love.graphics.setLineWidth(1)
-    love.graphics.rectangle("line", overlayX, overlayY, overlayWidth, totalHeight, 2, 2)
+    -- Border (batched)
+    local borderColor = Theme.colors.borderDark
+    BatchRenderer.queueRectLine(overlayX, overlayY, overlayWidth, totalHeight, 
+        borderColor[1], borderColor[2], borderColor[3], alpha, 1, 2)
     
     -- Draw each quest
     for i, quest in ipairs(quests) do
@@ -77,18 +99,18 @@ function QuestOverlay.draw()
         
         -- Draw divider (except after last quest)
         if i < #quests then
-            love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], alpha * 0.5)
-            love.graphics.rectangle("fill", overlayX + 4, questY + questHeight, overlayWidth - 8, dividerHeight)
+            BatchRenderer.queueRect(overlayX + 4, questY + questHeight, overlayWidth - 8, dividerHeight,
+                borderColor[1], borderColor[2], borderColor[3], alpha * 0.5, 0)
         end
     end
 end
 
--- Draw a single quest (minimal: title + progress bar)
+-- Draw a single quest (minimal: title + progress bar) - batched rendering
 function QuestOverlay.drawQuest(quest, x, y, w, h, alpha, font, smallFont)
-    -- Quest title
-    love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
-    love.graphics.setFont(font)
-    love.graphics.print(quest.title, x, y + 4)
+    -- Quest title (batched text)
+    local textColor = Theme.colors.textAccent
+    BatchRenderer.queueText(quest.title, x, y + 4, font, 
+        textColor[1], textColor[2], textColor[3], alpha)
     
     -- Progress bar
     local barX = x
@@ -97,8 +119,9 @@ function QuestOverlay.drawQuest(quest, x, y, w, h, alpha, font, smallFont)
     local barH = 6
     
     -- Progress background
-    love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], Theme.colors.bgMedium[3], alpha)
-    love.graphics.rectangle("fill", barX, barY, barW, barH, 1, 1)
+    local bgColor = Theme.colors.bgMedium
+    BatchRenderer.queueRect(barX, barY, barW, barH, 
+        bgColor[1], bgColor[2], bgColor[3], alpha, 1)
     
     -- Progress fill
     local progress = 0
@@ -111,22 +134,25 @@ function QuestOverlay.drawQuest(quest, x, y, w, h, alpha, font, smallFont)
         fillColor = Theme.colors.buttonYes
     end
     
-    love.graphics.setColor(fillColor[1], fillColor[2], fillColor[3], alpha)
-    love.graphics.rectangle("fill", barX, barY, barW * progress, barH, 1, 1)
+    local fillWidth = barW * progress
+    if fillWidth > 0 then
+        BatchRenderer.queueRect(barX, barY, fillWidth, barH, 
+            fillColor[1], fillColor[2], fillColor[3], alpha, 1)
+    end
     
     -- Progress border
-    love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], alpha)
-    love.graphics.setLineWidth(1)
-    love.graphics.rectangle("line", barX, barY, barW, barH, 1, 1)
+    local borderColor = Theme.colors.borderDark
+    BatchRenderer.queueRectLine(barX, barY, barW, barH, 
+        borderColor[1], borderColor[2], borderColor[3], alpha, 1, 1)
     
     -- Progress text (centered)
     if quest.requirements and quest.requirements.count then
         local progressText = string.format("%d/%d", quest.requirements.current, quest.requirements.count)
-        love.graphics.setColor(Theme.colors.textMuted[1], Theme.colors.textMuted[2], Theme.colors.textMuted[3], alpha)
-        love.graphics.setFont(smallFont)
+        local mutedColor = Theme.colors.textMuted
         local textX = barX + (barW - smallFont:getWidth(progressText)) / 2
         local textY = barY + (barH - smallFont:getHeight()) / 2
-        love.graphics.print(progressText, textX, textY)
+        BatchRenderer.queueText(progressText, textX, textY, smallFont, 
+            mutedColor[1], mutedColor[2], mutedColor[3], alpha)
     end
 end
 

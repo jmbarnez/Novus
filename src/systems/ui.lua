@@ -16,7 +16,7 @@ local Scaling = require('src.scaling')
 local SettingsWindow = require('src.ui.settings_window')
 local DeathOverlay = require('src.ui.death_overlay')
 local ConstructionButton = require('src.ui.construction_button')
-local QuestOverlay = require('src.ui.quest_overlay')
+-- QuestOverlay moved to HUD system for batched rendering
 -- Hotbar removed
 -- CargoWindow removed - now integrated into ShipWindow
 -- SkillsWindow removed - now a panel within ShipWindow
@@ -162,8 +162,8 @@ function UISystem.draw(viewportWidth, viewportHeight)
     -- Get viewport dimensions from parameters or canvas
     if not viewportWidth or not viewportHeight then
         local canvasEntities = ECS.getEntitiesWith({"Canvas"})
-        viewportWidth = Constants.screen_width
-        viewportHeight = Constants.screen_height
+        viewportWidth = Constants.getScreenWidth()
+        viewportHeight = Constants.getScreenHeight()
         
         if #canvasEntities > 0 then
             local canvasComp = ECS.getComponent(canvasEntities[1], "Canvas")
@@ -183,8 +183,7 @@ function UISystem.draw(viewportWidth, viewportHeight)
     -- Draw skill notifications (in screen space)
     -- SkillNotifications.draw() -- REMOVE THIS
     
-    -- Draw quest overlay (always visible when there are accepted quests)
-    QuestOverlay.draw()
+    -- Quest overlay moved to HUD system for batched rendering
     
     -- Draw windows in focus order (background to foreground)
     local windows = {
@@ -302,7 +301,6 @@ function UISystem.mousepressed(x, y, button)
     local mx, my = Scaling.toUI(x, y)
     -- Check construction button (screen-space, not UI-space)
     if ConstructionButton.checkPressed(x, y, button) then
-        print("Construction button pressed! (TODO: implement construction interface)")
         UISystem.captureMouse()
         return true
     end

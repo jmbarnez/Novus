@@ -148,11 +148,7 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
         -- Only apply damage if target is an asteroid
         local isAsteroid = ECS.getComponent(hitAsteroidId, "Asteroid")
         if isAsteroid then
-            -- Update laser visual to end at collision point instead of aim point
-            local laserComp = ECS.getComponent(turretComp.laserEntity, "LaserBeam")
-            if laserComp then
-                laserComp.endPos = {x = closestIntersection.x, y = closestIntersection.y}
-            end
+            -- Update laser visual to end at collision point instead of aim point - This is now handled in systems/input.lua
             
             local durability = ECS.getComponent(hitAsteroidId, "Durability")
             if durability then

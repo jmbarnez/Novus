@@ -9,28 +9,8 @@ local BatchRenderer = require('src.ui.batch_renderer')
 
 local HUDBars = {}
 
--- Camera culling bounds cache
-local lastCameraUpdate = 0
-local cameraViewBounds = {minX = 0, maxX = 0, minY = 0, maxY = 0}
-local CAMERA_MARGIN = 200  -- Extra margin for bars outside viewport
-
--- Update camera bounds for culling
-local function updateCameraBounds(camera, cameraPos)
-    if not camera or not cameraPos then return false end
-    local viewWidth = (love.graphics.getWidth() / camera.zoom)
-    local viewHeight = (love.graphics.getHeight() / camera.zoom)
-    cameraViewBounds.minX = cameraPos.x - viewWidth / 2 - CAMERA_MARGIN
-    cameraViewBounds.maxX = cameraPos.x + viewWidth / 2 + CAMERA_MARGIN
-    cameraViewBounds.minY = cameraPos.y - viewHeight / 2 - CAMERA_MARGIN
-    cameraViewBounds.maxY = cameraPos.y + viewHeight / 2 + CAMERA_MARGIN
-    return true
-end
-
--- Check if entity is in view
-local function isInView(x, y)
-    return x >= cameraViewBounds.minX and x <= cameraViewBounds.maxX and
-           y >= cameraViewBounds.minY and y <= cameraViewBounds.maxY
-end
+-- Cached font for level indicators (create once, reuse forever)
+local levelFont = love.graphics.newFont(8)
 
 function HUDBars.drawEnemyHealthBars(viewportWidth, viewportHeight)
     local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
@@ -41,7 +21,7 @@ function HUDBars.drawEnemyHealthBars(viewportWidth, viewportHeight)
         cameraPos = ECS.getComponent(cameraEntities[1], "Position")
     end
     
-    if not updateCameraBounds(camera, cameraPos) then return end
+    if not camera or not cameraPos then return end
     
     local shipEntities = ECS.getEntitiesWith({"Hull", "Position", "Renderable"})
     
@@ -65,44 +45,72 @@ function HUDBars.drawEnemyHealthBars(viewportWidth, viewportHeight)
         local hull = ECS.getComponent(entityId, "Hull")
         local shield = ECS.getComponent(entityId, "Shield")
         local renderable = ECS.getComponent(entityId, "Renderable")
+        local level = ECS.getComponent(entityId, "Level")
         
         if position and hull and renderable then
-            -- Early culling check
-            if not isInView(position.x, position.y) then
-                goto continue_ship
-            end
-            
             local canvasX = (position.x - cameraPos.x) * camera.zoom
             local canvasY = (position.y - cameraPos.y) * camera.zoom
-            
-            local screenX, screenY = Scaling.toScreenCanvas(canvasX, canvasY)
-            
+
+            -- Calculate Y offset for health bar (in world units, converted to canvas units via zoom)
+            local worldOffsetY = (renderable.radius or 15) + 10  -- world units above entity
+            local canvasOffsetY = worldOffsetY * camera.zoom  -- convert to canvas units
+
+            -- Position bars in canvas coordinates (since we're rendering to canvas)
             local barWidth = 32
             local barHeight = 5
-            local x = screenX - barWidth / 2
-            local y = screenY - (renderable.radius or 15) * camera.zoom - 10
-            
+            local levelBoxSize = 12
+            local levelBoxSpacing = 4  -- Space between level box and health bar
+
+            -- Center the health bar at canvasX, then add level box to the left
+            local barX = canvasX - barWidth / 2
+            local barY = canvasY - canvasOffsetY
+            local levelBoxX = barX - levelBoxSpacing - levelBoxSize
+            local levelBoxY = canvasY - canvasOffsetY
+
+            -- Level indicator (always render, default to level 1 if no level component)
+            local currentLevel = level and level.level or 1
+
+            -- Red level box background
+            BatchRenderer.queueRect(levelBoxX, levelBoxY, levelBoxSize, levelBoxSize, 1, 0, 0, 0.9, 2)
+
+            -- Red level box outline
+            BatchRenderer.queueRectLine(levelBoxX, levelBoxY, levelBoxSize, levelBoxSize, 0, 0, 0, 1, 2, 2)
+
+            -- Level number text
+            local levelText = tostring(currentLevel)
+            local textWidth = levelFont:getWidth(levelText)
+            local textHeight = levelFont:getHeight()
+            local textX = levelBoxX + (levelBoxSize - textWidth) / 2
+            local textY = levelBoxY + (levelBoxSize - textHeight) / 2
+
+            -- White text for contrast against red background
+            BatchRenderer.queueText(levelText, textX, textY, levelFont, 1, 1, 1, 1)
+
             -- Background
-            BatchRenderer.queueRect(x, y, barWidth, barHeight, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 2)
-            
-            -- Hull fill
+            BatchRenderer.queueRect(barX, barY, barWidth, barHeight, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 2)
+
+            -- Hull fill with green-to-red gradient based on health
             local hullRatio = math.max(0, math.min(1, (hull.current or 0) / (hull.max or 1)))
             local fillWidth = math.max(0, (barWidth - 2) * hullRatio)
             if fillWidth > 0 then
-                BatchRenderer.queueRect(x + 1, y + 1, fillWidth, barHeight - 2, hullColor[1], hullColor[2], hullColor[3], hullColor[4], 1)
+                -- Green to red gradient: green at 100%, red at 0%
+                local r = 1 - hullRatio  -- Red component increases as health decreases
+                local g = hullRatio      -- Green component decreases as health decreases
+                local b = 0              -- No blue component
+                BatchRenderer.queueRect(barX + 1, barY + 1, fillWidth, barHeight - 2, r, g, b, 1, 1)
             end
-            
-            -- Shield overlay (if present)
+
+            -- Shield overlay (if present) - keep cyan color
             if shield and shield.max > 0 then
                 local sRatio = math.max(0, math.min(1, (shield.current or 0) / (shield.max or 1)))
                 local shieldWidth = math.max(0, (barWidth - 2) * sRatio)
                 if shieldWidth > 0 then
-                    BatchRenderer.queueRect(x + 1, y + 1, shieldWidth, barHeight - 2, shieldColor[1], shieldColor[2], shieldColor[3], shieldColor[4], 1)
+                    BatchRenderer.queueRect(barX + 1, barY + 1, shieldWidth, barHeight - 2, shieldColor[1], shieldColor[2], shieldColor[3], shieldColor[4], 1)
                 end
             end
-            
+
             -- Outline
-            BatchRenderer.queueRectLine(x, y, barWidth, barHeight, outlineColor[1], outlineColor[2], outlineColor[3], outlineColor[4], outlineWidth, 2)
+            BatchRenderer.queueRectLine(barX, barY, barWidth, barHeight, outlineColor[1], outlineColor[2], outlineColor[3], outlineColor[4], outlineWidth, 2)
         end
         
         ::continue_ship::
@@ -118,7 +126,7 @@ function HUDBars.drawAsteroidDurabilityBars(viewportWidth, viewportHeight)
         cameraPos = ECS.getComponent(cameraEntities[1], "Position")
     end
     
-    if not updateCameraBounds(camera, cameraPos) then return end
+    if not camera or not cameraPos then return end
     
     local asteroidEntities = ECS.getEntitiesWith({"Asteroid", "Position", "Durability", "Collidable"})
     
@@ -127,42 +135,36 @@ function HUDBars.drawAsteroidDurabilityBars(viewportWidth, viewportHeight)
         local durability = ECS.getComponent(entityId, "Durability")
         local coll = ECS.getComponent(entityId, "Collidable")
         
-        if position and durability and durability.current and durability.max then
-            -- Only show damaged bars
-            if durability.current < durability.max then
-                -- Early culling check
-                if not isInView(position.x, position.y) then
-                    goto continue_asteroid
-                end
-                
-                local canvasX = (position.x - cameraPos.x) * camera.zoom
-                local canvasY = (position.y - cameraPos.y) * camera.zoom
-                
-                local screenX, screenY = Scaling.toScreenCanvas(canvasX, canvasY)
-                
-                local barWidth = 24
-                local barHeight = 3
-                local radius = coll and coll.radius or 12
-                local pad = radius + 6
-                local x = screenX - barWidth / 2
-                local y = screenY - pad * camera.zoom - 5
-                
-                local frac = math.max(0, math.min(1, durability.current / durability.max))
-                
-                -- Draw batched durability bar for asteroid
-                local bgColor = PlasmaTheme.colors.healthBarBg
-                local fillColor = PlasmaTheme.colors.asteroidBarFill
-                local outlineColor = PlasmaTheme.colors.outlineBlack
-                
-                BatchRenderer.queueRect(x, y, barWidth, barHeight, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 1)
-                local fillWidth = math.max(0, (barWidth - 2) * frac)
-                if fillWidth > 0 then
-                    BatchRenderer.queueRect(x + 1, y + 1, fillWidth, barHeight - 2, fillColor[1], fillColor[2], fillColor[3], fillColor[4], 0)
-                end
-                BatchRenderer.queueRectLine(x, y, barWidth, barHeight, outlineColor[1], outlineColor[2], outlineColor[3], outlineColor[4], 2, 1)
+        -- Only show durability bar if asteroid has taken damage
+        if position and durability and durability.current and durability.max and durability.current < durability.max then
+            local canvasX = (position.x - cameraPos.x) * camera.zoom
+            local canvasY = (position.y - cameraPos.y) * camera.zoom
+
+            -- Calculate Y offset for durability bar (in world units, converted to canvas units via zoom)
+            local radius = coll and coll.radius or 12
+            local worldOffsetY = radius + 6  -- world units above entity
+            local canvasOffsetY = worldOffsetY * camera.zoom  -- convert to canvas units
+
+            -- Position bars in canvas coordinates (since we're rendering to canvas)
+            local barWidth = 24
+            local barHeight = 3
+            local x = canvasX - barWidth / 2
+            local y = canvasY - canvasOffsetY
+
+            local frac = math.max(0, math.min(1, durability.current / durability.max))
+
+            -- Draw batched durability bar for asteroid
+            local bgColor = PlasmaTheme.colors.healthBarBg
+            local fillColor = PlasmaTheme.colors.asteroidBarFill
+            local outlineColor = PlasmaTheme.colors.outlineBlack
+
+            BatchRenderer.queueRect(x, y, barWidth, barHeight, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 1)
+            local fillWidth = math.max(0, (barWidth - 2) * frac)
+            if fillWidth > 0 then
+                BatchRenderer.queueRect(x + 1, y + 1, fillWidth, barHeight - 2, fillColor[1], fillColor[2], fillColor[3], fillColor[4], 0)
             end
+            BatchRenderer.queueRectLine(x, y, barWidth, barHeight, outlineColor[1], outlineColor[2], outlineColor[3], outlineColor[4], 2, 1)
         end
-        ::continue_asteroid::
     end
 end
 
@@ -175,7 +177,7 @@ function HUDBars.drawWreckageDurabilityBars(viewportWidth, viewportHeight)
         cameraPos = ECS.getComponent(cameraEntities[1], "Position")
     end
     
-    if not updateCameraBounds(camera, cameraPos) then return end
+    if not camera or not cameraPos then return end
     
     local wreckageEntities = ECS.getEntitiesWith({"Wreckage", "Position", "Durability", "Collidable"})
     
@@ -184,42 +186,36 @@ function HUDBars.drawWreckageDurabilityBars(viewportWidth, viewportHeight)
         local durability = ECS.getComponent(entityId, "Durability")
         local coll = ECS.getComponent(entityId, "Collidable")
         
-        if position and durability and durability.current and durability.max then
-            -- Only show damaged bars
-            if durability.current < durability.max then
-                -- Early culling check
-                if not isInView(position.x, position.y) then
-                    goto continue_wreckage
-                end
-                
-                local canvasX = (position.x - cameraPos.x) * camera.zoom
-                local canvasY = (position.y - cameraPos.y) * camera.zoom
-                
-                local screenX, screenY = Scaling.toScreenCanvas(canvasX, canvasY)
-                
-                local barWidth = 24
-                local barHeight = 3
-                local radius = coll and coll.radius or 12
-                local pad = radius + 6
-                local x = screenX - barWidth / 2
-                local y = screenY - pad * camera.zoom - 5
-                
-                local frac = math.max(0, math.min(1, durability.current / durability.max))
-                
-                -- Draw batched durability bar for wreckage
-                local bgColor = PlasmaTheme.colors.healthBarBg
-                local fillColor = PlasmaTheme.colors.wreckageBarFill
-                local outlineColor = PlasmaTheme.colors.outlineBlack
-                
-                BatchRenderer.queueRect(x, y, barWidth, barHeight, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 1)
-                local fillWidth = math.max(0, (barWidth - 2) * frac)
-                if fillWidth > 0 then
-                    BatchRenderer.queueRect(x + 1, y + 1, fillWidth, barHeight - 2, fillColor[1], fillColor[2], fillColor[3], fillColor[4], 0)
-                end
-                BatchRenderer.queueRectLine(x, y, barWidth, barHeight, outlineColor[1], outlineColor[2], outlineColor[3], outlineColor[4], 2, 1)
+        -- Only show durability bar if wreckage has taken damage
+        if position and durability and durability.current and durability.max and durability.current < durability.max then
+            local canvasX = (position.x - cameraPos.x) * camera.zoom
+            local canvasY = (position.y - cameraPos.y) * camera.zoom
+
+            -- Calculate Y offset for durability bar (in world units, converted to canvas units via zoom)
+            local radius = coll and coll.radius or 12
+            local worldOffsetY = radius + 6  -- world units above entity
+            local canvasOffsetY = worldOffsetY * camera.zoom  -- convert to canvas units
+
+            -- Position bars in canvas coordinates (since we're rendering to canvas)
+            local barWidth = 24
+            local barHeight = 3
+            local x = canvasX - barWidth / 2
+            local y = canvasY - canvasOffsetY
+
+            local frac = math.max(0, math.min(1, durability.current / durability.max))
+
+            -- Draw batched durability bar for wreckage
+            local bgColor = PlasmaTheme.colors.healthBarBg
+            local fillColor = PlasmaTheme.colors.wreckageBarFill
+            local outlineColor = PlasmaTheme.colors.outlineBlack
+
+            BatchRenderer.queueRect(x, y, barWidth, barHeight, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 1)
+            local fillWidth = math.max(0, (barWidth - 2) * frac)
+            if fillWidth > 0 then
+                BatchRenderer.queueRect(x + 1, y + 1, fillWidth, barHeight - 2, fillColor[1], fillColor[2], fillColor[3], fillColor[4], 0)
             end
+            BatchRenderer.queueRectLine(x, y, barWidth, barHeight, outlineColor[1], outlineColor[2], outlineColor[3], outlineColor[4], 2, 1)
         end
-        ::continue_wreckage::
     end
 end
 

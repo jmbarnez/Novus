@@ -109,8 +109,9 @@ function Procedural.calculateSpawnPosition(strategy, data, index)
     elseif strategy == "edge" then
         -- Spawn at screen edges
         local side = math.random(4) -- 1=top, 2=right, 3=bottom, 4=left
-        local screenWidth = data.screenWidth or 1920
-        local screenHeight = data.screenHeight or 1080
+        local Constants = require('src.constants')
+        local screenWidth = data.screenWidth or Constants.getScreenWidth()
+        local screenHeight = data.screenHeight or Constants.getScreenHeight()
         
         if side == 1 then -- Top
             spawnData.x = math.random() * screenWidth

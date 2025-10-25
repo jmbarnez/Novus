@@ -13,16 +13,11 @@ function ShaderManager.init()
     if shaderCode then
         celShader = love.graphics.newShader(shaderCode)
         if celShader then
-            print("[ShaderManager] Plasma/Energy post-processing shader loaded")
             ShaderManager.setCelShadingProperties({
                 plasmaIntensity = 0.6,    -- Reduced for subtle effect (0.5-2.0)
                 glowThreshold = 0.5       -- Only bright colors glow (0.0-1.0)
             })
-        else
-            print("[ShaderManager] Failed to create cel-shading shader")
         end
-    else
-        print("[ShaderManager] Failed to load cel-shading shader code")
     end
 end
 
@@ -51,7 +46,6 @@ end
 -- Adjust visual style (kept for compatibility but does nothing now)
 function ShaderManager.togglePlasmaMode()
     -- Shader is always active with Plasma settings
-    print("[ShaderManager] Plasma cel-shading: ALWAYS ON")
 end
 
 -- Set screen size for shader

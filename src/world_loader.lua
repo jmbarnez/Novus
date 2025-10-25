@@ -18,10 +18,8 @@ function WorldLoader.loadWorld(worldId, filepath)
     local success, world = pcall(require, filepath)
     if success and world then
         WorldLoader.worlds[worldId] = world
-        print(string.format("[WorldLoader] Loaded world: %s", worldId))
         return true
     else
-        print(string.format("[WorldLoader] Failed to load world: %s", worldId))
         return false
     end
 end
@@ -45,8 +43,7 @@ function WorldLoader.loadAllWorlds(directory)
             loadedCount = loadedCount + 1
         end
     end
-    
-    print(string.format("[WorldLoader] Loaded %d world definitions", loadedCount))
+
 end
 
 -- Get a world definition by ID
@@ -136,8 +133,6 @@ function WorldLoader.initWorld(worldId)
             ecs.addComponent(stationId, compType, compData)
         end
     end
-    
-    print(string.format("[WorldLoader] Initialized world: %s - %s", world.name, world.description))
 end
 
 -- Initialize asteroid clusters for a world
@@ -218,8 +213,6 @@ function WorldLoader.initAsteroidClusters(config)
             end
         end
     end
-    
-    print(string.format("[WorldLoader] Initialized %d asteroid clusters", config.count))
 end
 
 -- Spawn enemies based on world configuration
@@ -234,8 +227,6 @@ function WorldLoader.spawnEnemies(config)
             end
         end
     end
-    
-    print(string.format("[WorldLoader] Spawned %d enemies", spawnCount))
 end
 
 -- Spawn a single enemy
@@ -266,8 +257,6 @@ function WorldLoader.spawnEnemy(enemyType, config)
                 weapon = weaponConf
             end
             turret.moduleName = weapon
-        else
-            print("[WorldLoader][BUG] Spawned enemy with no Turret!", enemyType, shipId)
         end
 
         -- Automatically set AI type based on weapon (mining lasers = mining AI)
@@ -281,8 +270,6 @@ function WorldLoader.spawnEnemy(enemyType, config)
                 ai.type = config.aiType or "combat"
                 ai.state = config.aiState or "patrol"
             end
-        else
-            print("[WorldLoader][BUG] Spawned enemy with no AI!", enemyType, shipId)
         end
 
         -- Ensure Wreckage sourceShip is assigned (enables design lookup in AI)
@@ -291,10 +278,9 @@ function WorldLoader.spawnEnemy(enemyType, config)
             wreckage.sourceShip = enemyType
         end
 
-        -- Debugging: Print entity spawn details
-        print(string.format("[WorldLoader] Spawned enemy: ID=%s, Type=%s, Weapon=%s, AIType=%s, State=%s", shipId, enemyType, turret and turret.moduleName or "NONE", ai and ai.type or "NONE", ai and ai.state or "NONE"))
-    else
-        print("[WorldLoader][BUG] ShipLoader.createShip failed for enemy type:", enemyType)
+        -- Add level component (random level 1-5 for now)
+        local level = math.random(1, 5)
+        ECS.addComponent(shipId, "Level", {level = level})
     end
 
     return shipId

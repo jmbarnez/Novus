@@ -15,7 +15,6 @@ function TurretRegistry.loadModules(path)
             local fullPath = path .. "." .. moduleName
             local module = require(fullPath)
             TurretRegistry.modules[moduleName] = module
-            print("Loaded turret module: " .. moduleName)
         end
     end
 end

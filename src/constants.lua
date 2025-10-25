@@ -2,9 +2,19 @@
 
 local Constants = {}
 
--- Screen dimensions
-Constants.screen_width = 1920
-Constants.screen_height = 1080
+-- Dynamic screen dimensions - get current window resolution
+function Constants.getScreenWidth()
+    return love.graphics.getWidth()
+end
+
+function Constants.getScreenHeight()
+    return love.graphics.getHeight()
+end
+
+-- Backwards compatibility - these will be removed in favor of dynamic functions
+-- NOTE: These are now deprecated and should not be used. Use Constants.getScreenWidth() and Constants.getScreenHeight() instead.
+Constants.screen_width = 1600
+Constants.screen_height = 900
 
 -- World dimensions (much larger than screen for exploration)
 Constants.world_width = 4000

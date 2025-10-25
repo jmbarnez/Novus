@@ -13,7 +13,9 @@ local UISystem
 
 local function getUISystem()
     if not UISystem then
-        UISystem = require('src.systems.ui')
+        -- Get from Systems table to ensure same instance for input handling
+        local Systems = require('src.systems')
+        UISystem = Systems.UISystem
     end
     return UISystem
 end

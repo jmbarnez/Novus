@@ -93,10 +93,14 @@ function GameInit.registerSystems()
     ECS.registerSystem("PhysicsCollisionSystem", Systems.PhysicsCollisionSystem)
     ECS.registerSystem("BoundarySystem", Systems.BoundarySystem)
     ECS.registerSystem("InputSystem", Systems.InputSystem)
+    Systems.RenderSystem.priority = 100
     ECS.registerSystem("RenderSystem", Systems.RenderSystem)
     ECS.registerSystem("CameraSystem", Systems.CameraSystem)
-    ECS.registerSystem("UISystem", Systems.UISystem)
-    ECS.registerSystem("HUDSystem", Systems.HUDSystem)
+    -- UI and HUD systems are now handled only by RenderCanvas, not registered with ECS
+    -- Systems.UISystem.priority = 300
+    -- ECS.registerSystem("UISystem", Systems.UISystem)
+    -- Systems.HUDSystem.priority = 200
+    -- ECS.registerSystem("HUDSystem", Systems.HUDSystem)
     ECS.registerSystem("TrailSystem", Systems.TrailSystem)
     ECS.registerSystem("CombatAlertSystem", require('src.systems.combat_alert'))
     -- ECS.registerSystem("PlayerFaceVelocitySystem", require('src.systems.player_face_velocity'))
@@ -123,7 +127,8 @@ end
 function GameInit.createCoreEntities()
     -- Create Canvas Entity
     local canvasId = ECS.createEntity()
-    ECS.addComponent(canvasId, "Canvas", Components.Canvas(Constants.screen_width, Constants.screen_height))
+    local screenWidth, screenHeight = Constants.getScreenWidth(), Constants.getScreenHeight()
+    ECS.addComponent(canvasId, "Canvas", Components.Canvas(screenWidth, screenHeight))
 
     -- Create Pilot (Player) Entity
     local pilotId = ECS.createEntity()
@@ -135,7 +140,7 @@ function GameInit.createCoreEntities()
     -- Create Camera Entity
     local cameraId = ECS.createEntity()
     -- Create camera component first so we can read width/zoom when calculating initial position
-    local cameraComp = Components.Camera(Constants.screen_width, Constants.screen_height)
+    local cameraComp = Components.Camera(screenWidth, screenHeight)
     ECS.addComponent(cameraId, "Camera", cameraComp)
     -- Try to center camera on the player's ship if it exists so the camera doesn't "slide" on first frames
     local initialCamX, initialCamY = -1500, 0
@@ -211,10 +216,6 @@ function GameInit.setupPlayerShip(pilotId)
 
     -- Debug: print starter cargo contents so we can verify item addition at runtime
     if shipCargo then
-        print("[GameInit] Starter ship cargo contents:")
-        for id, count in pairs(shipCargo.items) do
-            print(string.format("  - %s: %d", tostring(id), tonumber(count) or 0))
-        end
     end
     
     -- Equip default turret on the drone (Basic Cannon!)
@@ -228,9 +229,6 @@ function GameInit.setupPlayerShip(pilotId)
                 droneTurret.moduleName = "basic_cannon"
             end
             turretSlots.slots[1] = basicCannonId
-            if droneTurret then
-                print(string.format("[Core] Equipped default turret: itemId='%s', moduleName='%s'", basicCannonId, droneTurret.moduleName))
-            end
         else
             -- If slot is empty, make sure moduleName is empty too
             if droneTurret then
@@ -245,10 +243,6 @@ end
 function GameInit.loadSounds()
     if Systems.SoundSystem and Systems.SoundSystem.loadAll then
         Systems.SoundSystem.loadAll("assets/sounds")
-        -- Debug: list loaded sounds
-        for k, _ in pairs(Systems.SoundSystem.sounds or {}) do
-            -- Sound available: k
-        end
         -- Fallback: ensure item_pickup is loaded (some environments may not list files)
         if not Systems.SoundSystem.sounds["item_pickup"] then
             local pickupPath = "assets/sounds/item_pickup.ogg"
@@ -303,6 +297,10 @@ function GameInit.spawnEnemies()
                         ai.detectionRadius = design.miningDetectionRange
                     end
                 end
+                
+                -- Add level component (random level 1-5 for now)
+                local level = math.random(1, 5)
+                ECS.addComponent(shipId, "Level", {level = level})
             end
         end
         
@@ -331,6 +329,10 @@ function GameInit.spawnEnemies()
                         ai.detectionRadius = design.combatDetectionRange
                     end
                 end
+                
+                -- Add level component (random level 1-5 for now)
+                local level = math.random(1, 5)
+                ECS.addComponent(shipId, "Level", {level = level})
             end
         end
         
@@ -353,6 +355,10 @@ function GameInit.spawnEnemies()
                     ai.detectionRadius = design.combatDetectionRange
                 end
             end
+            
+            -- Add level component (higher level for heavy drone - 3-7)
+            local level = math.random(3, 7)
+            ECS.addComponent(heavyDroneId, "Level", {level = level})
         end
     end
 end
@@ -367,10 +373,6 @@ function GameInit.init()
 
     -- Initialize entity pools
     GameInit.initPools()
-
-    -- Set windowed mode, matching start screen size
-    local w, h = Constants.screen_width, Constants.screen_height
-    love.window.setMode(w, h, {fullscreen = false, resizable = false})
 
     -- Initialize procedural generation system
     Procedural.init()
@@ -397,11 +399,6 @@ function GameInit.init()
     -- Change this to any world name to load different sectors:
     -- "default_sector", "asteroid_field", "mining_zone", "combat_sector"
     WorldLoader.initWorld("default_sector")
-
-    print("Game entities created and systems initialized")
-    print("Pilot and starting drone spawned at (-1500, 0) - away from asteroid clusters")
-    print("World loaded: " .. (WorldLoader.getCurrentWorld() and WorldLoader.getCurrentWorld().name or "Unknown"))
-    print("Player controls: WASD for thrust, ESC to quit")
 end
 
 return GameInit

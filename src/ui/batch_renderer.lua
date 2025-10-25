@@ -13,6 +13,7 @@ local polyBatches = {}      -- Grouped by color and mode
 
 -- Temporary storage for current frame
 local currentRects = {}
+local rectOrder = {}
 local currentCircles = {}
 local currentLines = {}
 local currentTexts = {}
@@ -24,6 +25,7 @@ local function colorKey(r, g, b, a)
 end
 
 -- Begin a new frame
+local flushCount = 0
 function BatchRenderer.begin()
     -- Clear batch storage
     for k in pairs(currentRects) do currentRects[k] = nil end
@@ -31,13 +33,17 @@ function BatchRenderer.begin()
     for k in pairs(currentLines) do currentLines[k] = nil end
     for k in pairs(currentTexts) do currentTexts[k] = nil end
     for k in pairs(currentPolys) do currentPolys[k] = nil end
+    for i = #rectOrder, 1, -1 do rectOrder[i] = nil end
 end
 
 -- Queue a filled rectangle
 function BatchRenderer.queueRect(x, y, w, h, r, g, b, a, rounded)
     rounded = rounded or 0
     local key = colorKey(r, g, b, a)
-    currentRects[key] = currentRects[key] or {}
+    if not currentRects[key] then
+        currentRects[key] = {}
+        rectOrder[#rectOrder + 1] = key
+    end
     table.insert(currentRects[key], {x=x, y=y, w=w, h=h, rounded=rounded})
 end
 
@@ -85,12 +91,18 @@ end
 
 -- Flush all batches to screen
 function BatchRenderer.flush()
+    flushCount = flushCount + 1
+    local currentFlush = flushCount
+    
     -- Draw all filled rectangles (batched by color)
-    for key, rects in pairs(currentRects) do
+    for _, key in ipairs(rectOrder) do
+        local rects = currentRects[key]
         local r, g, b, a = key:match("([^_]+)_([^_]+)_([^_]+)_([^_]+)")
-        love.graphics.setColor(tonumber(r), tonumber(g), tonumber(b), tonumber(a))
-        for _, rect in ipairs(rects) do
-            love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, rect.rounded, rect.rounded)
+        if r then
+            love.graphics.setColor(tonumber(r), tonumber(g), tonumber(b), tonumber(a))
+            for _, rect in ipairs(rects) do
+                love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, rect.rounded, rect.rounded)
+            end
         end
     end
     
@@ -155,6 +167,14 @@ function BatchRenderer.flush()
     -- Reset state
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setLineWidth(1)
+    
+    -- Clear all batches after drawing (prevent stale data from being redrawn)
+    for k in pairs(currentRects) do currentRects[k] = nil end
+    for k in pairs(currentCircles) do currentCircles[k] = nil end
+    for k in pairs(currentLines) do currentLines[k] = nil end
+    for k in pairs(currentTexts) do currentTexts[k] = nil end
+    for k in pairs(currentPolys) do currentPolys[k] = nil end
+    for i = #rectOrder, 1, -1 do rectOrder[i] = nil end
 end
 
 return BatchRenderer

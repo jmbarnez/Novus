@@ -11,6 +11,7 @@ local Minimap = require('src.systems.minimap')
 local Tooltips = require('src.ui.tooltips')
 local TargetHUD = require('src.systems.target_hud')
 local ConstructionButton = require('src.ui.construction_button')
+local QuestOverlay = require('src.ui.quest_overlay')
 
 local HUDSystem = {
     name = "HUDSystem",
@@ -29,8 +30,8 @@ end
 
 function HUDSystem.draw(viewportWidth, viewportHeight)
     if not HUDSystem.visible then return end
-    viewportWidth = viewportWidth or (love.graphics and love.graphics.getWidth and love.graphics.getWidth()) or 1920
-    viewportHeight = viewportHeight or (love.graphics and love.graphics.getHeight and love.graphics.getHeight()) or 1080
+    viewportWidth = viewportWidth or (love.graphics and love.graphics.getWidth and love.graphics.getWidth()) or 1600
+    viewportHeight = viewportHeight or (love.graphics and love.graphics.getHeight and love.graphics.getHeight()) or 900
     
     -- Note: Enemy health bars are now drawn earlier in RenderSystem to ensure they render behind UI windows
     
@@ -45,6 +46,9 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     -- Notifications & skills
     local Notifications = require('src.ui.notifications')
     Notifications.draw()
+    
+    -- Draw quest overlay (batched rendering, below minimap)
+    QuestOverlay.draw()
     
     -- Draw overlays (targeting indicator/crosshair/tooltips)
     HUDTargeting.drawTargetingPanel(viewportWidth, viewportHeight)

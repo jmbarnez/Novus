@@ -63,7 +63,6 @@ function GameInput.keypressed(key)
 end
 
 function GameInput.mousepressed(x, y, button)
-    print("Core.mousepressed called", x, y, button)
     if UISystem.mousepressed then
         local consumed = UISystem.mousepressed(x, y, button)
         if consumed then

@@ -34,9 +34,9 @@ function WindowBase:setOpen(state)
     
     -- Center window on first open if not explicitly positioned
     if state and not self.positionInitialized and not self.position then
-        -- Use UI reference dimensions (1920x1080) for centering
-        local uiW = 1920
-        local uiH = 1080
+        -- Use display dimensions for centering
+        local uiW = 1600
+        local uiH = 900
         self.position = {
             x = math.floor((uiW - self.width) / 2),
             y = math.floor((uiH - self.height) / 2)

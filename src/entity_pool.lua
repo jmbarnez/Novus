@@ -36,8 +36,6 @@ function EntityPool.registerPool(poolName, factory, reset, maxSize)
             destroyed = 0,
         }
     }
-    
-    print(string.format("[EntityPool] Registered pool '%s' (max: %d)", poolName, maxSize))
 end
 
 -- Get an entity from the pool or create a new one

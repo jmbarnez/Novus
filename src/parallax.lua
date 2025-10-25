@@ -1,87 +1,7 @@
 ---@diagnostic disable: undefined-global
 -- Parallax starfield module
+local Constants = require('src.constants')
 local Parallax = {}
-
--- add: procedural HD background generator (1920x1080 blue-green nebula + stars)
-local function generate_hd_background(w, h)
-	-- require image API
-	local id = love.image.newImageData(w, h)
-	local seed = love.math.random() * 10000
-    -- Make nebula details a bit coarser and less dense so generated clouds are thinner
-    local octaves = 4
-    local baseScale = 900.0
-
-	for y = 0, h - 1 do
-		for x = 0, w - 1 do
-			-- fractal noise
-			local nx = x / baseScale
-			local ny = y / baseScale
-			local v = 0
-			local amp = 1.0
-			local freq = 1.0
-			local ampSum = 0.0
-			for o = 1, octaves do
-				v = v + amp * love.math.noise(nx * freq + seed, ny * freq + seed)
-				ampSum = ampSum + amp
-				amp = amp * 0.5
-				freq = freq * 2.0
-			end
-			v = v / (ampSum > 0 and ampSum or 1)
-
-			-- detail noise for filaments
-			local detail = love.math.noise(nx * 8 + seed * 2, ny * 8 + seed * 2)
-
-			-- mix factor between blue and green areas
-			local mix = math.max(0, math.min(1, (v * 1.3 - 0.15)))
-
-			-- base nebula palette
-			local blue = {0.08, 0.25, 0.9}
-			local green = {0.05, 0.9, 0.55}
-
-			local r = blue[1] * (1 - mix) + green[1] * mix
-			local g = blue[2] * (1 - mix) + green[2] * mix
-			local b = blue[3] * (1 - mix) + green[3] * mix
-
-			-- filaments boost
-			local filament = math.pow(v * 1.2 + detail * 0.15, 2.0)
-
-			-- radial vignette so edges stay dark
-			local dx = (x - w * 0.5) / (w * 0.5)
-			local dy = (y - h * 0.5) / (h * 0.5)
-			local dist = math.sqrt(dx * dx + dy * dy)
-			local vign = math.max(0, 1.0 - dist * 0.75)
-
-			-- final brightness and color composition
-			local brightness = filament * vign
-			local base_r, base_g, base_b = 0.01, 0.01, 0.03
-			local fr = math.min(1, base_r + r * brightness)
-			local fg = math.min(1, base_g + g * brightness)
-			local fb = math.min(1, base_b + b * brightness)
-
-			id:setPixel(x, y, fr, fg, fb, 1)
-		end
-	end
-
-	-- sprinkle stars (non-animated)
-	for i = 1, 400 do
-		local sx = love.math.random(0, w - 1)
-		local sy = love.math.random(0, h - 1)
-		local size = love.math.random(1, 2)
-		local bright = 0.6 + love.math.random() * 0.4
-		for oy = 0, size - 1 do
-			for ox = 0, size - 1 do
-				local px = math.min(w - 1, sx + ox)
-				local py = math.min(h - 1, sy + oy)
-				local r, g, b, a = id:getPixel(px, py)
-				id:setPixel(px, py, math.min(1, r + bright), math.min(1, g + bright), math.min(1, b + bright), 1)
-			end
-		end
-	end
-
-	-- return Image (created once)
-	return love.graphics.newImage(id)
-end
-
 
 function Parallax.new(layers, worldSize)
     local parallax = {
@@ -90,111 +10,8 @@ function Parallax.new(layers, worldSize)
         worldSize = worldSize or 10000
     }
     
-    for i, layer in ipairs(layers) do
-        parallax.layers[i] = {
-            stars = {},
-            parallaxFactor = layer.parallaxFactor or 1.0,
-            brightness = layer.brightness or 0.5,
-            count = layer.count or 100
-        }
-        local isStatic = (parallax.layers[i].parallaxFactor == 0)
-        local starXMax = isStatic and (love.graphics.getWidth()) or parallax.worldSize
-        local starYMax = isStatic and (love.graphics.getHeight()) or parallax.worldSize
-        -- Generate stars for this layer
-        for j = 1, parallax.layers[i].count do
-            -- Realistic star colors based on temperature
-            local colorType = love.math.random(1, 10)
-            local r, g, b
-            if colorType <= 2 then
-                -- Blue stars (hot, O/B type)
-                r = love.math.random(70, 100) / 255
-                g = love.math.random(150, 200) / 255
-                b = 1.0
-            elseif colorType <= 4 then
-                -- White stars (A type)
-                r = 1.0
-                g = 1.0
-                b = love.math.random(200, 255) / 255
-            elseif colorType <= 6 then
-                -- Yellow/White stars (F/G type like our sun)
-                r = 1.0
-                g = love.math.random(230, 255) / 255
-                b = love.math.random(150, 200) / 255
-            elseif colorType <= 8 then
-                -- Orange stars (K type)
-                r = 1.0
-                g = love.math.random(180, 220) / 255
-                b = love.math.random(80, 150) / 255
-            else
-                -- Red stars (M type, cool)
-                r = 1.0
-                g = love.math.random(100, 180) / 255
-                b = love.math.random(80, 150) / 255
-            end
-            
-            -- place stars: screen-space for static layers, world-space centered for others
-            local sx, sy
-            if isStatic then
-                sx = love.math.random(0, starXMax)
-                sy = love.math.random(0, starYMax)
-            else
-                sx = love.math.random(-parallax.worldSize/2, parallax.worldSize/2)
-                sy = love.math.random(-parallax.worldSize/2, parallax.worldSize/2)
-            end
-            -- brightness as float in [0.8..1.0]*layer.brightness
-            local brightness = (layer.brightness or 0.5) * (0.8 + love.math.random() * 0.2)
-            table.insert(parallax.layers[i].stars, {
-                x = sx,
-                y = sy,
-                size = love.math.random(1, 3),
-                brightness = brightness,
-                r = r,
-                g = g,
-                b = b
-            })
-        end
-    end
-    
-    return parallax
-end
-
-function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
-    -- Safety checks
-    if not parallax or not parallax.layers then return end
-
-    -- Ensure no shader affects parallax rendering
-    love.graphics.setShader()
-
-    local t = love.timer and love.timer.getTime and love.timer.getTime() or 0
-    -- Lazy-load a single HD background image (static background) once.
-    if parallax.nebula.backgroundLoaded == nil then
-        -- Try common image extensions so you can use PNG or JPEG (jpg/jpeg)
-        local basePath = 'assets/backgrounds/space_hd'
-        local exts = {'png', 'jpg', 'jpeg'}
-        parallax.nebula.backgroundImage = false
-        local loadedPath = nil
-        for _, ext in ipairs(exts) do
-            local imgPath = basePath .. '.' .. ext
-            local ok, img = pcall(love.graphics.newImage, imgPath)
-            if ok and img then
-                parallax.nebula.backgroundImage = img
-                loadedPath = imgPath
-                break
-            end
-        end
-        if loadedPath then
-            print("[Parallax] HD background loaded: " .. loadedPath)
-        else
-            -- no external image found -> generate procedural 1920x1080 background
-            parallax.nebula.backgroundImage = generate_hd_background(1920, 1080)
-            print("[Parallax] Generated procedural HD background (1920x1080) as fallback")
-        end
-        -- Use linear filtering for smoother, scaled-down band rendering
-    parallax.nebula.backgroundImage:setFilter('linear', 'linear')
-    -- 0 => fully static background; small value gives light parallax
-    parallax.nebula.backgroundParallax = 0.02
-    
-    -- Create a realistic wispy nebula shader using multiple octaves of noise
+    -- Initialize nebula shader immediately to avoid mid-render creation
+    parallax.nebula.shaderEnabled = false
     if love.graphics and love.graphics.newShader then
         local nebulaShaderCode = [[
             extern vec2 resolution;
@@ -253,11 +70,11 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
                 float n3 = fbm(worldPos * scale * 3.2 + vec2(200.0, 150.0));
                 
                 // Combine noise layers to create wispy tendrils
-                float density = n1 * 0.5 + n2 * 0.3 + n3 * 0.2;
-                density = smoothstep(0.0, 0.6, density);
+                float density = n1 * 0.4 + n2 * 0.25 + n3 * 0.15;
+                density = smoothstep(0.0, 0.8, density);
                 
-                // Add turbulence for more detail
-                float turbulence = snoise(worldPos * scale * 5.0 + time * 0.02) * 0.15;
+                // Add turbulence for more detail (reduced animation speed)
+                float turbulence = snoise(worldPos * scale * 5.0 + time * 0.01) * 0.15;
                 density += turbulence;
                 
                 // Vertical gradient (thinner at top/bottom)
@@ -274,53 +91,185 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
                 vec3 nebulaColor = mix(color1, color2, colorMix);
                 nebulaColor = mix(nebulaColor, color3, n3 * 0.5 + 0.5);
                 
-                // Final nebula with soft glow
-                float alpha = density * 0.35;
-                return vec4(nebulaColor * (1.0 + density * 0.5), alpha);
+                // Final nebula with soft glow (further reduced alpha and dimmer color)
+                float alpha = density * 0.035; // was 0.08, now dimmer
+                float nebulaDim = 0.55; // reduce color intensity
+                return vec4(nebulaColor * nebulaDim, alpha);
             }
         ]]
         local ok, shader = pcall(love.graphics.newShader, nebulaShaderCode)
         if ok and shader then
             parallax.nebula.shaderEnabled = true
             parallax.nebula.shader = shader
-            print("[Parallax] Nebula shader compiled successfully")
-        else
-            parallax.nebula.shaderEnabled = false
-            print("[Parallax] Nebula shader failed to compile: " .. tostring(shader))
+            -- Initialize shader uniforms immediately
+            local winW = love.graphics.getWidth()
+            local winH = love.graphics.getHeight()
+            shader:send('resolution', {winW, winH})
+            shader:send('time', 0)
+            shader:send('cameraOffset', {0, 0})
         end
     end
     
-    parallax.nebula.backgroundLoaded = true
-     end
-
-    -- Draw realistic wispy nebula using shader
-    if parallax.nebula.backgroundLoaded and parallax.nebula.shaderEnabled and parallax.nebula.shader then
-        local savedShader = love.graphics.getShader()
-        
-        local winW = screenWidth or love.graphics.getWidth()
-        local winH = screenHeight or love.graphics.getHeight()
-        local t = love.timer.getTime()
-        
-        -- Create a small dummy texture if needed (shaders need a texture)
-        if not parallax.nebula.dummyCanvas then
-            parallax.nebula.dummyCanvas = love.graphics.newCanvas(2, 2)
-        end
-        
-        -- Set shader uniforms
-        parallax.nebula.shader:send('resolution', {winW, winH})
-        parallax.nebula.shader:send('time', t)
-        parallax.nebula.shader:send('cameraOffset', {cameraX or 0, cameraY or 0})
-        
-        -- Draw full-screen quad with nebula shader
-        love.graphics.setShader(parallax.nebula.shader)
-        love.graphics.setBlendMode('add')
-        love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.draw(parallax.nebula.dummyCanvas, 0, 0, 0, winW/2, winH/2)
-        love.graphics.setBlendMode('alpha')
-        
-        -- Restore shader
-        love.graphics.setShader(savedShader)
+    -- Create dummy canvas for shader (needs a texture)
+    if parallax.nebula.shaderEnabled then
+        parallax.nebula.dummyCanvas = love.graphics.newCanvas(2, 2)
     end
+    
+    for i, layer in ipairs(layers) do
+        parallax.layers[i] = {
+            stars = {},
+            parallaxFactor = layer.parallaxFactor or 1.0,
+            brightness = layer.brightness or 0.5,
+            count = layer.count or 100,
+            nebulaClouds = {}
+        }
+        local isStatic = (parallax.layers[i].parallaxFactor == 0)
+        local starXMax = isStatic and (love.graphics.getWidth()) or parallax.worldSize
+        local starYMax = isStatic and (love.graphics.getHeight()) or parallax.worldSize
+        -- Generate stars for this layer
+        for j = 1, parallax.layers[i].count do
+            -- Realistic star colors based on temperature
+            local colorType = love.math.random(1, 10)
+            local r, g, b
+            if colorType <= 2 then
+                -- Blue stars (hot, O/B type)
+                r = love.math.random(70, 100) / 255
+                g = love.math.random(150, 200) / 255
+                b = 1.0
+            elseif colorType <= 4 then
+                -- White stars (A type)
+                r = 1.0
+                g = 1.0
+                b = love.math.random(200, 255) / 255
+            elseif colorType <= 6 then
+                -- Yellow/White stars (F/G type like our sun)
+                r = 1.0
+                g = love.math.random(230, 255) / 255
+                b = love.math.random(150, 200) / 255
+            elseif colorType <= 8 then
+                -- Orange stars (K type)
+                r = 1.0
+                g = love.math.random(180, 220) / 255
+                b = love.math.random(80, 150) / 255
+            else
+                -- Red stars (M type, cool)
+                r = 1.0
+                g = love.math.random(100, 180) / 255
+                b = love.math.random(80, 150) / 255
+            end
+            
+            -- place stars: screen-space for static layers, world-space centered for others
+            local sx, sy
+            if isStatic then
+                sx = love.math.random(0, starXMax)
+                sy = love.math.random(0, starYMax)
+            else
+                sx = love.math.random(-parallax.worldSize/2, parallax.worldSize/2)
+                sy = love.math.random(-parallax.worldSize/2, parallax.worldSize/2)
+            end
+            -- brightness as float in [0.8..1.0]*layer.brightness
+            local brightness = (layer.brightness or 0.5) * (0.8 + love.math.random() * 0.2)
+            table.insert(parallax.layers[i].stars, {
+                x = sx,
+                y = sy,
+                size = love.math.random(1, 3),
+                brightness = brightness,
+                r = r,
+                g = g,
+                b = b
+            })
+        end
+        -- Generate nebula clouds for non-static layers
+        if not isStatic then
+            local numClouds = love.math.random(2, 4)
+            for c = 1, numClouds do
+                table.insert(parallax.layers[i].nebulaClouds, {
+                    x = love.math.random(-parallax.worldSize/2, parallax.worldSize/2),
+                    y = love.math.random(-parallax.worldSize/2, parallax.worldSize/2),
+                    scale = love.math.random(30, 60) / 100, -- 0.3 to 0.6
+                    opacity = love.math.random(25, 45) / 100, -- 0.25 to 0.45
+                })
+            end
+        end
+    end
+    
+    return parallax
+end
+
+-- add: procedural HD background generator (1920x1080 blue-green nebula + stars)
+local function generate_hd_background(w, h)
+	-- require image API
+	local id = love.image.newImageData(w, h)
+	local seed = love.math.random() * 10000
+    -- Make nebula details a bit coarser and less dense so generated clouds are thinner
+    local octaves = 4
+    local baseScale = 900.0
+
+	for y = 0, h - 1 do
+		for x = 0, w - 1 do
+			-- fractal noise
+			local nx = x / baseScale
+			local ny = y / baseScale
+			local v = 0
+			local amp = 1.0
+			local freq = 1.0
+			local ampSum = 0.0
+			for o = 1, octaves do
+				v = v + amp * love.math.noise(nx * freq + seed, ny * freq + seed)
+				ampSum = ampSum + amp
+				amp = amp * 0.5
+				freq = freq * 2.0
+			end
+			v = v / (ampSum > 0 and ampSum or 1)
+
+			-- detail noise for filaments
+			local detail = love.math.noise(nx * 8 + seed * 2, ny * 8 + seed * 2)
+
+			-- mix factor between blue and green areas
+			local mix = math.max(0, math.min(1, (v * 1.3 - 0.15)))
+
+			-- base nebula palette
+			local blue = {0.08, 0.25, 0.9}
+			local green = {0.05, 0.9, 0.55}
+
+			local r = blue[1] * (1 - mix) + green[1] * mix
+			local g = blue[2] * (1 - mix) + green[2] * mix
+			local b = blue[3] * (1 - mix) + green[3] * mix
+
+			-- filaments boost
+			local filament = math.pow(v * 1.2 + detail * 0.15, 2.0)
+
+            if isStatic then
+                sx = love.math.random(0, starXMax)
+                sy = love.math.random(0, starYMax)
+            else
+                sx = love.math.random(-parallax.worldSize/2, parallax.worldSize/2)
+                sy = love.math.random(-parallax.worldSize/2, parallax.worldSize/2)
+            end
+            local brightness = (layer.brightness or 0.5) * (0.8 + love.math.random() * 0.2)
+            table.insert(parallax.layers[i].stars, {
+                x = sx,
+                y = sy,
+                size = love.math.random(1, 3),
+                brightness = brightness,
+                r = r,
+                g = g,
+                b = b
+            })
+        end
+    end
+    
+    return parallax
+end
+
+function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
+    -- Safety checks
+    if not parallax or not parallax.layers then return end
+
+    -- Ensure no shader affects parallax rendering
+    love.graphics.setShader()
+
+    -- No nebula or background: only draw stars
     
     for _, layer in ipairs(parallax.layers) do
         if not layer or not layer.stars then goto continue end

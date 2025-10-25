@@ -148,4 +148,12 @@ Components.Station = function()
     return {}
 end
 
+-- Level component - Tracks entity level (enemies, players, etc.)
+-- @field level number: Entity level (1-10, higher = more difficult/powerful)
+Components.Level = function(level)
+    return {
+        level = level or 1
+    }
+end
+
 return Components

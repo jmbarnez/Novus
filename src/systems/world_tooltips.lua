@@ -173,7 +173,6 @@ function WorldTooltips.handleKeyPress(key)
             local QuestWindow = require('src.ui.quest_window')
             QuestWindow.currentStationId = closestStationId
             UISystem.setQuestWindowOpen(true)
-            print(string.format("[Station] Interacted with station %d", closestStationId))
         end
     end
 end
@@ -342,10 +341,6 @@ function WorldTooltips.handleClick(mx, my, button)
     local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
     
     if not cameraComp or not cameraPos then return false end
-    
-    -- TODO: Convert mx, my to world coordinates
-    -- TODO: Check if click is within button bounds
-    -- TODO: Call button callback if clicked
     
     return false
 end

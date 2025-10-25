@@ -31,38 +31,10 @@ function love.load()
     TimeManager.init()
     TimeManager.setTargetFps(nil)  -- nil = unlimited FPS
     
-    love.window.setMode(Constants.screen_width, Constants.screen_height, {
-        fullscreen = false, 
-        resizable = false,
-        vsync = 0,  -- Force VSync OFF
-        borderless = true  -- Enable borderless windowed mode
-    })
-    
-    -- Verify VSync is off
+    -- Display settings confirmation (window already set by conf.lua)
     print("=== Display Settings ===")
     print("VSync enabled:", love.window.getVSync())
     print("Display count:", love.window.getDisplayCount())
-    if love.window.getDisplayName then
-        local name = love.window.getDisplayName(1)
-        print("Primary display:", name)
-    end
-    -- Get desktop dimensions
-    local _, _, flags = love.window.getMode()
-    print("Window VSync flag:", flags.vsync or 0)
-
-    -- Check monitor refresh rate
-    local displayModes = love.window.getFullscreenModes(1)
-    if displayModes and #displayModes > 0 then
-        print("Available display modes:")
-        for i, mode in ipairs(displayModes) do
-            if i <= 3 then  -- Show first 3 modes
-                local refresh = mode.refreshrate or mode.refreshRate or "unknown"
-                print(string.format("  %dx%d @ %sHz", mode.width, mode.height, tostring(refresh)))
-            end
-        end
-    else
-        print("No display modes available")
-    end
     
     Scaling.update()
     -- Only initialize game when leaving start screen
@@ -200,7 +172,13 @@ end
 
 function love.resize(w, h)
     Scaling.update()
-    if gameState == "game" and Core.onResize then
-        Core.onResize(w, h)
+    if gameState == "game" then
+        -- Resize the main canvas to match new window dimensions
+        local RenderCanvas = require('src.systems.render.canvas')
+        RenderCanvas.resizeCanvas()
+
+        if Core.onResize then
+            Core.onResize(w, h)
+        end
     end
 end

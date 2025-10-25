@@ -48,8 +48,6 @@ function AsteroidClusters.init()
         -- Spawn initial asteroids in cluster
         AsteroidClusters.spawnCluster(clusterId)
     end
-    
-    print(string.format("[AsteroidClusters] Initialized %d clusters", numClusters))
 end
 
 -- Spawn asteroids in a cluster

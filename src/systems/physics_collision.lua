@@ -633,7 +633,6 @@ local PhysicsCollisionSystem = {
                         -- If either entity is a projectile, apply its damage to the other
                         if proj1 then
                             local damage = proj1.damage or 10
-                            print("PROJECTILE DAMAGE: proj1 dealing " .. damage .. " to entity " .. entity2Id)
                             -- Apply to Shield first, then Hull
                             local shield2 = ECS.getComponent(entity2Id, "Shield")
                             local hull2 = ECS.getComponent(entity2Id, "Hull")

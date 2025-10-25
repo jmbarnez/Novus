@@ -26,7 +26,7 @@ function MapWindow:setOpen(state)
     WindowBase.setOpen(self, state)
     if state then
         -- Fill the current screen/canvas
-        local w, h = love.graphics.getWidth(), love.graphics.getHeight()
+        local w, h = Constants.getScreenWidth(), Constants.getScreenHeight()
         self.width = w
         self.height = h
         self.position = {x = 0, y = 0}

@@ -2,6 +2,7 @@
 -- UI Ship Window Module - Tabbed container for Ship/Cargo/Skills windows
 -- Derives from WindowBase for universal effects (neon border, fade, elasticity)
 
+local Constants = require('src.constants')
 local ECS = require('src.ecs')
 local Components = require('src.components')
 local TurretRegistry = require('src.turret_registry')

@@ -8,6 +8,7 @@
 --   - Resolution dropdown (when in windowed mode)
 --   - Exit game button
 
+local Constants = require('src.constants')
 local WindowBase = require('src.ui.window_base')
 local Theme = require('src.ui.theme')
 local Scaling = require('src.scaling')
@@ -122,7 +123,7 @@ end
 function SettingsWindow:currentModeIndex()
     local _, _, flags = love.window.getMode()
     if flags.fullscreen then return 3 end
-    if flags.borderless and not flags.fullscreen then return 2 end
+    if flags.borderless then return 2 end
     return 1
 end
 
@@ -132,7 +133,12 @@ function SettingsWindow:getCurrentResIndex()
     for i, res in ipairs(self.resolutions) do
         if res.w == w and res.h == h then return i end
     end
-    return 4  -- Default to 1920x1080
+    -- Default to current window resolution
+    local currentW, currentH = Constants.getScreenWidth(), Constants.getScreenHeight()
+    for i, res in ipairs(self.resolutions) do
+        if res.w == currentW and res.h == currentH then return i end
+    end
+    return 4  -- Default to 1920x1080 if not found
 end
 
 -- Get current volume value for a given volume type
@@ -296,9 +302,9 @@ function SettingsWindow:initialize()
     self.modeDropdown = Dropdown:new(self.modes, self:currentModeIndex(), x, y + 60, dropdownWidth, function(idx, val)
         if idx == 1 then
             -- Windowed: restore a sane default windowed resolution
-            love.window.setMode(1920, 1080, {fullscreen = false, borderless = false})
-            -- Ensure vsync is enabled for stable presentation by default
-            if love.window.setVSync then pcall(love.window.setVSync, 1) end
+            local currentW, currentH = Constants.getScreenWidth(), Constants.getScreenHeight()
+            love.window.setMode(currentW, currentH, {fullscreen = false, borderless = false})
+            -- Canvas will be automatically resized by love.resize() callback
         elseif idx == 2 then
             -- Borderless: set to desktop resolution and borderless to avoid mode-switch flashes
             local ok, dw, dh = pcall(love.window.getDesktopDimensions)
@@ -308,11 +314,11 @@ function SettingsWindow:initialize()
                 -- Fallback to current size
                 love.window.setMode(love.graphics.getWidth(), love.graphics.getHeight(), {fullscreen = false, borderless = true})
             end
-            if love.window.setVSync then pcall(love.window.setVSync, 1) end
+            -- Canvas will be automatically resized by love.resize() callback
         elseif idx == 3 then
             -- Fullscreen: use desktop/fullscreen desktop type to avoid exclusive mode flicker
             love.window.setMode(0, 0, {fullscreen = true, fullscreentype = "desktop"})
-            if love.window.setVSync then pcall(love.window.setVSync, 1) end
+            -- Canvas will be automatically resized by love.resize() callback
         end
         self:saveSettingsSnapshot()
     end)
@@ -331,6 +337,7 @@ function SettingsWindow:initialize()
         function(idx, val)
             local res = self.resolutions[idx]
             love.window.setMode(res.w, res.h, {fullscreen = false, borderless = false})
+            -- Canvas will be automatically resized by love.resize() callback
             self:saveSettingsSnapshot()
         end
     )
@@ -497,7 +504,7 @@ function SettingsWindow:setOpen(state)
 
     -- When opening, capture a downscaled screenshot into a canvas to simulate blur
     if state then
-        local w, h = love.graphics.getDimensions()
+        local w, h = Constants.getScreenWidth(), Constants.getScreenHeight()
         -- Create a small canvas to draw a downscaled scene into (for cheap blur)
         local downW = math.max(160, math.floor(w / 8))
         local downH = math.max(90, math.floor(h / 8))
@@ -526,7 +533,9 @@ function SettingsWindow:setOpen(state)
                 love.graphics.origin()
                 love.graphics.setCanvas(self._blurCanvas)
                 love.graphics.clear()
+                love.graphics.origin()
                 -- Draw the main canvas scaled down into the small canvas
+                love.graphics.setShader()
                 love.graphics.setColor(1,1,1,1)
                 love.graphics.draw(canvasComp.canvas, 0, 0, 0, downW / canvasComp.width, downH / canvasComp.height)
                 love.graphics.setCanvas()
@@ -550,6 +559,7 @@ function SettingsWindow:draw()
     
     -- Draw blurred background (use captured downscaled canvas if available)
     if self._blurCanvas then
+        love.graphics.push()
         -- Ensure smooth scaling
         self._blurCanvas:setFilter('linear', 'linear')
         local cw, ch = self._blurCanvas:getWidth(), self._blurCanvas:getHeight()
@@ -557,11 +567,13 @@ function SettingsWindow:draw()
         local sx = sw / cw
         local sy = sh / ch
         -- Draw the downscaled canvas stretched up once
+        love.graphics.setShader()
         love.graphics.setColor(1, 1, 1, 1 * self.animAlpha)
         love.graphics.draw(self._blurCanvas, 0, 0, 0, sx, sy)
         -- Overlay a subtle dark tint to maintain readability
         love.graphics.setColor(0, 0, 0, 0.35 * self.animAlpha)
         love.graphics.rectangle('fill', 0, 0, sw, sh)
+        love.graphics.pop()
     else
         -- Fallback to semi-transparent glass
         love.graphics.setColor(0, 0, 0, 0.3 * self.animAlpha)

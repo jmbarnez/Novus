@@ -13,64 +13,36 @@ local QuestSystem = {
 local questTemplates = {
     mining = {
         {
-            name = "Iron Harvest",
-            description = "Mine %d iron ore from asteroids in the sector.",
-            baseReward = 500,
-            rewardPerUnit = 50,
-            requirement = function() return math.random(5, 15) end
+            name = "Mine Iron",
+            description = "Collect %d iron ore.",
+            baseReward = 100,
+            rewardPerUnit = 20,
+            requirement = function() return math.random(3, 8) end
         },
         {
-            name = "Stone Gathering",
-            description = "Extract %d stone from the asteroid fields.",
-            baseReward = 200,
-            rewardPerUnit = 30,
-            requirement = function() return math.random(8, 20) end
+            name = "Mine Stone",
+            description = "Collect %d stone.",
+            baseReward = 50,
+            rewardPerUnit = 10,
+            requirement = function() return math.random(5, 12) end
         }
     },
     combat = {
         {
-            name = "Pirate Hunt",
-            description = "Eliminate %d hostile ship%s in this sector.",
-            baseReward = 800,
-            rewardPerUnit = 150,
-            requirement = function() return math.random(3, 8) end
-        },
-        {
-            name = "Wreckage Recovery",
-            description = "Salvage debris from %d destroyed ship%s.",
-            baseReward = 600,
+            name = "Destroy Enemy Ships",
+            description = "Defeat %d enemy ship%s.",
+            baseReward = 200,
             rewardPerUnit = 100,
-            requirement = function() return math.random(2, 6) end
-        },
-        {
-            name = "Sector Patrol",
-            description = "Scout the sector and eliminate any threats.",
-            baseReward = 1200,
-            rewardPerUnit = 0,
-            requirement = function() return 1 end
+            requirement = function() return math.random(2, 5) end
         }
     },
     exploration = {
         {
-            name = "Asteroid Survey",
-            description = "Survey %d asteroid cluster%s this sector.",
-            baseReward = 400,
+            name = "Explore",
+            description = "Visit %d different location%s.",
+            baseReward = 150,
             rewardPerUnit = 50,
-            requirement = function() return math.random(2, 5) end
-        },
-        {
-            name = "Deep Space Scan",
-            description = "Map unexplored regions of the sector.",
-            baseReward = 700,
-            rewardPerUnit = 0,
-            requirement = function() return 1 end
-        },
-        {
-            name = "Resource Discovery",
-            description = "Locate %d resource deposit%s and record their locations.",
-            baseReward = 550,
-            rewardPerUnit = 75,
-            requirement = function() return math.random(3, 7) end
+            requirement = function() return math.random(1, 3) end
         }
     }
 }
@@ -118,8 +90,6 @@ local function generateQuestsForStation(stationId)
     end
     
     questBoard.lastGenerationTime = love.timer.getTime()
-    
-    print(string.format("[QuestSystem] Generated 3 new quests for station %d", stationId))
 end
 
 -- Initialize quest board for a station if it doesn't have one
@@ -179,7 +149,6 @@ function QuestSystem.acceptQuest(stationId, questId)
         if quest.id == questId then
             quest.accepted = true
             quest.acceptedTime = love.timer.getTime()
-            print(string.format("[QuestSystem] Quest accepted: %s", quest.title))
             return true
         end
     end
@@ -198,12 +167,10 @@ function QuestSystem.updateMiningProgress()
                 if quest.accepted and not quest.completed and quest.type == "mining" then
                     if quest.requirements and quest.requirements.current then
                         quest.requirements.current = quest.requirements.current + 1
-                        print(string.format("[QuestSystem] Mining progress: %d/%d", quest.requirements.current, quest.requirements.count))
                         
                         -- Check completion
                         if quest.requirements.current >= quest.requirements.count then
                             quest.completed = true
-                            print(string.format("[QuestSystem] Quest completed: %s", quest.title))
                         end
                     end
                 end
@@ -223,12 +190,10 @@ function QuestSystem.updateCombatProgress()
                 if quest.accepted and not quest.completed and quest.type == "combat" then
                     if quest.requirements and quest.requirements.current then
                         quest.requirements.current = quest.requirements.current + 1
-                        print(string.format("[QuestSystem] Combat progress: %d/%d", quest.requirements.current, quest.requirements.count))
                         
                         -- Check completion
                         if quest.requirements.current >= quest.requirements.count then
                             quest.completed = true
-                            print(string.format("[QuestSystem] Quest completed: %s", quest.title))
                         end
                     end
                 end
@@ -248,12 +213,10 @@ function QuestSystem.updateExplorationProgress()
                 if quest.accepted and not quest.completed and quest.type == "exploration" then
                     if quest.requirements and quest.requirements.current then
                         quest.requirements.current = quest.requirements.current + 1
-                        print(string.format("[QuestSystem] Exploration progress: %d/%d", quest.requirements.current, quest.requirements.count))
                         
                         -- Check completion
                         if quest.requirements.current >= quest.requirements.count then
                             quest.completed = true
-                            print(string.format("[QuestSystem] Quest completed: %s", quest.title))
                         end
                     end
                 end
@@ -275,7 +238,6 @@ function QuestSystem.turnInQuest(stationId, questId)
                 local wallet = ECS.getComponent(players[1], "Wallet")
                 if wallet then
                     wallet.credits = wallet.credits + quest.reward
-                    print(string.format("[QuestSystem] Quest reward claimed: %d credits", quest.reward))
                     
                     -- Remove quest from board
                     for i, q in ipairs(questBoard.quests) do

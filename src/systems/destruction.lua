@@ -143,11 +143,8 @@ function DestructionSystem.update(dt)
             local renderable = ECS.getComponent(entityId, "Renderable") -- Get renderable component for color
             local color = renderable and renderable.color or {0.5, 0.5, 0.5, 1} -- Default grey if no color
             
-            -- Log if this is a projectile being destroyed
+            -- Check if this is a projectile being destroyed
             local proj = ECS.getComponent(entityId, "Projectile")
-            if proj then
-                print(string.format("[Destruction] Destroying projectile %d", entityId))
-            end
             
             -- Check if this is the player's drone - if so, respawn instead of destroying
             local controlledBy = ECS.getComponent(entityId, "ControlledBy")
@@ -155,7 +152,6 @@ function DestructionSystem.update(dt)
                 local pilot = ECS.getComponent(controlledBy.pilotId, "Player")
                 if pilot then
                     -- This is the player's drone - trigger death overlay UI, not instant respawn
-                    print("[Destruction] Player drone destroyed! Showing death UI...")
                     DeathOverlay.show(
                         function() -- respawn callback
                             DestructionSystem.respawnPlayer(entityId, controlledBy.pilotId, true) -- 'true' = random spawn
@@ -314,7 +310,6 @@ function DestructionSystem.respawnPlayer(droneId, pilotId, randomLoc)
     local hull = ECS.getComponent(droneId, "Hull")
     if hull then
         hull.current = hull.max
-        print("[Destruction] Player hull restored to full: " .. hull.current .. "/" .. hull.max)
     end
     -- Restore shield to full if present
     local shield = ECS.getComponent(droneId, "Shield")
@@ -322,7 +317,6 @@ function DestructionSystem.respawnPlayer(droneId, pilotId, randomLoc)
         shield.current = shield.max
         shield.lastDamageTime = 0  -- Reset shield regen timer
     end
-    print("[Destruction] Player respawned at (" .. pos.x .. ", " .. pos.y .. ")")
 end
 
 return DestructionSystem

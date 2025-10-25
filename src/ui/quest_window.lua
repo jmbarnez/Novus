@@ -309,12 +309,10 @@ function QuestWindow:mousepressed(x, y, button)
                     if not quest.accepted then
                         -- Accept quest
                         QuestSystem.acceptQuest(self.currentStationId, quest.id)
-                        print(string.format("[QuestWindow] Accepted quest: %s", quest.title))
                         return true
                     elseif quest.completed then
                         -- Turn in quest
                         if QuestSystem.turnInQuest(self.currentStationId, quest.id) then
-                            print(string.format("[QuestWindow] Turned in quest: %s", quest.title))
                             -- Show notification
                             local Notifications = require('src.ui.notifications')
                             Notifications.add({
