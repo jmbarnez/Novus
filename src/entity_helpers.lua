@@ -6,6 +6,7 @@ local ECS = require('src.ecs')
 
 local EntityHelpers = {}
 local CachedAISystem = nil
+local CachedShieldImpactSystem = nil
 
 -- Get the player's pilot entity (the entity with Player and InputControlled components)
 -- Returns the pilot entity ID, or nil if not found
@@ -181,6 +182,28 @@ function EntityHelpers.notifyAIDamage(victimId, sourceId)
     end
 
     CachedAISystem.triggerAggressiveReaction(victimId, attackerId)
+end
+
+-- Create a shield impact visual effect
+-- @param x number: World X position of the impact
+-- @param y number: World Y position of the impact
+-- @param shipId number: Entity ID of the ship whose shield was hit
+-- @return number|nil: Entity ID of the created impact effect, or nil on failure
+function EntityHelpers.createShieldImpact(x, y, shipId)
+    if not CachedShieldImpactSystem then
+        local ok, module = pcall(require, 'src.systems.shield_impact')
+        if ok then
+            CachedShieldImpactSystem = module
+        else
+            return nil
+        end
+    end
+
+    if not CachedShieldImpactSystem or not CachedShieldImpactSystem.createImpact then
+        return nil
+    end
+
+    return CachedShieldImpactSystem.createImpact(x, y, shipId)
 end
 
 return EntityHelpers
