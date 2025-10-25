@@ -5,6 +5,7 @@
 local ECS = require('src.ecs')
 
 local EntityHelpers = {}
+local CachedAISystem = nil
 
 -- Get the player's pilot entity (the entity with Player and InputControlled components)
 -- Returns the pilot entity ID, or nil if not found
@@ -137,14 +138,49 @@ end
 function EntityHelpers.getNonPlayerShips()
     local nonPlayerShips = {}
     local allShips = EntityHelpers.getAllShips()
-    
+
     for _, shipId in ipairs(allShips) do
         if not EntityHelpers.isPlayerControlled(shipId) then
             table.insert(nonPlayerShips, shipId)
         end
     end
-    
+
     return nonPlayerShips
+end
+
+-- Notify the AI system that an entity has taken damage so it can react aggressively
+-- @param victimId number: Entity that took damage
+-- @param sourceId number|nil: Entity responsible for the damage (projectile, ship, etc.)
+function EntityHelpers.notifyAIDamage(victimId, sourceId)
+    if not victimId then return end
+
+    if not CachedAISystem then
+        local ok, module = pcall(require, 'src.systems.ai')
+        if ok then
+            CachedAISystem = module
+        else
+            return
+        end
+    end
+
+    if not CachedAISystem or not CachedAISystem.triggerAggressiveReaction then
+        return
+    end
+
+    local attackerId = sourceId
+    if sourceId then
+        local projectile = ECS.getComponent(sourceId, "Projectile")
+        if projectile and projectile.ownerId and projectile.ownerId ~= 0 then
+            attackerId = projectile.ownerId
+        else
+            local controlledBy = ECS.getComponent(sourceId, "ControlledBy")
+            if controlledBy and controlledBy.pilotId then
+                attackerId = controlledBy.pilotId
+            end
+        end
+    end
+
+    CachedAISystem.triggerAggressiveReaction(victimId, attackerId)
 end
 
 return EntityHelpers
