@@ -36,11 +36,21 @@ HotkeyConfig.descriptions = {
 }
 
 -- Initialize hotkey configuration
-function HotkeyConfig.init()
+local function loadDefaults()
+    -- Clear any existing entries to avoid keeping stale mappings
+    for key in pairs(HotkeyConfig.current) do
+        HotkeyConfig.current[key] = nil
+    end
+
     -- Copy defaults to current (in a real game, you'd load from save file)
     for key, value in pairs(HotkeyConfig.defaults) do
         HotkeyConfig.current[key] = value
     end
+end
+
+-- Initialize hotkey configuration
+function HotkeyConfig.init()
+    loadDefaults()
 end
 
 -- Get current hotkey for an action
@@ -72,9 +82,7 @@ end
 
 -- Reset all hotkeys to defaults
 function HotkeyConfig.resetToDefaults()
-    for key, value in pairs(HotkeyConfig.defaults) do
-        HotkeyConfig.current[key] = value
-    end
+    loadDefaults()
 end
 
 -- Check if a key is currently mapped to any action
