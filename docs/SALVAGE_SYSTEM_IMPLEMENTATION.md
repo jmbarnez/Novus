@@ -47,7 +47,7 @@ Marks entities as salvageable wreckage from destroyed ships.
 **File**: `src/systems/wreckage.lua`
 
 **Core Functions:**
-- `spawnWrackage(x, y, sourceShip)` - Creates 3-6 wreckage pieces at destruction point
+- `spawnWreckage(x, y, sourceShip)` - Creates 3-6 wreckage pieces at destruction point
 - `generateWreckageShape(size)` - Procedurally generates angular metal shard polygons
 
 **Wreckage Properties:**
@@ -73,7 +73,7 @@ When a ship is destroyed (has Hull or AIController component):
 ```lua
 elseif (hull or aiController) and pos then
     DestructionSystem.spawnItemDrops(pos.x, pos.y, "ship")
-    WrackageSystem.spawnWrackage(pos.x, pos.y, "destroyed_ship")
+    WreckageSystem.spawnWreckage(pos.x, pos.y, "destroyed_ship")
 end
 ```
 
@@ -99,8 +99,8 @@ Added wreckage system to the systems list for automatic loading and management.
 To spawn wreckage programmatically:
 
 ```lua
-local WrackageSystem = ECS.getSystem("WrackageSystem")
-WrackageSystem.spawnWrackage(x, y, "destroyed_ship")
+local WreckageSystem = ECS.getSystem("WreckageSystem")
+WreckageSystem.spawnWreckage(x, y, "destroyed_ship")
 ```
 
 To use the salvage laser in a turret:
@@ -162,7 +162,7 @@ turret.moduleName = "salvage_laser"
 | `src/turret_modules/salvage_laser.lua` | NEW - Salvage laser module |
 | `src/systems/wreckage.lua` | NEW - Wreckage spawning system |
 | `src/components.lua` | Added Wreckage component |
-| `src/systems.lua` | Added WrackageSystem to registry |
+| `src/systems.lua` | Added WreckageSystem to registry |
 | `src/systems/destruction.lua` | Added wreckage spawning on ship destruction |
 
 ---

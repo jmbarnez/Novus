@@ -4,7 +4,7 @@ local ECS = require('src.ecs')
 local Components = require('src.components')
 local Constants = require('src.constants')
 local DebrisSystem = require('src.systems.debris') -- Import DebrisSystem
-local WrackageSystem = require('src.systems.wreckage') -- Import WrackageSystem
+local WreckageSystem = require('src.systems.wreckage') -- Import WreckageSystem
 local ItemDefs = require('src.items.item_loader')
 local AsteroidClusters = require('src.systems.asteroid_clusters')
 local SkillXP = require('src.systems.skill_xp')
@@ -267,16 +267,15 @@ function DestructionSystem.update(dt)
 
             -- Spawn wreckage when ships are destroyed (AI-controlled or with Hull)
             if (ai or hull) and pos then
-                local WrackageSystem = require('src.systems.wreckage')
                 local sourceShip = "unknown"
-                
+
                 -- Try to get ship type from wreckage component if it exists
                 local existingWreckage = ECS.getComponent(entityId, "Wreckage")
                 if existingWreckage and existingWreckage.sourceShip then
                     sourceShip = existingWreckage.sourceShip
                 end
-                
-                WrackageSystem.spawnWrackage(pos.x, pos.y, sourceShip)
+
+                WreckageSystem.spawnWreckage(pos.x, pos.y, sourceShip)
             end
 
             -- Wreckage shatters into bits

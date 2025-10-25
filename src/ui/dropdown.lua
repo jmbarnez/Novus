@@ -29,6 +29,10 @@ function Dropdown:new(options, selectedIndex, x, y, width, onSelect)
     self.isOpen = false
     self.onSelect = onSelect
     self.itemHeight = 24
+    -- Maximum number of visible items when open (can be tuned)
+    self.maxVisible = 8
+    -- Current scroll offset (0-based, number of hidden items above)
+    self.scrollOffset = 0
     return self
 end
 
@@ -81,9 +85,26 @@ function Dropdown:drawClosed(alpha)
     local selectedText = self.options[self.selectedIndex] or "Select"
     love.graphics.printf(selectedText, self.x + 8, self.y + 4, self.width - 30, "left")
     
-    -- Draw dropdown arrow
-    love.graphics.setColor(Theme.colors.textAccent)
-    love.graphics.printf(self.isOpen and "^" or "v", self.x + self.width - 20, self.y + 4, 16, "center")
+    -- Draw dropdown arrow as a small triangle so it doesn't depend on fonts/glyphs
+    do
+        local arrowW, arrowH = 8, 6
+        local cx = self.x + self.width - 14
+        local cy = self.y + self.height / 2
+        love.graphics.setColor(Theme.colors.textAccent)
+        if self.isOpen then
+            -- Up-pointing triangle
+            love.graphics.polygon('fill',
+                cx - arrowW/2, cy + arrowH/2,
+                cx + arrowW/2, cy + arrowH/2,
+                cx,            cy - arrowH/2)
+        else
+            -- Down-pointing triangle
+            love.graphics.polygon('fill',
+                cx - arrowW/2, cy - arrowH/2,
+                cx + arrowW/2, cy - arrowH/2,
+                cx,            cy + arrowH/2)
+        end
+    end
 end
 
 --- Draw just the open dropdown menu (no button)
@@ -91,33 +112,65 @@ end
 function Dropdown:drawOpen(alpha)
     local mx, my = Scaling.toUI(love.mouse.getPosition())
     
-    local dropdownHeight = math.min(#self.options * self.itemHeight, 150)
+    local total = #self.options
+    local visibleCount = math.min(total, self.maxVisible)
+    local dropdownHeight = visibleCount * self.itemHeight
+
     love.graphics.setColor(Theme.colors.bgDark)
     love.graphics.rectangle('fill', self.x, self.y + self.height, self.width, dropdownHeight, 0, 0, 4, 4)
-    
+
     love.graphics.setColor(Theme.colors.borderMedium)
     love.graphics.rectangle('line', self.x, self.y + self.height, self.width, dropdownHeight, 0, 0, 4, 4)
-    
-    -- Draw options
-    for i, option in ipairs(self.options) do
+
+    -- Determine if we need a scrollbar
+    local needsScrollbar = total > visibleCount
+    local scrollbarWidth = 10
+    local contentWidth = needsScrollbar and (self.width - scrollbarWidth - 6) or self.width
+
+    -- Draw visible options starting at scrollOffset
+    local startIndex = (self.scrollOffset or 0) + 1
+    for i = 1, visibleCount do
+        local optionIndex = startIndex + (i - 1)
+        local option = self.options[optionIndex]
         local optionY = self.y + self.height + (i - 1) * self.itemHeight
-        if i > 5 then break end  -- Limit visible items
-        
-        local isSelected = i == self.selectedIndex
-        local isItemHovering = mx >= self.x and mx <= self.x + self.width and 
+
+        local isSelected = optionIndex == self.selectedIndex
+        local isItemHovering = mx >= self.x and mx <= self.x + contentWidth and 
                               my >= optionY and my <= optionY + self.itemHeight
-        
+
         if isSelected then
             love.graphics.setColor(Theme.colors.bgLight)
-            love.graphics.rectangle('fill', self.x, optionY, self.width, self.itemHeight)
+            love.graphics.rectangle('fill', self.x, optionY, contentWidth, self.itemHeight)
         elseif isItemHovering then
             love.graphics.setColor(Theme.colors.bgMedium)
-            love.graphics.rectangle('fill', self.x, optionY, self.width, self.itemHeight)
+            love.graphics.rectangle('fill', self.x, optionY, contentWidth, self.itemHeight)
         end
-        
+
         love.graphics.setColor(isSelected and Theme.colors.textAccent or Theme.colors.textPrimary)
         love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-        love.graphics.printf(option, self.x + 8, optionY + 2, self.width - 16, "left")
+        love.graphics.printf(option, self.x + 8, optionY + 2, contentWidth - 16, "left")
+    end
+
+    -- Draw scrollbar if needed
+    if needsScrollbar then
+        local trackX = self.x + self.width - scrollbarWidth - 4
+        local trackY = self.y + self.height
+        local trackH = dropdownHeight
+
+        love.graphics.setColor(Theme.colors.bgMedium)
+        love.graphics.rectangle('fill', trackX, trackY, scrollbarWidth, trackH, 2, 2)
+
+        -- Thumb size proportional to visible/total
+        local maxScroll = total - visibleCount
+        local thumbH = math.max(math.floor((visibleCount / total) * trackH), 16)
+        local thumbRange = trackH - thumbH
+        local thumbY = trackY
+        if maxScroll > 0 then
+            thumbY = trackY + math.floor((self.scrollOffset / maxScroll) * thumbRange)
+        end
+
+        love.graphics.setColor(Theme.colors.borderLight)
+        love.graphics.rectangle('fill', trackX + 2, thumbY + 2, scrollbarWidth - 4, thumbH - 4, 2, 2)
     end
 end
 
@@ -137,15 +190,34 @@ function Dropdown:mousepressed(mx, my)
     
     -- Check if clicking an option while open
     if self.isOpen then
-        for i = 1, math.min(#self.options, 5) do
+        local total = #self.options
+        local visibleCount = math.min(total, self.maxVisible)
+        local startIndex = (self.scrollOffset or 0) + 1
+
+        for i = 1, visibleCount do
             local optionY = self.y + self.height + (i - 1) * self.itemHeight
             if mx >= self.x and mx <= self.x + self.width and 
                my >= optionY and my <= optionY + self.itemHeight then
-                self.selectedIndex = i
+                local selectedIndex = startIndex + (i - 1)
+                self.selectedIndex = selectedIndex
                 self.isOpen = false
                 if self.onSelect then
-                    self.onSelect(i, self.options[i])
+                    self.onSelect(selectedIndex, self.options[selectedIndex])
                 end
+                return true
+            end
+        end
+
+        -- Check if clicking the scrollbar track (for quick jump)
+        if total > visibleCount then
+            local scrollbarWidth = 10
+            local trackX = self.x + self.width - scrollbarWidth - 4
+            local trackY = self.y + self.height
+            local trackH = visibleCount * self.itemHeight
+            if mx >= trackX and mx <= trackX + scrollbarWidth and my >= trackY and my <= trackY + trackH then
+                local rel = (my - trackY) / trackH
+                local maxScroll = total - visibleCount
+                self.scrollOffset = math.floor(rel * maxScroll + 0.5)
                 return true
             end
         end
@@ -158,6 +230,35 @@ function Dropdown:mousepressed(mx, my)
     end
     
     return false
+end
+
+--- Handle mouse wheel scrolling when dropdown is open
+-- @param dy number Wheel delta (positive = up)
+-- @param mx number Optional mouse X in UI coords
+-- @param my number Optional mouse Y in UI coords
+function Dropdown:wheelmoved(dy, mx, my)
+    if not self.isOpen then return false end
+    -- Get mouse position if not provided
+    if not mx or not my then
+        mx, my = Scaling.toUI(love.mouse.getPosition())
+    end
+
+    local total = #self.options
+    local visibleCount = math.min(total, self.maxVisible)
+    if total <= visibleCount then return false end
+
+    local areaX = self.x
+    local areaY = self.y + self.height
+    local areaW = self.width
+    local areaH = visibleCount * self.itemHeight
+
+    if mx < areaX or mx > areaX + areaW or my < areaY or my > areaY + areaH then
+        return false
+    end
+
+    local maxScroll = total - visibleCount
+    self.scrollOffset = math.max(0, math.min(maxScroll, (self.scrollOffset or 0) - dy))
+    return true
 end
 
 return Dropdown

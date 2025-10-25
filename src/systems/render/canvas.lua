@@ -28,10 +28,16 @@ function RenderCanvas.setupCanvas()
     if not canvasComp or not canvasComp.canvas then return nil end
 
     love.graphics.setCanvas(canvasComp.canvas)
-    love.graphics.clear(0, 0, 0, 1)
 
-    -- Fill background with deep space color to avoid residual artifacts
-    love.graphics.setColor(0, 0, 0, 1)
+    -- Get current world background color (default to navy blue if no world)
+    local WorldLoader = require('src.world_loader')
+    local world = WorldLoader.getCurrentWorld and WorldLoader.getCurrentWorld()
+    local backgroundColor = world and world.theme and world.theme.background or {0.1, 0.1, 0.3}
+
+    love.graphics.clear(unpack(backgroundColor))
+
+    -- Fill background with world-specific space color to avoid residual artifacts
+    love.graphics.setColor(unpack(backgroundColor))
     love.graphics.rectangle("fill", 0, 0, canvasComp.width, canvasComp.height)
     love.graphics.setColor(1, 1, 1, 1)
 

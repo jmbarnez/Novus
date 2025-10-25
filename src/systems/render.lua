@@ -149,7 +149,7 @@ local RenderSystem = {
         RenderEffects.drawTargetingIndicator()
 
         -- Draw target HUD indicator circle (in world space)
-        local TargetHUD = require('src.systems.target_hud')
+        local TargetHUD = require('src.systems.hud.target_hud')
         TargetHUD.drawWorldIndicator()
         
         -- Draw world tooltips (warp gates, etc.)

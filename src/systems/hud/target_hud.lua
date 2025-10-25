@@ -242,7 +242,7 @@ function TargetHUD.drawPopup()
     if not TargetHUD.hoveredItem and not TargetHUD.hoveredEnemy and not TargetHUD.hoveredAsteroid then return end
     
     -- Same positioning as skill notifications
-    local screenW = Scaling.REFERENCE_WIDTH
+    local screenW = Scaling.getCurrentWidth()
     local popupWidth = Scaling.scaleSize(400)
     
     -- Determine popup height based on type
@@ -343,4 +343,3 @@ function TargetHUD.drawPopup()
 end
 
 return TargetHUD
-

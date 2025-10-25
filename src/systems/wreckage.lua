@@ -4,8 +4,8 @@
 local ECS = require('src.ecs')
 local Components = require('src.components')
 
-local WrackageSystem = {
-    name = "WrackageSystem",
+local WreckageSystem = {
+    name = "WreckageSystem",
     priority = 7
 }
 
@@ -13,7 +13,7 @@ local WrackageSystem = {
 -- @param x number: X position of ship destruction
 -- @param y number: Y position of ship destruction
 -- @param sourceShip string: Identifier for the source ship type
-function WrackageSystem.spawnWrackage(x, y, sourceShip)
+function WreckageSystem.spawnWreckage(x, y, sourceShip)
     sourceShip = sourceShip or "unknown"
     
     local wreckageCount = math.random(3, 6)  -- 3-6 wreckage pieces per destroyed ship
@@ -57,7 +57,7 @@ function WrackageSystem.spawnWrackage(x, y, sourceShip)
         ECS.addComponent(wreckageId, "Durability", Components.Durability(size * 1.5, size * 1.5))  -- Health based on size
         
         -- Visual representation - angular metal shards
-        ECS.addComponent(wreckageId, "PolygonShape", Components.PolygonShape(WrackageSystem.generateWreckageShape(size), 0))
+        ECS.addComponent(wreckageId, "PolygonShape", Components.PolygonShape(WreckageSystem.generateWreckageShape(size), 0))
         ECS.addComponent(wreckageId, "Renderable", Components.Renderable("polygon", nil, nil, nil, {0.4, 0.4, 0.45, 1}))  -- Dark gray metal
         
         -- Store whether this wreckage drops scrap
@@ -66,7 +66,7 @@ function WrackageSystem.spawnWrackage(x, y, sourceShip)
 end
 
 -- Generate a random angular polygon shape for wreckage
-function WrackageSystem.generateWreckageShape(size)
+function WreckageSystem.generateWreckageShape(size)
     local vertices = {}
     local sides = math.random(4, 6)
     
@@ -79,4 +79,4 @@ function WrackageSystem.generateWreckageShape(size)
     return vertices
 end
 
-return WrackageSystem
+return WreckageSystem

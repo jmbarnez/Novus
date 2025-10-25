@@ -50,8 +50,8 @@ function WindowBase:setOpen(state)
 end
 
 function WindowBase:centerOnScreen(screenW, screenH)
-    screenW = screenW or Scaling.REFERENCE_WIDTH
-    screenH = screenH or Scaling.REFERENCE_HEIGHT
+    screenW = screenW or Scaling.getCurrentWidth()
+    screenH = screenH or Scaling.getCurrentHeight()
     local w = self.width or 0
     local h = self.height or 0
     local x = math.floor(((screenW or 0) - w) / 2)
@@ -67,8 +67,8 @@ end
 
 function WindowBase:onResize(screenW, screenH)
     if not self.position then return end
-    local uiWidth = Scaling.REFERENCE_WIDTH
-    local uiHeight = Scaling.REFERENCE_HEIGHT
+    local uiWidth = Scaling.getCurrentWidth()
+    local uiHeight = Scaling.getCurrentHeight()
     if self.autoCenter and not self.userMoved then
         self:centerOnScreen(uiWidth, uiHeight)
         return

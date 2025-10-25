@@ -98,13 +98,12 @@ function GameInit.registerSystems()
     ECS.registerSystem("RenderSystem", Systems.RenderSystem)
     ECS.registerSystem("CameraSystem", Systems.CameraSystem)
     -- UI and HUD systems are now handled only by RenderCanvas, not registered with ECS
-    -- Systems.UISystem.priority = 300
-    -- ECS.registerSystem("UISystem", Systems.UISystem)
-    -- Systems.HUDSystem.priority = 200
-    -- ECS.registerSystem("HUDSystem", Systems.HUDSystem)
+    Systems.UISystem.priority = 300
+    ECS.registerSystem("UISystem", Systems.UISystem)
+    Systems.HUDSystem.priority = 200
+    ECS.registerSystem("HUDSystem", Systems.HUDSystem)
     ECS.registerSystem("TrailSystem", Systems.TrailSystem)
     ECS.registerSystem("CombatAlertSystem", require('src.systems.combat_alert'))
-    -- ECS.registerSystem("PlayerFaceVelocitySystem", require('src.systems.player_face_velocity'))
     ECS.registerSystem("AISystem", Systems.AISystem)
     ECS.registerSystem("CollisionSystem", Systems.CollisionSystem)
     ECS.registerSystem("MagnetSystem", Systems.MagnetSystem)
@@ -121,7 +120,7 @@ function GameInit.registerSystems()
     ECS.registerSystem("EnergySystem", Systems.EnergySystem)
     ECS.registerSystem("WorldTooltipsSystem", Systems.WorldTooltipsSystem)
     ECS.registerSystem("QuestSystem", require('src.systems.quest_system'))
-    ECS.registerSystem("WrackageSystem", Systems.WrackageSystem)
+    ECS.registerSystem("WreckageSystem", Systems.WreckageSystem)
     -- NebulaCloudSystem is called explicitly from RenderSystem
 end
 

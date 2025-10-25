@@ -26,8 +26,8 @@ function DisplaySettingsPanel:new()
         fpsOptions = {30, 60, 90, 120, 144, 240, nil},
         fpsLabels = {"30", "60", "90", "120", "144", "240", "Unlimited"},
         
-        -- Window modes
-        modes = { 'Windowed', 'Borderless', 'Fullscreen' },
+    -- Window modes (restricted to Windowed only)
+    modes = { 'Windowed' },
         
         -- Resolutions
         resolutions = {
@@ -59,13 +59,7 @@ function DisplaySettingsPanel:initialize(position, width, onSettingsChange)
         end
     end)
     
-    -- Mode Dropdown
-    self.modeDropdown = Dropdown:new(self.modes, self:currentModeIndex(), x, y + 60, width, function(idx, val)
-        self:setWindowMode(idx)
-        if self.onSettingsChange then
-            self.onSettingsChange()
-        end
-    end)
+    -- Mode is fixed to Windowed in this build; no dropdown rendered.
     
     -- Resolution Dropdown
     local resLabels = {}
@@ -100,20 +94,15 @@ end
 function DisplaySettingsPanel:updatePositions(position, contentScrollY)
     self.position = position
     local x, y = position.x, position.y - contentScrollY
-    
+
     if self.fpsDropdown then
         self.fpsDropdown.x = x
         self.fpsDropdown.y = y
     end
-    
-    if self.modeDropdown then
-        self.modeDropdown.x = x
-        self.modeDropdown.y = y + 60
-    end
-    
+
     if self.resDropdown then
         self.resDropdown.x = x
-        self.resDropdown.y = y + 120
+        self.resDropdown.y = y + Theme.spacing.padding * 10  -- Scaled spacing
     end
 end
 
@@ -164,9 +153,6 @@ function DisplaySettingsPanel:draw(alpha)
     if self.fpsDropdown then
         self.fpsDropdown:drawClosed(alpha)
     end
-    if self.modeDropdown then
-        self.modeDropdown:drawClosed(alpha)
-    end
     if self.resDropdown then
         self.resDropdown:drawClosed(alpha)
     end
@@ -177,9 +163,6 @@ function DisplaySettingsPanel:drawOpen(alpha)
     if self.fpsDropdown and self.fpsDropdown.isOpen then
         self.fpsDropdown:drawOpen(alpha)
     end
-    if self.modeDropdown and self.modeDropdown.isOpen then
-        self.modeDropdown:drawOpen(alpha)
-    end
     if self.resDropdown and self.resDropdown.isOpen then
         self.resDropdown:drawOpen(alpha)
     end
@@ -188,9 +171,6 @@ end
 -- Handle mouse press on dropdowns
 function DisplaySettingsPanel:mousepressed(mx, my)
     if self.fpsDropdown and self.fpsDropdown:mousepressed(mx, my) then 
-        return true
-    end
-    if self.modeDropdown and self.modeDropdown:mousepressed(mx, my) then 
         return true
     end
     if self.resDropdown and self.resDropdown:mousepressed(mx, my) then 

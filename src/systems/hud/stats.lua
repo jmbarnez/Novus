@@ -53,7 +53,7 @@ function HUDStats.drawFpsCounter(viewportWidth, viewportHeight)
     
     local font = Theme.getFont(Theme.fonts.tiny)
     local textWidth = font:getWidth(cachedFpsText)
-    local x = Scaling.REFERENCE_WIDTH - textWidth - 10
+    local x = Scaling.getCurrentWidth() - textWidth - 10
     local y = 10
     
     BatchRenderer.queueText(cachedFpsText, x, y, font, color[1], color[2], color[3], color[4])
@@ -76,7 +76,7 @@ function HUDStats.drawSpeedText(viewportWidth, viewportHeight)
     end
 
     local minimapSize = 150
-    local x = Scaling.REFERENCE_WIDTH - minimapSize - 20
+    local x = Scaling.getCurrentWidth() - minimapSize - 20
     local y = 150 + 30
     local font = Theme.getFont(Theme.fonts.normal)
     local color = Theme.colors.textPrimary

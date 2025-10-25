@@ -32,15 +32,15 @@ function AudioSettingsPanel:initialize(position, width, onSettingsChange)
     self.onSettingsChange = onSettingsChange
     
     local x, y = position.x, position.y
-    
+
     -- Master Volume Slider
     self.masterVolumeSlider = Slider:new(
         self.volumeMin,
         self.volumeMax,
         self:getCurrentVolume("master"),
-        x, y + 180,
+        x, y + Theme.spacing.padding * 30,  -- Scaled position
         width - 50,  -- Leave space for value text
-        20,
+        Theme.spacing.padding * 3.33,  -- Scaled height
         function(value)
             self:setVolume("master", value)
             if self.onSettingsChange then
@@ -54,9 +54,9 @@ function AudioSettingsPanel:initialize(position, width, onSettingsChange)
         self.volumeMin,
         self.volumeMax,
         self:getCurrentVolume("music"),
-        x, y + 240,
+        x, y + Theme.spacing.padding * 40,  -- Scaled position
         width - 50,
-        20,
+        Theme.spacing.padding * 3.33,  -- Scaled height
         function(value)
             self:setVolume("music", value)
             if self.onSettingsChange then
@@ -70,9 +70,9 @@ function AudioSettingsPanel:initialize(position, width, onSettingsChange)
         self.volumeMin,
         self.volumeMax,
         self:getCurrentVolume("sfx"),
-        x, y + 300,
+        x, y + Theme.spacing.padding * 50,  -- Scaled position
         width - 50,
-        20,
+        Theme.spacing.padding * 3.33,  -- Scaled height
         function(value)
             self:setVolume("sfx", value)
             if self.onSettingsChange then
@@ -86,20 +86,20 @@ end
 function AudioSettingsPanel:updatePositions(position, contentScrollY)
     self.position = position
     local x, y = position.x, position.y - contentScrollY
-    
+
     if self.masterVolumeSlider then
         self.masterVolumeSlider.x = x
-        self.masterVolumeSlider.y = y + 180
+        self.masterVolumeSlider.y = y + Theme.spacing.padding * 30  -- Scaled position
     end
-    
+
     if self.musicVolumeSlider then
         self.musicVolumeSlider.x = x
-        self.musicVolumeSlider.y = y + 240
+        self.musicVolumeSlider.y = y + Theme.spacing.padding * 40  -- Scaled position
     end
-    
+
     if self.sfxVolumeSlider then
         self.sfxVolumeSlider.x = x
-        self.sfxVolumeSlider.y = y + 300
+        self.sfxVolumeSlider.y = y + Theme.spacing.padding * 50  -- Scaled position
     end
 end
 

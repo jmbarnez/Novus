@@ -99,8 +99,8 @@ function HUDSlots.drawTurretSlots(viewportWidth, viewportHeight, hudSystem)
         lastTurretSlotsFrame = frameSkip
     end
 
-    local drawX = (Scaling.REFERENCE_WIDTH - turretSlotsCanvasW) / 2
-    local drawY = Scaling.REFERENCE_HEIGHT - turretSlotsCanvasH - 20
+    local drawX = (Scaling.getCurrentWidth() - turretSlotsCanvasW) / 2
+    local drawY = Scaling.getCurrentHeight() - turretSlotsCanvasH - 20
     BatchRenderer.queueCanvas(turretSlotsCanvas, drawX, drawY, 1, 1, 1, 1)
 end
 

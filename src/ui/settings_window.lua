@@ -4,7 +4,7 @@
 -- ============================================================================
 -- Provides a UI for adjusting game settings using dropdown menus:
 --   - FPS limit dropdown
---   - Window mode dropdown
+--   - Resolution dropdown (windowed mode only)
 --   - Resolution dropdown (when in windowed mode)
 --   - Audio volume sliders
 --   - Hotkey configuration
@@ -57,11 +57,11 @@ SettingsWindow._screenW = nil
 SettingsWindow._screenH = nil
 
 -- FPS Configuration
+-- FPS options (nil means no cap / Unlimited)
 SettingsWindow.fpsOptions = {30, 60, 90, 120, 144, 240, nil}
 SettingsWindow.fpsLabels = {"30", "60", "90", "120", "144", "240", "Unlimited"}
 
--- Window modes
-SettingsWindow.modes = { 'Windowed', 'Borderless', 'Fullscreen' }
+-- Window mode is always windowed; dropdown removed
 
 -- Resolutions (render resolution options)
 SettingsWindow.resolutions = DisplayManager.renderResolutions
@@ -84,7 +84,6 @@ function SettingsWindow:saveSettingsSnapshot()
     local SoundSystem = require('src.systems.sound')
     self.savedSettings = {
         fps = TimeManager.getTargetFps(),
-        windowMode = self:currentModeIndex(),
         resolution = DisplayManager.getRenderResolution(),
         hotkeys = {},
         audio = {
@@ -101,12 +100,7 @@ function SettingsWindow:closeWindow()
 end
 
 -- Get current window mode index
-function SettingsWindow:currentModeIndex()
-    local mode = DisplayManager.getWindowMode()
-    if mode == 'fullscreen' then return 3 end
-    if mode == 'borderless' then return 2 end
-    return 1
-end
+-- Window mode index logic removed (only windowed mode supported)
 
 -- Get current resolution index
 function SettingsWindow:getCurrentResIndex()
@@ -238,8 +232,14 @@ function SettingsWindow:initialize()
     -- Save initial settings snapshot
     self:saveSettingsSnapshot()
     
-    local x, y = self.position.x + 30, self.position.y + 60
-    local dropdownWidth = self.width - 60
+    -- Layout helpers (keep in sync with draw() so labels and controls align)
+    local paddingX = Theme.spacing.padding * 5  -- Scaled padding
+    local labelOffset = Theme.window.topBarHeight + Theme.spacing.padding * 3  -- Y offset for labels from window top
+    local controlOffset = Theme.window.topBarHeight + Theme.spacing.padding * 4  -- Y offset for the first control from window top
+    local sectionSpacing = Theme.spacing.padding * 10  -- Vertical spacing between control sections
+
+    local x, y = self.position.x + paddingX, self.position.y + controlOffset
+    local dropdownWidth = self.width - (paddingX * 2)
     
     -- FPS Dropdown
     local dropdownClass = self.dropdownClass or Dropdown
@@ -249,21 +249,7 @@ function SettingsWindow:initialize()
         self:saveSettingsSnapshot()
     end)
     
-    -- Mode Dropdown
-    self.modeDropdown = dropdownClass:new(self.modes, self:currentModeIndex(), x, y + 60, dropdownWidth, function(idx, val)
-        local renderRes = DisplayManager.getRenderResolution()
-        if idx == 1 then
-            -- Windowed: use current render resolution as window size
-            DisplayManager.applyWindowMode('windowed', { width = renderRes.w, height = renderRes.h })
-        elseif idx == 2 then
-            -- Borderless: match desktop resolution
-            DisplayManager.applyWindowMode('borderless')
-        elseif idx == 3 then
-            -- Fullscreen desktop (no exclusive mode flicker)
-            DisplayManager.applyWindowMode('fullscreen')
-        end
-        self:saveSettingsSnapshot()
-    end)
+    -- Mode dropdown removed (window mode controlled by conf.lua)
     
     -- Resolution Dropdown
     local resLabels = {}
@@ -274,7 +260,7 @@ function SettingsWindow:initialize()
     self.resDropdown = dropdownClass:new(
         resLabels,
         self:getCurrentResIndex(), 
-        x, y + 120, 
+        x, y + sectionSpacing * 2, 
         dropdownWidth, 
         function(idx, val)
             local res = self.resolutions[idx]
@@ -282,9 +268,8 @@ function SettingsWindow:initialize()
 
             RenderCanvas.setRenderResolution(res.w, res.h)
 
-            if DisplayManager.getWindowMode() == 'windowed' then
-                DisplayManager.applyWindowMode('windowed', { width = res.w, height = res.h })
-            end
+            -- Always apply windowed mode (only mode supported)
+            DisplayManager.applyWindowMode('windowed', { width = res.w, height = res.h })
 
             self:saveSettingsSnapshot()
         end
@@ -295,7 +280,7 @@ function SettingsWindow:initialize()
         self.volumeMin,
         self.volumeMax,
         self:getCurrentVolume("master"),
-        x, y + 180,
+        x, y + sectionSpacing * 3,
         dropdownWidth - 50,  -- Leave space for value text
         20,
         function(value)
@@ -311,7 +296,7 @@ function SettingsWindow:initialize()
         self.volumeMin,
         self.volumeMax,
         self:getCurrentVolume("music"),
-        x, y + 240,
+        x, y + sectionSpacing * 4,
         dropdownWidth - 50,
         20,
         function(value)
@@ -327,7 +312,7 @@ function SettingsWindow:initialize()
         self.volumeMin,
         self.volumeMax,
         self:getCurrentVolume("sfx"),
-        x, y + 300,
+        x, y + sectionSpacing * 5,
         dropdownWidth - 50,
         20,
         function(value)
@@ -349,23 +334,24 @@ end
 function SettingsWindow:initializeHotkeyButtons()
     self.hotkeyButtons = {}
     local hotkeys = HotkeyConfig.getAllHotkeys()
-    local buttonHeight = 20
-    local buttonSpacing = 5
-    local hotkeyLabelHeight = 12
+    local buttonHeight = Theme.spacing.padding * 3.33  -- Scaled button height
+    local buttonSpacing = Theme.spacing.padding  -- Scaled spacing
+    local hotkeyLabelHeight = Theme.spacing.padding * 2  -- Scaled label height
     local hotkeyButtonsHeight = #hotkeys * (buttonHeight + buttonSpacing) + hotkeyLabelHeight
-    
-    -- Layout: FPS (60px) + Mode (60px) + Resolution (60px) + Audio (180px) + Hotkeys + bottom padding
-    local fpsHeight = 60
-    local modeHeight = 60
-    local resHeight = 60
-    local audioHeight = 180
-    local hotkeyStartY = 360  -- Start position for hotkey buttons
-    local bottomPadding = 20
+
+    -- Layout: FPS + Mode + Resolution + Audio + Hotkeys + bottom padding
+    local fpsHeight = Theme.spacing.padding * 10  -- Scaled FPS section height
+    local resHeight = Theme.spacing.padding * 10  -- Scaled resolution section height
+    local audioHeight = Theme.spacing.padding * 30  -- Scaled audio section height
+    local hotkeyStartY = fpsHeight + resHeight + audioHeight  -- Start position for hotkey buttons
+    local bottomPadding = Theme.spacing.padding * 3.33  -- Scaled bottom padding
     local contentHeight = hotkeyStartY + hotkeyButtonsHeight + bottomPadding
-    
+
     -- Define position and width variables for panel initialization
-    local x, y = self.position.x + 30, self.position.y + 60
-    local dropdownWidth = self.width - 60
+    local paddingX = Theme.spacing.padding * 5  -- Scaled padding
+    local controlOffset = Theme.window.topBarHeight + Theme.spacing.padding * 4  -- Scaled control offset
+    local x, y = self.position.x + paddingX, self.position.y + controlOffset
+    local dropdownWidth = self.width - (paddingX * 2)
     
     -- Initialize scroll handler
     self.scrollHandler = ScrollHandler:new()
@@ -467,15 +453,22 @@ function SettingsWindow:draw()
     -- Labels (draw BEFORE panels so they don't overlap)
     love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
     love.graphics.setColor(Theme.colors.textAccent)
-    
+
     local scrollY = self.scrollHandler:getScrollY()
-    love.graphics.print("FPS Limit:", x + 30, y + 42 - scrollY)
-    love.graphics.print("Window Mode:", x + 30, y + 102 - scrollY)
-    love.graphics.print("Resolution:", x + 30, y + 162 - scrollY)
-    love.graphics.print("Master Volume:", x + 30, y + 222 - scrollY)
-    love.graphics.print("Music Volume:", x + 30, y + 282 - scrollY)
-    love.graphics.print("SFX Volume:", x + 30, y + 342 - scrollY)
-    love.graphics.print("Hotkeys:", x + 30, y + 362 - scrollY)
+    local paddingX = Theme.spacing.padding * 5  -- Scaled padding
+    local labelOffset = Theme.window.topBarHeight + Theme.spacing.padding * 3  -- Y offset for labels from window top
+    local controlOffset = Theme.window.topBarHeight + Theme.spacing.padding * 4  -- Y offset for the first control from window top
+    local sectionSpacing = Theme.spacing.padding * 10  -- Vertical spacing between control sections
+
+    local labelX = x + paddingX
+    local baseLabelY = y + labelOffset - scrollY
+
+    love.graphics.print("FPS Limit:", labelX, baseLabelY)
+    love.graphics.print("Resolution:", labelX, baseLabelY + sectionSpacing)
+    love.graphics.print("Master Volume:", labelX, baseLabelY + sectionSpacing * 2)
+    love.graphics.print("Music Volume:", labelX, baseLabelY + sectionSpacing * 3)
+    love.graphics.print("SFX Volume:", labelX, baseLabelY + sectionSpacing * 4)
+    love.graphics.print("Hotkeys:", labelX, baseLabelY + sectionSpacing * 5)
     
     -- Draw panels (inside scissor region)
     if self.displayPanel then
@@ -639,9 +632,35 @@ function SettingsWindow:wheelmoved(x, y)
     if not self.isOpen then return false end
     
     -- Check if mouse is over the settings window
-    local mx, my = Scaling.toUI(love.mouse.getPosition())
-    if mx >= self.position.x and mx <= self.position.x + self.width and
-       my >= self.position.y and my <= self.position.y + self.height then
+    local uiMx, uiMy = Scaling.toUI(love.mouse.getPosition())
+
+    -- If an open dropdown is under the mouse, forward the wheel to it so it can scroll
+    local function tryForward(dd)
+        if not dd or not dd.isOpen then return false end
+        local total = #dd.options
+        local visibleCount = math.min(total, dd.maxVisible or 0)
+        if visibleCount <= 0 then return false end
+        local areaX = dd.x
+        local areaY = dd.y + dd.height
+        local areaW = dd.width
+        local areaH = visibleCount * dd.itemHeight
+        if uiMx >= areaX and uiMx <= areaX + areaW and uiMy >= areaY and uiMy <= areaY + areaH then
+            if dd.wheelmoved then dd:wheelmoved(y, uiMx, uiMy) end
+            return true
+        end
+        return false
+    end
+
+    if self.displayPanel and (
+        tryForward(self.displayPanel.fpsDropdown) or
+        tryForward(self.displayPanel.resDropdown)
+    ) then
+        return true
+    end
+
+    -- Otherwise, treat wheel as scrolling the settings window content
+    if uiMx >= self.position.x and uiMx <= self.position.x + self.width and
+       uiMy >= self.position.y and uiMy <= self.position.y + self.height then
         if self.scrollHandler then
             self.scrollHandler:updateScroll(-y)  -- Invert scroll direction
             -- Panel positions will be updated automatically via callback

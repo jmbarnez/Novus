@@ -43,7 +43,7 @@ return {
     },
     
     theme = {
-        background = {0.01, 0.02, 0.05},
+        background = {0.05, 0.15, 0.22},  -- Blue-tinted navy for mining zone
         starDensity = "dense",
         nebulaEnabled = false
     },

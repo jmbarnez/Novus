@@ -147,7 +147,7 @@ end, function(x, y, button)
 end)
 
 -- Minimap input capture is now handled by HUD, but we still want UI to eat clicks over minimap
-local Minimap = require('src.systems.minimap')
+local Minimap = require('src.systems.hud.minimap')
 UISystem.registerInteractive('minimap', function(x, y, button)
     return Minimap and Minimap.isPointOver and Minimap.isPointOver(x, y)
 end, function(x, y, button)
@@ -366,7 +366,7 @@ function UISystem.mousepressed(x, y, button)
     end
 
     -- If click is on the minimap, capture it so it doesn't pass to the world
-    local Minimap = require('src.systems.minimap')
+    local Minimap = require('src.systems.hud.minimap')
     if Minimap and Minimap.isPointOver then
         if Minimap.isPointOver(mx, my) then
             UISystem.captureMouse()
