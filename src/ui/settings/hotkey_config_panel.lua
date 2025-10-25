@@ -34,13 +34,15 @@ function HotkeyConfigPanel:initialize(position, width, contentScrollY)
     local buttonHeight = 20
     local buttonSpacing = 5
     
+    local hotkeyStartY = 360  -- Start position for hotkey buttons (after audio sliders)
+    
     for i, hotkey in ipairs(hotkeys) do
         table.insert(self.buttons, {
             action = hotkey.action,
             description = hotkey.description,
             key = hotkey.key,
-            x = position.x + 30,
-            y = position.y + 420 + (i - 1) * (buttonHeight + buttonSpacing) - contentScrollY,
+            x = position.x,
+            y = position.y + hotkeyStartY + (i - 1) * (buttonHeight + buttonSpacing) - contentScrollY,
             width = width - 80,  -- Leave space for scroll bar
             height = buttonHeight
         })
@@ -54,10 +56,12 @@ function HotkeyConfigPanel:updatePositions(position, contentScrollY)
     
     local buttonHeight = 20
     local buttonSpacing = 5
+    local hotkeyStartY = 360  -- Start position for hotkey buttons (after audio sliders)
+    
     for i, button in ipairs(self.buttons) do
-        button.x = position.x + 30
-        button.y = position.y + 420 + (i - 1) * (buttonHeight + buttonSpacing) - contentScrollY
-        button.width = self.width - 80
+        button.x = position.x
+        button.y = position.y + hotkeyStartY + (i - 1) * (buttonHeight + buttonSpacing) - contentScrollY
+        button.width = self.width - 80  -- Leave space for scroll bar
     end
 end
 

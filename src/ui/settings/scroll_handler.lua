@@ -25,7 +25,8 @@ function ScrollHandler:new()
         },
         position = {x = 0, y = 0},
         width = 0,
-        height = 0
+        height = 0,
+        onScrollUpdate = nil  -- Callback function for scroll updates
     }
     setmetatable(handler, self)
     self.__index = self
@@ -33,11 +34,12 @@ function ScrollHandler:new()
 end
 
 -- Initialize scroll handler
-function ScrollHandler:initialize(position, width, height, contentHeight)
+function ScrollHandler:initialize(position, width, height, contentHeight, onScrollUpdate)
     self.position = position
     self.width = width
     self.height = height
     self.contentHeight = contentHeight
+    self.onScrollUpdate = onScrollUpdate
     
     -- Calculate scroll area dimensions
     local topBarH = Theme.window.topBarHeight
@@ -51,11 +53,13 @@ function ScrollHandler:initialize(position, width, height, contentHeight)
     self.scrollBar.x = position.x + width - 20
     self.scrollBar.y = position.y + topBarH + 3
     self.scrollBar.height = contentAreaHeight
-    if contentHeight > 0 then
+    if contentHeight > 0 and contentHeight > contentAreaHeight then
+        -- Calculate thumb height as proportion of visible area to total content
         self.scrollBar.thumbHeight = math.max(20, (contentAreaHeight / contentHeight) * contentAreaHeight)
         -- Initialize thumb position
         self.scrollBar.thumbY = self.scrollBar.y
     else
+        -- No scrolling needed
         self.scrollBar.thumbHeight = contentAreaHeight
         self.scrollBar.thumbY = self.scrollBar.y
     end
@@ -76,6 +80,11 @@ function ScrollHandler:updateScroll(deltaY)
     else
         -- If no maxScrollY yet, just ensure we don't scroll below 0
         self.contentScrollY = math.max(0, self.contentScrollY)
+    end
+    
+    -- Call the scroll update callback if provided
+    if self.onScrollUpdate then
+        self.onScrollUpdate()
     end
 end
 
@@ -140,7 +149,14 @@ function ScrollHandler:handleScrollBarClick(mx, my)
             local relativeY = my - sb.y
             local scrollRatio = relativeY / sb.height
             self.contentScrollY = scrollRatio * self.maxScrollY
-            self:updateScroll(0) -- Update positions
+            
+            -- Update scroll bar thumb position
+            self.scrollBar.thumbY = self.scrollBar.y + (self.contentScrollY / self.maxScrollY) * (self.scrollBar.height - self.scrollBar.thumbHeight)
+            
+            -- Call the scroll update callback if provided
+            if self.onScrollUpdate then
+                self.onScrollUpdate()
+            end
             return true
         end
     end
@@ -156,7 +172,14 @@ function ScrollHandler:mousemoved(mx, my, dx, dy)
         local relativeY = newThumbY - sb.y
         local scrollRatio = math.max(0, math.min(1, relativeY / (sb.height - sb.thumbHeight)))
         self.contentScrollY = scrollRatio * self.maxScrollY
-        self:updateScroll(0) -- Update positions
+        
+        -- Update scroll bar thumb position
+        self.scrollBar.thumbY = self.scrollBar.y + (self.contentScrollY / self.maxScrollY) * (self.scrollBar.height - self.scrollBar.thumbHeight)
+        
+        -- Call the scroll update callback if provided
+        if self.onScrollUpdate then
+            self.onScrollUpdate()
+        end
         return true
     end
     return false

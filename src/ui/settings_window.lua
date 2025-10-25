@@ -22,7 +22,6 @@ local HotkeyConfigPanel = require('src.ui.settings.hotkey_config_panel')
 local AudioSettingsPanel = require('src.ui.settings.audio_settings_panel')
 local DisplaySettingsPanel = require('src.ui.settings.display_settings_panel')
 local ScrollHandler = require('src.ui.settings.scroll_handler')
-local BackgroundBlur = require('src.ui.settings.background_blur')
 
 local SettingsWindow = WindowBase:new{
     width = 600,
@@ -35,7 +34,6 @@ local SettingsWindow = WindowBase:new{
     audioPanel = nil,
     displayPanel = nil,
     scrollHandler = nil,
-    backgroundBlur = nil,
     
     _exitBtn = nil,
     _initialized = false,
@@ -71,13 +69,27 @@ function SettingsWindow:initialize()
     local x, y = self.position.x + 30, self.position.y + 60
     local dropdownWidth = self.width - 60
     
-    -- Initialize background blur
-    self.backgroundBlur = BackgroundBlur:new()
+    -- Calculate proper content height
+    local hotkeys = HotkeyConfig.getAllHotkeys()
+    local buttonHeight = 20
+    local buttonSpacing = 5
+    local hotkeyLabelHeight = 12
+    local hotkeyButtonsHeight = #hotkeys * (buttonHeight + buttonSpacing) + hotkeyLabelHeight
+    
+    -- Layout: FPS (60px) + Mode (60px) + Resolution (60px) + Audio (180px) + Hotkeys + bottom padding
+    local fpsHeight = 60
+    local modeHeight = 60
+    local resHeight = 60
+    local audioHeight = 180
+    local hotkeyStartY = 360  -- Start position for hotkey buttons
+    local bottomPadding = 20
+    local contentHeight = hotkeyStartY + hotkeyButtonsHeight + bottomPadding
     
     -- Initialize scroll handler
     self.scrollHandler = ScrollHandler:new()
-    local contentHeight = 540  -- Approximate total content height
-    self.scrollHandler:initialize(self.position, self.width, self.height, contentHeight)
+    self.scrollHandler:initialize(self.position, self.width, self.height, contentHeight, function()
+        self:updatePanelPositions()
+    end)
     
     -- Initialize display settings panel
     self.displayPanel = DisplaySettingsPanel:new()
@@ -93,7 +105,7 @@ function SettingsWindow:initialize()
     
     -- Initialize hotkey configuration panel
     self.hotkeyPanel = HotkeyConfigPanel:new()
-    self.hotkeyPanel:initialize({x = x, y = y}, dropdownWidth, self.scrollHandler:getScrollY())
+    self.hotkeyPanel:initialize({x = x, y = y}, dropdownWidth, 0)  -- Will be updated in updatePanelPositions
     
     self._initialized = true
 end
@@ -130,14 +142,9 @@ function SettingsWindow:toggle()
     end
 end
 
--- Override setOpen to capture a downscaled snapshot for blur
+-- Override setOpen
 function SettingsWindow:setOpen(state)
     WindowBase.setOpen(self, state)
-
-    -- When opening, capture background for blur effect
-    if state and self.backgroundBlur then
-        self.backgroundBlur:captureBackground()
-    end
 end
 
 -- Get window open state
@@ -149,14 +156,9 @@ end
 function SettingsWindow:draw()
     if not self.isOpen or not self.position then return end
     
-    -- Draw blurred background
-    if self.backgroundBlur then
-        self.backgroundBlur:draw(self.animAlpha)
-    else
-        -- Fallback to semi-transparent glass
+    -- Draw semi-transparent background overlay
         love.graphics.setColor(0, 0, 0, 0.3 * self.animAlpha)
         love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
-    end
     
     WindowBase.draw(self)
     
@@ -191,7 +193,7 @@ function SettingsWindow:draw()
     love.graphics.print("Master Volume:", x + 30, y + 222 - scrollY)
     love.graphics.print("Music Volume:", x + 30, y + 282 - scrollY)
     love.graphics.print("SFX Volume:", x + 30, y + 342 - scrollY)
-    love.graphics.print("Hotkeys:", x + 30, y + 402 - scrollY)
+    love.graphics.print("Hotkeys:", x + 30, y + 362 - scrollY)
     
     -- Draw panels (inside scissor region)
     if self.displayPanel then
@@ -252,10 +254,19 @@ function SettingsWindow:mousepressed(mx, my, button)
     self:initialize()
     self:updatePanelPositions()
     
-    -- Convert screen coordinates to UI coordinates
-    local uiMx, uiMy = mx, my
+    -- FIRST: Check for top bar dragging (must be before other checks)
+    -- WindowBase handles its own coordinate conversion internally
+    if WindowBase.mousepressed(self, mx, my, button) then
+        return true
+    end
     
-    -- Check Exit to Main Menu button FIRST (before any scrollable content)
+    -- Convert screen coordinates to UI coordinates for UI element checks
+    local uiMx, uiMy = Scaling.toUI(mx, my)
+    
+    -- Debug coordinate conversion (remove in production)
+    -- print(string.format("Settings Mouse: raw(%d,%d) -> UI(%.1f,%.1f)", mx, my, uiMx, uiMy))
+    
+    -- Check Exit to Main Menu button (before any scrollable content)
     -- This prevents click-through to content behind it
     if self._exitBtn and uiMx >= self._exitBtn.x and uiMx <= self._exitBtn.x + self._exitBtn.w and
        uiMy >= self._exitBtn.y and uiMy <= self._exitBtn.y + self._exitBtn.h then
@@ -296,8 +307,6 @@ function SettingsWindow:mousepressed(mx, my, button)
        uiMy >= self.position.y and uiMy <= self.position.y + self.height then
         return true
     end
-    
-    WindowBase.mousepressed(self, mx, my, button)
 end
 
 -- Handle key input for hotkey assignment
@@ -319,7 +328,7 @@ function SettingsWindow:mousereleased(mx, my, button)
     self:updatePanelPositions()
     
     -- Convert screen coordinates to UI coordinates
-    local uiMx, uiMy = mx, my
+    local uiMx, uiMy = Scaling.toUI(mx, my)
     
     -- Handle audio panel mouse release
     if self.audioPanel and self.audioPanel:mousereleased(uiMx, uiMy, button) then return true end
@@ -335,7 +344,7 @@ function SettingsWindow:mousemoved(mx, my, dx, dy)
     if self.scrollHandler and self.scrollHandler:mousemoved(mx, my, dx, dy) then return true end
     
     -- Convert screen coordinates to UI coordinates
-    local uiMx, uiMy = mx, my
+    local uiMx, uiMy = Scaling.toUI(mx, my)
     
     -- Handle audio panel mouse move
     if self.audioPanel and self.audioPanel:mousemoved(uiMx, uiMy, dx, dy) then return true end
@@ -353,7 +362,7 @@ function SettingsWindow:wheelmoved(x, y)
        my >= self.position.y and my <= self.position.y + self.height then
         if self.scrollHandler then
             self.scrollHandler:updateScroll(-y)  -- Invert scroll direction
-            self:updatePanelPositions()
+            -- Panel positions will be updated automatically via callback
         end
         return true
     end
