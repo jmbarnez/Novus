@@ -177,11 +177,13 @@ local RenderSystem = {
 
         -- Draw durability bars for asteroids and wreckages (world-space UI)
         Profiler.start("ui_durability_bars")
-        local HUDBars = require('src.systems.hud.bars')
+        local EnemyBars = require('src.systems.hud.enemy_bars')
+        local AsteroidBars = require('src.systems.hud.asteroid_bars')
+        local WreckageBars = require('src.systems.hud.wreckage_bars')
         local w, h = love.graphics.getDimensions()
-        HUDBars.drawAsteroidDurabilityBars(w, h)
-        HUDBars.drawWreckageDurabilityBars(w, h)
-        HUDBars.drawEnemyHealthBars(w, h)
+        EnemyBars.draw(w, h)
+        AsteroidBars.draw(w, h)
+        WreckageBars.draw(w, h)
         Profiler.stop("ui_durability_bars")
 
         -- Draw UI windows (notifications, dialogs, windows) - these use immediate mode

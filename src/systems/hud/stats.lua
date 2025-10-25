@@ -101,42 +101,36 @@ function HUDStats.drawHullShieldBar(viewportWidth, viewportHeight)
     local x = Scaling.scaleX(padding)
     local y = Scaling.scaleY(padding)
 
-    -- Draw hull bar first (at top) using batched rendering
+    -- Combined hull/shield bar - shield overlays hull
     local hullRatio = math.min((hull.current or 0) / hull.max, 1.0)
+    local shieldRatio = 0
+    if shield and shield.max > 0 then
+        shieldRatio = math.min((shield.current or 0) / shield.max, 1.0)
+    end
     
     -- Background
     local bgColor = PlasmaTheme.colors.healthBarBg
     BatchRenderer.queueRect(x, y, barWidth, barHeight, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 2)
     
-    -- Hull fill
-    local fillColor = PlasmaTheme.colors.healthBarFill
-    local fillWidth = math.max(0, (barWidth - 2) * hullRatio)
-    if fillWidth > 0 then
-        BatchRenderer.queueRect(x + 1, y + 1, fillWidth, barHeight - 2, fillColor[1], fillColor[2], fillColor[3], fillColor[4], 1)
+    -- Hull fill (always draw full hull bar as background)
+    local hullColor = PlasmaTheme.colors.healthBarFill
+    local hullWidth = math.max(0, (barWidth - 2) * hullRatio)
+    if hullWidth > 0 then
+        BatchRenderer.queueRect(x + 1, y + 1, hullWidth, barHeight - 2, hullColor[1], hullColor[2], hullColor[3], hullColor[4], 1)
+    end
+    
+    -- Shield overlay (draws on top of hull, showing hull underneath as it depletes)
+    if shield and shield.max > 0 then
+        local shieldColor = PlasmaTheme.colors.shieldBarFill
+        local shieldWidth = math.max(0, (barWidth - 2) * shieldRatio)
+        if shieldWidth > 0 then
+            BatchRenderer.queueRect(x + 1, y + 1, shieldWidth, barHeight - 2, shieldColor[1], shieldColor[2], shieldColor[3], shieldColor[4], 0)
+        end
     end
     
     -- Outline
     local outlineColor = PlasmaTheme.colors.outlineBlack
     BatchRenderer.queueRectLine(x, y, barWidth, barHeight, outlineColor[1], outlineColor[2], outlineColor[3], outlineColor[4], PlasmaTheme.colors.outlineThick, 2)
-    
-    -- Draw shield bar below hull bar (if exists)
-    if shield and shield.max > 0 then
-        local sRatio = math.min((shield.current or 0) / shield.max, 1.0)
-        local shieldY = y + barHeight + 4  -- Offset below hull bar
-        
-        -- Background
-        BatchRenderer.queueRect(x, shieldY, barWidth, barHeight, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 2)
-        
-        -- Shield fill
-        local shieldColor = PlasmaTheme.colors.shieldBarFill
-        local shieldWidth = math.max(0, (barWidth - 2) * sRatio)
-        if shieldWidth > 0 then
-            BatchRenderer.queueRect(x + 1, shieldY + 1, shieldWidth, barHeight - 2, shieldColor[1], shieldColor[2], shieldColor[3], shieldColor[4], 1)
-        end
-        
-        -- Outline
-        BatchRenderer.queueRectLine(x, shieldY, barWidth, barHeight, outlineColor[1], outlineColor[2], outlineColor[3], outlineColor[4], PlasmaTheme.colors.outlineThick, 2)
-    end
 end
 
 function HUDStats.drawEnergyBar(viewportWidth, viewportHeight)
@@ -153,10 +147,8 @@ function HUDStats.drawEnergyBar(viewportWidth, viewportHeight)
     local padding = Scaling.scaleSize(12)
     local x = Scaling.scaleX(padding)
     
-    -- Position below hull/shield bars (accounting for both bars if shield exists)
-    local shield = ECS.getComponent(input.targetEntity, "Shield")
-    local offset = shield and shield.max > 0 and (barHeight * 2 + 8) or (barHeight + 4)
-    local y = Scaling.scaleY(padding + offset)
+    -- Position below the combined hull/shield bar (only one bar now)
+    local y = Scaling.scaleY(padding + barHeight + 4)
     
     local energyRatio = math.min((energy.current or 0) / energy.max, 1.0)
     
