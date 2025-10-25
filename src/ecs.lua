@@ -185,6 +185,15 @@ function ECS.hasComponent(entityId, componentType)
     return entities[entityId] and entities[entityId][componentType] == true
 end
 
+-- Helper function to count table entries
+local function countTable(t)
+    local count = 0
+    for _ in pairs(t) do
+        count = count + 1
+    end
+    return count
+end
+
 -- Internal: compute intersection of two entity sets
 -- @param set1 table: Set of entity IDs (table with entityId = true)
 -- @param set2 table: Set of entity IDs (table with entityId = true)
@@ -196,22 +205,13 @@ local function intersectSets(set1, set2)
     if next(set2) == nil or (next(set1) ~= nil and countTable(set1) > countTable(set2)) then
         smaller, larger = set2, set1
     end
-    
+
     for entityId, _ in pairs(smaller) do
         if larger[entityId] then
             table.insert(result, entityId)
         end
     end
     return result
-end
-
--- Helper function to count table entries
-local function countTable(t)
-    local count = 0
-    for _ in pairs(t) do
-        count = count + 1
-    end
-    return count
 end
 
 -- Get all entities with specific components (for system queries)
