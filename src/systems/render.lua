@@ -176,6 +176,7 @@ local RenderSystem = {
         BatchRenderer.begin()
 
         -- Draw durability bars for asteroids and wreckages (world-space UI)
+        -- These render FIRST (behind UI windows) to ensure UI appears on top
         Profiler.start("ui_durability_bars")
         local EnemyBars = require('src.systems.hud.enemy_bars')
         local AsteroidBars = require('src.systems.hud.asteroid_bars')
@@ -186,15 +187,6 @@ local RenderSystem = {
         WreckageBars.draw(w, h)
         Profiler.stop("ui_durability_bars")
 
-        -- Draw UI windows (notifications, dialogs, windows) - these use immediate mode
-        Profiler.start("ui_windows")
-        local ui = getUISystem()
-        if ui and ui.draw then
-            local screenWidth, screenHeight = Constants.getScreenWidth(), Constants.getScreenHeight()
-            ui.draw(screenWidth, screenHeight) -- Pass display resolution
-        end
-        Profiler.stop("ui_windows")
-
         -- Draw HUD overlays in screen space (queued to batch)
         Profiler.start("ui_hud_overlays")
         local hud = getHUDSystem()
@@ -203,10 +195,20 @@ local RenderSystem = {
         end
         Profiler.stop("ui_hud_overlays")
 
-        -- Flush all batched UI
+        -- Flush batched HUD elements before drawing UI windows
         Profiler.start("ui_hud_flush")
         BatchRenderer.flush()
         Profiler.stop("ui_hud_flush")
+
+        -- Draw UI windows LAST (notifications, dialogs, windows) - these use immediate mode
+        -- This ensures UI windows render ON TOP of all HUD elements
+        Profiler.start("ui_windows")
+        local ui = getUISystem()
+        if ui and ui.draw then
+            local screenWidth, screenHeight = Constants.getScreenWidth(), Constants.getScreenHeight()
+            ui.draw(screenWidth, screenHeight) -- Pass display resolution
+        end
+        Profiler.stop("ui_windows")
 
         -- Draw the death overlay, if visible (immediate mode, always on top)
         Profiler.start("ui_death_overlay")

@@ -87,50 +87,51 @@ function WorldLoader.initWorld(worldId)
     
     -- Spawn stations if specified in world
     if world.stations then
-        -- Gather exclusion zones from asteroid clusters and enemies
-        local exclusionCenters = {}
-        -- Asteroid clusters
-        if world.asteroidClusters and world.asteroidClusters.clusters then
-            for _, cluster in ipairs(world.asteroidClusters.clusters) do
-                table.insert(exclusionCenters, {x = cluster.x, y = cluster.y})
+        local SpawnCollisionUtils = require('src.spawn_collision_utils')
+        
+        -- Clear collision registry for fresh start
+        SpawnCollisionUtils.clearRegistry()
+        
+        -- Register existing entities in collision system
+        local existingEntities = ECS.getEntitiesWith({"Position", "Collidable"})
+        for _, entityId in ipairs(existingEntities) do
+            local pos = ECS.getComponent(entityId, "Position")
+            local coll = ECS.getComponent(entityId, "Collidable")
+            if pos and coll then
+                SpawnCollisionUtils.registerEntity(entityId, pos.x, pos.y, coll.radius, "existing")
             end
         end
-        -- Enemy types (only for their spawn center, doesn't guarantee min distance after movement)
-        if world.enemies and world.enemies.types then
-            -- enemies don't have fixed spawn, but we can avoid cluster areas again for simplicity
-            -- Optionally, check known enemy spawn points here if available
-        end
-        -- Attempt to spawn station with no other object too close
-        local maxAttempts = 40
-        local attempts = 0
-        local minDistance = 350
-        local placed = false
+        
+        -- Find safe position for station using universal collision detection
         local stationDef = world.stations[1]  -- Only one station for now
-        local x, y
-        while attempts < maxAttempts and not placed do
-            attempts = attempts + 1
-            x = Constants.world_min_x + math.random() * (Constants.world_max_x - Constants.world_min_x)
-            y = Constants.world_min_y + math.random() * (Constants.world_max_y - Constants.world_min_y)
-            placed = true
-            for _, obj in ipairs(exclusionCenters) do
-                local dx, dy = x - obj.x, y - obj.y
-                if math.sqrt(dx*dx + dy*dy) < minDistance then
-                    placed = false
-                    break
-                end
-            end
-        end
-        if placed then
+        local stationRadius = 120  -- Station collision radius
+        local minDistance = 350   -- Minimum distance from other objects
+        
+        local x, y, success = SpawnCollisionUtils.findSafePositionInWorld(
+            stationRadius, 
+            minDistance, 
+            100,  -- max attempts
+            {}    -- no excluded types
+        )
+        
+        if success then
             stationDef.x, stationDef.y = x, y
         else
-            -- fallback: just in the center
+            -- fallback: place at world center if no safe position found
             stationDef.x, stationDef.y = 0, 0
         end
+        
         local stationComponents = require('src.procedural').generateEntity('station', stationDef)
-        local ecs = require('src.ecs')
-        local stationId = ecs.createEntity()
+        local stationId = ECS.createEntity()
         for compType, compData in pairs(stationComponents) do
-            ecs.addComponent(stationId, compType, compData)
+            ECS.addComponent(stationId, compType, compData)
+        end
+        
+        -- Register the new station in collision system
+        local stationPos = ECS.getComponent(stationId, "Position")
+        local stationColl = ECS.getComponent(stationId, "Collidable")
+        if stationPos and stationColl then
+            SpawnCollisionUtils.registerEntity(stationId, stationPos.x, stationPos.y, stationColl.radius, "station")
         end
     end
 end
@@ -169,46 +170,36 @@ function WorldLoader.initAsteroidClusters(config)
         
         clusters[clusterId] = cluster
         
-        -- Spawn initial asteroids in cluster manually
+        -- Spawn initial asteroids in cluster using universal collision detection
         local count = cluster.maxAsteroids
-        local spawnedPositions = {}  -- Track positions for collision avoidance
+        local SpawnCollisionUtils = require('src.spawn_collision_utils')
         local minDistance = 150  -- Minimum distance between asteroid centers
+        local asteroidRadius = 30  -- Typical asteroid collision radius
         
         for j = 1, count do
-            local maxAttempts = 20
-            local attempts = 0
-            local validPosition = false
-            local x, y
-            
-            while attempts < maxAttempts and not validPosition do
-                -- Random position within cluster radius
-                local angle = math.random() * 2 * math.pi
-                local distance = math.random() * cluster.radius
-                x = cluster.centerX + math.cos(angle) * distance
-                y = cluster.centerY + math.sin(angle) * distance
-                
-                -- Check collision with existing asteroids
-                validPosition = true
-                for _, pos in ipairs(spawnedPositions) do
-                    local dx = x - pos.x
-                    local dy = y - pos.y
-                    local dist = math.sqrt(dx * dx + dy * dy)
-                    
-                    if dist < minDistance then
-                        validPosition = false
-                        break
-                    end
-                end
-                
-                attempts = attempts + 1
-            end
+            -- Find safe position within cluster using universal collision detection
+            local x, y, success = SpawnCollisionUtils.findSafePosition(
+                cluster.centerX, 
+                cluster.centerY, 
+                cluster.radius, 
+                asteroidRadius, 
+                minDistance, 
+                20,  -- max attempts
+                {}   -- no excluded types
+            )
             
             -- Only spawn if we found a valid position
-            if validPosition then
+            if success then
                 local asteroidId = AsteroidClusters.createAsteroid(x, y)
                 if asteroidId then
                     table.insert(cluster.asteroids, asteroidId)
-                    table.insert(spawnedPositions, {x = x, y = y})
+                    
+                    -- Register asteroid in collision system
+                    local asteroidPos = ECS.getComponent(asteroidId, "Position")
+                    local asteroidColl = ECS.getComponent(asteroidId, "Collidable")
+                    if asteroidPos and asteroidColl then
+                        SpawnCollisionUtils.registerEntity(asteroidId, asteroidPos.x, asteroidPos.y, asteroidColl.radius, "asteroid")
+                    end
                 end
             end
         end
@@ -231,16 +222,30 @@ end
 
 -- Spawn a single enemy
 function WorldLoader.spawnEnemy(enemyType, config)
-    -- Get random position
-    local x = Constants.world_min_x + math.random() * (Constants.world_max_x - Constants.world_min_x)
-    local y = Constants.world_min_y + math.random() * (Constants.world_max_y - Constants.world_min_y)
-
-    -- Make sure not too close to spawn point
-    local distanceFromSpawn = math.sqrt(x * x + y * y)
-    if distanceFromSpawn < 500 then
-        local angle = math.atan2(y, x)
-        x = math.cos(angle) * 500
-        y = math.sin(angle) * 500
+    local SpawnCollisionUtils = require('src.spawn_collision_utils')
+    local enemyRadius = 25  -- Typical enemy ship collision radius
+    local minDistance = 200  -- Minimum distance from other objects
+    
+    -- Find safe position using universal collision detection
+    local x, y, success = SpawnCollisionUtils.findSafePositionInWorld(
+        enemyRadius, 
+        minDistance, 
+        50,  -- max attempts
+        {}   -- no excluded types
+    )
+    
+    -- If no safe position found, use fallback with distance check from spawn
+    if not success then
+        x = Constants.world_min_x + math.random() * (Constants.world_max_x - Constants.world_min_x)
+        y = Constants.world_min_y + math.random() * (Constants.world_max_y - Constants.world_min_y)
+        
+        -- Make sure not too close to spawn point
+        local distanceFromSpawn = math.sqrt(x * x + y * y)
+        if distanceFromSpawn < 500 then
+            local angle = math.atan2(y, x)
+            x = math.cos(angle) * 500
+            y = math.sin(angle) * 500
+        end
     end
 
     local shipId = ShipLoader.createShip(enemyType, x, y, "ai")
@@ -281,6 +286,13 @@ function WorldLoader.spawnEnemy(enemyType, config)
         -- Add level component (random level 1-5 for now)
         local level = math.random(1, 5)
         ECS.addComponent(shipId, "Level", {level = level})
+        
+        -- Register enemy in collision system
+        local enemyPos = ECS.getComponent(shipId, "Position")
+        local enemyColl = ECS.getComponent(shipId, "Collidable")
+        if enemyPos and enemyColl then
+            SpawnCollisionUtils.registerEntity(shipId, enemyPos.x, enemyPos.y, enemyColl.radius, "enemy")
+        end
     end
 
     return shipId

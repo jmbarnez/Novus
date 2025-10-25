@@ -35,8 +35,10 @@ end
 -- @param strategyData table: Configuration for the spawn strategy
 -- @return table: Array of component data tables
 function Procedural.spawnMultiple(templateName, count, spawnStrategy, strategyData)
+    local SpawnCollisionUtils = require('src.spawn_collision_utils')
     local entities = {}
-    local positions = {}  -- Track spawned positions for collision detection
+    local entityRadius = 30  -- Default collision radius for spawned entities
+    local minDistance = 150  -- Minimum distance between entity centers
     
     for i = 1, count do
         local spawnData = Procedural.calculateSpawnPosition(spawnStrategy, strategyData, i)
@@ -45,20 +47,14 @@ function Procedural.spawnMultiple(templateName, count, spawnStrategy, strategyDa
         local validPosition = false
         
         while attempts < maxAttempts and not validPosition do
-            -- Check if this position collides with any existing entity
-            validPosition = true
-            local minDistance = 150  -- Minimum distance between entity centers
-            
-            for _, existingPos in ipairs(positions) do
-                local dx = spawnData.x - existingPos.x
-                local dy = spawnData.y - existingPos.y
-                local distance = math.sqrt(dx * dx + dy * dy)
-                
-                if distance < minDistance then
-                    validPosition = false
-                    break
-                end
-            end
+            -- Use universal collision detection to check if position is safe
+            validPosition = SpawnCollisionUtils.isPositionSafe(
+                spawnData.x, 
+                spawnData.y, 
+                entityRadius, 
+                minDistance, 
+                {}  -- no excluded types
+            )
             
             -- If position is invalid, try a new random position
             if not validPosition then
@@ -71,7 +67,6 @@ function Procedural.spawnMultiple(templateName, count, spawnStrategy, strategyDa
         if validPosition then
             local entityData = Procedural.generateEntity(templateName, spawnData)
             table.insert(entities, entityData)
-            table.insert(positions, {x = spawnData.x, y = spawnData.y})
         end
     end
     
