@@ -17,7 +17,6 @@ local AsteroidClusters = require('src.systems.asteroid_clusters')
 local ShaderManager = require('src.shader_manager')
 local EntityPool = require('src.entity_pool')
 local WorldLoader = require('src.world_loader')
-local DisplayManager = require('src.display_manager')
 
 -- Initialize entity pools
 function GameInit.initPools()
@@ -129,8 +128,8 @@ end
 function GameInit.createCoreEntities()
     -- Create Canvas Entity
     local canvasId = ECS.createEntity()
-    local renderWidth, renderHeight = DisplayManager.getRenderDimensions()
-    ECS.addComponent(canvasId, "Canvas", Components.Canvas(renderWidth, renderHeight))
+    local screenWidth, screenHeight = Constants.getScreenWidth(), Constants.getScreenHeight()
+    ECS.addComponent(canvasId, "Canvas", Components.Canvas(screenWidth, screenHeight))
 
     -- Create Pilot (Player) Entity
     local pilotId = ECS.createEntity()
@@ -142,7 +141,7 @@ function GameInit.createCoreEntities()
     -- Create Camera Entity
     local cameraId = ECS.createEntity()
     -- Create camera component first so we can read width/zoom when calculating initial position
-    local cameraComp = Components.Camera(renderWidth, renderHeight)
+    local cameraComp = Components.Camera(screenWidth, screenHeight)
     ECS.addComponent(cameraId, "Camera", cameraComp)
     -- Try to center camera on the player's ship if it exists so the camera doesn't "slide" on first frames
     local initialCamX, initialCamY = -1500, 0

@@ -10,6 +10,7 @@ local Systems = require('src.systems')
 local UISystem = require('src.systems.ui')
 local GameInit = require('src.game_init')
 local GameInput = require('src.game_input')
+local Scaling = require('src.scaling')
 
 -- Game initialization
 function Core.init()
@@ -85,11 +86,6 @@ function Core.quit()
             canvasComp.canvas = nil
         end
     end
-
-    local RenderCanvas = require('src.systems.render.canvas')
-    if RenderCanvas and RenderCanvas.release then
-        RenderCanvas.release()
-    end
     
     -- Clear all entity pools before clearing ECS
     local EntityPool = require('src.entity_pool')
@@ -108,6 +104,7 @@ function Core.quit()
 end
 
 function Core.onResize(w, h)
+    Scaling.update()
     if UISystem and UISystem.onResize then
         UISystem.onResize(w, h)
     end
