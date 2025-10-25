@@ -65,16 +65,32 @@ void main() {
     float noiseValue = fbm(p * 2.0 + time * 0.5) * 0.3 + 0.7;
     intensity *= noiseValue;
 
-    // Create smooth color transitions
+    // Create smooth color transitions through aurora spectrum
     vec3 auroraColor;
-    float colorMix1 = smoothstep(0.0, 0.4, intensity);
-    float colorMix2 = smoothstep(0.4, 0.8, intensity);
-    float colorMix3 = smoothstep(0.8, 1.0, intensity);
 
-    // Blend between aurora colors
-    auroraColor = mix(color1, color2, colorMix1);
-    auroraColor = mix(auroraColor, color3, colorMix2);
-    auroraColor = mix(auroraColor, color1 * 1.2, colorMix3);
+    // Create a 0-1 gradient that smoothly transitions through all colors
+    float colorPhase = intensity * 3.0; // Scale to cover 3 color transitions
+    float phase1 = smoothstep(0.0, 1.0, colorPhase);
+    float phase2 = smoothstep(1.0, 2.0, colorPhase);
+    float phase3 = smoothstep(2.0, 3.0, colorPhase);
+
+    // Create smooth transitions between colors
+    if (colorPhase < 1.0) {
+        // Transition from color1 to color2
+        auroraColor = mix(color1, color2, phase1);
+    } else if (colorPhase < 2.0) {
+        // Transition from color2 to color3
+        auroraColor = mix(color2, color3, phase2);
+    } else {
+        // Transition from color3 back to color1 (brighter)
+        auroraColor = mix(color3, color1 * 1.3, phase3);
+    }
+
+    // Add some color variation based on position and time
+    float colorShift = sin(time * 0.5 + p.x * 2.0) * 0.1;
+    auroraColor.r += colorShift * 0.5;
+    auroraColor.g += colorShift * 0.3;
+    auroraColor.b -= colorShift * 0.2;
 
     // Add some brightness variation
     float brightness = 0.6 + 0.4 * sin(time * 2.0 + p.x * 2.0);
