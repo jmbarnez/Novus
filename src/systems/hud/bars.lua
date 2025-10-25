@@ -146,8 +146,8 @@ function HUDBars.drawAsteroidDurabilityBars(viewportWidth, viewportHeight)
             local canvasOffsetY = worldOffsetY * camera.zoom  -- convert to canvas units
 
             -- Position bars in canvas coordinates (since we're rendering to canvas)
-            local barWidth = 24
-            local barHeight = 3
+            local barWidth = 20
+            local barHeight = 2
             local x = canvasX - barWidth / 2
             local y = canvasY - canvasOffsetY
 
@@ -159,11 +159,16 @@ function HUDBars.drawAsteroidDurabilityBars(viewportWidth, viewportHeight)
             local outlineColor = PlasmaTheme.colors.outlineBlack
 
             BatchRenderer.queueRect(x, y, barWidth, barHeight, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 1)
-            local fillWidth = math.max(0, (barWidth - 2) * frac)
+            local hasPadding = barHeight > 3
+            local fillWidth = math.max(0, (hasPadding and (barWidth - 2) or barWidth) * frac)
             if fillWidth > 0 then
-                BatchRenderer.queueRect(x + 1, y + 1, fillWidth, barHeight - 2, fillColor[1], fillColor[2], fillColor[3], fillColor[4], 0)
+                local fillX = hasPadding and (x + 1) or x
+                local fillY = hasPadding and (y + 1) or y
+                local fillHeight = hasPadding and (barHeight - 2) or barHeight
+                BatchRenderer.queueRect(fillX, fillY, fillWidth, fillHeight, fillColor[1], fillColor[2], fillColor[3], fillColor[4], 0)
             end
-            BatchRenderer.queueRectLine(x, y, barWidth, barHeight, outlineColor[1], outlineColor[2], outlineColor[3], outlineColor[4], 2, 1)
+            local outlineWidth = hasPadding and 2 or 1
+            BatchRenderer.queueRectLine(x, y, barWidth, barHeight, outlineColor[1], outlineColor[2], outlineColor[3], outlineColor[4], outlineWidth, 1)
         end
     end
 end
