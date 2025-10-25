@@ -19,6 +19,7 @@ local currentLines = {}
 local currentTexts = {}
 local currentPolys = {}
 local currentCanvases = {}
+local circleOrder = {}
 
 -- Helper to create color key for batching
 local function colorKey(r, g, b, a)
@@ -36,6 +37,7 @@ function BatchRenderer.begin()
     for k in pairs(currentPolys) do currentPolys[k] = nil end
     for k in pairs(currentCanvases) do currentCanvases[k] = nil end
     for i = #rectOrder, 1, -1 do rectOrder[i] = nil end
+    for i = #circleOrder, 1, -1 do circleOrder[i] = nil end
 end
 
 -- Queue a filled rectangle
@@ -61,7 +63,10 @@ end
 -- Queue a filled circle
 function BatchRenderer.queueCircle(x, y, radius, r, g, b, a)
     local key = colorKey(r, g, b, a)
-    currentCircles[key] = currentCircles[key] or {fill={}, line={}}
+    if not currentCircles[key] then
+        currentCircles[key] = {fill={}, line={}}
+        circleOrder[#circleOrder + 1] = key
+    end
     table.insert(currentCircles[key].fill, {x=x, y=y, radius=radius})
 end
 
@@ -69,7 +74,10 @@ end
 function BatchRenderer.queueCircleLine(x, y, radius, r, g, b, a, lineWidth)
     lineWidth = lineWidth or 1
     local key = string.format("%s_w%.1f", colorKey(r, g, b, a), lineWidth)
-    currentCircles[key] = currentCircles[key] or {fill={}, line={}}
+    if not currentCircles[key] then
+        currentCircles[key] = {fill={}, line={}}
+        circleOrder[#circleOrder + 1] = key
+    end
     table.insert(currentCircles[key].line, {x=x, y=y, radius=radius, width=lineWidth})
 end
 
@@ -119,17 +127,36 @@ function BatchRenderer.flush()
         love.graphics.draw(item.canvas, item.x, item.y)
     end
 
-    -- Draw all filled circles (batched by color)
-    for key, circles in pairs(currentCircles) do
-        if #circles.fill > 0 then
-            local r, g, b, a = key:match("([^_]+)_([^_]+)_([^_]+)_([^_]+)")
-            love.graphics.setColor(tonumber(r), tonumber(g), tonumber(b), tonumber(a))
-            for _, circle in ipairs(circles.fill) do
-                love.graphics.circle("fill", circle.x, circle.y, circle.radius)
+    -- Draw all circles (filled and outlines) in queued order
+    for _, key in ipairs(circleOrder) do
+        local circles = currentCircles[key]
+        if circles then
+            if circles.fill and #circles.fill > 0 then
+                local r, g, b, a = key:match("([^_]+)_([^_]+)_([^_]+)_([^_]+)")
+                love.graphics.setColor(tonumber(r), tonumber(g), tonumber(b), tonumber(a))
+                for _, circle in ipairs(circles.fill) do
+                    love.graphics.circle("fill", circle.x, circle.y, circle.radius)
+                end
+            end
+
+            if circles.line and #circles.line > 0 then
+                local colorKeyPart = key:match("([^_]+_[^_]+_[^_]+_[^_]+)")
+                if colorKeyPart then
+                    local r, g, b, a = colorKeyPart:match("([^_]+)_([^_]+)_([^_]+)_([^_]+)")
+                    love.graphics.setColor(tonumber(r), tonumber(g), tonumber(b), tonumber(a))
+                else
+                    local r, g, b, a = key:match("([^_]+)_([^_]+)_([^_]+)_([^_]+)")
+                    love.graphics.setColor(tonumber(r), tonumber(g), tonumber(b), tonumber(a))
+                end
+
+                for _, circle in ipairs(circles.line) do
+                    love.graphics.setLineWidth(circle.width)
+                    love.graphics.circle("line", circle.x, circle.y, circle.radius)
+                end
             end
         end
     end
-    
+
     -- Draw all polygons (batched by color)
     for key, polys in pairs(currentPolys) do
         local r, g, b, a = key:match("([^_]+)_([^_]+)_([^_]+)_([^_]+)")
@@ -141,7 +168,7 @@ function BatchRenderer.flush()
         end
     end
     
-    -- Draw all lines (rectangles and circles) batched by color and width
+    -- Draw all lines (rectangles) batched by color and width
     for key, data in pairs(currentLines) do
         local colorWidth = key:match("([^_]+_[^_]+_[^_]+_[^_]+)_w")
         local r, g, b, a = colorWidth:match("([^_]+)_([^_]+)_([^_]+)_([^_]+)")
@@ -151,19 +178,7 @@ function BatchRenderer.flush()
             love.graphics.rectangle("line", rect.x, rect.y, rect.w, rect.h, rect.rounded, rect.rounded)
         end
     end
-    
-    -- Draw circle outlines
-    for key, circles in pairs(currentCircles) do
-        if #circles.line > 0 then
-            for _, circle in ipairs(circles.line) do
-                local r, g, b, a = key:match("([^_]+)_([^_]+)_([^_]+)_([^_]+)")
-                love.graphics.setColor(tonumber(r), tonumber(g), tonumber(b), tonumber(a))
-                love.graphics.setLineWidth(circle.width)
-                love.graphics.circle("line", circle.x, circle.y, circle.radius)
-            end
-        end
-    end
-    
+
     -- Draw all text (batched by font)
     for fontKey, batch in pairs(currentTexts) do
         love.graphics.setFont(batch.font)
@@ -189,6 +204,7 @@ function BatchRenderer.flush()
     for k in pairs(currentPolys) do currentPolys[k] = nil end
     for k in pairs(currentCanvases) do currentCanvases[k] = nil end
     for i = #rectOrder, 1, -1 do rectOrder[i] = nil end
+    for i = #circleOrder, 1, -1 do circleOrder[i] = nil end
 end
 
 return BatchRenderer
