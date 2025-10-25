@@ -6,6 +6,8 @@
 --   - FPS limit dropdown
 --   - Window mode dropdown
 --   - Resolution dropdown (when in windowed mode)
+--   - Audio volume sliders
+--   - Hotkey configuration
 --   - Exit game button
 
 local Constants = require('src.constants')
@@ -13,10 +15,14 @@ local WindowBase = require('src.ui.window_base')
 local Theme = require('src.ui.theme')
 local Scaling = require('src.scaling')
 local TimeManager = require('src.time_manager')
-local Dropdown = require('src.ui.dropdown')
-local Slider = require('src.ui.slider')
 local HotkeyConfig = require('src.hotkey_config')
 local DisplayManager = require('src.display_manager')
+
+-- Import settings panels
+local HotkeyConfigPanel = require('src.ui.settings.hotkey_config_panel')
+local AudioSettingsPanel = require('src.ui.settings.audio_settings_panel')
+local DisplaySettingsPanel = require('src.ui.settings.display_settings_panel')
+local ScrollHandler = require('src.ui.settings.scroll_handler')
 
 local SettingsWindow = WindowBase:new{
     width = 600,
@@ -24,36 +30,14 @@ local SettingsWindow = WindowBase:new{
     isOpen = false,
     animAlphaSpeed = 2.0,
     
-    -- Dropdown components
-    fpsDropdown = nil,
-    modeDropdown = nil,
-    resDropdown = nil,
-    -- Slider components
-    masterVolumeSlider = nil,
-    musicVolumeSlider = nil,
-    sfxVolumeSlider = nil,
+    -- Panel components
+    hotkeyPanel = nil,
+    audioPanel = nil,
+    displayPanel = nil,
+    scrollHandler = nil,
+    
     _exitBtn = nil,
     _initialized = false,
-    
-    -- Hotkey configuration
-    hotkeyButtons = {},
-    selectedHotkey = nil,
-    waitingForKey = false,
-    
-    -- Scrollable content
-    contentScrollY = 0,
-    maxScrollY = 0,
-    contentHeight = 0,
-    scrollBar = {
-        x = 0,
-        y = 0,
-        width = 12,
-        height = 0,
-        thumbHeight = 0,
-        thumbY = 0,
-        dragging = false,
-        dragOffset = 0
-    },
     
     -- Settings change tracking
     savedSettings = {}
@@ -102,12 +86,6 @@ function SettingsWindow:saveSettingsSnapshot()
             sfxVolume = SoundSystem.getVolume and SoundSystem.getVolume("sfx") or 100
         }
     }
-    
-    -- Save hotkey state
-    local hotkeys = HotkeyConfig.getAllHotkeys()
-    for i, hotkey in ipairs(hotkeys) do
-        self.savedSettings.hotkeys[hotkey.action] = HotkeyConfig.getHotkey(hotkey.action)
-    end
 end
 
 -- Close the window
@@ -248,34 +226,9 @@ function SettingsWindow:drawScrollBar(alpha)
 end
 
 
--- Initialize dropdowns on first draw
+-- Initialize panels on first draw
 function SettingsWindow:initialize()
     if self._initialized then return end
-    
-    -- Initialize scroll bar if not already done
-    if not self.scrollBar then
-        self.scrollBar = {
-            x = 0,
-            y = 0,
-            width = 12,
-            height = 0,
-            thumbHeight = 0,
-            thumbY = 0,
-            dragging = false,
-            dragOffset = 0
-        }
-    end
-    
-    -- Initialize scroll variables if not already done
-    if not self.contentScrollY then
-        self.contentScrollY = 0
-    end
-    if not self.maxScrollY then
-        self.maxScrollY = 0
-    end
-    if not self.contentHeight then
-        self.contentHeight = 0
-    end
     
     -- Save initial settings snapshot
     self:saveSettingsSnapshot()
@@ -402,92 +355,66 @@ end
 function SettingsWindow:initializeHotkeyButtons()
     self.hotkeyButtons = {}
     local hotkeys = HotkeyConfig.getAllHotkeys()
+    local buttonHeight = 20
+    local buttonSpacing = 5
+    local hotkeyLabelHeight = 12
+    local hotkeyButtonsHeight = #hotkeys * (buttonHeight + buttonSpacing) + hotkeyLabelHeight
     
-    -- Calculate total content height
-    -- Layout: Label (12px) + Control (24px) with 24px spacing between sections = 60px per section
+    -- Layout: FPS (60px) + Mode (60px) + Resolution (60px) + Audio (180px) + Hotkeys + bottom padding
     local fpsHeight = 60
     local modeHeight = 60
     local resHeight = 60
-    local audioHeight = 180  -- 3 audio sliders at 60px each
-    local hotkeyLabelHeight = 12
-    local buttonHeight = 20
-    local buttonSpacing = 5
-    local hotkeyButtonsHeight = #hotkeys * (buttonHeight + buttonSpacing) + hotkeyLabelHeight
+    local audioHeight = 180
+    local hotkeyStartY = 360  -- Start position for hotkey buttons
     local bottomPadding = 20
+    local contentHeight = hotkeyStartY + hotkeyButtonsHeight + bottomPadding
     
-    self.contentHeight = fpsHeight + modeHeight + resHeight + audioHeight + hotkeyButtonsHeight + bottomPadding
+    -- Initialize scroll handler
+    self.scrollHandler = ScrollHandler:new()
+    self.scrollHandler:initialize(self.position, self.width, self.height, contentHeight, function()
+        self:updatePanelPositions()
+    end)
     
-    -- Calculate scroll area dimensions
-    local topBarH = Theme.window.topBarHeight
-    local bottomBarH = Theme.window.bottomBarHeight
-    local contentAreaHeight = self.height - topBarH - 3 - 3 - bottomBarH  -- Available height for content (minus window borders)
+    -- Initialize display settings panel
+    self.displayPanel = DisplaySettingsPanel:new()
+    self.displayPanel:initialize({x = x, y = y}, dropdownWidth, function()
+        self:saveSettingsSnapshot()
+    end)
     
-    -- Calculate maximum scroll
-    self.maxScrollY = math.max(0, self.contentHeight - contentAreaHeight)
+    -- Initialize audio settings panel
+    self.audioPanel = AudioSettingsPanel:new()
+    self.audioPanel:initialize({x = x, y = y}, dropdownWidth, function()
+        self:saveSettingsSnapshot()
+    end)
     
-    -- Initialize scroll bar
-    self.scrollBar.x = self.position.x + self.width - 20
-    self.scrollBar.y = self.position.y + topBarH + 3
-    self.scrollBar.height = contentAreaHeight
-    if self.contentHeight > 0 then
-        self.scrollBar.thumbHeight = math.max(20, (contentAreaHeight / self.contentHeight) * contentAreaHeight)
-        -- Initialize thumb position
-        self.scrollBar.thumbY = self.scrollBar.y
-    else
-        self.scrollBar.thumbHeight = contentAreaHeight
-        self.scrollBar.thumbY = self.scrollBar.y
-    end
+    -- Initialize hotkey configuration panel
+    self.hotkeyPanel = HotkeyConfigPanel:new()
+    self.hotkeyPanel:initialize({x = x, y = y}, dropdownWidth, 0)  -- Will be updated in updatePanelPositions
     
-    for i, hotkey in ipairs(hotkeys) do
-        table.insert(self.hotkeyButtons, {
-            action = hotkey.action,
-            description = hotkey.description,
-            key = hotkey.key,
-            x = self.position.x + 30,
-            y = self.position.y + 420 + (i - 1) * (buttonHeight + buttonSpacing) - self.contentScrollY,
-            width = self.width - 80,  -- Leave space for scroll bar
-            height = buttonHeight
-        })
-    end
+    self._initialized = true
 end
 
--- Update dropdown positions to match current window position
-function SettingsWindow:updateDropdownPositions()
+-- Update panel positions for scrolling
+function SettingsWindow:updatePanelPositions()
     if not self._initialized or not self.position then return end
     
-    local x, y = self.position.x + 30, self.position.y + 60 - self.contentScrollY
+    local x, y = self.position.x + 30, self.position.y + 60
+    local scrollY = self.scrollHandler:getScrollY()
     
-    self.fpsDropdown.x = x
-    self.fpsDropdown.y = y
-    
-    self.modeDropdown.x = x
-    self.modeDropdown.y = y + 60
-    
-    self.resDropdown.x = x
-    self.resDropdown.y = y + 120
-    
-    -- Update audio slider positions
-    self.masterVolumeSlider.x = x
-    self.masterVolumeSlider.y = y + 180
-    
-    self.musicVolumeSlider.x = x
-    self.musicVolumeSlider.y = y + 240
-    
-    self.sfxVolumeSlider.x = x
-    self.sfxVolumeSlider.y = y + 300
-    
-    -- Update hotkey button positions
-    local buttonHeight = 20
-    local buttonSpacing = 5
-    for i, button in ipairs(self.hotkeyButtons) do
-        button.x = self.position.x + 30
-        button.y = self.position.y + 420 + (i - 1) * (buttonHeight + buttonSpacing) - self.contentScrollY
-        button.width = self.width - 80  -- Leave space for scroll bar
+    -- Update display panel positions
+    if self.displayPanel then
+        self.displayPanel:updatePositions({x = x, y = y}, scrollY)
     end
     
-    -- Update scroll bar position (will be updated in drawScrollBar)
-    self.scrollBar.x = self.position.x + self.width - 20
-    self.scrollBar.y = self.position.y + 20
+    -- Update audio panel positions
+    if self.audioPanel then
+        self.audioPanel:updatePositions({x = x, y = y}, scrollY)
+    end
+    
+    -- Update hotkey panel positions
+    if self.hotkeyPanel then
+        self.hotkeyPanel:updatePositions({x = x, y = y}, scrollY)
+    end
 end
 
 -- Toggle window open/close
@@ -499,54 +426,9 @@ function SettingsWindow:toggle()
     end
 end
 
--- Override setOpen to capture a downscaled snapshot for blur and to disable UI hotkeys
+-- Override setOpen
 function SettingsWindow:setOpen(state)
     WindowBase.setOpen(self, state)
-
-    -- When opening, capture a downscaled screenshot into a canvas to simulate blur
-    if state then
-        local w, h = Constants.getScreenWidth(), Constants.getScreenHeight()
-        -- Create a small canvas to draw a downscaled scene into (for cheap blur)
-        local downW = math.max(160, math.floor(w / 8))
-        local downH = math.max(90, math.floor(h / 8))
-        
-        -- Reuse existing canvas if dimensions haven't changed
-        if not self._blurCanvas or self._blurW ~= downW or self._blurH ~= downH then
-            -- Release old canvas if it exists
-            if self._blurCanvas then
-                self._blurCanvas:release()
-            end
-            self._blurCanvas = love.graphics.newCanvas(downW, downH)
-            self._blurW = downW
-            self._blurH = downH
-        end
-        
-        self._screenW = w
-        self._screenH = h
-        
-        -- Copy the game's main canvas into the small canvas scaled down
-        local ECS = require('src.ecs')
-        local canvasEntities = ECS.getEntitiesWith({"Canvas"})
-        if #canvasEntities > 0 then
-            local canvasComp = ECS.getComponent(canvasEntities[1], "Canvas")
-            if canvasComp and canvasComp.canvas then
-                love.graphics.push()
-                love.graphics.origin()
-                love.graphics.setCanvas(self._blurCanvas)
-                love.graphics.clear()
-                love.graphics.origin()
-                -- Draw the main canvas scaled down into the small canvas
-                love.graphics.setShader()
-                love.graphics.setColor(1,1,1,1)
-                love.graphics.draw(canvasComp.canvas, 0, 0, 0, downW / canvasComp.width, downH / canvasComp.height)
-                love.graphics.setCanvas()
-                love.graphics.pop()
-            end
-        end
-    else
-        -- On close, keep canvas for reuse (will be released on dimension change or cleanup)
-        -- Don't set to nil to allow reuse on next open
-    end
 end
 
 -- Get window open state
@@ -558,28 +440,9 @@ end
 function SettingsWindow:draw()
     if not self.isOpen or not self.position then return end
     
-    -- Draw blurred background (use captured downscaled canvas if available)
-    if self._blurCanvas then
-        love.graphics.push()
-        -- Ensure smooth scaling
-        self._blurCanvas:setFilter('linear', 'linear')
-        local cw, ch = self._blurCanvas:getWidth(), self._blurCanvas:getHeight()
-        local sw, sh = love.graphics.getDimensions()
-        local sx = sw / cw
-        local sy = sh / ch
-        -- Draw the downscaled canvas stretched up once
-        love.graphics.setShader()
-        love.graphics.setColor(1, 1, 1, 1 * self.animAlpha)
-        love.graphics.draw(self._blurCanvas, 0, 0, 0, sx, sy)
-        -- Overlay a subtle dark tint to maintain readability
-        love.graphics.setColor(0, 0, 0, 0.35 * self.animAlpha)
-        love.graphics.rectangle('fill', 0, 0, sw, sh)
-        love.graphics.pop()
-    else
-        -- Fallback to semi-transparent glass
+    -- Draw semi-transparent background overlay
         love.graphics.setColor(0, 0, 0, 0.3 * self.animAlpha)
         love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
-    end
     
     WindowBase.draw(self)
     
@@ -587,7 +450,7 @@ function SettingsWindow:draw()
     local alpha = self.animAlpha
     
     self:initialize()
-    self:updateDropdownPositions()
+    self:updatePanelPositions()
     
     -- Title (always visible at top)
     love.graphics.setFont(Theme.getFontBold(Theme.fonts.title))
@@ -603,43 +466,36 @@ function SettingsWindow:draw()
     
     love.graphics.setScissor(contentAreaX, contentAreaY, contentAreaW, contentAreaH)
     
-    -- Labels (draw BEFORE dropdowns so they don't overlap)
+    -- Labels (draw BEFORE panels so they don't overlap)
     love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
     love.graphics.setColor(Theme.colors.textAccent)
     
-    love.graphics.print("FPS Limit:", x + 30, y + 42 - self.contentScrollY)
-    love.graphics.print("Window Mode:", x + 30, y + 102 - self.contentScrollY)
-    love.graphics.print("Resolution:", x + 30, y + 162 - self.contentScrollY)
-    love.graphics.print("Master Volume:", x + 30, y + 222 - self.contentScrollY)
-    love.graphics.print("Music Volume:", x + 30, y + 282 - self.contentScrollY)
-    love.graphics.print("SFX Volume:", x + 30, y + 342 - self.contentScrollY)
-    love.graphics.print("Hotkeys:", x + 30, y + 402 - self.contentScrollY)
+    local scrollY = self.scrollHandler:getScrollY()
+    love.graphics.print("FPS Limit:", x + 30, y + 42 - scrollY)
+    love.graphics.print("Window Mode:", x + 30, y + 102 - scrollY)
+    love.graphics.print("Resolution:", x + 30, y + 162 - scrollY)
+    love.graphics.print("Master Volume:", x + 30, y + 222 - scrollY)
+    love.graphics.print("Music Volume:", x + 30, y + 282 - scrollY)
+    love.graphics.print("SFX Volume:", x + 30, y + 342 - scrollY)
+    love.graphics.print("Hotkeys:", x + 30, y + 362 - scrollY)
     
-    -- Draw hotkey buttons (inside scissor region)
-    self:drawHotkeyButtons(alpha)
-    
-    -- Draw closed dropdown buttons first (inside scissor region)
-    self.fpsDropdown:drawClosed(alpha)
-    self.modeDropdown:drawClosed(alpha)
-    self.resDropdown:drawClosed(alpha)
-    
-    -- Draw audio sliders (inside scissor region)
-    self.masterVolumeSlider:draw(alpha)
-    self.musicVolumeSlider:draw(alpha)
-    self.sfxVolumeSlider:draw(alpha)
+    -- Draw panels (inside scissor region)
+    if self.displayPanel then
+        self.displayPanel:draw(alpha)
+    end
+    if self.audioPanel then
+        self.audioPanel:draw(alpha)
+    end
+    if self.hotkeyPanel then
+        self.hotkeyPanel:draw(alpha)
+    end
     
     -- Disable scissor to draw dropdown menus outside clipping area
     love.graphics.setScissor()
     
     -- Draw open dropdown menus LAST so they render on top of everything else (without clipping)
-    if self.fpsDropdown.isOpen then
-        self.fpsDropdown:drawOpen(alpha)
-    end
-    if self.modeDropdown.isOpen then
-        self.modeDropdown:drawOpen(alpha)
-    end
-    if self.resDropdown.isOpen then
-        self.resDropdown:drawOpen(alpha)
+    if self.displayPanel then
+        self.displayPanel:drawOpen(alpha)
     end
     
     -- Disable scissor
@@ -668,7 +524,9 @@ function SettingsWindow:draw()
     self:drawCloseButton(x, y, alpha)
     
     -- Draw scroll bar (outside scissor, positioned on the side)
-    self:drawScrollBar(alpha)
+    if self.scrollHandler then
+        self.scrollHandler:draw(alpha)
+    end
 end
 
 -- Mouse input
@@ -678,12 +536,21 @@ function SettingsWindow:mousepressed(mx, my, button)
     if not self.isOpen then return end
     
     self:initialize()
-    self:updateDropdownPositions()
+    self:updatePanelPositions()
     
-    -- Convert screen coordinates to UI coordinates
-    local uiMx, uiMy = mx, my
+    -- FIRST: Check for top bar dragging (must be before other checks)
+    -- WindowBase handles its own coordinate conversion internally
+    if WindowBase.mousepressed(self, mx, my, button) then
+        return true
+    end
     
-    -- Check Exit to Main Menu button FIRST (before any scrollable content)
+    -- Convert screen coordinates to UI coordinates for UI element checks
+    local uiMx, uiMy = Scaling.toUI(mx, my)
+    
+    -- Debug coordinate conversion (remove in production)
+    -- print(string.format("Settings Mouse: raw(%d,%d) -> UI(%.1f,%.1f)", mx, my, uiMx, uiMy))
+    
+    -- Check Exit to Main Menu button (before any scrollable content)
     -- This prevents click-through to content behind it
     if self._exitBtn and uiMx >= self._exitBtn.x and uiMx <= self._exitBtn.x + self._exitBtn.w and
        uiMy >= self._exitBtn.y and uiMy <= self._exitBtn.y + self._exitBtn.h then
@@ -708,115 +575,29 @@ function SettingsWindow:mousepressed(mx, my, button)
     end
     
     -- Check scroll bar BEFORE content (to prevent click-through)
-    if self:handleScrollBarClick(uiMx, uiMy) then return true end
+    if self.scrollHandler and self.scrollHandler:handleScrollBarClick(uiMx, uiMy) then return true end
     
-    -- Try dropdowns (these can extend outside the content area when open)
-    if self.fpsDropdown and self.fpsDropdown:mousepressed(uiMx, uiMy) then return true end
-    if self.modeDropdown and self.modeDropdown:mousepressed(uiMx, uiMy) then return true end
-    if self.resDropdown and self.resDropdown:mousepressed(uiMx, uiMy) then return true end
+    -- Try display panel dropdowns (these can extend outside the content area when open)
+    if self.displayPanel and self.displayPanel:mousepressed(uiMx, uiMy) then return true end
     
-    -- Try sliders (in scrollable content)
-    if self.masterVolumeSlider and self.masterVolumeSlider:mousepressed(uiMx, uiMy, button) then 
-        return true
-    end
-    if self.musicVolumeSlider and self.musicVolumeSlider:mousepressed(uiMx, uiMy, button) then 
-        return true
-    end
-    if self.sfxVolumeSlider and self.sfxVolumeSlider:mousepressed(uiMx, uiMy, button) then 
-        return true
-    end
+    -- Try audio panel sliders (in scrollable content)
+    if self.audioPanel and self.audioPanel:mousepressed(uiMx, uiMy, button) then return true end
     
-    -- Try hotkey buttons (in scrollable content)
-    if self:handleHotkeyButtonClick(uiMx, uiMy) then return true end
+    -- Try hotkey panel buttons (in scrollable content)
+    if self.hotkeyPanel and self.hotkeyPanel:handleClick(uiMx, uiMy) then return true end
     
     -- Check if clicking on the window itself (to capture and prevent click-through)
     if uiMx >= self.position.x and uiMx <= self.position.x + self.width and
        uiMy >= self.position.y and uiMy <= self.position.y + self.height then
         return true
     end
-    
-    WindowBase.mousepressed(self, mx, my, button)
-end
-
--- Handle scroll bar clicks
-function SettingsWindow:handleScrollBarClick(mx, my)
-    if not self.scrollBar then return false end
-    
-    local sb = self.scrollBar
-    if mx >= sb.x and mx <= sb.x + sb.width and
-       my >= sb.y and my <= sb.y + sb.height then
-        
-        if my >= sb.thumbY and my <= sb.thumbY + sb.thumbHeight then
-            -- Start dragging scroll bar thumb
-            self.scrollBar.dragging = true
-            self.scrollBar.dragOffset = my - sb.thumbY
-            return true
-        else
-            -- Click on scroll bar track - jump to position
-            local relativeY = my - sb.y
-            local scrollRatio = relativeY / sb.height
-            self.contentScrollY = scrollRatio * self.maxScrollY
-            self:updateScroll(0) -- Update positions
-            return true
-        end
-    end
-    
-    return false
-end
-
--- Handle hotkey button clicks
-function SettingsWindow:handleHotkeyButtonClick(mx, my)
-    if not self.hotkeyButtons then return false end
-    
-    -- Check hotkey buttons
-    for i, button in ipairs(self.hotkeyButtons) do
-        if mx >= button.x and mx <= button.x + button.width and
-           my >= button.y and my <= button.y + button.height then
-            
-            if self.waitingForKey then
-                -- Cancel key assignment
-                self.waitingForKey = false
-                self.selectedHotkey = nil
-            else
-                -- Start waiting for key
-                self.waitingForKey = true
-                self.selectedHotkey = button.action
-            end
-            return true
-        end
-    end
-    
-    return false
 end
 
 -- Handle key input for hotkey assignment
 function SettingsWindow:keypressed(key)
-    if self.waitingForKey and self.selectedHotkey then
-        -- Check if key is already mapped to another action
-        local existingAction = HotkeyConfig.getActionForKey(key)
-        if existingAction and existingAction ~= self.selectedHotkey then
-            -- Swap the keys
-            local oldKey = HotkeyConfig.getHotkey(self.selectedHotkey)
-            HotkeyConfig.setHotkey(existingAction, oldKey)
-        end
-        
-        -- Set the new key
-        HotkeyConfig.setHotkey(self.selectedHotkey, key)
-        
-        -- Update button display
-        for i, button in ipairs(self.hotkeyButtons) do
-            if button.action == self.selectedHotkey then
-                button.key = key
-                break
-            end
-        end
-        
+    if self.hotkeyPanel and self.hotkeyPanel:handleKeyPress(key) then
         -- Auto-save settings
         self:saveSettingsSnapshot()
-        
-        -- Stop waiting
-        self.waitingForKey = false
-        self.selectedHotkey = nil
         return true
     end
     
@@ -824,48 +605,33 @@ function SettingsWindow:keypressed(key)
 end
 
 function SettingsWindow:mousereleased(mx, my, button)
-    -- Stop scroll bar dragging
-    if self.scrollBar and self.scrollBar.dragging then
-        self.scrollBar.dragging = false
-        return true
-    end
+    -- Handle scroll bar mouse release
+    if self.scrollHandler and self.scrollHandler:mousereleased(mx, my, button) then return true end
     
     self:initialize()
-    self:updateDropdownPositions()
+    self:updatePanelPositions()
     
     -- Convert screen coordinates to UI coordinates
-    local uiMx, uiMy = mx, my
+    local uiMx, uiMy = Scaling.toUI(mx, my)
     
-    -- Handle slider mouse release (use raw UI coordinates)
-    if self.masterVolumeSlider and self.masterVolumeSlider:mousereleased(uiMx, uiMy, button) then return true end
-    if self.musicVolumeSlider and self.musicVolumeSlider:mousereleased(uiMx, uiMy, button) then return true end
-    if self.sfxVolumeSlider and self.sfxVolumeSlider:mousereleased(uiMx, uiMy, button) then return true end
+    -- Handle audio panel mouse release
+    if self.audioPanel and self.audioPanel:mousereleased(uiMx, uiMy, button) then return true end
     
     WindowBase.mousereleased(self, mx, my, button)
 end
 
 function SettingsWindow:mousemoved(mx, my, dx, dy)
     self:initialize()
-    self:updateDropdownPositions()
+    self:updatePanelPositions()
     
     -- Handle scroll bar dragging
-    if self.scrollBAr and self.scrollBar.dragging then
-        local sb = self.scrollBar
-        local newThumbY = my - sb.dragOffset
-        local relativeY = newThumbY - sb.y
-        local scrollRatio = math.max(0, math.min(1, relativeY / (sb.height - sb.thumbHeight)))
-        self.contentScrollY = scrollRatio * self.maxScrollY
-        self:updateScroll(0) -- Update positions
-        return true
-    end
+    if self.scrollHandler and self.scrollHandler:mousemoved(mx, my, dx, dy) then return true end
     
     -- Convert screen coordinates to UI coordinates
-    local uiMx, uiMy = mx, my
+    local uiMx, uiMy = Scaling.toUI(mx, my)
     
-    -- Handle slider mouse move (use raw UI coordinates)
-    if self.masterVolumeSlider and self.masterVolumeSlider:mousemoved(uiMx, uiMy, dx, dy) then return true end
-    if self.musicVolumeSlider and self.musicVolumeSlider:mousemoved(uiMx, uiMy, dx, dy) then return true end
-    if self.sfxVolumeSlider and self.sfxVolumeSlider:mousemoved(uiMx, uiMy, dx, dy) then return true end
+    -- Handle audio panel mouse move
+    if self.audioPanel and self.audioPanel:mousemoved(uiMx, uiMy, dx, dy) then return true end
     
     WindowBase.mousemoved(self, mx, my, dx, dy)
 end
@@ -878,7 +644,10 @@ function SettingsWindow:wheelmoved(x, y)
     local mx, my = Scaling.toUI(love.mouse.getPosition())
     if mx >= self.position.x and mx <= self.position.x + self.width and
        my >= self.position.y and my <= self.position.y + self.height then
-        self:updateScroll(-y)  -- Invert scroll direction
+        if self.scrollHandler then
+            self.scrollHandler:updateScroll(-y)  -- Invert scroll direction
+            -- Panel positions will be updated automatically via callback
+        end
         return true
     end
     
