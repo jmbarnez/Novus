@@ -107,8 +107,24 @@ end
 
 function Core.onResize(w, h)
     Scaling.update()
+
+    -- Update UI system
     if UISystem and UISystem.onResize then
         UISystem.onResize(w, h)
+    end
+
+    -- Update camera system
+    local CameraSystem = require('src.systems.camera')
+    if CameraSystem and CameraSystem.onResize then
+        CameraSystem.onResize(w, h)
+    end
+
+    -- Update any other systems that have onResize functions
+    local Systems = require('src.systems')
+    for systemName, system in pairs(Systems) do
+        if system.onResize and systemName ~= "UISystem" and systemName ~= "CameraSystem" then
+            system.onResize(w, h)
+        end
     end
 end
 

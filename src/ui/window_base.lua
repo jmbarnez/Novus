@@ -69,12 +69,26 @@ function WindowBase:onResize(screenW, screenH)
     if not self.position then return end
     local uiWidth = Scaling.getCurrentWidth()
     local uiHeight = Scaling.getCurrentHeight()
+
+    -- Always re-center auto-centered windows that haven't been manually moved
     if self.autoCenter and not self.userMoved then
         self:centerOnScreen(uiWidth, uiHeight)
         return
     end
+
+    -- For manually positioned windows, check if they're still valid
     local maxX = math.max(0, uiWidth - (self.width or 0))
     local maxY = math.max(0, uiHeight - (self.height or 0))
+
+    -- If window is completely off-screen or in an invalid position, re-center it
+    if self.position.x > maxX or self.position.y > maxY or
+       self.position.x < -self.width * 0.5 or self.position.y < -self.height * 0.5 then
+        self:centerOnScreen(uiWidth, uiHeight)
+        self.userMoved = false -- Reset userMoved since we're auto-repositioning
+        return
+    end
+
+    -- Otherwise, just clamp to valid bounds
     self.position.x = math.max(0, math.min(self.position.x or 0, maxX))
     self.position.y = math.max(0, math.min(self.position.y or 0, maxY))
 end

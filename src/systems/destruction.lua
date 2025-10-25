@@ -180,12 +180,21 @@ function DestructionSystem.update(dt)
                     -- Determine item type and base count
                     local itemType = "stone"
                     local baseCount = math.random(8, 15)
-                    
-                    if asteroid.asteroidType == "iron" then
+
+                    if asteroid.asteroidType == "crystal" then
+                        itemType = "crystal"
+                        baseCount = math.random(3, 6)  -- Crystals are rarer, so fewer drop
+                    elseif asteroid.asteroidType == "iron" then
                         itemType = "iron"
+                        baseCount = math.random(6, 12)  -- Iron gives good yield
                     end
 
-                    -- Crystal formations are now separate attached entities; asteroid itself does not directly spawn crystals
+                    -- Crystal asteroids may also drop some stone fragments
+                    if asteroid.asteroidType == "crystal" and math.random() < 0.3 then
+                        DestructionSystem.spawnItems(pos.x + math.random(-10, 10), pos.y + math.random(-10, 10), {
+                            {itemId = "stone", count = math.random(2, 4)}
+                        })
+                    end
                     
                     -- Size bonus: Larger asteroids give more resources
                     local sizeMultiplier = 1.0 + (parentSize / 100)  -- +1% per radius unit

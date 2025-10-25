@@ -1,5 +1,13 @@
--- Asteroid Cluster Respawning System
+-- Enhanced Asteroid Cluster Respawning System
 -- Manages asteroid clusters with automatic respawning when asteroids are destroyed
+--
+-- Features:
+-- - Three asteroid types: Stone (50%), Iron (35%), Crystal (15%)
+-- - Enhanced visual design with realistic colors and multi-layer rendering
+-- - Crystal asteroids have animated sparkle effects and glow
+-- - Varied physics properties based on asteroid type
+-- - Enhanced XP rewards for rare asteroid types
+-- - Realistic mineral-based color variations for stone asteroids
 
 local Constants = require('src.constants')
 local ECS = require('src.ecs')
@@ -190,7 +198,7 @@ function AsteroidClusters.createAsteroid(x, y)
 
     ECS.addComponent(asteroidId, "Asteroid", Components.Asteroid(asteroidType, crystalFormation, xpReward))
 
-    -- Enhanced colors and textures for different asteroid types
+    -- Enhanced colors for different asteroid types
     local baseColor, accentColor, shadowColor
 
     if asteroidType == "crystal" then
@@ -238,7 +246,8 @@ function AsteroidClusters.createAsteroid(x, y)
     end
 
     -- Enhanced renderable with multi-layer coloring for depth
-    ECS.addComponent(asteroidId, "Renderable", Components.Renderable("polygon", nil, nil, nil, baseColor, {
+    ECS.addComponent(asteroidId, "Renderable", Components.Renderable("polygon", nil, nil, nil, {
+        stripes = baseColor,
         accent = accentColor,
         shadow = shadowColor,
         detail = asteroidType == "crystal" and {1, 1, 1, 0.3} or {0.8, 0.8, 0.8, 0.4}
@@ -317,6 +326,7 @@ function AsteroidClusters.update(dt)
                         end
                         
                         if validPosition then
+                            -- Respawn asteroids maintain the same type distribution as initial spawn
                             local newAsteroidId = AsteroidClusters.createAsteroid(x, y)
                             if newAsteroidId then
                                 table.insert(cluster.asteroids, newAsteroidId)

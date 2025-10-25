@@ -67,6 +67,11 @@ function RenderCanvas.setRenderResolution(newWidth, newHeight)
     RenderCanvas.resizeCanvas()
 end
 
+function RenderCanvas.onResize(screenW, screenH)
+    -- Update canvas dimensions when screen resolution changes
+    RenderCanvas.resizeCanvas()
+end
+
 function RenderCanvas.finalizeCanvas(canvasComp)
     if not canvasComp or not canvasComp.canvas then return end
 
