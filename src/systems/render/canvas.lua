@@ -1,116 +1,154 @@
--- Render Canvas Module - Handles canvas setup, shader effects, and final rendering
+-- Render Canvas Module - Handles canvas setup, shader effects, and final presentation
 
 local ECS = require('src.ecs')
 local CameraUtils = require('src.camera_utils')
 local ShaderManager = require('src.shader_manager')
 local Scaling = require('src.scaling')
+local DisplayManager = require('src.display_manager')
 
 local RenderCanvas = {}
 
-function RenderCanvas.setupCanvas()
+local postProcess = {
+    canvas = nil,
+    width = 0,
+    height = 0
+}
+
+local function getCanvasComponent()
     local canvasEntities = ECS.getEntitiesWith({"Canvas"})
-    if #canvasEntities == 0 then return nil end
+    if #canvasEntities == 0 then
+        return nil
+    end
     local canvasId = canvasEntities[1]
-    local canvasComp = ECS.getComponent(canvasId, "Canvas")
-    if not canvasComp or not canvasComp.canvas or not canvasComp.width or not canvasComp.height then return nil end
+    return ECS.getComponent(canvasId, "Canvas")
+end
 
+local function ensureCanvasSize(canvasComp, width, height)
+    if not canvasComp or not width or not height then
+        return
+    end
+    if canvasComp.width ~= width or canvasComp.height ~= height then
+        local Components = require('src/components')
+        Components.resizeCanvas(canvasComp, width, height)
+    end
+end
+
+local function syncCameraViewport(width, height)
+    local cameraEntities = ECS.getEntitiesWith({"Camera"})
+    if #cameraEntities == 0 then
+        return
+    end
+    local cameraId = cameraEntities[1]
+    local cameraComp = ECS.getComponent(cameraId, "Camera")
+    if cameraComp then
+        cameraComp.width = width
+        cameraComp.height = height
+    end
+end
+
+local function ensurePostProcessCanvas(width, height)
+    if not ShaderManager.isCelShadingEnabled() then
+        return nil
+    end
+    if not postProcess.canvas or postProcess.width ~= width or postProcess.height ~= height then
+        if postProcess.canvas then
+            postProcess.canvas:release()
+        end
+        postProcess.canvas = love.graphics.newCanvas(width, height)
+        postProcess.width = width
+        postProcess.height = height
+        ShaderManager.setScreenSize(width, height)
+    end
+    return postProcess.canvas
+end
+
+function RenderCanvas.setupCanvas()
+    local canvasComp = getCanvasComponent()
+    if not canvasComp or not canvasComp.canvas then
+        return nil
+    end
+
+    local renderWidth, renderHeight = DisplayManager.getRenderDimensions()
+    ensureCanvasSize(canvasComp, renderWidth, renderHeight)
+    syncCameraViewport(renderWidth, renderHeight)
+
+    love.graphics.push('all')
     love.graphics.setCanvas(canvasComp.canvas)
-    love.graphics.clear()
-
-    -- Pure black space background (realistic deep space)
+    love.graphics.origin()
     love.graphics.setColor(0, 0, 0, 1)
-    love.graphics.rectangle("fill", 0, 0, canvasComp.width, canvasComp.height)
+    love.graphics.clear(0, 0, 0, 1)
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setBlendMode('alpha')
 
-    -- no special nebula canvas here; parallax handles nebula rendering directly
     return canvasComp
 end
 
--- Resize the main canvas to match current window resolution
 function RenderCanvas.resizeCanvas()
-    local canvasEntities = ECS.getEntitiesWith({"Canvas"})
-    if #canvasEntities == 0 then return end
-
-    local canvasId = canvasEntities[1]
-    local canvasComp = ECS.getComponent(canvasId, "Canvas")
-
-    if canvasComp then
-        local Constants = require('src.constants')
-        local newWidth = Constants.getScreenWidth()
-        local newHeight = Constants.getScreenHeight()
-
-        -- Only resize if dimensions actually changed
-        if canvasComp.width ~= newWidth or canvasComp.height ~= newHeight then
-            local Components = require('src/components')
-            Components.resizeCanvas(canvasComp, newWidth, newHeight)
-        end
+    local canvasComp = getCanvasComponent()
+    if not canvasComp then
+        return
     end
 
-    -- Also update camera viewport dimensions
-    local cameraEntities = ECS.getEntitiesWith({"Camera"})
-    if #cameraEntities > 0 then
-        local cameraId = cameraEntities[1]
-        local cameraComp = ECS.getComponent(cameraId, "Camera")
-        if cameraComp then
-            local Constants = require('src.constants')
-            cameraComp.width = Constants.getScreenWidth()
-            cameraComp.height = Constants.getScreenHeight()
-        end
-    end
+    local renderWidth, renderHeight = DisplayManager.getRenderDimensions()
+    ensureCanvasSize(canvasComp, renderWidth, renderHeight)
+    syncCameraViewport(renderWidth, renderHeight)
 end
 
 function RenderCanvas.finalizeCanvas(canvasComp)
-    CameraUtils.resetTransform()
-
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.setCanvas()
-
-    -- Clear the screen
-    love.graphics.clear(0, 0, 0, 1)
-
-    local w, h = love.graphics.getDimensions()
-    
-    local scaleX = w / canvasComp.width
-    local scaleY = h / canvasComp.height
-
-    canvasComp.offsetX = 0
-    canvasComp.offsetY = 0
-    canvasComp.scaleX = scaleX
-    canvasComp.scaleY = scaleY
-    canvasComp.scale = scaleX
-    Scaling.setCanvasTransform(0, 0, scaleX, scaleY)
-
-    -- Create or reuse post-processing canvas for shader effects
-    if not _G.postProcessCanvas or _G.postProcessCanvasWidth ~= w or _G.postProcessCanvasHeight ~= h then
-        -- Release old post-process canvas if it exists
-        if _G.postProcessCanvas then
-            _G.postProcessCanvas:release()
-        end
-        _G.postProcessCanvas = love.graphics.newCanvas(w, h)
-        _G.postProcessCanvasWidth = w
-        _G.postProcessCanvasHeight = h
-        -- Only update shader screen size when dimensions actually change
-        if ShaderManager.isCelShadingEnabled() then
-            ShaderManager.setScreenSize(w, h)
-        end
+    if not canvasComp or not canvasComp.canvas then
+        return
     end
 
-    -- Apply shader effect to game canvas and render to post-process canvas
-    if ShaderManager.isCelShadingEnabled() then
-        -- Update shader time for animated effects (waves, pulse, etc.)
-        ShaderManager.updateTime()
-        -- Render main canvas through cel shader into post-process canvas
-        love.graphics.setShader(ShaderManager.getCelShader())
-        love.graphics.setCanvas(_G.postProcessCanvas)
-        love.graphics.clear(0, 0, 0, 0)
-        love.graphics.draw(canvasComp.canvas, 0, 0, 0, scaleX, scaleY)
-        love.graphics.setShader()
-        love.graphics.setCanvas()
+    -- Restore any remaining camera transforms and canvas state before drawing to screen
+    CameraUtils.resetTransform()
+    love.graphics.pop()
 
-        -- Draw the processed (shaded) main canvas stretched to the window
-        love.graphics.draw(_G.postProcessCanvas, 0, 0)
+    love.graphics.push('all')
+    love.graphics.setCanvas()
+    love.graphics.clear(0, 0, 0, 1)
+    love.graphics.origin()
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setBlendMode('alpha')
+
+    local windowWidth, windowHeight = DisplayManager.getWindowDimensions()
+    local renderWidth, renderHeight = canvasComp.width, canvasComp.height
+    local scaleX = windowWidth / renderWidth
+    local scaleY = windowHeight / renderHeight
+    local offsetX, offsetY = 0, 0
+
+    canvasComp.offsetX = offsetX
+    canvasComp.offsetY = offsetY
+    canvasComp.scaleX = scaleX
+    canvasComp.scaleY = scaleY
+    canvasComp.scale = math.min(scaleX, scaleY)
+
+    Scaling.setCanvasTransform(offsetX, offsetY, scaleX, scaleY)
+
+    if ShaderManager.isCelShadingEnabled() then
+        ShaderManager.updateTime()
+        local postCanvas = ensurePostProcessCanvas(windowWidth, windowHeight)
+        if postCanvas then
+            love.graphics.setShader(ShaderManager.getCelShader())
+            love.graphics.setCanvas(postCanvas)
+            love.graphics.clear(0, 0, 0, 0)
+            love.graphics.draw(canvasComp.canvas, offsetX, offsetY, 0, scaleX, scaleY)
+            love.graphics.setShader()
+            love.graphics.setCanvas()
+            love.graphics.draw(postCanvas, 0, 0)
+        end
     else
-        -- No post-processing: just draw main canvas directly
-        love.graphics.draw(canvasComp.canvas, 0, 0, 0, scaleX, scaleY)
+        love.graphics.draw(canvasComp.canvas, offsetX, offsetY, 0, scaleX, scaleY)
+    end
+
+    love.graphics.pop()
+end
+
+function RenderCanvas.release()
+    if postProcess.canvas then
+        postProcess.canvas:release()
+        postProcess.canvas = nil
+        postProcess.width = 0
+        postProcess.height = 0
     end
 end
 

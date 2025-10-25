@@ -2,8 +2,37 @@
 
 local Constants = {}
 
+local cachedDisplayManager = nil
+
+local function getDisplayManager()
+    if cachedDisplayManager == false then
+        return nil
+    end
+    if not cachedDisplayManager then
+        local ok, manager = pcall(require, 'src.display_manager')
+        if ok then
+            cachedDisplayManager = manager
+        else
+            cachedDisplayManager = false
+        end
+    end
+    if cachedDisplayManager == false then
+        return nil
+    end
+    return cachedDisplayManager
+end
+
 -- Dynamic screen dimensions - get current window resolution
 function Constants.getScreenWidth()
+    local DisplayManager = getDisplayManager()
+    if DisplayManager and DisplayManager.getWindowDimensions then
+        local w = DisplayManager.getWindowDimensions()
+        if type(w) == 'number' then
+            return w
+        end
+        local width, _ = DisplayManager.getWindowDimensions()
+        if width then return width end
+    end
     if love and love.graphics and love.graphics.getWidth then
         return love.graphics.getWidth()
     end
@@ -11,8 +40,35 @@ function Constants.getScreenWidth()
 end
 
 function Constants.getScreenHeight()
+    local DisplayManager = getDisplayManager()
+    if DisplayManager and DisplayManager.getWindowDimensions then
+        local _, h = DisplayManager.getWindowDimensions()
+        if h then return h end
+    end
     if love and love.graphics and love.graphics.getHeight then
         return love.graphics.getHeight()
+    end
+    return Constants.screen_height
+end
+
+function Constants.getRenderWidth()
+    local DisplayManager = getDisplayManager()
+    if DisplayManager and DisplayManager.getRenderDimensions then
+        local w = DisplayManager.getRenderDimensions()
+        if type(w) == 'number' then
+            return w
+        end
+        local width, _ = DisplayManager.getRenderDimensions()
+        if width then return width end
+    end
+    return Constants.screen_width
+end
+
+function Constants.getRenderHeight()
+    local DisplayManager = getDisplayManager()
+    if DisplayManager and DisplayManager.getRenderDimensions then
+        local _, h = DisplayManager.getRenderDimensions()
+        if h then return h end
     end
     return Constants.screen_height
 end
