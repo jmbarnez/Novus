@@ -2,8 +2,21 @@
 -- Start screen module
 
 local Constants = require('src.constants')
+local Theme = require('src.ui.theme')
+local ShaderManager = require('src.shader_manager')
 local start_screen = {}
 
+-- Aurora colors for the shader
+local auroraColors = {
+    {0.2, 0.9, 0.4}, -- bright green
+    {0.4, 0.8, 0.9}, -- teal
+    {0.6, 0.3, 0.8}, -- purple
+    {0.9, 0.2, 0.7}, -- magenta
+    {0.3, 0.6, 0.9}, -- blue
+    {0.8, 0.6, 0.2}, -- orange
+    {0.5, 0.9, 0.6}, -- light green
+    {0.7, 0.4, 0.9}, -- violet
+}
 
 -- Comet parameters
 local cometCount = 4
@@ -71,8 +84,6 @@ function start_screen.update(dt)
         end
     end
 end
-local Constants = require('src.constants')
-local Theme = require('src.ui.theme')
 
 local title = "Novus"
 local buttonText = "New Game"
@@ -108,15 +119,6 @@ for i = 1, starCount do
 end
 
     -- Twinkling stars don't need update
-
--- Aurora color gradient for the title
-local auroraColors = {
-    {0.3, 0.8, 1.0}, -- cyan
-    {0.6, 1.0, 0.7}, -- green
-    {1.0, 0.7, 0.9}, -- pink
-    {0.7, 0.9, 1.0}, -- blue
-    {0.9, 1.0, 0.6}, -- yellow-green
-}
 
 function start_screen.draw()
     love.graphics.clear(0, 0, 0)
@@ -160,23 +162,45 @@ function start_screen.draw()
         end
     end
 
-    -- Draw title with aurora effect per letter
-    local font = Theme.getFontBold(96)
+    -- Draw title with aurora shader effect
+    local font = Theme.getFontBold(192)
     love.graphics.setFont(font)
     local titleText = title
     local titleWidth = font:getWidth(titleText)
     local titleX = width/2 - titleWidth/2
-    local titleY = height * 0.28
-    local t = love.timer.getTime()
-    local x = titleX
-    for i = 1, #titleText do
-        local letter = titleText:sub(i, i)
-        local colorIdx = ((i-1) % #auroraColors) + 1
-        local baseColor = auroraColors[colorIdx]
-        local shimmer = 0.7 + 0.3 * math.sin(t * 2 + i * 0.7)
-        love.graphics.setColor(baseColor[1] * shimmer, baseColor[2] * shimmer, baseColor[3] * shimmer, 1)
-        love.graphics.print(letter, x, titleY)
-        x = x + font:getWidth(letter)
+    local titleY = height * 0.25
+
+    -- Set up aurora shader
+    local auroraShader = ShaderManager.getAuroraShader()
+    if auroraShader then
+        local t = love.timer.getTime()
+
+        -- Cycle through aurora colors over time
+        local colorIndex1 = math.floor(t * 0.3) % #auroraColors + 1
+        local colorIndex2 = (colorIndex1) % #auroraColors + 1
+        local colorIndex3 = (colorIndex2 + 1) % #auroraColors + 1
+
+        local color1 = auroraColors[colorIndex1]
+        local color2 = auroraColors[colorIndex2]
+        local color3 = auroraColors[colorIndex3]
+
+        -- Update shader uniforms
+        ShaderManager.setAuroraColors(color1, color2, color3)
+        ShaderManager.setAuroraResolution(width, height)
+
+        -- Calculate text bounds for shader
+        local textHeight = font:getHeight()
+        ShaderManager.setAuroraTextBounds(titleX, titleY, titleWidth, textHeight)
+
+        -- Apply shader and draw title
+        love.graphics.setShader(auroraShader)
+        love.graphics.setColor(1, 1, 1, 1) -- White base, shader handles coloring
+        love.graphics.print(titleText, titleX, titleY)
+        love.graphics.setShader() -- Reset shader
+    else
+        -- Fallback if shader not available
+        love.graphics.setColor(0.5, 0.8, 1.0, 1)
+        love.graphics.print(titleText, titleX, titleY)
     end
 
     -- Draw 'New Game' button
@@ -190,7 +214,7 @@ function start_screen.draw()
     -- Minimal button: flat color, small corner radius, no shadow
     -- Monochrome button: use theme background and border colors
     local bgColor = buttonHovered and Theme.colors.bgLight or Theme.colors.bgMedium
-    local borderColor = buttonHovered and Theme.colors.borderLight or Theme.colors.borderMedium
+    local borderColor = {1, 1, 1, 1} -- white border
     local cornerRadius = 0
     -- Draw button background
     love.graphics.setColor(bgColor)
