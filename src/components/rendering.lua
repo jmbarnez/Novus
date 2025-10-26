@@ -1,6 +1,7 @@
 ---@diagnostic disable: undefined-global
 local Constants = require('src.constants')
 local DisplayManager = require('src.display_manager')
+local ECS = require('src.ecs')
 local Components = {}
 
 -- Renderable component - Visual representation
@@ -342,5 +343,38 @@ Components.NebulaBackground = function(intensity, scale, speed, color1, color2, 
         parallaxFactor = parallaxFactor or 0.02
     }
 end
+
+ECS.registerComponentSerializer("Canvas", {
+    serialize = function(_, component)
+        return {
+            width = component.width,
+            height = component.height,
+            scale = component.scale,
+            scaleX = component.scaleX,
+            scaleY = component.scaleY,
+            offsetX = component.offsetX,
+            offsetY = component.offsetY,
+        }
+    end,
+    deserialize = function(_, data)
+        local width = data.width
+        local height = data.height
+        if width and height then
+            DisplayManager.setRenderResolution(width, height)
+        end
+        local canvas = DisplayManager.getWorldCanvas()
+        local currentWidth, currentHeight = DisplayManager.getRenderDimensions()
+        return {
+            canvas = canvas,
+            width = width or currentWidth,
+            height = height or currentHeight,
+            scale = data.scale or 1,
+            scaleX = data.scaleX or data.scale or 1,
+            scaleY = data.scaleY or data.scale or 1,
+            offsetX = data.offsetX or 0,
+            offsetY = data.offsetY or 0,
+        }
+    end,
+})
 
 return Components

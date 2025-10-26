@@ -12,6 +12,7 @@ local GameInit = require('src.game_init')
 local GameInput = require('src.game_input')
 local Scaling = require('src.scaling')
 local DisplayManager = require('src.display_manager')
+local SaveLoad = require('src.save_load')
 
 -- Game initialization
 function Core.init()
@@ -88,10 +89,14 @@ function Core.quit()
     end
 
     DisplayManager.shutdown()
-    
+
     -- Clear all entity pools before clearing ECS
     local EntityPool = require('src.entity_pool')
     EntityPool.clearAll()
+    local AsteroidClusters = require('src.systems.asteroid_clusters')
+    if AsteroidClusters and AsteroidClusters.clear then
+        AsteroidClusters.clear()
+    end
     -- Clear all ECS entities, components, and systems
     ECS.clear()
     
@@ -103,6 +108,44 @@ function Core.quit()
     -- Reset any other global state that might persist
     -- This ensures a completely fresh start when the game is restarted
     print("Game state completely cleared")
+end
+
+function Core.loadSnapshot(snapshot)
+    if not snapshot then
+        return nil, "invalid snapshot"
+    end
+
+    Core.quit()
+    GameInit.bootstrapEnvironment({skipAsteroidInit = true})
+
+    local ok, err = pcall(function()
+        SaveLoad.applySnapshot(snapshot)
+    end)
+    if not ok then
+        return nil, err
+    end
+
+    if GameInit.loadSounds then
+        GameInit.loadSounds()
+    end
+
+    return true
+end
+
+function Core.saveGame(slotName)
+    return SaveLoad.saveToFile(slotName)
+end
+
+function Core.loadGame(slotName)
+    local snapshot, err = SaveLoad.loadFromFile(slotName)
+    if not snapshot then
+        return nil, err
+    end
+    local ok, loadErr = Core.loadSnapshot(snapshot)
+    if not ok then
+        return nil, loadErr
+    end
+    return true
 end
 
 function Core.onResize(w, h)
