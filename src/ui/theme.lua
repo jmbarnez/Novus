@@ -42,6 +42,7 @@ local Theme = {
         small = 11,      -- Tooltips, small text
         normal = 12,     -- Default UI text
         title = 14,      -- Window titles, headers
+        tiny = 9,        -- Very small text (e.g., stat lines)
         fontPath = "assets/fonts/Orbitron-Regular.ttf",  -- Sci-fi font
         fontPathBold = "assets/fonts/Orbitron-Bold.ttf",  -- Sci-fi bold font
     },

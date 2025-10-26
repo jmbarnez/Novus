@@ -36,124 +36,65 @@ function LoadoutPanel.draw(shipWin, windowX, windowY, width, height, alpha)
 
     -- LEFT PANEL: Ship Stats and Equipment
     local slotSize = Theme.spacing.slotSize
-    local sectionHeight = 95
 
+    -- Basic stats summary (much simpler now)
     local Constants = require('src.constants')
     local physics = ECS.getComponent(droneId, "Physics")
     local mass = physics and physics.mass or 1
     local baseMaxVelocity = Constants.player_max_speed
     local maxVelocity = baseMaxVelocity / mass
-    local acceleration = maxVelocity / 2.0
-
     local totalEffectiveHP = (hull and hull.max or 0) + (shield and shield.max or 0)
-    local survivalTime = 0
-    if totalEffectiveHP > 0 then
-        local typicalEnemyDPS = 5
-        survivalTime = totalEffectiveHP / typicalEnemyDPS
-    end
 
     local turret = ECS.getComponent(droneId, "Turret")
     local turretDPS = 0
-    local baseDPS = 0
-    local turretCooldown = 0
-    local effectiveDPS = 0
-    local optimalRange = nil
-    local falloffEnd = nil
-    local zeroRange = nil
-
     if turret and turret.moduleName and turret.moduleName ~= "" then
+        local TurretRegistry = require('src.turret_registry')
         local turretModule = TurretRegistry.getModule(turret.moduleName)
         if turretModule then
             turretDPS = turretModule.DPS or 0
-            -- Determine base DPS (account for pulsed weapons using COOLDOWN)
-            if turretModule.CONTINUOUS then
-                baseDPS = turretDPS
-                effectiveDPS = baseDPS
-            else
-                turretCooldown = turretModule.COOLDOWN or 1
-                baseDPS = turretDPS / math.max(turretCooldown, 1)
-                effectiveDPS = baseDPS
-            end
-
-            -- Range / falloff information (lasers use falloff start/end or zero damage range)
-            optimalRange = turretModule.FALLOFF_START or turretModule.FALLOFF_START
-            falloffEnd = turretModule.FALLOFF_END or turretModule.ZERO_DAMAGE_RANGE or turretModule.ZERO_DAMAGE_RANGE
-            zeroRange = turretModule.ZERO_DAMAGE_RANGE or falloffEnd
         end
     end
 
-    local function drawStatSection(sectionY, label, stats)
-        local sectionX = contentX + 10
-        local boxWidth = leftPanelWidth - 20
-        local boxHeight = sectionHeight - 8
+    -- Simple stats summary box
+    local summaryHeight = 60
+    local summaryX = contentX + 10
+    local summaryY = contentY
+    local summaryWidth = leftPanelWidth - 20
 
-        love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.4)
-        love.graphics.rectangle("fill", sectionX, sectionY, boxWidth, boxHeight, 3, 3)
-        love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha * 0.2)
-        love.graphics.rectangle("line", sectionX, sectionY, boxWidth, boxHeight, 3, 3)
+    love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.4)
+    love.graphics.rectangle("fill", summaryX, summaryY, summaryWidth, summaryHeight, 3, 3)
+    love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha * 0.2)
+    love.graphics.rectangle("line", summaryX, summaryY, summaryWidth, summaryHeight, 3, 3)
 
-        love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-        love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
-        love.graphics.printf(label, sectionX + 5, sectionY + 8, boxWidth - 10, "left")
+    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+    love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
+    love.graphics.printf("SHIP SUMMARY", summaryX + 5, summaryY + 8, summaryWidth - 10, "left")
 
-        love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
-        love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
-        local statY = sectionY + 26
-        for i, stat in ipairs(stats) do
-            love.graphics.printf(stat, sectionX + 8, statY, boxWidth - 16, "left")
-            statY = statY + 16
-        end
-    end
+    love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
+    love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
+    love.graphics.printf(string.format("HP: %d | DPS: %.0f | Vel: %.0f u/s | Mass: %.1f", totalEffectiveHP, turretDPS, maxVelocity, mass), 
+                        summaryX + 8, summaryY + 26, summaryWidth - 16, "left")
 
-    -- Prepare combat stat lines with more detailed range/falloff info
-    local combatStats = {}
-    table.insert(combatStats, string.format("Damage: %.0f", turretDPS))
-    table.insert(combatStats, string.format("DPS: %.1f", effectiveDPS))
-
-    if optimalRange and falloffEnd then
-        table.insert(combatStats, string.format("Optimal: %dm", optimalRange))
-        table.insert(combatStats, string.format("Falloff end: %dm", falloffEnd))
-        if zeroRange and zeroRange > 0 then
-            table.insert(combatStats, string.format("Max effective: %dm", zeroRange))
-        end
-
-        -- Show sample effective DPS at optimal and mid-falloff for clarity
-        local function sampleDPSAt(distance)
-            if not optimalRange or not falloffEnd then return effectiveDPS end
-            if distance <= optimalRange then return effectiveDPS end
-            if distance >= falloffEnd then return 0 end
-            local falloffRange = falloffEnd - optimalRange
-            local falloffProgress = (distance - optimalRange) / falloffRange
-            local multiplier = math.max(0, 1.0 - falloffProgress)
-            return effectiveDPS * multiplier
-        end
-
-        local sampleOptimal = sampleDPSAt(optimalRange)
-        local sampleMid = sampleDPSAt((optimalRange + falloffEnd) / 2)
-        table.insert(combatStats, string.format("DPS @ optimal: %.1f", sampleOptimal))
-        table.insert(combatStats, string.format("DPS @ mid-falloff: %.1f", sampleMid))
+    local equipmentY = contentY + summaryHeight + 20
+    -- Stats button: opens the detailed StatsWindow
+    local StatsWindow = require('src.ui.stats_window')
+    local statsBtnW, statsBtnH = 90, 28
+    local statsBtnX = contentX + 8
+    local statsBtnY = equipmentY - statsBtnH - 8
+    local mx, my
+    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+        mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
     else
-        -- Fallback simple range display
-        local turretRange = turret and (turret.moduleName and TurretRegistry.getModule(turret.moduleName) and TurretRegistry.getModule(turret.moduleName).RANGE) or 0
-        table.insert(combatStats, string.format("Range: %d", turretRange or 0))
+        mx, my = Scaling.toUI(love.mouse.getPosition())
     end
-
-    drawStatSection(contentY, "COMBAT", combatStats)
-
-    local survivalStats = { string.format("Eff. HP: %d", totalEffectiveHP) }
-    if shield and shield.max > 0 then
-        table.insert(survivalStats, string.format("Shield: +%d", shield.max))
-        table.insert(survivalStats, string.format("Regen: %.1f/s", shield.regenRate or 0))
-    end
-    table.insert(survivalStats, string.format("Uptime: ~%.0fs", survivalTime))
-    drawStatSection(contentY + sectionHeight, "SURVIVAL", survivalStats)
-    drawStatSection(contentY + sectionHeight * 2, "MOVEMENT", {
-        string.format("Max Vel: %.0f u/s", maxVelocity),
-        string.format("Accel: %.0f u/s²", acceleration),
-        string.format("Mass: %.1f", mass)
-    })
-
-    local equipmentY = contentY + sectionHeight * 3 + 10
+    local hoveredStats = mx >= statsBtnX and mx <= statsBtnX + statsBtnW and my >= statsBtnY and my <= statsBtnY + statsBtnH
+    love.graphics.setColor(hoveredStats and Theme.colors.buttonHover or Theme.colors.bgMedium)
+    love.graphics.rectangle('fill', statsBtnX, statsBtnY, statsBtnW, statsBtnH, 5, 5)
+    love.graphics.setColor(Theme.colors.borderMedium)
+    love.graphics.rectangle('line', statsBtnX, statsBtnY, statsBtnW, statsBtnH, 5, 5)
+    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+    love.graphics.setColor(Theme.colors.textPrimary)
+    love.graphics.printf('Stats', statsBtnX, statsBtnY + 6, statsBtnW, 'center')
 
     love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
     love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha * 0.7)
@@ -415,6 +356,18 @@ function LoadoutPanel.mousepressed(shipWin, x, y, button)
                     fromEquipment = true
                 }
             end
+        end
+        -- Check Stats button click
+        local contentX = shipWin.position.x + 10
+        local summaryHeight = 60
+        local equipmentY = shipWin.position.y + Theme.window.topBarHeight + 40 + 10 + summaryHeight + 20
+        local statsBtnW, statsBtnH = 90, 28
+        local statsBtnX = contentX + 8
+        local statsBtnY = equipmentY - statsBtnH - 8
+        if x >= statsBtnX and x <= statsBtnX + statsBtnW and y >= statsBtnY and y <= statsBtnY + statsBtnH then
+            local StatsWindow = require('src.ui.stats_window')
+            StatsWindow:openCenteredIn(shipWin)
+            return
         end
     elseif button == 2 then
         -- Right click: remove from equipment slot

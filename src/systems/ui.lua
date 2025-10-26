@@ -14,6 +14,7 @@ local Dialogs = require('src.ui.dialogs')
 local Notifications = require('src.ui.notifications')
 local Scaling = require('src.scaling')
 local SettingsWindow = require('src.ui.settings_window')
+local StatsWindow = require('src.ui.stats_window')
 local DeathOverlay = require('src.ui.death_overlay')
 local ConstructionButton = require('src.ui.construction_button')
 -- QuestOverlay moved to HUD system for batched rendering
@@ -150,6 +151,15 @@ end, function(x, y, button)
     return true
 end)
 
+-- Register stats window
+UISystem.registerInteractive('stats_window', function(x, y, button)
+    return StatsWindow.isOpen and StatsWindow.position and x >= StatsWindow.position.x and x <= StatsWindow.position.x + StatsWindow.width
+           and y >= StatsWindow.position.y and y <= StatsWindow.position.y + StatsWindow.height
+end, function(x, y, button)
+    StatsWindow:mousepressed(x, y, button)
+    return true
+end)
+
 -- Minimap input capture is now handled by HUD, but we still want UI to eat clicks over minimap
 local Minimap = require('src.systems.hud.minimap')
 UISystem.registerInteractive('minimap', function(x, y, button)
@@ -200,7 +210,8 @@ function UISystem.draw(viewportWidth, viewportHeight, uiMx, uiMy)
         map_window = MapWindow,
         ship_window = ShipWindow,
         quest_window = QuestWindow,
-        settings_window = SettingsWindow
+        settings_window = SettingsWindow,
+        stats_window = StatsWindow
     }
 
     -- Draw windows in focus order (least focused first, most focused last) - only if open

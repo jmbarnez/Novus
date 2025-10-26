@@ -47,8 +47,8 @@ end
 
 -- Create ship window instance inheriting from WindowBase
 local ShipWindow = WindowBase:new{
-    width = 900,
-    height = 700,
+    width = 1100,
+    height = 820,
     isOpen = false
 }
 
@@ -494,5 +494,11 @@ function ShipWindow:keypressed(key)
     WindowBase.keypressed(self, key)
 end
 
+-- Handle mouse wheel for scrolling within the ship window
+function ShipWindow:wheelmoved(x, y)
+    if not self.isOpen then return false end
+    -- No longer needed since we removed scrollable stats
+    return false
+end
 
 return ShipWindow
