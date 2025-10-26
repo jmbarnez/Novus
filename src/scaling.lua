@@ -38,11 +38,18 @@ local function refreshDerived()
     Scaling._offsetX = 0
     Scaling._offsetY = 0
 
-    Scaling.canvasScaleX = 1
-    Scaling.canvasScaleY = 1
+    -- By default, the canvas transform should mirror the effective window scale.
+    -- Using 1 here breaks coordinate conversion because toUI()/toScreenCanvas()
+    -- would stop accounting for the window scaling when no explicit canvas
+    -- transform is active. This made the UI coordinates resolution-dependent.
+    -- Keeping the canvas scale in sync with the effective scale preserves the
+    -- expected behaviour for both utility functions while still allowing
+    -- setCanvasTransform to override it when needed.
+    Scaling.canvasScaleX = Scaling._effectiveScaleX
+    Scaling.canvasScaleY = Scaling._effectiveScaleY
     Scaling.canvasOffsetX = 0
     Scaling.canvasOffsetY = 0
-    Scaling.canvasScale = 1
+    Scaling.canvasScale = Scaling._uniformScale
 end
 
 Scaling.windowWidth, Scaling.windowHeight = getWindowSize()
