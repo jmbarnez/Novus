@@ -13,7 +13,7 @@ DisplayManager.renderResolutions = {
     { w = 2560, h = 1440, label = "2560x1440" },
 }
 
-DisplayManager.windowMode = "windowed" -- 'windowed', 'borderless', 'fullscreen'
+DisplayManager.windowMode = "windowed" -- Only windowed mode supported
 DisplayManager.scalingMode = "fit"     -- 'fit' maintains aspect ratio with letterboxing
 
 DisplayManager.renderWidth = 1920
@@ -77,6 +77,17 @@ function DisplayManager.init()
             end
         end
     end
+
+    -- Small init confirmation print (helpful to diagnose conf.lua vs runtime overrides)
+    if hasWindowApi() then
+        local w, h, f = love.window.getMode()
+        local fs = f and f.fullscreen or false
+        local br = f and f.borderless or false
+        print(string.format("[DisplayManager] init mode: %s (fullscreen=%s, borderless=%s) size=%dx%d", DisplayManager.windowMode, tostring(fs), tostring(br), w or 0, h or 0))
+    end
+
+    -- At startup we respect the current Love window flags (which are set from conf.lua).
+    -- Do not force a specific window mode here so the game's configuration is preserved.
 end
 
 function DisplayManager.updateWindowSize()
@@ -228,66 +239,39 @@ function DisplayManager.computeDrawParameters(canvasWidth, canvasHeight)
     return drawScaleX, drawScaleY, offsetX, offsetY
 end
 
-local function applyMode(mode, width, height, flags)
+local function applyMode(width, height, flags)
     if not hasWindowApi() then return end
-
-    local changed = false
-    local currentW, currentH, currentFlags = love.window.getMode()
-
+    local currentW, currentH = love.window.getMode()
     if width ~= currentW or height ~= currentH then
-        changed = true
-    end
-
-    for _, key in ipairs({"fullscreen", "borderless", "fullscreentype", "display"}) do
-        if (flags[key] or false) ~= (currentFlags and currentFlags[key] or false) then
-            changed = true
-            break
+        love.window.setMode(width, height, flags)
+        -- Manually center the window after resizing (if possible)
+        if love.window.setPosition and love.window.getDesktopDimensions then
+            local desktopW, desktopH = love.window.getDesktopDimensions()
+            local posX = math.floor((desktopW - width) / 2)
+            local posY = math.floor((desktopH - height) / 2)
+            love.window.setPosition(posX, posY)
         end
     end
-
-    if changed then
-        love.window.setMode(width, height, flags)
-    end
-
-    DisplayManager.windowMode = mode
+    DisplayManager.windowMode = "windowed"
     DisplayManager.updateWindowSize()
     detectDesktopResolution()
 end
 
-function DisplayManager.applyWindowMode(mode, options)
+function DisplayManager.applyWindowMode(_, options)
     if not hasWindowApi() then return end
-
     options = options or {}
-    local width, height, existingFlags = love.window.getMode()
+    local width = options.width or DisplayManager.renderWidth
+    local height = options.height or DisplayManager.renderHeight
+    local _, _, existingFlags = love.window.getMode()
     local flags = copyFlags(existingFlags)
-
+    flags.fullscreen = false
+    flags.borderless = false
     flags.resizable = false
     flags.centered = true
     flags.highdpi = flags.highdpi ~= false
     flags.vsync = flags.vsync or 1
     flags.msaa = flags.msaa or 0
-
-    if mode == "windowed" then
-        flags.fullscreen = false
-        flags.borderless = false
-        flags.fullscreentype = nil
-        width = options.width or DisplayManager.renderWidth
-        height = options.height or DisplayManager.renderHeight
-    elseif mode == "borderless" then
-        flags.fullscreen = false
-        flags.borderless = true
-        flags.fullscreentype = nil
-        width = options.width or DisplayManager.desktopWidth
-        height = options.height or DisplayManager.desktopHeight
-    elseif mode == "fullscreen" then
-        flags.fullscreen = true
-        flags.borderless = false
-        flags.fullscreentype = "desktop"
-        width = options.width or 0
-        height = options.height or 0
-    end
-
-    applyMode(mode, width, height, flags)
+    applyMode(width, height, flags)
 end
 
 function DisplayManager.setWindowResolution(width, height)
