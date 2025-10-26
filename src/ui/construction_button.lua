@@ -5,6 +5,7 @@ local HoverSound = require('src.ui.hover_sound')
 
 local ConstructionButton = {
     id = "construction_btn",
+    enabled = false, -- temporarily disable HUD construction button until feature is ready
     _hovered = false,
     _btnRectUI = nil, -- stores button position/size in UI space for hit-testing
 }
@@ -29,6 +30,12 @@ local function drawHexWrench(cx, cy, size, color, alpha)
 end
 
 function ConstructionButton.update(dt)
+    if not ConstructionButton.enabled then
+        ConstructionButton._hovered = false
+        ConstructionButton._btnRectUI = nil
+        return
+    end
+
     -- Hover detection (convert mouse to UI coordinates)
     local mx, my = love.mouse.getPosition()
     local uiMx, uiMy = Scaling.toUI(mx, my)
@@ -51,6 +58,10 @@ function ConstructionButton.update(dt)
 end
 
 function ConstructionButton.draw(viewportWidth, viewportHeight)
+    if not ConstructionButton.enabled then
+        return
+    end
+
     viewportWidth = viewportWidth or love.graphics.getWidth()
     viewportHeight = viewportHeight or love.graphics.getHeight()
 
@@ -82,6 +93,10 @@ function ConstructionButton.draw(viewportWidth, viewportHeight)
 end
 
 function ConstructionButton.checkPressed(mx, my, button)
+    if not ConstructionButton.enabled then
+        return false
+    end
+
     local r = ConstructionButton._btnRectUI
     if not r then return false end
     local uiMx, uiMy = Scaling.toUI(mx, my)

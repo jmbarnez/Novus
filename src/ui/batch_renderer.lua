@@ -89,8 +89,17 @@ function BatchRenderer.queuePolygon(vertices, r, g, b, a)
 end
 
 -- Queue a canvas
-function BatchRenderer.queueCanvas(canvas, x, y, r, g, b, a)
-    table.insert(currentCanvases, {canvas=canvas, x=x, y=y, r=r or 1, g=g or 1, b=b or 1, a=a or 1})
+function BatchRenderer.queueCanvas(canvas, x, y, r, g, b, a, layer)
+    table.insert(currentCanvases, {
+        canvas=canvas,
+        x=x,
+        y=y,
+        r=r or 1,
+        g=g or 1,
+        b=b or 1,
+        a=a or 1,
+        layer=layer or "default"
+    })
 end
 
 -- Queue text
@@ -121,10 +130,15 @@ function BatchRenderer.flush()
         end
     end
     
-    -- Draw all canvases
+    -- Draw canvases that are not flagged as overlay; collect overlays for later
+    local overlayCanvases = {}
     for _, item in ipairs(currentCanvases) do
-        love.graphics.setColor(item.r, item.g, item.b, item.a)
-        love.graphics.draw(item.canvas, item.x, item.y)
+        if item.layer == "overlay" then
+            overlayCanvases[#overlayCanvases + 1] = item
+        else
+            love.graphics.setColor(item.r, item.g, item.b, item.a)
+            love.graphics.draw(item.canvas, item.x, item.y)
+        end
     end
 
     -- Draw all circles (filled and outlines) in queued order
@@ -177,6 +191,12 @@ function BatchRenderer.flush()
         for _, rect in ipairs(data.rects) do
             love.graphics.rectangle("line", rect.x, rect.y, rect.w, rect.h, rect.rounded, rect.rounded)
         end
+    end
+
+    -- Draw overlay canvases above line work but before text
+    for _, item in ipairs(overlayCanvases) do
+        love.graphics.setColor(item.r, item.g, item.b, item.a)
+        love.graphics.draw(item.canvas, item.x, item.y)
     end
 
     -- Draw all text (batched by font)

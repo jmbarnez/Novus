@@ -63,10 +63,6 @@ function HUDSlots.drawTurretSlots(viewportWidth, viewportHeight, hudSystem)
 
             local turret = ECS.getComponent(droneId, "Turret")
 
-            if hudSystem then
-                hudSystem.hoveredTurretSlot = nil
-            end
-
             for slotIndex = 1, 3 do
                 local slotX = startX + (slotIndex - 1) * (slotWidth + slotSpacing)
                 local slotY = startY
@@ -260,65 +256,66 @@ function HUDSlots.drawTurretSlots(viewportWidth, viewportHeight, hudSystem)
         lastTurretSlotsFrame = frameSkip
     end
 
+    if hudSystem then
+        hudSystem.hoveredTurretSlot = nil
+    end
+
     -- Queue the canvas for rendering
-    BatchRenderer.queueCanvas(turretSlotsCanvas, drawX, drawY, 1, 1, 1, 1)
+    -- Queue turret slots as overlay so they render above world-space HUD bars
+    BatchRenderer.queueCanvas(turretSlotsCanvas, drawX, drawY, 1, 1, 1, 1, "overlay")
 
-    -- Handle mouse hover detection and effects (only when canvas was updated)
-    if updateNow then
-        local mouseX, mouseY = love.mouse.getPosition()
+    -- Handle mouse hover detection and effects every frame
+    local mouseX, mouseY = love.mouse.getPosition()
 
-        local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-        if #playerEntities > 0 then
-            local pilotId = playerEntities[1]
-            local input = ECS.getComponent(pilotId, "InputControlled")
-            if input and input.targetEntity then
-                local droneId = input.targetEntity
-                local turretSlots = ECS.getComponent(droneId, "TurretSlots")
-                if turretSlots then
-                    local turret = ECS.getComponent(droneId, "Turret")
+    local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+    if #playerEntities > 0 then
+        local pilotId = playerEntities[1]
+        local input = ECS.getComponent(pilotId, "InputControlled")
+        if input and input.targetEntity then
+            local droneId = input.targetEntity
+            local turretSlots = ECS.getComponent(droneId, "TurretSlots")
+            if turretSlots then
+                local slotWidth = 48 * scaleX
+                local slotHeight = 48 * scaleY
+                local slotSpacing = 8 * scaleX
 
-                    local slotWidth = 48 * scaleX
-                    local slotHeight = 48 * scaleY
-                    local slotSpacing = 8 * scaleX
+                for slotIndex = 1, 3 do
+                    local slotX = (slotIndex - 1) * (slotWidth + slotSpacing)
+                    local slotY = 0
 
-                    for slotIndex = 1, 3 do
-                        local slotX = (slotIndex - 1) * (slotWidth + slotSpacing)
-                        local slotY = 0
+                    -- Convert canvas coordinates to screen coordinates for hover detection
+                    local screenSlotX = drawX + slotX
+                    local screenSlotY = drawY + slotY
 
-                        -- Convert canvas coordinates to screen coordinates for hover detection
-                        local screenSlotX = drawX + slotX
-                        local screenSlotY = drawY + slotY
+                    if mouseX >= screenSlotX and mouseX < screenSlotX + slotWidth and
+                       mouseY >= screenSlotY and mouseY < screenSlotY + slotHeight and
+                       turretSlots.slots[slotIndex] then
 
-                        if mouseX >= screenSlotX and mouseX < screenSlotX + slotWidth and
-                           mouseY >= screenSlotY and mouseY < screenSlotY + slotHeight and
-                           turretSlots.slots[slotIndex] then
+                        local itemId = turretSlots.slots[slotIndex]
+                        local itemDef = ItemDefs[itemId]
 
-                            local itemId = turretSlots.slots[slotIndex]
-                            local itemDef = ItemDefs[itemId]
-
-                            if itemDef then
-                                -- Set hover data for tooltip
-                                if hudSystem then
-                                    hudSystem.hoveredTurretSlot = {
-                                        itemId = itemId,
-                                        itemDef = itemDef,
-                                        mouseX = mouseX,
-                                        mouseY = mouseY
-                                    }
-                                end
-
-                                -- Draw hover effect on top of canvas
-                                local cornerRadius = 4 * math.min(scaleX, scaleY)
-                                love.graphics.setColor(1.0, 1.0, 1.0, 0.4)
-                                love.graphics.rectangle("fill", screenSlotX, screenSlotY, slotWidth, slotHeight, cornerRadius, cornerRadius)
-
-                                love.graphics.setColor(1.0, 1.0, 1.0, 0.8)
-                                love.graphics.setLineWidth(2)
-                                love.graphics.rectangle("line", screenSlotX, screenSlotY, slotWidth, slotHeight, cornerRadius, cornerRadius)
-                                love.graphics.setLineWidth(1)
-
-                                break -- Only one hover at a time
+                        if itemDef then
+                            -- Set hover data for tooltip
+                            if hudSystem then
+                                hudSystem.hoveredTurretSlot = {
+                                    itemId = itemId,
+                                    itemDef = itemDef,
+                                    mouseX = mouseX,
+                                    mouseY = mouseY
+                                }
                             end
+
+                            -- Draw hover effect on top of canvas
+                            local cornerRadius = 4 * math.min(scaleX, scaleY)
+                            love.graphics.setColor(1.0, 1.0, 1.0, 0.4)
+                            love.graphics.rectangle("fill", screenSlotX, screenSlotY, slotWidth, slotHeight, cornerRadius, cornerRadius)
+
+                            love.graphics.setColor(1.0, 1.0, 1.0, 0.8)
+                            love.graphics.setLineWidth(2)
+                            love.graphics.rectangle("line", screenSlotX, screenSlotY, slotWidth, slotHeight, cornerRadius, cornerRadius)
+                            love.graphics.setLineWidth(1)
+
+                            break -- Only one hover at a time
                         end
                     end
                 end
