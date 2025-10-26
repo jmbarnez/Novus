@@ -4,6 +4,7 @@
 local ECS = require('src.ecs')
 local Components = require('src.components')
 local DebrisSystem = require('src.systems.debris')
+local SoundSystem = require('src.systems.sound')
 
 local BasicCannon = {
     name = "basic_cannon",
@@ -29,6 +30,29 @@ local BasicCannon = {
         love.graphics.rectangle("fill", x - size/2, y + size/3, size, size/3, 4, 4)
     end
 }
+
+local cannonSoundName = "cannon_shot"
+local cannonSoundPath = "assets/sounds/cannon_shot.flac"
+local attemptedSoundLoad = false
+
+local function ensureSoundLoaded()
+    if attemptedSoundLoad then
+        return
+    end
+    attemptedSoundLoad = true
+
+    if not SoundSystem or not SoundSystem.load then
+        return
+    end
+
+    if SoundSystem.sounds and SoundSystem.sounds[cannonSoundName] then
+        return
+    end
+
+    if love and love.filesystem and love.filesystem.getInfo and love.filesystem.getInfo(cannonSoundPath) then
+        SoundSystem.load(cannonSoundName, cannonSoundPath)
+    end
+end
 
 function BasicCannon.fire(ownerId, startX, startY, endX, endY)
     -- Calculate direction
@@ -64,6 +88,11 @@ function BasicCannon.fire(ownerId, startX, startY, endX, endY)
         age = 0,
         maxAge = BasicCannon.BALL_LIFETIME
     })
+
+    ensureSoundLoaded()
+    if SoundSystem and SoundSystem.play then
+        SoundSystem.play(cannonSoundName, {volume = 75})
+    end
 end
 
 return BasicCannon

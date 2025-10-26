@@ -32,7 +32,7 @@ function SoundSystem.loadAll(dir)
     local items = love.filesystem.getDirectoryItems(dir)
     for _, file in ipairs(items) do
         local fileLower = file:lower()
-        if fileLower:match("%.(wav|ogg|mp3)$") then
+        if fileLower:match("%.wav$") or fileLower:match("%.ogg$") or fileLower:match("%.mp3$") or fileLower:match("%.flac$") then
             local name = fileLower:gsub("%.[^%.]+$", "")
             SoundSystem.load(name, dir .. "/" .. file)
         end
