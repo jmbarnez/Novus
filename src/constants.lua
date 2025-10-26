@@ -23,12 +23,13 @@ Constants.screen_width = 1920
 Constants.screen_height = 1080
 
 -- World dimensions (much larger than screen for exploration)
-Constants.world_width = 4000
-Constants.world_height = 4000
-Constants.world_min_x = -2000
-Constants.world_max_x = 2000
-Constants.world_min_y = -2000
-Constants.world_max_y = 2000
+-- Scaled up by 10x to make sectors much larger for exploration
+Constants.world_width = 40000
+Constants.world_height = 40000
+Constants.world_min_x = -20000
+Constants.world_max_x = 20000
+Constants.world_min_y = -20000
+Constants.world_max_y = 20000
 Constants.WORLD_RADIUS = Constants.world_width / 2 -- Assuming world_width is the diameter
 
 -- Player physics
@@ -87,6 +88,13 @@ Constants.asteroid_field_density = 150  -- Reduced further for performance (was 
 Constants.asteroid_field_thickness = 3000
 Constants.mining_drones_count = 5
 Constants.cannon_drones_count = 10
+
+-- Asteroid cluster enemy spawn configuration
+Constants.cluster_enemy_spawn_chance = 0.5 -- 50% chance a given cluster will spawn an enemy group
+Constants.cluster_miner_count_min = 1
+Constants.cluster_miner_count_max = 2
+Constants.cluster_combat_count_min = 3
+Constants.cluster_combat_count_max = 5
 
 -- Bit spawning speeds (when destroyed)
 Constants.bit_spawn_speed_asteroid_min = 40

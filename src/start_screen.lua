@@ -7,6 +7,14 @@ local ShaderManager = require('src.shader_manager')
 local HoverSound = require('src.ui.hover_sound')
 local start_screen = {}
 
+-- Play the start screen intro music immediately (no fade)
+function start_screen.playIntro()
+    local ok, Systems = pcall(require, 'src.systems')
+    if ok and Systems and Systems.SoundSystem and Systems.SoundSystem.playMusic then
+        Systems.SoundSystem.playMusic("assets/music/intro.mp3", {volume = 100})
+    end
+end
+
 -- Aurora colors for the shader
 local auroraColors = {
     {0.2, 0.9, 0.4}, -- bright green

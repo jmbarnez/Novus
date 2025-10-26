@@ -116,6 +116,8 @@ return {
     friction = 0.9999, -- Space has no air resistance, nearly 1.0 for realistic coasting
     mass = 50, -- Reduced for better acceleration (asteroids are 200-1800)
     angularDamping = 0.95, -- Ships damp rotation faster (more control)
+    -- Explicit max speed for UI/stats (preferred over global Constant divided by mass)
+    maxSpeed = 200,
 
     thrustForce = 2000, -- Greatly increased thrust for high acceleration
     -- Equipment (modular utility setup)

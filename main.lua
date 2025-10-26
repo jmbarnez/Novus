@@ -34,6 +34,10 @@ GameState.initCallbacks({
 function _G.Game.returnToMainMenu()
     GameState.returnToMainMenu()
     gameState = GameState.getGameState()
+    -- If we've returned to the start screen, play the intro immediately
+    if gameState == "start" and StartScreen and StartScreen.playIntro then
+        StartScreen.playIntro()
+    end
 end
 
 function _G.Game.save(slotName)
@@ -72,6 +76,10 @@ function love.load()
     local ShaderManager = require('src.shader_manager')
     ShaderManager.init()
     print("=== ShaderManager initialization complete ===")
+    -- Start intro music for the start screen immediately
+    if StartScreen and StartScreen.playIntro then
+        StartScreen.playIntro()
+    end
     
     -- Only initialize game when leaving start screen
 end

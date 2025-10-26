@@ -197,11 +197,17 @@ function GameInit.setupPlayerShip(pilotId)
     -- Spawn player away from asteroid clusters on the left side of the world
     local droneId = ShipLoader.createShip("starter_drone", -1500, 0, "player", pilotId)
     
-    -- Apply ship-specific thrust multiplier if defined
+    -- Apply ship-specific movement parameters if defined
     local droneDesign = ShipLoader.getDesign("starter_drone")
     local inputComp = ECS.getComponent(pilotId, "InputControlled")
-    if droneDesign and droneDesign.thrustMultiplier and inputComp then
-        inputComp.speed = Constants.player_max_speed * droneDesign.thrustMultiplier
+    if droneDesign and inputComp then
+        -- Prefer an explicit per-design maxSpeed when present (designer-controlled)
+        if droneDesign.maxSpeed then
+            inputComp.speed = droneDesign.maxSpeed
+        elseif droneDesign.thrustMultiplier then
+            -- Back-compat: support legacy thrustMultiplier which scaled the global max
+            inputComp.speed = Constants.player_max_speed * droneDesign.thrustMultiplier
+        end
     end
     
     -- Add initial items to ship's cargo
@@ -258,110 +264,82 @@ function GameInit.loadSounds()
             end
         end
     end
-    -- Start looping background music if available
-    if Systems.SoundSystem and Systems.SoundSystem.playMusic then
-        Systems.SoundSystem.playMusic("assets/music/adrift.mp3", {volume = 100})
+        -- Start playing background music immediately if available
+        if Systems.SoundSystem and Systems.SoundSystem.playMusic then
+            Systems.SoundSystem.playMusic("assets/music/adrift.mp3", {volume = 100})
     end
 end
 
 -- Spawn enemy ships in asteroid clusters
 function GameInit.spawnEnemies()
-    local function spawnEnemyInCluster(clusterX, clusterY)
-        -- Random position within cluster area
+    local function spawnEnemyInCluster(clusterX, clusterY, clusterRadius)
+        -- Random position within cluster area. Prefer clusterRadius if provided.
+        local radius = clusterRadius or Constants.asteroid_cluster_radius
         local angle = math.random() * 2 * math.pi
-        local distance = math.random() * Constants.asteroid_cluster_radius * 0.8
+        local distance = math.random() * (radius * 0.8)
         local x = clusterX + math.cos(angle) * distance
         local y = clusterY + math.sin(angle) * distance
-        
+
         return x, y
     end
     
     -- Get cluster data to spawn enemies in them
     local clusters = AsteroidClusters.getClusters()
     for clusterId, cluster in pairs(clusters) do
-        -- Spawn 1-2 miners in this cluster
-        local minerCount = math.random(1, 2)
-        for i = 1, minerCount do
-            local x, y = spawnEnemyInCluster(cluster.centerX, cluster.centerY)
-            
-            local shipId = ShipLoader.createShip("red_scout", x, y, "ai")
-            if shipId then
-                local turret = ECS.getComponent(shipId, "Turret")
-                if turret then
-                    turret.moduleName = "mining_laser"
-                end
-                
-                local ai = ECS.getComponent(shipId, "AI")
-                local design = ShipLoader.getDesign("red_scout")
-                if ai and design then
-                    ai.type = "mining"
-                    ai.state = "mining"
-                    if design.miningDetectionRange then
-                        ai.detectionRadius = design.miningDetectionRange
+        -- 50% chance (configurable) to spawn an enemy group at this cluster
+        local spawnChance = Constants.cluster_enemy_spawn_chance or 0.5
+        if math.random() < spawnChance then
+            local radius = cluster.radius or Constants.asteroid_cluster_radius
+
+            -- Spawn miners (miners are red_scouts with mining laser)
+            local minerCount = math.random(Constants.cluster_miner_count_min or 1, Constants.cluster_miner_count_max or 2)
+            for i = 1, minerCount do
+                local x, y = spawnEnemyInCluster(cluster.centerX, cluster.centerY, radius)
+                local shipId = ShipLoader.createShip("red_scout", x, y, "ai")
+                if shipId then
+                    local turret = ECS.getComponent(shipId, "Turret")
+                    if turret then
+                        turret.moduleName = "mining_laser"
                     end
-                end
-                
-                -- Add level component (random level 1-5 for now)
-                local level = math.random(1, 3)
-                ECS.addComponent(shipId, "Level", {level = level})
-            end
-        end
-        
-        -- Spawn 4-5 combat drones in this cluster
-        local combatCount = math.random(4, 5)
-        for i = 1, combatCount do
-            local x, y = spawnEnemyInCluster(cluster.centerX, cluster.centerY)
-            
-            local shipId = ShipLoader.createShip("red_scout", x, y, "ai")
-            if shipId then
-                -- Randomly choose between basic_cannon and combat_laser (50/50)
-                local weaponChoice = math.random() < 0.5 and "basic_cannon" or "combat_laser"
-                
-                local turret = ECS.getComponent(shipId, "Turret")
-                if turret then
-                    turret.moduleName = weaponChoice
-                end
-                
-                -- Configure AI for combat
-                local ai = ECS.getComponent(shipId, "AI")
-                local design = ShipLoader.getDesign("red_scout")
-                if ai and design then
-                    ai.type = "combat"
-                    ai.state = "patrol"
-                    if design.combatDetectionRange then
-                        ai.detectionRadius = design.combatDetectionRange
+                    local ai = ECS.getComponent(shipId, "AI")
+                    local design = ShipLoader.getDesign("red_scout")
+                    if ai and design then
+                        ai.type = "mining"
+                        ai.state = "mining"
+                        if design.miningDetectionRange then
+                            ai.detectionRadius = design.miningDetectionRange
+                        end
                     end
-                end
-                
-                -- Add level component (random level 1-5 for now)
-                local level = math.random(1, 3)
-                ECS.addComponent(shipId, "Level", {level = level})
-            end
-        end
-        
-        -- Spawn 1 Heavy Drone as a tougher enemy in the cluster
-        local x, y = spawnEnemyInCluster(cluster.centerX, cluster.centerY)
-        local heavyDroneId = ShipLoader.createShip("heavy_drone", x, y, "ai")
-        if heavyDroneId then
-            local turret = ECS.getComponent(heavyDroneId, "Turret")
-            if turret then
-                turret.moduleName = "combat_laser"
-            end
-            
-            -- Configure AI for combat
-            local ai = ECS.getComponent(heavyDroneId, "AI")
-            local design = ShipLoader.getDesign("heavy_drone")
-            if ai and design then
-                ai.type = "combat"
-                ai.state = "patrol"
-                if design.combatDetectionRange then
-                    ai.detectionRadius = design.combatDetectionRange
+                    local level = math.random(1, 3)
+                    ECS.addComponent(shipId, "Level", {level = level})
                 end
             end
-            
-            -- Add level component (higher level for heavy drone - 3-7)
-            local level = math.random(1, 3)
-            ECS.addComponent(heavyDroneId, "Level", {level = level})
+
+            -- Spawn combat red_scouts
+            local combatCount = math.random(Constants.cluster_combat_count_min or 3, Constants.cluster_combat_count_max or 5)
+            for i = 1, combatCount do
+                local x, y = spawnEnemyInCluster(cluster.centerX, cluster.centerY, radius)
+                local shipId = ShipLoader.createShip("red_scout", x, y, "ai")
+                if shipId then
+                    -- Choose combat weapons for these scouts
+                    local weaponChoice = math.random() < 0.5 and "basic_cannon" or "combat_laser"
+                    local turret = ECS.getComponent(shipId, "Turret")
+                    if turret then
+                        turret.moduleName = weaponChoice
+                    end
+                    local ai = ECS.getComponent(shipId, "AI")
+                    local design = ShipLoader.getDesign("red_scout")
+                    if ai and design then
+                        ai.type = "combat"
+                        ai.state = "patrol"
+                        if design.combatDetectionRange then
+                            ai.detectionRadius = design.combatDetectionRange
+                        end
+                    end
+                    local level = math.random(1, 3)
+                    ECS.addComponent(shipId, "Level", {level = level})
+                end
+            end
         end
     end
 end

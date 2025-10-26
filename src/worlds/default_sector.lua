@@ -10,14 +10,27 @@ return {
     seed = nil,
     
     -- Asteroid clusters configuration
+    -- Multiple clusters placed around the sector so enemies spawn around them
     asteroidClusters = {
-        count = 1,
+        count = 3,
         clusters = {
             {
-                x = 1000,            -- Cluster center X
-                y = 0,                -- Cluster center Y
-                radius = 600,         -- Cluster radius
-                maxAsteroids = 30     -- Asteroids per cluster
+                x = 5000,            -- Cluster center X
+                y = 0,               -- Cluster center Y
+                radius = 3000,       -- Cluster radius
+                maxAsteroids = 40    -- Asteroids per cluster
+            },
+            {
+                x = -7000,           -- Cluster center X
+                y = 4000,            -- Cluster center Y
+                radius = 2500,       -- Cluster radius
+                maxAsteroids = 30
+            },
+            {
+                x = 12000,           -- Cluster center X
+                y = -5000,           -- Cluster center Y
+                radius = 3500,       -- Cluster radius
+                maxAsteroids = 50
             }
         }
     },

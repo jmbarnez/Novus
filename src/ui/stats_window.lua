@@ -76,9 +76,17 @@ local function gatherShipData()
     local turret = ECS.getComponent(droneId, "Turret")
 
     local mass = physics and physics.mass or 1
-    local baseMaxVelocity = Constants.player_max_speed or 0
-    local maxVelocity = baseMaxVelocity / math.max(mass, 0.01)
-    local acceleration = maxVelocity / 2.0
+    -- Use the pilot's configured input speed as the ship's intended max velocity when available
+    local baseMaxVelocity = input and input.speed or Constants.player_max_speed or 0
+    local maxVelocity = baseMaxVelocity
+    -- Prefer physics-based acceleration (a = F/m) when thrustForce is available
+    local acceleration = 0
+    if physics and physics.thrustForce then
+        acceleration = physics.thrustForce / math.max(mass, 0.01)
+    else
+        -- Fallback: estimate acceleration as half the max velocity per second (legacy behavior)
+        acceleration = maxVelocity / 2.0
+    end
 
     local totalHull = hull and hull.max or 0
     local currentHull = hull and hull.current or 0
