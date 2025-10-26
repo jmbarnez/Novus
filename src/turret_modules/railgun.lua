@@ -5,26 +5,40 @@ local Components = require('src.components')
 local Railgun = {
 	name = "railgun",
 	displayName = "Railgun Turret",
-	SLUG_SPEED = 700,
-	SLUG_WIDTH = 10,
-	SLUG_HEIGHT = 3,
-	SLUG_COLOR = {0.6, 0.9, 1, 1},
+	SLUG_SPEED = 900,
+	SLUG_LENGTH = 56,
+	SLUG_THICKNESS = 2,
+	-- Make slug bright white for visibility
+	SLUG_COLOR = {1, 1, 1, 1},
 	SLUG_LIFETIME = 8,
+	TRAIL_EMIT_RATE = 90,
+	TRAIL_MAX_PARTICLES = 40,
+	TRAIL_PARTICLE_LIFE = 0.12,
+	TRAIL_SPREAD = 0.06,
+	TRAIL_SPEED_MULTIPLIER = 1.1,
+	TRAIL_COLOR = {1.0, 1.0, 1.0},
 	COOLDOWN = 3,
 	DPS = 30,
 	design = {
 		shape = "custom",
 		size = 18,
-		color = {0.6, 0.8, 1, 1}
+		color = {0.75, 0.85, 1, 1}
 	},
 	draw = function(self, x, y)
 		local size = self.design.size
-		love.graphics.setColor(0.2, 0.2, 0.3, 1)
-		love.graphics.rectangle("fill", x - size/4, y - size/2, size/2, size, 4, 4)
-		love.graphics.setColor(0.6, 0.8, 1, 1)
-		love.graphics.circle("fill", x, y + size/2, size/3)
-		love.graphics.setColor(0.3, 0.3, 0.4, 1)
-		love.graphics.rectangle("fill", x - size/2, y + size/3, size, size/4, 4, 4)
+		love.graphics.setColor(0.18, 0.2, 0.24, 1)
+		love.graphics.rectangle("fill", x - size * 0.35, y - size * 0.5, size * 0.7, size, size * 0.15, size * 0.15)
+
+		-- Twin acceleration rails
+		love.graphics.setColor(0.65, 0.75, 0.9, 1)
+		love.graphics.rectangle("fill", x - size * 0.55, y - size * 0.18, size * 1.1, size * 0.1, size * 0.05, size * 0.05)
+		love.graphics.rectangle("fill", x - size * 0.55, y + size * 0.08, size * 1.1, size * 0.1, size * 0.05, size * 0.05)
+
+		-- Capacitor core glow
+		love.graphics.setColor(0.85, 0.9, 1.0, 0.9)
+		love.graphics.rectangle("fill", x - size * 0.28, y - size * 0.12, size * 0.56, size * 0.24, size * 0.08, size * 0.08)
+		love.graphics.setColor(1, 1, 1, 0.5)
+		love.graphics.rectangle("fill", x - size * 0.28, y - size * 0.05, size * 0.56, size * 0.1, size * 0.04, size * 0.04)
 	end
 }
 
@@ -38,17 +52,41 @@ function Railgun.fire(ownerId, startX, startY, endX, endY)
 	local dirY = dy / dist
 
 	local ownerCollidable = ECS.getComponent(ownerId, "Collidable")
-	local barrelOffset = ownerCollidable and (ownerCollidable.radius + Railgun.SLUG_WIDTH + 6) or 24
+	local barrelOffset = ownerCollidable and (ownerCollidable.radius + Railgun.SLUG_LENGTH * 0.35 + 6) or 24
 	local spawnX = startX + dirX * barrelOffset
 	local spawnY = startY + dirY * barrelOffset
+
+	local slugRotation = math.atan2(dirY, dirX)
+	-- Create a long, narrow triangle pointing in +X local space
+	local halfLength = Railgun.SLUG_LENGTH * 0.5
+	local thickness = Railgun.SLUG_THICKNESS
+	local slugVertices = {
+		-- Tip at front
+		{x = halfLength, y = 0},
+		-- Rear right
+		{x = -halfLength, y = thickness},
+		-- Rear left
+		{x = -halfLength, y = -thickness}
+	}
 
 	local slugId = ECS.createEntity()
 	ECS.addComponent(slugId, "Position", Components.Position(spawnX, spawnY))
 	ECS.addComponent(slugId, "Velocity", Components.Velocity(dirX * Railgun.SLUG_SPEED, dirY * Railgun.SLUG_SPEED))
-	ECS.addComponent(slugId, "Renderable", Components.Renderable("rectangle", Railgun.SLUG_WIDTH, Railgun.SLUG_HEIGHT, nil, Railgun.SLUG_COLOR))
-	ECS.addComponent(slugId, "Collidable", Components.Collidable(math.max(Railgun.SLUG_WIDTH, Railgun.SLUG_HEIGHT)))
+	ECS.addComponent(slugId, "PolygonShape", Components.PolygonShape(slugVertices, slugRotation))
+	-- Use polygon renderable with explicit white color and small thickness
+	ECS.addComponent(slugId, "Renderable", Components.Renderable("polygon", nil, nil, nil, Railgun.SLUG_COLOR))
+	-- Collidable radius is still small but sufficient for a narrow slug
+	ECS.addComponent(slugId, "Collidable", Components.Collidable(Railgun.SLUG_THICKNESS * 2))
 	ECS.addComponent(slugId, "Projectile", {ownerId = ownerId, damage = Railgun.DPS, brittle = false, isMissile = false, penetration = true})
 	ECS.addComponent(slugId, "ProjectileLifetime", {age = 0, maxAge = Railgun.SLUG_LIFETIME})
+	ECS.addComponent(slugId, "TrailEmitter", Components.TrailEmitter(
+		Railgun.TRAIL_EMIT_RATE,
+		Railgun.TRAIL_MAX_PARTICLES,
+		Railgun.TRAIL_PARTICLE_LIFE,
+		Railgun.TRAIL_SPREAD,
+		Railgun.TRAIL_SPEED_MULTIPLIER,
+		Railgun.TRAIL_COLOR
+	))
 end
 
 return Railgun
