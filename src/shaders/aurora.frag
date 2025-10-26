@@ -30,22 +30,22 @@ float fbm(vec2 p) {
 }
 
 void main() {
-    // Check if we're within the text bounds
-    vec2 textCenter = vec2(textBounds.x + textBounds.z * 0.5, textBounds.y + textBounds.w * 0.5);
-    vec2 toCenter = screenPos - textCenter;
+    // Check if we're within the bounds
+    vec2 boundsCenter = vec2(textBounds.x + textBounds.z * 0.5, textBounds.y + textBounds.w * 0.5);
+    vec2 toCenter = screenPos - boundsCenter;
     float distanceFromCenter = length(toCenter);
 
-    // Create a falloff based on distance from text center
-    float maxDistance = length(vec2(textBounds.z * 0.8, textBounds.w * 0.8));
-    float textInfluence = 1.0 - smoothstep(0.0, maxDistance, distanceFromCenter);
+    // Create a falloff based on distance from bounds center (for background effect)
+    float maxDistance = length(vec2(textBounds.z * 0.6, textBounds.w * 0.6));
+    float boundsInfluence = 1.0 - smoothstep(0.0, maxDistance, distanceFromCenter);
 
-    // Only apply aurora effect if we're near the text (lower threshold)
-    if (textInfluence < 0.02) {
-        discard; // Don't draw pixels far from text
+    // Only apply aurora effect if we're within the bounds
+    if (boundsInfluence < 0.01) {
+        discard; // Don't draw pixels outside bounds
     }
 
     // Use screen position for wave calculations
-    vec2 p = (screenPos - textCenter) / (textBounds.w * 0.5);
+    vec2 p = (screenPos - boundsCenter) / (textBounds.w * 0.5);
     p.x *= resolution.x / resolution.y;
 
     // Create flowing wave patterns with higher frequency for more detail
@@ -62,7 +62,7 @@ void main() {
     verticalFlow += sin(p.y * 1.5 - time * 1.3) * 0.2;
 
     // Create intensity variation with higher base values
-    float intensity = wavePattern * verticalFlow * textInfluence * 1.2;
+    float intensity = wavePattern * verticalFlow * boundsInfluence * 1.2;
 
     // Add some noise for realism
     float noiseValue = fbm(p * 2.0 + time * 0.5) * 0.3 + 0.7;
@@ -99,15 +99,15 @@ void main() {
     auroraColor *= brightness;
 
     // Create alpha based on intensity with smooth falloff
-    float alpha = smoothstep(0.1, 0.9, intensity); // Wider visible range
-    alpha *= smoothstep(0.1, 0.9, noiseValue); // Use noise for natural edges
-    alpha *= textInfluence; // Fade out away from text
+    float alpha = smoothstep(0.05, 0.8, intensity); // Wider visible range
+    alpha *= smoothstep(0.05, 0.8, noiseValue); // Use noise for natural edges
+    alpha *= boundsInfluence; // Fade out away from bounds
 
     // Add some transparency variation over time
     alpha *= 0.95 + 0.05 * sin(time * 1.5 + p.x * 3.0);
 
     // Ensure minimum visibility but allow natural fading
-    alpha = max(alpha, 0.15);
+    alpha = max(alpha, 0.25);
 
     gl_FragColor = vec4(auroraColor, alpha);
 }

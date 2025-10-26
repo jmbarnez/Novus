@@ -45,6 +45,9 @@ local function resetComet(i, width, height)
 end
 
 function start_screen.update(dt)
+    -- Update shader time for aurora animation
+    ShaderManager.updateTime()
+
     local width, height = love.graphics.getDimensions()
     for i = 1, cometCount do
         if not comets[i] then
@@ -94,25 +97,51 @@ local buttonX = nil -- will be set in draw
 local buttonHovered = false
 
 -- Twinkling stars
-local starCount = 80
+local starCount = 150
 local stars = {}
 for i = 1, starCount do
-    local brightness = math.random(70, 100) / 100
-    local colorType = math.random(1, 3)
+    -- Much more varied brightness distribution for start screen stars
+    local brightnessRoll = math.random()
+    local brightness
+    if brightnessRoll < 0.08 then
+        -- 8% chance for very bright stars (like Sirius, Vega)
+        brightness = math.random(85, 100) / 100
+    elseif brightnessRoll < 0.20 then
+        -- 12% chance for bright stars (like Polaris, Arcturus)
+        brightness = math.random(70, 85) / 100
+    elseif brightnessRoll < 0.45 then
+        -- 25% chance for medium stars (most visible stars)
+        brightness = math.random(50, 70) / 100
+    elseif brightnessRoll < 0.75 then
+        -- 30% chance for dim stars (faint but visible)
+        brightness = math.random(25, 50) / 100
+    else
+        -- 25% chance for very dim stars (barely visible)
+        brightness = math.random(10, 25) / 100
+    end
+    
+    local colorType = math.random(1, 4)
     local color
     if colorType == 1 then
         color = {1, 1, 1} -- white
     elseif colorType == 2 then
         color = {0.7, 0.8, 1} -- blue-white
-    else
+    elseif colorType == 3 then
         color = {1, 0.95, 0.85} -- yellow-white
+    else
+        color = {1, 0.8, 0.6} -- orange-white
     end
+    
     stars[i] = {
         x = math.random(0, Constants.getScreenWidth()),
         y = math.random(0, Constants.getScreenHeight()),
-        baseAlpha = brightness * math.random(12, 32) / 100,
-        twinkleSpeed = math.random(12, 32) / 10,
-        size = math.random(1, 2),
+        -- Base alpha varies more widely now (20% - 100% of brightness)
+        baseAlpha = brightness * math.random(20, 100) / 100,
+        -- Per-star twinkle speed, amplitude and phase for more variance
+        twinkleSpeed = math.random(3, 50) / 10, -- 0.3 .. 5.0
+        twinkleAmplitude = math.random(15, 80) / 100, -- 0.15 .. 0.80
+        twinklePhase = math.random() * (2 * math.pi),
+        size = math.random(1, 4), -- Slightly larger size range
         color = color,
         brightness = brightness
     }
@@ -121,7 +150,7 @@ end
     -- Twinkling stars don't need update
 
 function start_screen.draw()
-    love.graphics.clear(0, 0, 0)
+    love.graphics.clear(0.01, 0.02, 0.05)
     local width, height = love.graphics.getDimensions()
     -- Draw twinkling stars
     local t = love.timer.getTime()
@@ -130,10 +159,13 @@ function start_screen.draw()
     local starColors = {}
     for i = 1, starCount do
         local s = stars[i]
-        local twinkle = s.baseAlpha + 0.18 * math.abs(math.sin(t * s.twinkleSpeed + i))
+        -- Use per-star amplitude and phase for larger, varied twinkles
+        local twinkle = s.baseAlpha + s.twinkleAmplitude * math.abs(math.sin(t * s.twinkleSpeed + s.twinklePhase))
+        -- Cap alpha to 1.0 after applying brightness
+        local alpha = math.min(1, twinkle * s.brightness)
         table.insert(starCoords, s.x)
         table.insert(starCoords, s.y)
-        table.insert(starColors, {s.color[1], s.color[2], s.color[3], twinkle * s.brightness})
+        table.insert(starColors, {s.color[1], s.color[2], s.color[3], alpha})
     end
     for i = 1, starCount do
         local idx = (i-1)*2+1
@@ -170,6 +202,10 @@ function start_screen.draw()
     local titleX = width/2 - titleWidth/2
     local titleY = height * 0.25
 
+    -- Calculate text bounds for shader (extend bounds for aurora glow effect)
+    local textHeight = font:getHeight() * 1.5 -- Make taller for aurora effect
+    local glowPadding = titleWidth * 0.3 -- Add horizontal padding for glow
+
     -- Set up aurora shader
     local auroraShader = ShaderManager.getAuroraShader()
     if auroraShader then
@@ -188,19 +224,9 @@ function start_screen.draw()
         ShaderManager.setAuroraColors(color1, color2, color3)
         ShaderManager.setAuroraResolution(width, height)
 
-        -- Calculate text bounds for shader (extend bounds for aurora glow effect)
-        local textHeight = font:getHeight() * 1.5 -- Make taller for aurora effect
-        local glowPadding = titleWidth * 0.3 -- Add horizontal padding for glow
-        ShaderManager.setAuroraTextBounds(
-            titleX - glowPadding,
-            titleY - textHeight * 0.2,
-            titleWidth + glowPadding * 2,
-            textHeight
-        )
-
-        -- Apply shader and draw title
+        -- Draw title text with aurora shader applied directly to the letters
         love.graphics.setShader(auroraShader)
-        love.graphics.setColor(1, 1, 1, 1) -- White base, shader handles coloring
+        love.graphics.setColor(1, 1, 1, 1)
         love.graphics.print(titleText, titleX, titleY)
         love.graphics.setShader() -- Reset shader
     else

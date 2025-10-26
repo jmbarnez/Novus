@@ -167,16 +167,60 @@ function Parallax.new(layers, worldSize)
                 sx = love.math.random(-parallax.worldSize/2, parallax.worldSize/2)
                 sy = love.math.random(-parallax.worldSize/2, parallax.worldSize/2)
             end
-            -- brightness as float in [0.8..1.0]*layer.brightness
-            local brightness = (layer.brightness or 0.5) * (0.8 + love.math.random() * 0.2)
+            -- Much more varied brightness distribution based on star type
+            -- Create a more realistic brightness curve with some very bright stars and many dim ones
+            local brightnessRoll = love.math.random()
+            local baseBrightness
+            if brightnessRoll < 0.05 then
+                -- 5% chance for very bright stars (magnitude -1 to 1)
+                baseBrightness = 0.9 + love.math.random() * 0.1
+            elseif brightnessRoll < 0.15 then
+                -- 10% chance for bright stars (magnitude 1 to 3)
+                baseBrightness = 0.7 + love.math.random() * 0.2
+            elseif brightnessRoll < 0.35 then
+                -- 20% chance for medium stars (magnitude 3 to 5)
+                baseBrightness = 0.4 + love.math.random() * 0.3
+            elseif brightnessRoll < 0.65 then
+                -- 30% chance for dim stars (magnitude 5 to 7)
+                baseBrightness = 0.2 + love.math.random() * 0.2
+            else
+                -- 35% chance for very dim stars (magnitude 7+)
+                baseBrightness = 0.05 + love.math.random() * 0.15
+            end
+            
+            -- Adjust brightness based on star type (hotter stars tend to be brighter)
+            local typeMultiplier = 1.0
+            if colorType <= 2 then
+                -- Blue stars (O/B type) - hottest and brightest
+                typeMultiplier = 1.0 + love.math.random() * 0.3
+            elseif colorType <= 4 then
+                -- White stars (A type) - very bright
+                typeMultiplier = 0.9 + love.math.random() * 0.2
+            elseif colorType <= 6 then
+                -- Yellow/White stars (F/G type) - moderate brightness
+                typeMultiplier = 0.8 + love.math.random() * 0.2
+            elseif colorType <= 8 then
+                -- Orange stars (K type) - dimmer
+                typeMultiplier = 0.6 + love.math.random() * 0.2
+            else
+                -- Red stars (M type) - coolest and dimmest
+                typeMultiplier = 0.4 + love.math.random() * 0.2
+            end
+            
+            local brightness = (layer.brightness or 0.5) * baseBrightness * typeMultiplier
             table.insert(parallax.layers[i].stars, {
                 x = sx,
                 y = sy,
                 size = love.math.random(1, 3),
                 brightness = brightness,
+                baseBrightness = brightness, -- Store original brightness for twinkling
                 r = r,
                 g = g,
-                b = b
+                b = b,
+                -- Twinkling parameters for dynamic brightness
+                twinkleSpeed = love.math.random(2, 15) / 10, -- 0.2 to 1.5
+                twinkleAmplitude = love.math.random(5, 25) / 100, -- 0.05 to 0.25
+                twinklePhase = love.math.random() * (2 * math.pi)
             })
         end
         -- Generate nebula clouds for non-static layers
@@ -296,7 +340,16 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
             if sx < -4 or sx > screenWidth + 4 or sy < -4 or sy > screenHeight + 4 then
                 goto star_continue
             end
-            love.graphics.setColor(star.r, star.g, star.b, star.brightness)
+            
+            -- Apply twinkling effect for dynamic brightness
+            local currentTime = love.timer.getTime()
+            local twinkle = 1.0
+            if star.twinkleSpeed and star.twinkleAmplitude and star.twinklePhase then
+                twinkle = 1.0 + star.twinkleAmplitude * math.abs(math.sin(currentTime * star.twinkleSpeed + star.twinklePhase))
+            end
+            local finalBrightness = (star.baseBrightness or star.brightness) * twinkle
+            
+            love.graphics.setColor(star.r, star.g, star.b, finalBrightness)
             love.graphics.points(sx, sy)
             ::star_continue::
         end
