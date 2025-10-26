@@ -123,8 +123,7 @@ Components.Wallet = function(credits)
     }
 end
 
-return Components
-
+-- Register component serializer
 local ECS = require('src.ecs')
 
 ECS.registerComponentSerializer("Cargo", {
@@ -145,3 +144,5 @@ ECS.registerComponentSerializer("Cargo", {
         return component
     end,
 })
+
+return Components
