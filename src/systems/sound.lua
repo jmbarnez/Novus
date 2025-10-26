@@ -6,10 +6,11 @@ local SoundSystem = {
     name = "SoundSystem",
     sounds = {},
     volumes = {
-        master = 100,
+        master = 10,   -- Default to 10% master volume
         music = 100,
         sfx = 100
-    }
+    },
+    _lastMusicVolume = 100  -- Track actual music volume multiplier
 }
 
 -- Load a single sound file (path relative to the game folder)
@@ -92,11 +93,15 @@ function SoundSystem.playMusic(path, opts)
             SoundSystem.musicSource = src
             SoundSystem.musicSource:setLooping(true)
             
+            -- Store the music volume multiplier for future reference
+            local musicMultiplier = (opts and opts.volume) or 100
+            SoundSystem._lastMusicVolume = musicMultiplier
+            
+            -- Update the music volume to match the multiplier
+            SoundSystem.volumes.music = musicMultiplier
+            
             -- Apply volume scaling based on master and music volumes
             local finalVolume = (SoundSystem.volumes.master / 100) * (SoundSystem.volumes.music / 100)
-            if opts and opts.volume then 
-                finalVolume = finalVolume * (opts.volume / 100)
-            end
             SoundSystem.musicSource:setVolume(finalVolume)
             SoundSystem.musicSource:play()
         end

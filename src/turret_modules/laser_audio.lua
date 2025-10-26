@@ -5,7 +5,7 @@ local SoundSystem = require('src.systems.sound')
 
 local LaserAudio = {
     soundName = "laserbeam",
-    assetPath = "assets/sounds/laserbeam.wav",
+    assetPath = "assets/sounds/laserbeam.ogg",
     defaultVolume = 65,
     _attemptedLoad = false,
 }
@@ -103,4 +103,3 @@ function LaserAudio.stop(turretComp)
 end
 
 return LaserAudio
-

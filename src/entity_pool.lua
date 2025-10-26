@@ -98,6 +98,11 @@ function EntityPool.release(poolName, entityId)
         return false
     end
 
+    -- Reset state immediately so dormant entities don't linger with stale data
+    if pool.reset then
+        pcall(pool.reset, entityId)
+    end
+
     -- Add back to available if pool not full
     if #pool.available < pool.maxSize then
         table.insert(pool.available, entityId)

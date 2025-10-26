@@ -141,85 +141,20 @@ function CargoPanel.getCompatibleSlots(shipWin, itemId)
 end
 
 function CargoPanel.openContextMenu(shipWin, itemId, itemDef, x, y)
-    local compatibleSlots = CargoPanel.getCompatibleSlots(shipWin, itemId)
-    local options = {}
-
-    -- Determine drone and occupancy to show "Swap" when necessary
-    local ECS = require('src.ecs')
-    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-    local droneId = nil
-    if #pilotEntities > 0 then
-        local pilotId = pilotEntities[1]
-        local input = ECS.getComponent(pilotId, "InputControlled")
-        if input and input.targetEntity then droneId = input.targetEntity end
+    if shipWin and shipWin.openContextMenu then
+        shipWin:openContextMenu(itemId, itemDef, x, y)
     end
-
-    for _, slotType in ipairs(compatibleSlots) do
-        local occupied = false
-        if droneId then
-            if slotType == "Turret Module" then
-                local turretSlots = ECS.getComponent(droneId, "TurretSlots")
-                occupied = (turretSlots and turretSlots.slots and turretSlots.slots[1]) ~= nil
-            elseif slotType == "Defensive Module" then
-                local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
-                occupied = (defensiveSlots and defensiveSlots.slots and defensiveSlots.slots[1]) ~= nil
-            elseif slotType == "Generator Module" then
-                local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
-                occupied = (generatorSlots and generatorSlots.slots and generatorSlots.slots[1]) ~= nil
-            end
-        end
-
-        local itemName = (itemDef and itemDef.name) or tostring(itemId)
-        local optionText = occupied and ("Swap " .. itemName .. " with " .. slotType) or ("Equip " .. itemName .. " to " .. slotType)
-        table.insert(options, { text = optionText, action = "equip", slotType = slotType })
-    end
-
-    if #options == 0 then
-        table.insert(options, { text = "No compatible slots", action = "noop" })
-    end
-
-    shipWin.contextMenu = { itemId = itemId, itemDef = itemDef, x = x, y = y, options = options, hoveredOption = nil, width = 300, height = 8 + (#options * 24) }
 end
 
 function CargoPanel.handleContextMenuClick(shipWin, optionIndex)
-    if not shipWin.contextMenu or not shipWin.contextMenu.options[optionIndex] then return end
-    local option = shipWin.contextMenu.options[optionIndex]
-    if option.action == "equip" and option.slotType then
-        local LoadoutPanel = require('src.ui.loadout_panel')
-        LoadoutPanel.equipModule(shipWin, shipWin.contextMenu.itemId)
+    if shipWin and shipWin.handleContextMenuClick then
+        shipWin:handleContextMenuClick(optionIndex)
     end
-    shipWin.contextMenu = nil
 end
 
 function CargoPanel.drawContextMenu(shipWin, x, y, alpha)
-    local menuWidth = shipWin.contextMenu.width or 200
-    local menuHeight = shipWin.contextMenu.height or (8 + (#shipWin.contextMenu.options * 24))
-    love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.95)
-    love.graphics.rectangle("fill", x, y, menuWidth, menuHeight, 5, 5)
-    love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha)
-    love.graphics.rectangle("line", x, y, menuWidth, menuHeight, 5, 5)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-    for i, option in ipairs(shipWin.contextMenu.options) do
-        local optionY = y + 8 + (i-1) * 24
-        local isHovered = shipWin.contextMenu.hoveredOption == i
-        if isHovered then
-            love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], Theme.colors.bgMedium[3], alpha * 0.8)
-            love.graphics.rectangle("fill", x + 5, optionY - 2, menuWidth - 10, 20, 3, 3)
-        end
-        local textColor = Theme.colors.textPrimary
-        if option.action == "equip" and option.slotType then
-            if option.slotType == "Turret Module" then
-                textColor = Theme.colors.textAccent
-            elseif option.slotType == "Defensive Module" then
-                textColor = Theme.colors.textSecondary
-            elseif option.slotType == "Generator Module" then
-                textColor = Theme.colors.textPrimary
-            end
-        elseif option.action == "noop" then
-            textColor = {Theme.colors.textSecondary[1] * 0.6, Theme.colors.textSecondary[2] * 0.6, Theme.colors.textSecondary[3] * 0.6}
-        end
-        love.graphics.setColor(textColor[1], textColor[2], textColor[3], alpha)
-        love.graphics.printf(option.text, x + 8, optionY + 2, menuWidth - 16, "left")
+    if shipWin and shipWin.drawContextMenu then
+        shipWin:drawContextMenu(x, y, alpha)
     end
 end
 

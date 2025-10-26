@@ -26,6 +26,11 @@ function Slider:new(minValue, maxValue, currentValue, x, y, width, height, onCha
     self.isDragging = false
     self.dragOffset = 0
     
+    -- Trigger callback once on creation to sync the initial value
+    if onChangeCallback then
+        onChangeCallback(self.currentValue)
+    end
+    
     return self
 end
 

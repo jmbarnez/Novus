@@ -258,7 +258,7 @@ function GameInit.loadSounds()
     end
     -- Start looping background music if available
     if Systems.SoundSystem and Systems.SoundSystem.playMusic then
-        Systems.SoundSystem.playMusic("assets/music/adrift.mp3", {volume = 0.5})
+        Systems.SoundSystem.playMusic("assets/music/adrift.mp3", {volume = 1.0})
     end
 end
 

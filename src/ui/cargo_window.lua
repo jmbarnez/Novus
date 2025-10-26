@@ -203,8 +203,20 @@ function CargoWindow:openContextMenu(itemId, itemDef, x, y)
         table.insert(options, { text = "No compatible slots", action = "noop" })
     end
 
-    local menuWidth = 300
-    local menuHeight = 8 + (#options * 24)
+    local menuFont = Theme.getFont(Theme.fonts.normal)
+    local fontHeight = menuFont:getHeight()
+    local paddingX = 20
+    local paddingY = 12
+    local optionHeight = math.max(fontHeight + 10, 28)
+    local minWidth = 260
+    local maxTextWidth = 0
+    for _, option in ipairs(options) do
+        local text = option.text or ""
+        maxTextWidth = math.max(maxTextWidth, menuFont:getWidth(text))
+    end
+
+    local menuWidth = math.max(minWidth, maxTextWidth + paddingX * 2)
+    local menuHeight = paddingY * 2 + optionHeight * #options
 
     self.contextMenu = {
         itemId = itemId,
@@ -214,7 +226,13 @@ function CargoWindow:openContextMenu(itemId, itemDef, x, y)
         options = options,
         hoveredOption = nil,
         width = menuWidth,
-        height = menuHeight
+        height = menuHeight,
+        paddingX = paddingX,
+        paddingY = paddingY,
+        optionHeight = optionHeight,
+        fontSize = Theme.fonts.normal,
+        fontLineHeight = fontHeight,
+        highlightInset = 4
     }
 end
 
@@ -240,26 +258,44 @@ end
 
 -- Draw context menu for cargo items
 function CargoWindow:drawContextMenu(x, y, alpha)
-    local menuWidth = (self.contextMenu and self.contextMenu.width) or 200
-    local menuHeight = (self.contextMenu and self.contextMenu.height) or (8 + (#self.contextMenu.options * 24))
+    if not self.contextMenu then
+        return
+    end
 
-    -- Background
-    love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.95)
-    love.graphics.rectangle("fill", x, y, menuWidth, menuHeight, 5, 5)
+    local menu = self.contextMenu
+    local menuWidth = menu.width or 200
+    local menuHeight = menu.height or ((menu.paddingY or 12) * 2 + (#menu.options * (menu.optionHeight or 24)))
+    local paddingX = menu.paddingX or 20
+    local paddingY = menu.paddingY or 12
+    local optionHeight = menu.optionHeight or 28
+    local highlightInset = menu.highlightInset or 4
 
-    -- Border
-    love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha)
-    love.graphics.rectangle("line", x, y, menuWidth, menuHeight, 5, 5)
+    -- Panel background and border (flat, theme-aligned)
+    local bgColor = Theme.colors.bgMedium
+    love.graphics.setColor(bgColor[1], bgColor[2], bgColor[3], alpha * 0.94)
+    love.graphics.rectangle("fill", x, y, menuWidth, menuHeight)
 
-    -- Minimal: render one-line commands only (each option already contains the item name)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-    for i, option in ipairs(self.contextMenu.options) do
-        local optionY = y + 8 + (i-1) * 24
-        local isHovered = self.contextMenu.hoveredOption == i
+    local accent = Theme.colors.buttonHover
+    love.graphics.setColor(accent[1], accent[2], accent[3], (accent[4] or 1) * alpha * 0.35)
+    love.graphics.rectangle("fill", x, y, menuWidth, 2)
+
+    local borderColor = Theme.colors.borderDark
+    love.graphics.setColor(borderColor[1], borderColor[2], borderColor[3], alpha)
+    love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", x, y, menuWidth, menuHeight)
+
+    -- Draw options
+    local font = Theme.getFont(menu.fontSize or Theme.fonts.normal)
+    love.graphics.setFont(font)
+    local fontHeight = menu.fontLineHeight or font:getHeight()
+
+    for i, option in ipairs(menu.options) do
+        local optionTop = y + paddingY + (i - 1) * optionHeight
+        local isHovered = menu.hoveredOption == i
 
         if isHovered then
-            love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], Theme.colors.bgMedium[3], alpha * 0.8)
-            love.graphics.rectangle("fill", x + 5, optionY - 2, menuWidth - 10, 20, 3, 3)
+            love.graphics.setColor(accent[1], accent[2], accent[3], (accent[4] or 1) * alpha * 0.18)
+            love.graphics.rectangle("fill", x + highlightInset, optionTop, menuWidth - highlightInset * 2, optionHeight)
         end
 
         local textColor = Theme.colors.textPrimary
@@ -272,11 +308,18 @@ function CargoWindow:drawContextMenu(x, y, alpha)
                 textColor = Theme.colors.textPrimary
             end
         elseif option.action == "noop" then
-            textColor = {Theme.colors.textSecondary[1] * 0.6, Theme.colors.textSecondary[2] * 0.6, Theme.colors.textSecondary[3] * 0.6}
+            textColor = {
+                Theme.colors.textSecondary[1] * 0.6,
+                Theme.colors.textSecondary[2] * 0.6,
+                Theme.colors.textSecondary[3] * 0.6,
+                Theme.colors.textSecondary[4] or 1
+            }
         end
-        love.graphics.setColor(textColor[1], textColor[2], textColor[3], alpha)
 
-        love.graphics.printf(option.text, x + 8, optionY + 2, menuWidth - 16, "left")
+        love.graphics.setColor(textColor[1], textColor[2], textColor[3], (textColor[4] or 1) * alpha)
+
+        local textY = optionTop + (optionHeight - fontHeight) / 2
+        love.graphics.print(option.text or "", x + paddingX, textY)
     end
 end
 
@@ -414,11 +457,12 @@ function CargoWindow:mousepressed(x, y, button)
 
     -- Close context menu if clicking outside of it (any button)
     if self.contextMenu then
+        local menu = self.contextMenu
         local uiX, uiY = Scaling.toUI(mx, my)
-        local cmW = (self.contextMenu and self.contextMenu.width) or 200
-        local cmH = (self.contextMenu and self.contextMenu.height) or (8 + (#self.contextMenu.options * 24))
-        if not (uiX >= self.contextMenu.x and uiX <= self.contextMenu.x + cmW and
-                uiY >= self.contextMenu.y and uiY <= self.contextMenu.y + cmH) then
+        local cmW = menu.width or 200
+        local cmH = menu.height or ((menu.paddingY or 12) * 2 + (#menu.options * (menu.optionHeight or 24)))
+        if not (uiX >= menu.x and uiX <= menu.x + cmW and
+                uiY >= menu.y and uiY <= menu.y + cmH) then
             self.contextMenu = nil
             return
         end
@@ -450,18 +494,23 @@ function CargoWindow:mousereleased(x, y, button)
     -- Handle context menu clicks
     if self.contextMenu and button == 1 then
         local mx, my = Scaling.toUI(x, y)
-        local cmW = (self.contextMenu and self.contextMenu.width) or 200
-        local cmH = (self.contextMenu and self.contextMenu.height) or (8 + (#self.contextMenu.options * 24))
-        if mx >= self.contextMenu.x and mx <= self.contextMenu.x + cmW and
-           my >= self.contextMenu.y and my <= self.contextMenu.y + cmH then
-            -- Find which option was clicked
-            local optionIndex = math.floor((my - self.contextMenu.y - 8) / 24) + 1
-            if optionIndex >= 1 and optionIndex <= #self.contextMenu.options then
-                self:handleContextMenuClick(optionIndex)
-                return
+        local menu = self.contextMenu
+        local cmW = menu.width or 200
+        local cmH = menu.height or ((menu.paddingY or 12) * 2 + (#menu.options * (menu.optionHeight or 24)))
+        if mx >= menu.x and mx <= menu.x + cmW and
+           my >= menu.y and my <= menu.y + cmH then
+            local optionHeight = menu.optionHeight or 28
+            local optionStartY = menu.y + (menu.paddingY or 12)
+            local relativeY = my - optionStartY
+            if relativeY >= 0 then
+                local optionIndex = math.floor(relativeY / optionHeight) + 1
+                if optionIndex >= 1 and optionIndex <= #menu.options then
+                    self:handleContextMenuClick(optionIndex)
+                    return
+                end
             end
         end
-        -- Click outside menu - close it
+        -- Click outside menu or on empty space inside closes it
         self.contextMenu = nil
     end
 
@@ -513,19 +562,26 @@ function CargoWindow:mousemoved(x, y, dx, dy)
     -- Handle context menu hover detection
     if self.contextMenu then
         local mx, my = Scaling.toUI(x, y)
-        local cmW = (self.contextMenu and self.contextMenu.width) or 200
-        local cmH = (self.contextMenu and self.contextMenu.height) or (8 + (#self.contextMenu.options * 24))
-        if mx >= self.contextMenu.x and mx <= self.contextMenu.x + cmW and
-           my >= self.contextMenu.y and my <= self.contextMenu.y + cmH then
-            -- Find which option is hovered
-            local optionIndex = math.floor((my - self.contextMenu.y - 8) / 24) + 1
-            if optionIndex >= 1 and optionIndex <= #self.contextMenu.options then
-                self.contextMenu.hoveredOption = optionIndex
+        local menu = self.contextMenu
+        local cmW = menu.width or 200
+        local cmH = menu.height or ((menu.paddingY or 12) * 2 + (#menu.options * (menu.optionHeight or 24)))
+        if mx >= menu.x and mx <= menu.x + cmW and
+           my >= menu.y and my <= menu.y + cmH then
+            local optionHeight = menu.optionHeight or 28
+            local optionStartY = menu.y + (menu.paddingY or 12)
+            local relativeY = my - optionStartY
+            if relativeY >= 0 then
+                local optionIndex = math.floor(relativeY / optionHeight) + 1
+                if optionIndex >= 1 and optionIndex <= #menu.options then
+                    menu.hoveredOption = optionIndex
+                else
+                    menu.hoveredOption = nil
+                end
             else
-                self.contextMenu.hoveredOption = nil
+                menu.hoveredOption = nil
             end
         else
-            self.contextMenu.hoveredOption = nil
+            menu.hoveredOption = nil
         end
     end
 
