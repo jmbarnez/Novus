@@ -18,6 +18,8 @@ local TimeManager = require('src.time_manager')
 local HotkeyConfig = require('src.hotkey_config')
 local DisplayManager = require('src.display_manager')
 local RenderCanvas = require('src.systems.render.canvas')
+local Dropdown = require('src.ui.dropdown')
+local Slider = require('src.ui.slider')
 
 -- Import settings panels
 local HotkeyConfigPanel = require('src.ui.settings.hotkey_config_panel')
@@ -44,17 +46,22 @@ local SettingsWindow = WindowBase:new{
     savedSettings = {}
 }
 
+-- Cache widget classes on the instance to avoid relying on globals when
+-- constructing UI controls during initialization in gameplay builds where
+-- strict global checking may be enabled.
+SettingsWindow.dropdownClass = Dropdown
+
 -- Canvas used to render a downscaled copy of the screen for a blur-like background
 SettingsWindow._blurCanvas = nil
 SettingsWindow._screenW = nil
 SettingsWindow._screenH = nil
 
 -- FPS Configuration
+-- FPS options (nil means no cap / Unlimited)
 SettingsWindow.fpsOptions = {30, 60, 90, 120, 144, 240, nil}
 SettingsWindow.fpsLabels = {"30", "60", "90", "120", "144", "240", "Unlimited"}
 
--- Window modes
-SettingsWindow.modes = { 'Windowed', 'Borderless', 'Fullscreen' }
+-- Window mode is always windowed; dropdown removed
 
 -- Resolutions (render resolution options)
 SettingsWindow.resolutions = DisplayManager.renderResolutions
@@ -77,7 +84,6 @@ function SettingsWindow:saveSettingsSnapshot()
     local SoundSystem = require('src.systems.sound')
     self.savedSettings = {
         fps = TimeManager.getTargetFps(),
-        windowMode = self:currentModeIndex(),
         resolution = DisplayManager.getRenderResolution(),
         hotkeys = {},
         audio = {
@@ -94,12 +100,7 @@ function SettingsWindow:closeWindow()
 end
 
 -- Get current window mode index
-function SettingsWindow:currentModeIndex()
-    local mode = DisplayManager.getWindowMode()
-    if mode == 'fullscreen' then return 3 end
-    if mode == 'borderless' then return 2 end
-    return 1
-end
+-- Window mode index logic removed (only windowed mode supported)
 
 -- Get current resolution index
 function SettingsWindow:getCurrentResIndex()
@@ -118,7 +119,12 @@ end
 function SettingsWindow:drawHotkeyButtons(alpha)
     if not self.hotkeyButtons then return end
     
-    local mx, my = Scaling.toUI(love.mouse.getPosition())
+    local mx, my
+    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+        mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+    else
+        mx, my = Scaling.toUI(love.mouse.getPosition())
+    end
     
     for i, button in ipairs(self.hotkeyButtons) do
         local hovered = mx >= button.x and mx <= button.x + button.width and 
@@ -208,7 +214,12 @@ function SettingsWindow:drawScrollBar(alpha)
     -- Only draw thumb if there's scrollable content
     if self.maxScrollY > 0 then
         -- Scroll bar thumb
-        local mx, my = Scaling.toUI(love.mouse.getPosition())
+        local mx, my
+        if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+            mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+        else
+            mx, my = Scaling.toUI(love.mouse.getPosition())
+        end
         local thumbHovered = mx >= sb.x and mx <= sb.x + sb.width and 
                             my >= sb.thumbY and my <= sb.thumbY + sb.thumbHeight
         
@@ -256,38 +267,10 @@ function SettingsWindow:initialize()
         table.insert(resLabels, res.label)
     end
     
-    -- FPS Dropdown
-    self.fpsDropdown = Dropdown:new(self.fpsLabels, self:currentFpsIndex(), x, y, dropdownWidth, function(idx, val)
-        TimeManager.setTargetFps(self.fpsOptions[idx])
-        self:saveSettingsSnapshot()
-    end)
-    
-    -- Mode Dropdown
-    self.modeDropdown = Dropdown:new(self.modes, self:currentModeIndex(), x, y + 60, dropdownWidth, function(idx, val)
-        local renderRes = DisplayManager.getRenderResolution()
-        if idx == 1 then
-            -- Windowed: use current render resolution as window size
-            DisplayManager.applyWindowMode('windowed', { width = renderRes.w, height = renderRes.h })
-        elseif idx == 2 then
-            -- Borderless: match desktop resolution
-            DisplayManager.applyWindowMode('borderless')
-        elseif idx == 3 then
-            -- Fullscreen desktop (no exclusive mode flicker)
-            DisplayManager.applyWindowMode('fullscreen')
-        end
-        self:saveSettingsSnapshot()
-    end)
-    
-    -- Resolution Dropdown
-    local resLabels = {}
-    for i, res in ipairs(self.resolutions) do
-        table.insert(resLabels, res.label)
-    end
-    
-    self.resDropdown = Dropdown:new(
+    self.resDropdown = dropdownClass:new(
         resLabels,
         self:getCurrentResIndex(), 
-        x, y + 120, 
+        x, y + sectionSpacing * 2, 
         dropdownWidth, 
         function(idx, val)
             local res = self.resolutions[idx]
@@ -295,9 +278,8 @@ function SettingsWindow:initialize()
 
             RenderCanvas.setRenderResolution(res.w, res.h)
 
-            if DisplayManager.getWindowMode() == 'windowed' then
-                DisplayManager.applyWindowMode('windowed', { width = res.w, height = res.h })
-            end
+            -- Always apply windowed mode (only mode supported)
+            DisplayManager.applyWindowMode('windowed', { width = res.w, height = res.h })
 
             self:saveSettingsSnapshot()
         end
@@ -308,7 +290,7 @@ function SettingsWindow:initialize()
         self.volumeMin,
         self.volumeMax,
         self:getCurrentVolume("master"),
-        x, y + 180,
+        x, y + sectionSpacing * 3,
         dropdownWidth - 50,  -- Leave space for value text
         20,
         function(value)
@@ -324,7 +306,7 @@ function SettingsWindow:initialize()
         self.volumeMin,
         self.volumeMax,
         self:getCurrentVolume("music"),
-        x, y + 240,
+        x, y + sectionSpacing * 4,
         dropdownWidth - 50,
         20,
         function(value)
@@ -340,7 +322,7 @@ function SettingsWindow:initialize()
         self.volumeMin,
         self.volumeMax,
         self:getCurrentVolume("sfx"),
-        x, y + 300,
+        x, y + sectionSpacing * 5,
         dropdownWidth - 50,
         20,
         function(value)
