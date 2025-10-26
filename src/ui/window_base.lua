@@ -110,13 +110,14 @@ end
 -- Default close button drawing for all windows
 function WindowBase:drawCloseButton(x, y, alpha, mx, my)
     alpha = alpha or 1
-    local border = 3
-    local closeSize = 18
-    local closePadding = 6
-    local closeX = x + self.width - closeSize - closePadding - border
-    local closeY = y + border + (Theme.window.topBarHeight - 2*border - closeSize) / 2
+    local topBarH = Theme.window.topBarHeight or 0
+    if topBarH <= 0 then return end
 
-    -- Use provided mouse coords if passed in (to avoid repeated calls per window)
+    local padding = 6
+    local buttonSize = math.max(16, topBarH - padding * 2)
+    local closeX = x + self.width - buttonSize - padding
+    local closeY = y + padding
+
     if not mx or not my then
         if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
             mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
@@ -125,33 +126,17 @@ function WindowBase:drawCloseButton(x, y, alpha, mx, my)
         end
     end
 
-    local closeHover = mx >= closeX - 4 and mx <= closeX + closeSize + 4 and my >= closeY - 2 and my <= closeY + closeSize + 6
+    local closeHover = mx >= closeX and mx <= closeX + buttonSize and my >= closeY and my <= closeY + buttonSize
 
-    local function setColor(color, multiplier)
-        love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha * (multiplier or 1))
-    end
+    local font = Theme.getFontBold(Theme.fonts.title)
+    love.graphics.setFont(font)
+    local textColor = closeHover and Theme.colors.buttonCloseHover or Theme.colors.textPrimary
+    love.graphics.setColor(textColor[1], textColor[2], textColor[3], (textColor[4] or 1) * alpha)
+    local textHeight = font:getHeight()
+    local textYOffset = (buttonSize - textHeight) / 2
+    love.graphics.printf("X", closeX, closeY + textYOffset, buttonSize, "center")
 
-    local backX = closeX - 6
-    local backY = closeY - 4
-    local backW = closeSize + 12
-    local backH = closeSize + 8
-
-    -- Plasma tinted backdrop behind the X
-    setColor(Theme.colors.buttonClose, closeHover and 0.7 or 0.35)
-    love.graphics.rectangle('fill', backX, backY, backW, backH, 6, 6)
-
-    setColor(Theme.colors.borderDark, closeHover and 0.9 or 0.6)
-    love.graphics.setLineWidth(1.5)
-    love.graphics.rectangle('line', backX, backY, backW, backH, 6, 6)
-
-    local xColor = closeHover and Theme.colors.buttonCloseHover or Theme.colors.textPrimary
-    setColor(xColor, closeHover and 1.0 or 0.8)
-    love.graphics.setLineWidth(2)
-    love.graphics.line(closeX + 4, closeY + 4, closeX + closeSize - 4, closeY + closeSize - 4)
-    love.graphics.line(closeX + closeSize - 4, closeY + 4, closeX + 4, closeY + closeSize - 4)
-    love.graphics.setLineWidth(1)
-
-    self.closeButtonRect = {x = backX, y = backY, w = backW, h = backH}
+    self.closeButtonRect = {x = closeX, y = closeY, w = buttonSize, h = buttonSize}
 end
 
 function WindowBase:mousereleased(x, y, button)

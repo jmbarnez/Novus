@@ -383,30 +383,16 @@ function PauseMenu:draw()
     local layout = self._layout or {}
     love.graphics.printf('Paused', self.position.x, (layout.titleY or (self.position.y + Theme.window.topBarHeight + 12)), self.width, 'center')
 
-    love.graphics.setFont(self._buttonFont)
     for index, entry in ipairs(self._buttons or {}) do
-        local isHovered = (self._hoverIndex == index) or (self._selectedIndex == index and not self._hoverIndex)
-        local bx = entry.x
-        local by = entry.y
-        local bw = entry.width
-        local bh = entry.height
-
-        local baseColor = Theme.colors.bgMedium
-        local hoverColor = Theme.colors.buttonHover
-
-        if isHovered then
-            love.graphics.setColor(hoverColor[1], hoverColor[2], hoverColor[3], clamp(alpha, 0, 1))
-        else
-            love.graphics.setColor(baseColor[1], baseColor[2], baseColor[3], clamp(alpha * 0.95, 0, 1))
-        end
-        love.graphics.rectangle('fill', bx, by, bw, bh)
-
-        love.graphics.setColor(Theme.colors.borderDark)
-        love.graphics.setLineWidth(2)
-        love.graphics.rectangle('line', bx, by, bw, bh)
-
-        love.graphics.setColor(Theme.colors.textPrimary)
-        love.graphics.printf(entry.label, bx, by + bh / 2 - 12, bw, 'center')
+        local isHovered = self._hoverIndex == index
+        local isActive = (not self._hoverIndex) and self._selectedIndex == index
+        Theme.drawPanelButton(entry.x, entry.y, entry.width, entry.height, entry.label, {
+            isHovered = isHovered,
+            isActive = isActive,
+            alpha = clamp(alpha, 0, 1),
+            font = self._buttonFont,
+            idleAlpha = 0.95,
+        })
     end
 
     love.graphics.pop()

@@ -62,6 +62,7 @@ local Theme = {
         borderThickness = 1,        -- Thin, clean border
         topBarHeight = 32,          -- Standard title bar height
         bottomBarHeight = 40,       -- Clean bottom bar height
+        tabHeight = 60,             -- Default tab button height (matches pause buttons)
         cornerRadius = 0,           -- Sharp corners (no rounding)
         framePadding = 8,           -- Default padding between frame and content elements
     },
@@ -160,33 +161,62 @@ function Theme.drawButton(x, y, w, h, text, isHovered, buttonColor, buttonColorH
     love.graphics.printf(text, x, y + h / 2 - 12, w, "center")
 end
 
--- Helper function to draw tab-style button (clean boxy style)
-function Theme.drawTab(x, y, w, h, text, isActive, isHovered, alpha)
-    alpha = alpha or 1
+-- Helper function to draw menu/pause style buttons that tabs can also use
+function Theme.drawPanelButton(x, y, w, h, text, state)
+    state = state or {}
+    local alpha = state.alpha or 1
+    local isActive = not not state.isActive
+    local isHovered = not not state.isHovered
 
-    -- Tab background (sharp corners)
-    local baseColor = isActive and Theme.colors.bgMedium or Theme.colors.bgDark
-    local hoverColor = Theme.colors.buttonHover
+    local baseColor = state.baseColor or Theme.colors.bgMedium
+    local hoverColor = state.hoverColor or Theme.colors.buttonHover
+    local activeColor = state.activeColor or hoverColor
+    local borderColor = state.borderColor or Theme.colors.borderDark
+    local textColor = state.textColor or Theme.colors.textPrimary
+    local radius = state.cornerRadius or Theme.window.cornerRadius or 0
+    local borderWidth = state.borderWidth or 2
+    local idleAlpha = state.idleAlpha or 0.9
+    local hoverAlpha = state.hoverAlpha or 1.0
+    local activeAlpha = state.activeAlpha or 1.0
+
+    local function setColor(color, multiplier)
+        multiplier = multiplier or 1
+        love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha * multiplier)
+    end
 
     if isActive then
-        love.graphics.setColor(baseColor[1], baseColor[2], baseColor[3], alpha)
+        setColor(activeColor, activeAlpha)
     elseif isHovered then
-        love.graphics.setColor(hoverColor[1], hoverColor[2], hoverColor[3], alpha)
+        setColor(hoverColor, hoverAlpha)
     else
-        love.graphics.setColor(baseColor[1], baseColor[2], baseColor[3], alpha * 0.6)
+        setColor(baseColor, idleAlpha)
     end
-    love.graphics.rectangle("fill", x, y, w, h)
+    love.graphics.rectangle("fill", x, y, w, h, radius, radius)
 
-    -- Tab border (sharp corners)
-    love.graphics.setColor(Theme.colors.borderDark)
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", x, y, w, h)
+    setColor(borderColor)
+    love.graphics.setLineWidth(borderWidth)
+    love.graphics.rectangle("line", x, y, w, h, radius, radius)
     love.graphics.setLineWidth(1)
 
-    -- Tab text (centered)
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-    love.graphics.printf(text, x, y + h / 2 - 12, w, "center")
+    local font = state.font or Theme.getFont(Theme.fonts.normal)
+    love.graphics.setFont(font)
+    setColor(textColor)
+    local textHeight = font:getHeight()
+    local textYOffset = state.textYOffset or (h - textHeight) / 2
+    love.graphics.printf(text, x, y + textYOffset, w, state.textAlign or "center")
+end
+
+-- Helper function to draw tab-style button (clean boxy style)
+function Theme.drawTab(x, y, w, h, text, isActive, isHovered, alpha)
+    Theme.drawPanelButton(x, y, w, h, text, {
+        isActive = isActive,
+        isHovered = isHovered,
+        alpha = alpha,
+        font = Theme.getFont(Theme.fonts.small),
+        idleAlpha = 0.85,
+        hoverAlpha = 0.95,
+        activeAlpha = 1.0,
+    })
 end
 
 return Theme
