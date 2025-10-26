@@ -259,20 +259,52 @@ function ShipWindow:openContextMenu(itemId, itemDef, x, y)
     local compatibleSlots = self:getCompatibleSlots(itemId)
     local options = {}
 
-    -- Add equip options for each compatible slot
+    -- Determine drone and slot occupancy so we can show "Swap" when occupied
+    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+    local droneId = nil
+    if #pilotEntities > 0 then
+        local pilotId = pilotEntities[1]
+        local input = ECS.getComponent(pilotId, "InputControlled")
+        if input and input.targetEntity then droneId = input.targetEntity end
+    end
+
     for _, slotType in ipairs(compatibleSlots) do
+        local occupied = false
+        if droneId then
+            if slotType == "Turret Module" then
+                local turretSlots = ECS.getComponent(droneId, "TurretSlots")
+                occupied = (turretSlots and turretSlots.slots and turretSlots.slots[1]) ~= nil
+            elseif slotType == "Defensive Module" then
+                local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
+                occupied = (defensiveSlots and defensiveSlots.slots and defensiveSlots.slots[1]) ~= nil
+            elseif slotType == "Generator Module" then
+                local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
+                occupied = (generatorSlots and generatorSlots.slots and generatorSlots.slots[1]) ~= nil
+            end
+        end
+
+        local itemName = (itemDef and itemDef.name) or tostring(itemId)
+        local optionText
+        if occupied then
+            optionText = "Swap " .. itemName .. " with " .. slotType
+        else
+            optionText = "Equip " .. itemName .. " to " .. slotType
+        end
+
         table.insert(options, {
-            text = "Equip to " .. slotType,
+            text = optionText,
             action = "equip",
             slotType = slotType
         })
     end
 
-    -- Add cancel option
-    table.insert(options, {
-        text = "Cancel",
-        action = "cancel"
-    })
+    -- If no compatible slots, show a single disabled line
+    if #options == 0 then
+        table.insert(options, { text = "No compatible slots", action = "noop" })
+    end
+
+    local menuWidth = 300
+    local menuHeight = 8 + (#options * 24)
 
     self.contextMenu = {
         itemId = itemId,
@@ -280,7 +312,9 @@ function ShipWindow:openContextMenu(itemId, itemDef, x, y)
         x = x,
         y = y,
         options = options,
-        hoveredOption = nil
+        hoveredOption = nil,
+        width = menuWidth,
+        height = menuHeight
     }
 end
 
@@ -290,17 +324,18 @@ function ShipWindow:handleContextMenuClick(optionIndex)
 
     local option = self.contextMenu.options[optionIndex]
     if option.action == "equip" and option.slotType then
+        -- Delegating to equipModule is sufficient; it will replace existing module and add it to cargo
         self:equipModule(self.contextMenu.itemId)
     end
 
+    -- No-op for "noop" or other actions
     self.contextMenu = nil
 end
 
 -- Draw context menu for cargo items
 function ShipWindow:drawContextMenu(x, y, alpha)
-    local menuWidth = 200
-    local menuHeight = 40 + (#self.contextMenu.options * 25)
-    local itemDef = self.contextMenu.itemDef
+    local menuWidth = (self.contextMenu and self.contextMenu.width) or 200
+    local menuHeight = (self.contextMenu and self.contextMenu.height) or (8 + (#self.contextMenu.options * 24))
 
     -- Background
     love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.95)
@@ -310,45 +345,32 @@ function ShipWindow:drawContextMenu(x, y, alpha)
     love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha)
     love.graphics.rectangle("line", x, y, menuWidth, menuHeight, 5, 5)
 
-    -- Item name header
-    love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-    local itemName = itemDef and itemDef.name or self.contextMenu.itemId
-    love.graphics.printf(itemName, x + 8, y + 8, menuWidth - 16, "left")
-
-    -- Compatibility indicator
-    local compatibleSlots = self:getCompatibleSlots(self.contextMenu.itemId)
-    if #compatibleSlots > 0 then
-        love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
-        love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
-        local compatText = "Compatible: " .. table.concat(compatibleSlots, ", ")
-        love.graphics.printf(compatText, x + 8, y + 25, menuWidth - 16, "left")
-    else
-        love.graphics.setColor(Theme.colors.textSecondary[1] * 0.5, Theme.colors.textSecondary[2] * 0.5, Theme.colors.textSecondary[3] * 0.5, alpha)
-        love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
-        love.graphics.printf("No compatible slots", x + 8, y + 25, menuWidth - 16, "left")
-    end
-
-    -- Menu options
+    -- Minimal: render one-line commands only (each option already contains the item name)
     love.graphics.setFont(Theme.getFont(Theme.fonts.small))
     for i, option in ipairs(self.contextMenu.options) do
-        local optionY = y + 40 + (i-1) * 25
+        local optionY = y + 8 + (i-1) * 24
         local isHovered = self.contextMenu.hoveredOption == i
 
-        -- Option background
         if isHovered then
             love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], Theme.colors.bgMedium[3], alpha * 0.8)
-            love.graphics.rectangle("fill", x + 5, optionY - 2, menuWidth - 10, 22, 3, 3)
+            love.graphics.rectangle("fill", x + 5, optionY - 2, menuWidth - 10, 20, 3, 3)
         end
 
-        -- Option text with color coding
-        if option.action == "equip" then
-            love.graphics.setColor(0.15, 0.4, 0.15, alpha)  -- Subtle green for equip options
-        elseif option.action == "cancel" then
-            love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
-        else
-            love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+        -- Color options by slot type for clearer visual distinction
+        local textColor = Theme.colors.textPrimary
+        if option.action == "equip" and option.slotType then
+            if option.slotType == "Turret Module" then
+                textColor = Theme.colors.textAccent
+            elseif option.slotType == "Defensive Module" then
+                textColor = Theme.colors.textSecondary
+            elseif option.slotType == "Generator Module" then
+                textColor = Theme.colors.textPrimary
+            end
+        elseif option.action == "noop" then
+            textColor = {Theme.colors.textSecondary[1] * 0.6, Theme.colors.textSecondary[2] * 0.6, Theme.colors.textSecondary[3] * 0.6}
         end
+        love.graphics.setColor(textColor[1], textColor[2], textColor[3], alpha)
+
         love.graphics.printf(option.text, x + 8, optionY + 2, menuWidth - 16, "left")
     end
 end
@@ -402,11 +424,14 @@ function ShipWindow:mousepressed(x, y, button)
         end
     end
 
-    -- Close context menu if right-clicking outside of it (UI-space coords)
-    if button == 2 and self.contextMenu then
-        if not (uiX >= self.contextMenu.x and uiX <= self.contextMenu.x + 200 and
-                uiY >= self.contextMenu.y and uiY <= self.contextMenu.y + 40 + (#self.contextMenu.options * 25)) then
+    -- Close context menu if clicking outside of it (any button)
+    if self.contextMenu then
+        local cmW = (self.contextMenu and self.contextMenu.width) or 200
+        local cmH = (self.contextMenu and self.contextMenu.height) or (8 + (#self.contextMenu.options * 24))
+        if not (uiX >= self.contextMenu.x and uiX <= self.contextMenu.x + cmW and
+            uiY >= self.contextMenu.y and uiY <= self.contextMenu.y + cmH) then
             self.contextMenu = nil
+            return
         end
     end
 
@@ -453,15 +478,15 @@ function ShipWindow:mousemoved(x, y, dx, dy)
         
         local menuX = self.contextMenu.x
         local menuY = self.contextMenu.y
-        local menuWidth = 200
-        local menuHeight = 40 + (#self.contextMenu.options * 25)
-        
+        local menuWidth = (self.contextMenu and self.contextMenu.width) or 200
+        local menuHeight = (self.contextMenu and self.contextMenu.height) or (8 + (#self.contextMenu.options * 24))
+
         if uiX >= menuX and uiX <= menuX + menuWidth and uiY >= menuY and uiY <= menuY + menuHeight then
             -- Mouse is over context menu, determine which option
-            local optionY = menuY + 40
-            local optionHeight = 25
+            local optionY = menuY + 8
+            local optionHeight = 24
             local optionIndex = math.floor((uiY - optionY) / optionHeight) + 1
-            
+
             if optionIndex >= 1 and optionIndex <= #self.contextMenu.options then
                 self.contextMenu.hoveredOption = optionIndex
             else

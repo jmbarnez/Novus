@@ -11,12 +11,12 @@ local ShipWindow = require('src.ui.ship_window')
 local StatsWindow = require('src.ui.stats_window')
 local QuestWindow = require('src.ui.quest_window')
 local Tooltips = require('src.ui.tooltips')
-local Dialogs = require('src.ui.dialogs')
 local Notifications = require('src.ui.notifications')
 local Scaling = require('src.scaling')
 local SettingsWindow = require('src.ui.settings_window')
 local PauseMenu = require('src.ui.pause_menu')
 local DeathOverlay = require('src.ui.death_overlay')
+local Dialogs = require('src.ui.dialogs')
 local ConstructionButton = require('src.ui.construction_button')
 -- QuestOverlay moved to HUD system for batched rendering
 -- Hotbar removed
@@ -101,13 +101,6 @@ function UISystem.unregisterInteractive(name)
     end
 end
 
--- Register default interactive elements
--- Confirmation dialog
-UISystem.registerInteractive('confirm_dialog', function(x, y, button)
-    return Dialogs.confirmDialog ~= nil and true or false
-end, function(x, y, button)
-    return Dialogs.handleConfirmDialogClick(x, y, button)
-end)
 
 
 -- Cargo and Skills windows are now integrated into ShipWindow as panels
