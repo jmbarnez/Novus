@@ -66,35 +66,11 @@ function QuestWindow:draw(viewportWidth, viewportHeight)
     local topBarH = Theme.window.topBarHeight
     local bottomBarH = Theme.window.bottomBarHeight
 
-    -- Draw close button
-    self:drawCloseButton(x, y, alpha)
+    -- Draw close button using the shared plasma styling
+    WindowBase.drawCloseButton(self, x, y, alpha)
 
     -- Draw quest content
     self:drawQuestContent(x, y, w, h, topBarH, bottomBarH, alpha)
-end
-
--- Draw close button
-function QuestWindow:drawCloseButton(x, y, alpha)
-    local closeSize = 20
-    local closeX = x + self.width - closeSize - 8
-    local closeY = y + 8
-    local mx, my
-    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
-        mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
-    else
-        mx, my = Scaling.toUI(love.mouse.getX(), love.mouse.getY())
-    end
-    
-    local isHovered = mx >= closeX and mx <= closeX + closeSize and my >= closeY and my <= closeY + closeSize
-    
-    love.graphics.setColor(Theme.colors.textMuted[1], Theme.colors.textMuted[2], Theme.colors.textMuted[3], alpha)
-    if isHovered then
-        love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
-    end
-    
-    local font = Theme.getFont(18)
-    love.graphics.setFont(font)
-    love.graphics.print("×", closeX, closeY)
 end
 
 -- Draw quest content

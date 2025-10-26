@@ -62,6 +62,8 @@ local Theme = {
         borderThickness = 3,        -- Thick plasma-style border
         topBarHeight = 28,          -- Top bar height
         bottomBarHeight = 50,       -- Bottom bar height
+        cornerRadius = 14,          -- Rounded corners to match pause menu styling
+        framePadding = 8,           -- Default padding between frame and content elements
     },
 }
 
@@ -104,17 +106,69 @@ function Theme.getFontBold(size)
 end
 
 -- Helper function to create plasma-style thick border with opaque background
-function Theme.draw3DBorder(x, y, w, h, depth)
-    depth = depth or 3  -- Thick plasma-style border
+function Theme.draw3DBorder(x, y, w, h, depth, opts)
+    if type(depth) == "table" and opts == nil then
+        opts = depth
+        depth = opts.depth
+    end
 
-    -- Background first
-    love.graphics.setColor(Theme.colors.bgDark)
-    love.graphics.rectangle("fill", x, y, w, h)
-    
-    -- Thick black border
-    love.graphics.setColor(Theme.colors.borderDark)
+    depth = depth or Theme.window.borderThickness or 3
+    opts = opts or {}
+
+    local alpha = opts.alpha or 1
+    local radius = opts.cornerRadius or Theme.window.cornerRadius or 12
+    local rimInset = opts.rimInset or 2
+    local highlightInset = opts.highlightInset or math.max(rimInset + 3, 6)
+    local neonAlpha = (opts.neonAlpha ~= nil) and opts.neonAlpha or 0.45
+
+    rimInset = math.min(rimInset, math.max((w - 2) * 0.5, 0))
+    rimInset = math.min(rimInset, math.max((h - 2) * 0.5, 0))
+    highlightInset = math.min(highlightInset, math.max((w - 2) * 0.5, 0))
+    highlightInset = math.min(highlightInset, math.max((h - 2) * 0.5, 0))
+
+    local function setColor(color, multiplier)
+        love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha * (multiplier or 1))
+    end
+
+    -- Background fill with rounded corners
+    setColor(Theme.colors.bgDark)
+    love.graphics.rectangle("fill", x, y, w, h, radius, radius)
+
+    -- Exterior frame
+    setColor(Theme.colors.borderDark)
     love.graphics.setLineWidth(depth)
-    love.graphics.rectangle("line", x, y, w, h)
+    love.graphics.rectangle("line", x, y, w, h, radius, radius)
+
+    -- Neon inner rim
+    if w > rimInset * 2 and h > rimInset * 2 then
+        setColor(Theme.colors.borderNeon, neonAlpha)
+        love.graphics.setLineWidth(2)
+        love.graphics.rectangle(
+            "line",
+            x + rimInset,
+            y + rimInset,
+            w - rimInset * 2,
+            h - rimInset * 2,
+            math.max(0, radius - rimInset),
+            math.max(0, radius - rimInset)
+        )
+    end
+
+    -- Subtle inner highlight to sell the plasma sheen
+    if w > highlightInset * 2 and h > highlightInset * 2 then
+        setColor(Theme.colors.highlightBright)
+        love.graphics.setLineWidth(1)
+        love.graphics.rectangle(
+            "line",
+            x + highlightInset,
+            y + highlightInset,
+            w - highlightInset * 2,
+            h - highlightInset * 2,
+            math.max(0, radius - highlightInset),
+            math.max(0, radius - highlightInset)
+        )
+    end
+
     love.graphics.setLineWidth(1)
 end
 
