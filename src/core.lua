@@ -21,6 +21,9 @@ end
 
 -- Main game update loop
 function Core.update(dt)
+    if UISystem.isPauseMenuOpen and UISystem.isPauseMenuOpen() then
+        return
+    end
     -- Check if settings window is open to pause the game
     if UISystem.isSettingsWindowOpen and UISystem.isSettingsWindowOpen() then
         -- Pause the game when settings window is open
@@ -73,6 +76,7 @@ function Core.quit()
         if UISystem.setShipWindowOpen then UISystem.setShipWindowOpen(false) end
         if UISystem.setMapWindowOpen then UISystem.setMapWindowOpen(false) end
         if UISystem.setSettingsWindowOpen then UISystem.setSettingsWindowOpen(false) end
+        if UISystem.setPauseMenuOpen then UISystem.setPauseMenuOpen(false) end
         
         -- Reset UI state
         if UISystem.releaseMouse then UISystem.releaseMouse() end

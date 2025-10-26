@@ -13,12 +13,12 @@ function GameInput.keypressed(key)
     -- If death overlay is visible, consume all key input so game/world cannot act
     local DeathOverlay = require('src.ui.death_overlay')
     if DeathOverlay and DeathOverlay.isVisible then
-        -- Let the UI handle any relevant overlay keys via UISystem (if needed)
         if UISystem and UISystem.keypressed then
             UISystem.keypressed(key)
         end
         return
     end
+
     -- Handle station/world interactions first (E key)
     if key == "e" or key == "return" then
         local WorldTooltipsSystem = Systems.WorldTooltipsSystem
@@ -26,23 +26,41 @@ function GameInput.keypressed(key)
             WorldTooltipsSystem.handleKeyPress(key)
         end
     end
-    
-    -- If a window is currently open, let UISystem handle closing it first
-    if key == HotkeyConfig.getHotkey("settings_window") then
-        if UISystem.isShipWindowOpen and UISystem.isShipWindowOpen() then
+
+    local pauseHotkey = HotkeyConfig.getHotkey("settings_window")
+
+    if key == pauseHotkey then
+        if UISystem.isPauseMenuOpen and UISystem.isPauseMenuOpen() then
+            UISystem.setPauseMenuOpen(false)
+            return
+        end
+
+        if UISystem.isSettingsWindowOpen and UISystem.isSettingsWindowOpen() then
+            UISystem.setSettingsWindowOpen(false)
+            return
+        elseif UISystem.isShipWindowOpen and UISystem.isShipWindowOpen() then
             UISystem.setShipWindowOpen(false)
             return
         elseif UISystem.isMapWindowOpen and UISystem.isMapWindowOpen() then
             UISystem.setMapWindowOpen(false)
             return
-        elseif UISystem.isSettingsWindowOpen and UISystem.isSettingsWindowOpen() then
-            UISystem.setSettingsWindowOpen(false)
+        elseif UISystem.isQuestWindowOpen and UISystem.isQuestWindowOpen() then
+            UISystem.setQuestWindowOpen(false)
             return
         end
-        -- Otherwise, open the settings window
-        UISystem.toggleSettingsWindow()
+
+        UISystem.setPauseMenuOpen(true)
         return
-    elseif key == HotkeyConfig.getHotkey("cargo_window") then
+    end
+
+    if UISystem.isPauseMenuOpen and UISystem.isPauseMenuOpen() then
+        if UISystem and UISystem.keypressed then
+            UISystem.keypressed(key)
+        end
+        return
+    end
+
+    if key == HotkeyConfig.getHotkey("cargo_window") then
         UISystem.toggleShipWindow()
         return
     elseif key == HotkeyConfig.getHotkey("toggle_hud") then
@@ -52,9 +70,8 @@ function GameInput.keypressed(key)
         end
         return
     end
-    
+
     if UISystem.isSettingsWindowOpen and UISystem.isSettingsWindowOpen() then
-        -- Forward key event directly to settings window and DO NOT propagate to global handlers
         local SettingsWindow = require('src.ui.settings_window')
         if SettingsWindow.keypressed then
             local handled = SettingsWindow:keypressed(key)
@@ -62,10 +79,9 @@ function GameInput.keypressed(key)
                 return
             end
         end
-        -- If settings window did not handle the key (but is open), consume the key anyway
         return
     end
-    
+
     UISystem.keypressed = UISystem.keypressed or function(_) end
     UISystem.keypressed(key)
     Systems.InputSystem.keypressed(key)
@@ -86,6 +102,9 @@ function GameInput.mousepressed(x, y, button)
             return
         end
     end
+    if UISystem.isPauseMenuOpen and UISystem.isPauseMenuOpen() then
+        return
+    end
     -- If settings window is open, consume mouse input to avoid interacting with the world
     if UISystem.isSettingsWindowOpen and UISystem.isSettingsWindowOpen() then
         return
@@ -98,6 +117,9 @@ end
 function GameInput.keyreleased(key)
     local DeathOverlay = require('src.ui.death_overlay')
     if DeathOverlay and DeathOverlay.isVisible then
+        return
+    end
+    if UISystem.isPauseMenuOpen and UISystem.isPauseMenuOpen() then
         return
     end
     Systems.InputSystem.keyreleased(key)
@@ -113,6 +135,9 @@ function GameInput.mousemoved(x, y, dx, dy, isTouch)
     end
     if UISystem.mousemoved then
         UISystem.mousemoved(x, y, dx, dy, isTouch)
+    end
+    if UISystem.isPauseMenuOpen and UISystem.isPauseMenuOpen() then
+        return
     end
     -- If settings window is open, do not forward mouse move to the game systems
     if UISystem.isSettingsWindowOpen and UISystem.isSettingsWindowOpen() then
@@ -133,6 +158,9 @@ function GameInput.mousereleased(x, y, button)
     end
     if UISystem.mousereleased then
         UISystem.mousereleased(x, y, button)
+    end
+    if UISystem.isPauseMenuOpen and UISystem.isPauseMenuOpen() then
+        return
     end
     -- If settings window is open, consume mouse release events
     if UISystem.isSettingsWindowOpen and UISystem.isSettingsWindowOpen() then
@@ -157,6 +185,9 @@ function GameInput.wheelmoved(x, y)
         if consumed then
             return
         end
+    end
+    if UISystem.isPauseMenuOpen and UISystem.isPauseMenuOpen() then
+        return
     end
     -- If settings window is open, do not forward wheel to game systems
     if UISystem.isSettingsWindowOpen and UISystem.isSettingsWindowOpen() then
