@@ -436,16 +436,19 @@ end
 
 -- Main draw function
 function SettingsWindow:draw()
-    if not self.isOpen or not self.position then return end
-    
+    if not self:isVisible() then return end
+
+    local alpha = self.animAlpha or 0
+    if alpha <= 0 then return end
+
     -- Draw semi-transparent background overlay
-        love.graphics.setColor(0, 0, 0, 0.3 * self.animAlpha)
-        love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
-    
+    love.graphics.setColor(0, 0, 0, 0.3 * alpha)
+    love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
+
     WindowBase.draw(self)
-    
+    if not self.position then return end
+
     local x, y = self.position.x, self.position.y
-    local alpha = self.animAlpha
     
     self:initialize()
     self:updatePanelPositions()
