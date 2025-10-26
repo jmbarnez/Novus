@@ -132,10 +132,8 @@ function Dropdown:drawOpen(alpha)
     love.graphics.setColor(Theme.colors.borderMedium)
     love.graphics.rectangle('line', self.x, self.y + self.height, self.width, dropdownHeight, 0, 0, 4, 4)
 
-    -- Determine if we need a scrollbar
-    local needsScrollbar = total > visibleCount
-    local scrollbarWidth = 10
-    local contentWidth = needsScrollbar and (self.width - scrollbarWidth - 6) or self.width
+    -- Use full width for option rendering
+    local contentWidth = self.width
 
     -- Draw visible options starting at scrollOffset
     local startIndex = (self.scrollOffset or 0) + 1
@@ -161,27 +159,7 @@ function Dropdown:drawOpen(alpha)
         love.graphics.printf(option, self.x + 8, optionY + 2, contentWidth - 16, "left")
     end
 
-    -- Draw scrollbar if needed
-    if needsScrollbar then
-        local trackX = self.x + self.width - scrollbarWidth - 4
-        local trackY = self.y + self.height
-        local trackH = dropdownHeight
-
-        love.graphics.setColor(Theme.colors.bgMedium)
-        love.graphics.rectangle('fill', trackX, trackY, scrollbarWidth, trackH, 2, 2)
-
-        -- Thumb size proportional to visible/total
-        local maxScroll = total - visibleCount
-        local thumbH = math.max(math.floor((visibleCount / total) * trackH), 16)
-        local thumbRange = trackH - thumbH
-        local thumbY = trackY
-        if maxScroll > 0 then
-            thumbY = trackY + math.floor((self.scrollOffset / maxScroll) * thumbRange)
-        end
-
-        love.graphics.setColor(Theme.colors.borderLight)
-        love.graphics.rectangle('fill', trackX + 2, thumbY + 2, scrollbarWidth - 4, thumbH - 4, 2, 2)
-    end
+    -- Scrollbar visuals removed; scrolling is available via mouse wheel only
 end
 
 --- Handle mouse click on dropdown
@@ -218,19 +196,7 @@ function Dropdown:mousepressed(mx, my)
             end
         end
 
-        -- Check if clicking the scrollbar track (for quick jump)
-        if total > visibleCount then
-            local scrollbarWidth = 10
-            local trackX = self.x + self.width - scrollbarWidth - 4
-            local trackY = self.y + self.height
-            local trackH = visibleCount * self.itemHeight
-            if mx >= trackX and mx <= trackX + scrollbarWidth and my >= trackY and my <= trackY + trackH then
-                local rel = (my - trackY) / trackH
-                local maxScroll = total - visibleCount
-                self.scrollOffset = math.floor(rel * maxScroll + 0.5)
-                return true
-            end
-        end
+        -- Scrollbar interactions removed along with the visual scrollbar
     end
     
     -- Clicking outside closes dropdown

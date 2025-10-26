@@ -455,7 +455,7 @@ function SettingsWindow:draw()
     local topBarH = Theme.window.topBarHeight
     local contentAreaX = x + 3
     local contentAreaY = y + topBarH + 3
-    local contentAreaW = self.width - 6 - 20  -- Leave space for scroll bar
+    local contentAreaW = self.width - 6
     local contentAreaH = self.height - topBarH - 3 - 3 - Theme.window.bottomBarHeight  -- Account for bottom bar area
     
     love.graphics.setScissor(contentAreaX, contentAreaY, contentAreaW, contentAreaH)
