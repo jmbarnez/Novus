@@ -39,10 +39,10 @@ local Theme = {
     
     -- Font sizes and paths (clean, readable sizes)
     fonts = {
-        small = 14,      -- Tooltips, small text
-        normal = 16,     -- Default UI text
-        title = 22,      -- Window titles, headers
-        tiny = 12,       -- Very small text (e.g., stat lines)
+        small = 12,      -- Tooltips, small text
+        normal = 14,     -- Default UI text
+        title = 18,      -- Window titles, headers
+        tiny = 10,       -- Very small text (e.g., stat lines)
         fontPath = "assets/fonts/Orbitron-Regular.ttf",  -- Clean sci-fi font
         fontPathBold = "assets/fonts/Orbitron-Bold.ttf",  -- Clean sci-fi bold font
     },
@@ -60,8 +60,8 @@ local Theme = {
     -- Window styling (Clean Boxy style)
     window = {
         borderThickness = 1,        -- Thin, clean border
-        topBarHeight = 44,          -- Standard title bar height
-        bottomBarHeight = 56,       -- Clean bottom bar height
+        topBarHeight = 28,          -- Standard title bar height
+        bottomBarHeight = 40,       -- Clean bottom bar height
         tabHeight = 72,             -- Default tab button height (matches pause buttons)
         cornerRadius = 0,           -- Sharp corners (no rounding)
         framePadding = 8,           -- Default padding between frame and content elements
@@ -69,6 +69,7 @@ local Theme = {
 }
 
 local Scaling = require('src.scaling')
+local HoverSound = require('src.ui.hover_sound')
 
 Theme._fontCache = {
     regular = {},
@@ -78,6 +79,14 @@ Theme._fontCache = {
 
 local function cacheKey(path, size)
     return string.format("%s:%d", path or "__default__", size)
+end
+
+local function makeHoverId(prefix, x, y, w, h, extra)
+    local fx = math.floor(x or 0)
+    local fy = math.floor(y or 0)
+    local fw = math.floor(w or 0)
+    local fh = math.floor(h or 0)
+    return string.format("%s:%d:%d:%d:%d:%s", prefix, fx, fy, fw, fh, extra or "")
 end
 
 local function configureFont(font)
@@ -173,6 +182,10 @@ function Theme.drawButton(x, y, w, h, text, isHovered, buttonColor, buttonColorH
     -- Use standard button colors as defaults if none provided
     local baseColor = buttonColor or Theme.colors.bgMedium
     local hoverColor = buttonColorHover or Theme.colors.buttonHover
+    HoverSound.update(makeHoverId("button", x, y, w, h, text), isHovered, {
+        bounds = {x = x, y = y, w = w, h = h},
+        space = "screen",
+    })
 
     -- Background (sharp corners for boxy look)
     if isHovered then
@@ -203,6 +216,14 @@ function Theme.drawPanelButton(x, y, w, h, text, state)
     local alpha = state.alpha or 1
     local isActive = not not state.isActive
     local isHovered = not not state.isHovered
+
+    local hoverKey = state.hoverSoundId or text
+    HoverSound.update(makeHoverId("panel", x, y, w, h, hoverKey), isHovered, {
+        bounds = {x = x, y = y, w = w, h = h},
+        space = state.hoverSoundSpace or "screen",
+        clickSoundOpts = state.clickSoundOpts,
+        hoverSoundOpts = state.hoverSoundOpts,
+    })
 
     local baseColor = state.baseColor or Theme.colors.bgMedium
     local hoverColor = state.hoverColor or Theme.colors.buttonHover
@@ -252,6 +273,7 @@ function Theme.drawTab(x, y, w, h, text, isActive, isHovered, alpha)
         idleAlpha = 0.85,
         hoverAlpha = 0.95,
         activeAlpha = 1.0,
+        hoverSoundSpace = "ui",
     })
 end
 

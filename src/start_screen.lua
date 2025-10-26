@@ -4,6 +4,7 @@
 local Constants = require('src.constants')
 local Theme = require('src.ui.theme')
 local ShaderManager = require('src.shader_manager')
+local HoverSound = require('src.ui.hover_sound')
 local start_screen = {}
 
 -- Aurora colors for the shader
@@ -303,6 +304,10 @@ function start_screen.draw()
     -- Check hover
     local mx, my = love.mouse.getPosition()
     buttonHovered = mx >= buttonX and mx <= buttonX + buttonWidth and my >= buttonY and my <= buttonY + buttonHeight
+    HoverSound.update("start_screen:new_game", buttonHovered, {
+        bounds = {x = buttonX, y = buttonY, w = buttonWidth, h = buttonHeight},
+        space = "screen",
+    })
     
     -- Draw button using theme's colors and style (with custom bold font)
     local baseColor = Theme.colors.bgMedium

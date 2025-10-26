@@ -4,6 +4,7 @@
 
 local Theme = require('src.ui.theme')
 local Scaling = require('src.scaling')
+local Timer = love and love.timer or nil
 
 local WindowBase = {}
 WindowBase.__index = WindowBase
@@ -18,6 +19,7 @@ function WindowBase:new(opts)
     o.animAlphaSpeed = opts.animAlphaSpeed or 6
     o.animAlpha = o.isOpen and 1 or 0
     o.animAlphaActive = false
+    o._lastAnimTimestamp = Timer and Timer.getTime() or nil
     o.isDragging = false
     o.dragOffset = {x = 0, y = 0}
     -- Elasticity/animation removed: windows are static and non-animated
@@ -47,6 +49,7 @@ function WindowBase:setOpen(state)
     
     -- Trigger fade effect when state changes
     self.animAlphaActive = true
+    self._lastAnimTimestamp = Timer and Timer.getTime() or nil
 end
 
 function WindowBase:centerOnScreen(screenW, screenH)
@@ -93,20 +96,27 @@ function WindowBase:onResize(screenW, screenH)
     self.position.y = math.max(0, math.min(self.position.y or 0, maxY))
 end
 
-function WindowBase:update(dt)
+local function advanceAnimation(self, dt)
+    if not dt or dt <= 0 then
+        if Timer then
+            self._lastAnimTimestamp = Timer.getTime()
+        end
+        return
+    end
+
     local target = self.isOpen and 1 or 0
     local alpha = self.animAlpha or 0
     if math.abs(alpha - target) < 0.001 then
         self.animAlpha = target
         self.animAlphaActive = false
+        if Timer then
+            self._lastAnimTimestamp = Timer.getTime()
+        end
         return
     end
 
     local speed = self.animAlphaSpeed or 6
-    local delta = (dt or 0) * speed
-    if delta <= 0 then
-        return
-    end
+    local delta = dt * speed
 
     if alpha < target then
         alpha = math.min(target, alpha + delta)
@@ -116,6 +126,16 @@ function WindowBase:update(dt)
 
     self.animAlpha = alpha
     self.animAlphaActive = math.abs(alpha - target) >= 0.001
+    if Timer then
+        self._lastAnimTimestamp = Timer.getTime()
+    end
+end
+
+function WindowBase:update(dt)
+    if not self.animAlphaActive then
+        return
+    end
+    advanceAnimation(self, dt or 0)
 end
 
 function WindowBase:mousepressed(x, y, button)
@@ -193,6 +213,17 @@ function WindowBase:isVisible()
 end
 
 function WindowBase:draw(viewportWidth, viewportHeight, uiMx, uiMy)
+    if self.animAlphaActive and Timer then
+        local now = Timer.getTime()
+        local last = self._lastAnimTimestamp or now
+        local dt = now - last
+        if dt > 0 then
+            advanceAnimation(self, dt)
+        elseif dt < 0 then
+            self._lastAnimTimestamp = now
+        end
+    end
+
     if (not self:isVisible()) or not self.position then return end
 
     love.graphics.push('all')

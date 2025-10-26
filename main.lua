@@ -191,6 +191,13 @@ end
 
 
 function love.mousepressed(x, y, button)
+    do
+        local HoverSound = require('src.ui.hover_sound')
+        if HoverSound and HoverSound.onClick then
+            HoverSound.onClick(button, x, y)
+        end
+    end
+
     if gameState == "start" then
         if StartScreen.mousepressed and StartScreen.mousepressed(x, y, button) then
             gameState = "loading"

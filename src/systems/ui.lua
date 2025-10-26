@@ -333,6 +333,7 @@ function UISystem.mousepressed(x, y, button)
     -- Death overlay blocks all other UI when visible
     if DeathOverlay and DeathOverlay.isVisible then
         DeathOverlay.mousepressed(x, y, button)
+        UISystem.captureMouse()
         return true
     end
     -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale) - ONCE
@@ -356,8 +357,13 @@ function UISystem.mousepressed(x, y, button)
     if focusedWindow and interactiveMap[focusedWindow] then
         local entry = interactiveMap[focusedWindow]
         if entry and entry.hit and entry.hit(mx, my, button) then
-            local handled = false
-            if entry.handler then handled = entry.handler(mx, my, button) end
+            local handled = true
+            if entry.handler then
+                local handlerResult = entry.handler(mx, my, button)
+                if handlerResult ~= nil then
+                    handled = handlerResult
+                end
+            end
             if handled then
                 -- Keep the focused window focused
                 UISystem.captureMouse()
@@ -375,8 +381,13 @@ function UISystem.mousepressed(x, y, button)
             if entry and entry.hit and entry.hit(mx, my, button) then
                 -- Set this window as focused when clicked
                 UISystem.setWindowFocus(name)
-                local handled = false
-                if entry.handler then handled = entry.handler(mx, my, button) end
+                local handled = true
+                if entry.handler then
+                    local handlerResult = entry.handler(mx, my, button)
+                    if handlerResult ~= nil then
+                        handled = handlerResult
+                    end
+                end
                 if handled then
                     UISystem.captureMouse()
                     return true
@@ -391,8 +402,13 @@ function UISystem.mousepressed(x, y, button)
         if not (name == 'cargo_window' or name == 'map_window' or name == 'ship_window') then
             local entry = interactiveMap[name]
             if entry and entry.hit and entry.hit(mx, my, button) then
-                local handled = false
-                if entry.handler then handled = entry.handler(mx, my, button) end
+                local handled = true
+                if entry.handler then
+                    local handlerResult = entry.handler(mx, my, button)
+                    if handlerResult ~= nil then
+                        handled = handlerResult
+                    end
+                end
                 if handled then
                     UISystem.captureMouse()
                     return true
@@ -407,6 +423,7 @@ function UISystem.mousepressed(x, y, button)
            my >= SettingsWindow.position.y and my <= SettingsWindow.position.y + SettingsWindow.height then
             SettingsWindow:mousepressed(mx, my, button)
             UISystem.setWindowFocus('settings_window')
+            UISystem.captureMouse()
             return true
         end
     end
@@ -421,6 +438,7 @@ function UISystem.mousepressed(x, y, button)
     end
 
     if pauseOpen then
+        UISystem.captureMouse()
         return true
     end
 

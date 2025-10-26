@@ -28,7 +28,7 @@ local DisplaySettingsPanel = require('src.ui.settings.display_settings_panel')
 local ScrollHandler = require('src.ui.settings.scroll_handler')
 
 local SettingsWindow = WindowBase:new{
-    width = 700,
+    width = 900,
     height = 500,
     isOpen = false,
     animAlphaSpeed = 2.0,
@@ -427,6 +427,14 @@ end
 -- Override setOpen
 function SettingsWindow:setOpen(state)
     WindowBase.setOpen(self, state)
+    if state then
+        -- Ensure the window renders immediately when opened from the pause menu
+        self.animAlpha = 1
+        self.animAlphaActive = false
+        if love and love.timer then
+            self._lastAnimTimestamp = love.timer.getTime()
+        end
+    end
 end
 
 -- Get window open state

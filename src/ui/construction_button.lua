@@ -1,6 +1,7 @@
 local Theme = require('src.ui.theme')
 local Scaling = require('src.scaling')
 local BatchRenderer = require('src.ui.batch_renderer')
+local HoverSound = require('src.ui.hover_sound')
 
 local ConstructionButton = {
     id = "construction_btn",
@@ -65,6 +66,11 @@ function ConstructionButton.draw(viewportWidth, viewportHeight)
     local uiY = uiScreenH - baseBtnH - baseMargin
 
     -- Draw plasma/energy theme button
+    HoverSound.update("construction_button", ConstructionButton._hovered, {
+        bounds = {x = uiX, y = uiY, w = baseBtnW, h = baseBtnH},
+        space = "ui",
+    })
+
     local color = ConstructionButton._hovered and Theme.colors.buttonHover or Theme.colors.bgDark
     BatchRenderer.queueRect(uiX, uiY, baseBtnW, baseBtnH, color[1], color[2], color[3], 1)
     BatchRenderer.queueRectLine(uiX, uiY, baseBtnW, baseBtnH, Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1, 2)

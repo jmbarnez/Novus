@@ -140,6 +140,7 @@ function ShipWindow:drawTabHeaders(windowX, windowY, alpha)
             alpha = alpha,
             font = font,
             idleAlpha = 0.95,
+            hoverSoundSpace = "ui",
         })
 
         table.insert(self.tabButtons, {
@@ -186,7 +187,7 @@ function ShipWindow:drawBottomBar(windowX, windowY, alpha)
     love.graphics.print(creditsText, x + padding, textY)
 
     -- Draw right side: Cargo capacity
-    local cargoText = string.format("Cargo: %.2f/%.2f m³", currentVolume, maxCapacity)
+    local cargoText = string.format("Cargo: %.2f/%.2f m^3", currentVolume, maxCapacity)
     love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
     love.graphics.printf(cargoText, x + padding, textY, w - padding * 2, "right")
 end
