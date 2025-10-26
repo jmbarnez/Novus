@@ -331,8 +331,16 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
     -- Safety checks
     if not parallax or not parallax.layers then return end
 
-    -- Draw black background first
-    love.graphics.setColor(0, 0, 0, 1)
+    -- Draw world background color (from current world theme) first
+    local bgColor = {0, 0, 0, 1}
+    local ok, WorldLoader = pcall(require, 'src.world_loader')
+    if ok and WorldLoader and WorldLoader.getCurrentWorld then
+        local world = WorldLoader.getCurrentWorld()
+        if world and world.theme and world.theme.background then
+            bgColor = world.theme.background
+        end
+    end
+    love.graphics.setColor(bgColor[1] or 0, bgColor[2] or 0, bgColor[3] or 0, bgColor[4] or 1)
     love.graphics.rectangle('fill', 0, 0, screenWidth, screenHeight)
 
     -- Ensure no shader affects parallax rendering

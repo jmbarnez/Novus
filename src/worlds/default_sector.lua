@@ -52,7 +52,7 @@ return {
     
     -- Visual theme
     theme = {
-        background = {0.08, 0.12, 0.25},  -- Navy blue space color
+    background = {0.08, 0.12, 0.25, 1},  -- Navy blue space color (opaque)
         starDensity = "normal",
         nebulaEnabled = false
     },

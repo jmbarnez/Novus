@@ -66,7 +66,11 @@ function MagnetSystem.update(dt)
                                 ECS.destroyEntity(itemId)
                             else
                                 -- Item couldn't be added due to capacity - show notification
-                                Notifications.addNotification("Cargo full! Cannot collect " .. itemType, "warning")
+                                Notifications.addNotification{
+                                    type = "warning",
+                                    text = "Cargo full! Cannot collect " .. itemType,
+                                    timer = 3.5
+                                }
                             end
                         end
                     end

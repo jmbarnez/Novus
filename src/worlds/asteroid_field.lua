@@ -55,7 +55,7 @@ return {
     },
     
     theme = {
-        background = {0.06, 0.08, 0.18},  -- Darker navy for asteroid field
+    background = {0.06, 0.08, 0.18, 1},  -- Darker navy for asteroid field (opaque)
         starDensity = "sparse",
         nebulaEnabled = false
     },
