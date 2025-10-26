@@ -60,7 +60,7 @@ local Theme = {
     -- Window styling (Plasma/Energy)
     window = {
         borderThickness = 3,        -- Thick plasma-style border
-        topBarHeight = 20,          -- Top bar height
+        topBarHeight = 28,          -- Top bar height
         bottomBarHeight = 50,       -- Bottom bar height
     },
 }
