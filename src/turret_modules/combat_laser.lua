@@ -153,6 +153,7 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
     end
 
     if closestIntersection and hitEntityId then
+        local debrisCreated = false
         -- Calculate distance from laser origin to hit point for falloff
         local hitDistance = math.sqrt(closestDistSq)
 
@@ -204,9 +205,17 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
                     SkillXP.awardXp("combat")
                 end
             end
+            debrisCreated = true
         end
-        -- Create impact debris with laser beam color
-        DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, {0, 0.7, 1, 1})
+
+        -- If we didn't create debris via hull/shield logic, still spawn simple impact particles so lasers visibly hit stations/other collidables
+        if not debrisCreated then
+            DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, CombatLaser.design.color)
+        else
+            -- Create impact debris with laser beam color for hull hits as well
+            DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, {0, 0.7, 1, 1})
+        end
+
         return {hit = true, intersection = closestIntersection}
     else
         return {hit = false}

@@ -144,7 +144,8 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
         end
     end
 
-        if closestIntersection and hitAsteroidId then
+    if closestIntersection and hitAsteroidId then
+        local debrisCreated = false
         -- Only apply damage if target is an asteroid
         local isAsteroid = ECS.getComponent(hitAsteroidId, "Asteroid")
         if isAsteroid then
@@ -214,8 +215,15 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
                 local asteroidHealthPercent = durability.current / durability.max
                 local particleCount = math.floor(1 + (1 - asteroidHealthPercent) * 3)  -- 1-4 particles
                 DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, particleCount, {1, 1, 0, 1})
+                debrisCreated = true
             end
         end
+
+        -- If we didn't create debris via asteroid logic, still spawn a simple impact particle so lasers visibly hit stations/other collidables
+        if not debrisCreated then
+            DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, MiningLaser.design.color)
+        end
+
         return {hit = true, intersection = closestIntersection}
     else
         return {hit = false}

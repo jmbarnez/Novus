@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 local Theme = require('src.ui.theme')
 local ECS = require('src.ecs')
 local TurretRegistry = require('src.turret_registry')
@@ -351,6 +352,123 @@ function LoadoutPanel.equipModule(shipWin, itemId)
             cargo:removeItem(itemId, 1)
         end
     end
+end
+
+function LoadoutPanel.mousepressed(shipWin, x, y, button)
+    -- Left click: start dragging from cargo or equipment slots
+    if button == 1 then
+        if shipWin.hoveredItemSlot then
+            shipWin.draggedItem = {
+                itemId = shipWin.hoveredItemSlot.itemId,
+                itemDef = shipWin.hoveredItemSlot.itemDef,
+                slotIndex = shipWin.hoveredItemSlot.slotIndex,
+                count = shipWin.hoveredItemSlot.count,
+                fromEquipment = false
+            }
+        elseif shipWin.hoveredEquipmentSlot then
+            local ItemDefs = require('src.items.item_loader')
+            local itemDef = ItemDefs[shipWin.hoveredEquipmentSlot.itemId]
+            if itemDef then
+                shipWin.draggedItem = {
+                    itemId = shipWin.hoveredEquipmentSlot.itemId,
+                    itemDef = itemDef,
+                    slotName = shipWin.hoveredEquipmentSlot.slotName,
+                    fromEquipment = true
+                }
+            end
+        end
+    elseif button == 2 then
+        -- Right click: remove from equipment slot
+        if shipWin.hoveredEquipmentSlot then
+            LoadoutPanel.unequipModule(shipWin, shipWin.hoveredEquipmentSlot.slotName, shipWin.hoveredEquipmentSlot.itemId)
+        end
+    end
+end
+
+function LoadoutPanel.mousereleased(shipWin, x, y, button)
+    if button == 1 and shipWin.draggedItem then
+        -- Get the player's controlled ship for cargo access
+        local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
+        if #controllers == 0 then
+            shipWin.draggedItem = nil
+            return
+        end
+        local pilotId = controllers[1]
+        local inputComp = ECS.getComponent(pilotId, "InputControlled")
+        local shipId = inputComp and inputComp.targetEntity or nil
+        if not shipId then
+            shipWin.draggedItem = nil
+            return
+        end
+
+        local cargo = ECS.getComponent(shipId, "Cargo")
+        if not cargo then
+            shipWin.draggedItem = nil
+            return
+        end
+
+        -- Check if dropped on an equipment slot
+        local equippedToSlot = false
+        if shipWin.equipmentSlots then
+            for slotName, slotRect in pairs(shipWin.equipmentSlots) do
+                if x >= slotRect.x and x <= slotRect.x + slotRect.w and
+                   y >= slotRect.y and y <= slotRect.y + slotRect.h then
+                    local itemDef = shipWin.draggedItem.itemDef
+                    if (slotName == "Turret Module" and itemDef.type == "turret") or
+                       (slotName == "Defensive Module" and string.match(shipWin.draggedItem.itemId, "shield")) or
+                       (slotName == "Generator Module" and itemDef.type == "generator") then
+                        if shipWin.draggedItem.fromEquipment and shipWin.draggedItem.slotName then
+                            LoadoutPanel.unequipModule(shipWin, shipWin.draggedItem.slotName, shipWin.draggedItem.itemId)
+                        end
+                        LoadoutPanel.equipModule(shipWin, shipWin.draggedItem.itemId)
+                        equippedToSlot = true
+                        break
+                    end
+                end
+            end
+        end
+
+        if not equippedToSlot then
+            local windowX, windowY = shipWin.position.x, shipWin.position.y
+            local windowW, windowH = shipWin.width, shipWin.height
+            local isOutsideBounds = x < windowX or x > windowX + windowW or y < windowY or y > windowY + windowH
+
+            if shipWin.draggedItem.fromEquipment then
+                if not isOutsideBounds then
+                    if shipWin.draggedItem.slotName then
+                        LoadoutPanel.unequipModule(shipWin, shipWin.draggedItem.slotName, shipWin.draggedItem.itemId)
+                    end
+                else
+                    if shipWin.draggedItem.slotName then
+                        LoadoutPanel.unequipModule(shipWin, shipWin.draggedItem.slotName, shipWin.draggedItem.itemId)
+                        local itemId = shipWin.draggedItem.itemId
+                        if cargo and cargo.items and cargo.items[itemId] then
+                            cargo.items[itemId] = cargo.items[itemId] - 1
+                            if cargo.items[itemId] <= 0 then
+                                cargo.items[itemId] = nil
+                            end
+                        end
+                    end
+                end
+            else
+                if isOutsideBounds then
+                    local itemId = shipWin.draggedItem.itemId
+                    if cargo and cargo.items and cargo.items[itemId] then
+                        cargo.items[itemId] = cargo.items[itemId] - 1
+                        if cargo.items[itemId] <= 0 then
+                            cargo.items[itemId] = nil
+                        end
+                    end
+                end
+            end
+        end
+
+        shipWin.draggedItem = nil
+    end
+end
+
+function LoadoutPanel.mousemoved(shipWin, x, y, dx, dy)
+    -- No-op; ShipWindow handles context menu hover centrally
 end
 
 return LoadoutPanel
