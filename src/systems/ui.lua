@@ -14,6 +14,7 @@ local Tooltips = require('src.ui.tooltips')
 local Notifications = require('src.ui.notifications')
 local Scaling = require('src.scaling')
 local SettingsWindow = require('src.ui.settings_window')
+local PauseMenu = require('src.ui.pause_menu')
 local DeathOverlay = require('src.ui.death_overlay')
 local ConstructionButton = require('src.ui.construction_button')
 -- QuestOverlay moved to HUD system for batched rendering
@@ -237,9 +238,20 @@ function UISystem.draw(viewportWidth, viewportHeight, uiMx, uiMy)
         ::skip_window::
     end
     
-    
-    -- Draw tooltip for hovered slots (only if ship window is open)
-    if not ShipWindow:getOpen() then
+    -- Draw pause menu overlay last so it sits above other UI
+    PauseMenu:draw()
+
+    -- Draw confirmation dialog if active (highest priority)
+    if Dialogs.confirmDialog then
+        Dialogs.drawConfirmDialog()
+    end
+
+    if PauseMenu:getOpen() then
+        return true
+    end
+
+    -- Draw tooltip for hovered slots (only if ship window is open and no dialog)
+    if not ShipWindow:getOpen() or Dialogs.confirmDialog then
         return false
     end
     
@@ -265,11 +277,19 @@ end
 -- Update function for UI (handles notifications timing)
 function UISystem.update(dt)
     Notifications.update(dt)
+    PauseMenu:update(dt)
     -- CargoWindow removed - now integrated into ShipWindow
 end
 
 -- Key pressed handler
 function UISystem.keypressed(key)
+    if PauseMenu:getOpen() then
+        if PauseMenu:keypressed(key) then
+            return true
+        end
+        return true
+    end
+
     -- Tab key is now handled in core.lua to toggle ShipWindow
     local HotkeyConfig = require('src.hotkey_config')
     if key == HotkeyConfig.getHotkey("settings_window") then
@@ -311,6 +331,14 @@ function UISystem.mousepressed(x, y, button)
     end
     -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale) - ONCE
     local mx, my = Scaling.toUI(x, y)
+
+    if PauseMenu:getOpen() then
+        local handled = PauseMenu:mousepressed(mx, my, button)
+        if handled then
+            UISystem.captureMouse()
+        end
+        return true
+    end
     -- Check construction button (screen-space, not UI-space)
     if ConstructionButton.checkPressed(x, y, button) then
         UISystem.captureMouse()
@@ -391,6 +419,14 @@ function UISystem.mousereleased(x, y, button)
     -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale) - ONCE
     local mx, my = Scaling.toUI(x, y)
 
+    if PauseMenu:getOpen() then
+        PauseMenu:mousereleased(mx, my, button)
+        if button == 1 then
+            UISystem.releaseMouse()
+        end
+        return true
+    end
+
     -- Forward to windows in focus order (most focused first) - only if open
     local windows = {
         map_window = MapWindow,
@@ -440,6 +476,11 @@ function UISystem.mousemoved(x, y, dx, dy, isTouch)
     -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale) - ONCE
     local mx, my = Scaling.toUI(x, y)
 
+    if PauseMenu:getOpen() then
+        PauseMenu:mousemoved(mx, my, dx, dy)
+        return
+    end
+
     -- Forward to windows in focus order (most focused first) - only if open
     local windows = {
         map_window = MapWindow,
@@ -482,6 +523,10 @@ end
 
 -- Mouse wheel handler
 function UISystem.wheelmoved(x, y)
+    if PauseMenu:getOpen() then
+        return PauseMenu:wheelmoved(x, y)
+    end
+
     -- Forward to settings window first if open
     if SettingsWindow and SettingsWindow:getOpen() and SettingsWindow.wheelmoved then
         if SettingsWindow:wheelmoved(x, y) then
@@ -611,6 +656,19 @@ function UISystem.isSettingsWindowOpen()
     return SettingsWindow:getOpen()
 end
 
+-- Pause menu controls
+function UISystem.setPauseMenuOpen(state)
+    PauseMenu:setOpen(state)
+end
+
+function UISystem.togglePauseMenu()
+    PauseMenu:toggle()
+end
+
+function UISystem.isPauseMenuOpen()
+    return PauseMenu:getOpen()
+end
+
 function UISystem.onResize(screenW, screenH)
     screenW = screenW or love.graphics.getWidth()
     screenH = screenH or love.graphics.getHeight()
@@ -618,6 +676,31 @@ function UISystem.onResize(screenW, screenH)
     if QuestWindow and QuestWindow.onResize then QuestWindow:onResize(screenW, screenH) end
     if SettingsWindow and SettingsWindow.onResize then SettingsWindow:onResize(screenW, screenH) end
     if MapWindow and MapWindow.onResize then MapWindow:onResize(screenW, screenH) end
+    if PauseMenu and PauseMenu.onResize then PauseMenu:onResize(screenW, screenH) end
 end
+
+PauseMenu:setCallbacks({
+    onVisibilityChanged = function(isOpen)
+        if isOpen then
+            UISystem.captureMouse()
+        else
+            UISystem.releaseMouse()
+        end
+    end,
+    onRequestResume = function()
+        UISystem.setPauseMenuOpen(false)
+    end,
+    onRequestSettings = function()
+        UISystem.setPauseMenuOpen(false)
+        UISystem.setSettingsWindowOpen(true)
+    end,
+    onRequestExit = function()
+        UISystem.setPauseMenuOpen(false)
+        local Game = rawget(_G, 'Game')
+        if Game and Game.returnToMainMenu then
+            Game.returnToMainMenu()
+        end
+    end
+})
 
 return UISystem
