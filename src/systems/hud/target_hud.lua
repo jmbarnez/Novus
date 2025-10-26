@@ -6,6 +6,7 @@ local Theme = require('src.ui.theme')
 local Scaling = require('src.scaling')
 local PlasmaTheme = require('src.ui.plasma_theme')
 local BatchRenderer = require('src.ui.batch_renderer')
+local ShipLoader = require('src.ship_loader')
 
 local TargetHUD = {
     hoveredItem = nil,
@@ -232,6 +233,38 @@ function TargetHUD.drawWorldIndicator()
         end
     end
     
+    -- Draw indicator for hovered wreckage (treat similar to asteroid)
+    if TargetHUD.hoveredWreckage then
+        local position = ECS.getComponent(TargetHUD.hoveredWreckage, "Position")
+        local collidable = ECS.getComponent(TargetHUD.hoveredWreckage, "Collidable")
+        local polygonShape = ECS.getComponent(TargetHUD.hoveredWreckage, "PolygonShape")
+        
+        if position then
+            love.graphics.setColor(cyanColor[1], cyanColor[2], cyanColor[3], 0.6)
+            love.graphics.setLineWidth(2)
+            
+            if polygonShape and polygonShape.vertices then
+                -- Draw polygonal outline for wreckage
+                local flatVertices = {}
+                for i = 1, #polygonShape.vertices do
+                    local v = polygonShape.vertices[i]
+                    table.insert(flatVertices, v.x)
+                    table.insert(flatVertices, v.y)
+                end
+                local rotation = polygonShape.rotation or 0
+                love.graphics.push()
+                love.graphics.translate(position.x, position.y)
+                love.graphics.rotate(rotation)
+                love.graphics.polygon("line", flatVertices)
+                love.graphics.pop()
+            elseif collidable then
+                love.graphics.circle("line", position.x, position.y, collidable.radius or 24)
+            end
+            
+            love.graphics.setLineWidth(1)
+        end
+    end
+    
     -- Draw indicator for hovered enemy
     if TargetHUD.hoveredEnemy then
         local position = ECS.getComponent(TargetHUD.hoveredEnemy, "Position")
@@ -345,8 +378,17 @@ function TargetHUD.drawPopup()
         local durability = ECS.getComponent(TargetHUD.hoveredWreckage, "Durability")
 
         if wreck and durability then
-            local name = wreck.sourceShip or "WRECKAGE"
-            BatchRenderer.queueText(string.upper(name), x + Scaling.scaleX(14), y + Scaling.scaleY(12), normalFont, Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
+            -- Prefer friendly display name from ship design, fallback to sourceShip id
+            local displayName = "WRECKAGE"
+            if wreck.sourceShip then
+                local design = ShipLoader.getDesign(wreck.sourceShip)
+                if design and design.name then
+                    displayName = string.format("%s WRECKAGE", design.name)
+                else
+                    displayName = string.format("%s WRECKAGE", wreck.sourceShip)
+                end
+            end
+            BatchRenderer.queueText(string.upper(displayName), x + Scaling.scaleX(14), y + Scaling.scaleY(12), normalFont, Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
 
             local percent = math.floor((durability.current / math.max(durability.max, 1)) * 100)
             local percentText = string.format("%d%%", percent)
@@ -361,8 +403,17 @@ function TargetHUD.drawPopup()
         
         if isTargeted then
             -- Minimal targeted enemy info: name, level, hull/shield percents
+            -- Use the ship design's display name when available. Do NOT append "WRECKAGE" here.
             local wreck = ECS.getComponent(TargetHUD.hoveredEnemy, "Wreckage")
-            local name = (wreck and wreck.sourceShip) and string.upper(wreck.sourceShip) or "ENEMY"
+            local name = "ENEMY"
+            if wreck and wreck.sourceShip then
+                local design = ShipLoader.getDesign(wreck.sourceShip)
+                if design and design.name then
+                    name = string.upper(design.name)
+                else
+                    name = string.upper(wreck.sourceShip)
+                end
+            end
             local levelComp = ECS.getComponent(TargetHUD.hoveredEnemy, "Level")
             local levelText = levelComp and string.format("Lv %d", levelComp.level) or ""
 

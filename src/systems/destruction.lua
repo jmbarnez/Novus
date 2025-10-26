@@ -284,7 +284,10 @@ function DestructionSystem.update(dt)
                     sourceShip = existingWreckage.sourceShip
                 end
 
-                WreckageSystem.spawnWreckage(pos.x, pos.y, sourceShip)
+                -- Pass parent size (collision radius) so wreckage pieces scale visually
+                local parentColl = ECS.getComponent(entityId, "Collidable")
+                local parentSize = parentColl and parentColl.radius or 16
+                WreckageSystem.spawnWreckage(pos.x, pos.y, sourceShip, parentSize)
             end
 
             -- Wreckage shatters into bits
