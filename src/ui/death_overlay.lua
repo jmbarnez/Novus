@@ -6,6 +6,9 @@ DeathOverlay.onRespawn = nil
 DeathOverlay.onRageQuit = nil
 local hoverState = { respawn = false, quit = false }
 
+-- Dialogs implementation moved to a separate module
+local Dialogs = require('src.ui.dialogs')
+
 function DeathOverlay.show(onRespawn, onRageQuit)
     DeathOverlay.isVisible = true
     DeathOverlay.onRespawn = onRespawn

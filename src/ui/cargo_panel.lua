@@ -206,13 +206,19 @@ function CargoPanel.drawContextMenu(shipWin, x, y, alpha)
             love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], Theme.colors.bgMedium[3], alpha * 0.8)
             love.graphics.rectangle("fill", x + 5, optionY - 2, menuWidth - 10, 20, 3, 3)
         end
-        if option.action == "equip" then
-            love.graphics.setColor(0.15, 0.4, 0.15, alpha)
+        local textColor = Theme.colors.textPrimary
+        if option.action == "equip" and option.slotType then
+            if option.slotType == "Turret Module" then
+                textColor = Theme.colors.textAccent
+            elseif option.slotType == "Defensive Module" then
+                textColor = Theme.colors.textSecondary
+            elseif option.slotType == "Generator Module" then
+                textColor = Theme.colors.textPrimary
+            end
         elseif option.action == "noop" then
-            love.graphics.setColor(Theme.colors.textSecondary[1] * 0.6, Theme.colors.textSecondary[2] * 0.6, Theme.colors.textSecondary[3] * 0.6, alpha)
-        else
-            love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+            textColor = {Theme.colors.textSecondary[1] * 0.6, Theme.colors.textSecondary[2] * 0.6, Theme.colors.textSecondary[3] * 0.6}
         end
+        love.graphics.setColor(textColor[1], textColor[2], textColor[3], alpha)
         love.graphics.printf(option.text, x + 8, optionY + 2, menuWidth - 16, "left")
     end
 end

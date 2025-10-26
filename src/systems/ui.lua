@@ -16,6 +16,7 @@ local Scaling = require('src.scaling')
 local SettingsWindow = require('src.ui.settings_window')
 local PauseMenu = require('src.ui.pause_menu')
 local DeathOverlay = require('src.ui.death_overlay')
+local Dialogs = require('src.ui.dialogs')
 local ConstructionButton = require('src.ui.construction_button')
 -- QuestOverlay moved to HUD system for batched rendering
 -- Hotbar removed

@@ -356,13 +356,20 @@ function ShipWindow:drawContextMenu(x, y, alpha)
             love.graphics.rectangle("fill", x + 5, optionY - 2, menuWidth - 10, 20, 3, 3)
         end
 
-        if option.action == "equip" then
-            love.graphics.setColor(0.15, 0.4, 0.15, alpha)
+        -- Color options by slot type for clearer visual distinction
+        local textColor = Theme.colors.textPrimary
+        if option.action == "equip" and option.slotType then
+            if option.slotType == "Turret Module" then
+                textColor = Theme.colors.textAccent
+            elseif option.slotType == "Defensive Module" then
+                textColor = Theme.colors.textSecondary
+            elseif option.slotType == "Generator Module" then
+                textColor = Theme.colors.textPrimary
+            end
         elseif option.action == "noop" then
-            love.graphics.setColor(Theme.colors.textSecondary[1] * 0.6, Theme.colors.textSecondary[2] * 0.6, Theme.colors.textSecondary[3] * 0.6, alpha)
-        else
-            love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+            textColor = {Theme.colors.textSecondary[1] * 0.6, Theme.colors.textSecondary[2] * 0.6, Theme.colors.textSecondary[3] * 0.6}
         end
+        love.graphics.setColor(textColor[1], textColor[2], textColor[3], alpha)
 
         love.graphics.printf(option.text, x + 8, optionY + 2, menuWidth - 16, "left")
     end
@@ -417,13 +424,14 @@ function ShipWindow:mousepressed(x, y, button)
         end
     end
 
-    -- Close context menu if right-clicking outside of it (UI-space coords)
-    if button == 2 and self.contextMenu then
-            local cmW = (self.contextMenu and self.contextMenu.width) or 200
-            local cmH = (self.contextMenu and self.contextMenu.height) or (8 + (#self.contextMenu.options * 24))
-            if not (uiX >= self.contextMenu.x and uiX <= self.contextMenu.x + cmW and
-                uiY >= self.contextMenu.y and uiY <= self.contextMenu.y + cmH) then
+    -- Close context menu if clicking outside of it (any button)
+    if self.contextMenu then
+        local cmW = (self.contextMenu and self.contextMenu.width) or 200
+        local cmH = (self.contextMenu and self.contextMenu.height) or (8 + (#self.contextMenu.options * 24))
+        if not (uiX >= self.contextMenu.x and uiX <= self.contextMenu.x + cmW and
+            uiY >= self.contextMenu.y and uiY <= self.contextMenu.y + cmH) then
             self.contextMenu = nil
+            return
         end
     end
 
