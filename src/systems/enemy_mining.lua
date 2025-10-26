@@ -121,7 +121,7 @@ function EnemyMiningSystem.update(dt)
                 -- Update turret aim for rendering
                 local turret = ECS.getComponent(minerId, "Turret")
                 if turret then
-                    local fireAngle = math.atan2(dy, dx)
+                    local fireAngle = math.atan(dy, dx)
                     local muzzleDistance = 12
                     turret.aimX = pos.x + math.cos(fireAngle) * muzzleDistance
                     turret.aimY = pos.y + math.sin(fireAngle) * muzzleDistance

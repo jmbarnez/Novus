@@ -63,7 +63,7 @@ function RenderTurrets.drawPlayerTurret(entityId, position, polygonShape, render
         local camZoom = cameraComp.zoom or 1
         local mouseX = uiX / camZoom + cameraPos.x
         local mouseY = uiY / camZoom + cameraPos.y
-        local aimAngle = math.atan2(mouseY - position.y, mouseX - position.x)
+        local aimAngle = math.atan(mouseY - position.y, mouseX - position.x)
         local toffX = polygonShape.turretOffsetX or polygonShape.cockpitOffsetX or 0
         local toffY = polygonShape.turretOffsetY or polygonShape.cockpitOffsetY or 0
         local cos = math.cos(polygonShape.rotation)
@@ -89,7 +89,7 @@ function RenderTurrets.drawEnemyTurret(entityId, position, polygonShape, rendera
     local turretAimAngle = enemyRotation
     local turretComp = ECS.getComponent(entityId, "Turret")
     if turretComp and turretComp.aimX and turretComp.aimY then
-        turretAimAngle = math.atan2(turretComp.aimY - position.y, turretComp.aimX - position.x)
+        turretAimAngle = math.atan(turretComp.aimY - position.y, turretComp.aimX - position.x)
     end
     
     local toffX = polygonShape.turretOffsetX or polygonShape.cockpitOffsetX or 0
