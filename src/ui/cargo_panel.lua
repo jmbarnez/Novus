@@ -143,18 +143,48 @@ end
 function CargoPanel.openContextMenu(shipWin, itemId, itemDef, x, y)
     local compatibleSlots = CargoPanel.getCompatibleSlots(shipWin, itemId)
     local options = {}
-    for _, slotType in ipairs(compatibleSlots) do
-        table.insert(options, { text = "Equip to " .. slotType, action = "equip", slotType = slotType })
+
+    -- Determine drone and occupancy to show "Swap" when necessary
+    local ECS = require('src.ecs')
+    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+    local droneId = nil
+    if #pilotEntities > 0 then
+        local pilotId = pilotEntities[1]
+        local input = ECS.getComponent(pilotId, "InputControlled")
+        if input and input.targetEntity then droneId = input.targetEntity end
     end
-    table.insert(options, { text = "Cancel", action = "cancel" })
-    shipWin.contextMenu = { itemId = itemId, itemDef = itemDef, x = x, y = y, options = options, hoveredOption = nil }
+
+    for _, slotType in ipairs(compatibleSlots) do
+        local occupied = false
+        if droneId then
+            if slotType == "Turret Module" then
+                local turretSlots = ECS.getComponent(droneId, "TurretSlots")
+                occupied = (turretSlots and turretSlots.slots and turretSlots.slots[1]) ~= nil
+            elseif slotType == "Defensive Module" then
+                local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
+                occupied = (defensiveSlots and defensiveSlots.slots and defensiveSlots.slots[1]) ~= nil
+            elseif slotType == "Generator Module" then
+                local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
+                occupied = (generatorSlots and generatorSlots.slots and generatorSlots.slots[1]) ~= nil
+            end
+        end
+
+        local itemName = (itemDef and itemDef.name) or tostring(itemId)
+        local optionText = occupied and ("Swap " .. itemName .. " with " .. slotType) or ("Equip " .. itemName .. " to " .. slotType)
+        table.insert(options, { text = optionText, action = "equip", slotType = slotType })
+    end
+
+    if #options == 0 then
+        table.insert(options, { text = "No compatible slots", action = "noop" })
+    end
+
+    shipWin.contextMenu = { itemId = itemId, itemDef = itemDef, x = x, y = y, options = options, hoveredOption = nil, width = 300, height = 8 + (#options * 24) }
 end
 
 function CargoPanel.handleContextMenuClick(shipWin, optionIndex)
     if not shipWin.contextMenu or not shipWin.contextMenu.options[optionIndex] then return end
     local option = shipWin.contextMenu.options[optionIndex]
     if option.action == "equip" and option.slotType then
-        -- Delegate equipping to LoadoutPanel (which has equipModule)
         local LoadoutPanel = require('src.ui.loadout_panel')
         LoadoutPanel.equipModule(shipWin, shipWin.contextMenu.itemId)
     end
@@ -162,40 +192,24 @@ function CargoPanel.handleContextMenuClick(shipWin, optionIndex)
 end
 
 function CargoPanel.drawContextMenu(shipWin, x, y, alpha)
-    local menuWidth = 200
-    local menuHeight = 40 + (#shipWin.contextMenu.options * 25)
-    local itemDef = shipWin.contextMenu.itemDef
+    local menuWidth = shipWin.contextMenu.width or 200
+    local menuHeight = shipWin.contextMenu.height or (8 + (#shipWin.contextMenu.options * 24))
     love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.95)
     love.graphics.rectangle("fill", x, y, menuWidth, menuHeight, 5, 5)
     love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha)
     love.graphics.rectangle("line", x, y, menuWidth, menuHeight, 5, 5)
-    love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-    local itemName = itemDef and itemDef.name or shipWin.contextMenu.itemId
-    love.graphics.printf(itemName, x + 8, y + 8, menuWidth - 16, "left")
-    local compatibleSlots = CargoPanel.getCompatibleSlots(shipWin, shipWin.contextMenu.itemId)
-    if #compatibleSlots > 0 then
-        love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
-        love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
-        local compatText = "Compatible: " .. table.concat(compatibleSlots, ", ")
-        love.graphics.printf(compatText, x + 8, y + 25, menuWidth - 16, "left")
-    else
-        love.graphics.setColor(Theme.colors.textSecondary[1] * 0.5, Theme.colors.textSecondary[2] * 0.5, Theme.colors.textSecondary[3] * 0.5, alpha)
-        love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
-        love.graphics.printf("No compatible slots", x + 8, y + 25, menuWidth - 16, "left")
-    end
     love.graphics.setFont(Theme.getFont(Theme.fonts.small))
     for i, option in ipairs(shipWin.contextMenu.options) do
-        local optionY = y + 40 + (i-1) * 25
+        local optionY = y + 8 + (i-1) * 24
         local isHovered = shipWin.contextMenu.hoveredOption == i
         if isHovered then
             love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], Theme.colors.bgMedium[3], alpha * 0.8)
-            love.graphics.rectangle("fill", x + 5, optionY - 2, menuWidth - 10, 22, 3, 3)
+            love.graphics.rectangle("fill", x + 5, optionY - 2, menuWidth - 10, 20, 3, 3)
         end
         if option.action == "equip" then
             love.graphics.setColor(0.15, 0.4, 0.15, alpha)
-        elseif option.action == "cancel" then
-            love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
+        elseif option.action == "noop" then
+            love.graphics.setColor(Theme.colors.textSecondary[1] * 0.6, Theme.colors.textSecondary[2] * 0.6, Theme.colors.textSecondary[3] * 0.6, alpha)
         else
             love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
         end
