@@ -54,21 +54,31 @@ function LoadoutPanel.draw(shipWin, windowX, windowY, width, height, alpha)
 
     local turret = ECS.getComponent(droneId, "Turret")
     local turretDPS = 0
-    local turretRange = 0
+    local baseDPS = 0
     local turretCooldown = 0
     local effectiveDPS = 0
+    local optimalRange = nil
+    local falloffEnd = nil
+    local zeroRange = nil
 
     if turret and turret.moduleName and turret.moduleName ~= "" then
         local turretModule = TurretRegistry.getModule(turret.moduleName)
         if turretModule then
             turretDPS = turretModule.DPS or 0
-            turretRange = turretModule.RANGE or 0
+            -- Determine base DPS (account for pulsed weapons using COOLDOWN)
             if turretModule.CONTINUOUS then
-                effectiveDPS = turretDPS
+                baseDPS = turretDPS
+                effectiveDPS = baseDPS
             else
                 turretCooldown = turretModule.COOLDOWN or 1
-                effectiveDPS = turretDPS / turretCooldown
+                baseDPS = turretDPS / math.max(turretCooldown, 1)
+                effectiveDPS = baseDPS
             end
+
+            -- Range / falloff information (lasers use falloff start/end or zero damage range)
+            optimalRange = turretModule.FALLOFF_START or turretModule.FALLOFF_START
+            falloffEnd = turretModule.FALLOFF_END or turretModule.ZERO_DAMAGE_RANGE or turretModule.ZERO_DAMAGE_RANGE
+            zeroRange = turretModule.ZERO_DAMAGE_RANGE or falloffEnd
         end
     end
 
@@ -95,11 +105,40 @@ function LoadoutPanel.draw(shipWin, windowX, windowY, width, height, alpha)
         end
     end
 
-    drawStatSection(contentY, "COMBAT", {
-        string.format("Damage: %.0f", turretDPS),
-        string.format("DPS: %.1f", effectiveDPS),
-        string.format("Range: %d", turretRange)
-    })
+    -- Prepare combat stat lines with more detailed range/falloff info
+    local combatStats = {}
+    table.insert(combatStats, string.format("Damage: %.0f", turretDPS))
+    table.insert(combatStats, string.format("DPS: %.1f", effectiveDPS))
+
+    if optimalRange and falloffEnd then
+        table.insert(combatStats, string.format("Optimal: %dm", optimalRange))
+        table.insert(combatStats, string.format("Falloff end: %dm", falloffEnd))
+        if zeroRange and zeroRange > 0 then
+            table.insert(combatStats, string.format("Max effective: %dm", zeroRange))
+        end
+
+        -- Show sample effective DPS at optimal and mid-falloff for clarity
+        local function sampleDPSAt(distance)
+            if not optimalRange or not falloffEnd then return effectiveDPS end
+            if distance <= optimalRange then return effectiveDPS end
+            if distance >= falloffEnd then return 0 end
+            local falloffRange = falloffEnd - optimalRange
+            local falloffProgress = (distance - optimalRange) / falloffRange
+            local multiplier = math.max(0, 1.0 - falloffProgress)
+            return effectiveDPS * multiplier
+        end
+
+        local sampleOptimal = sampleDPSAt(optimalRange)
+        local sampleMid = sampleDPSAt((optimalRange + falloffEnd) / 2)
+        table.insert(combatStats, string.format("DPS @ optimal: %.1f", sampleOptimal))
+        table.insert(combatStats, string.format("DPS @ mid-falloff: %.1f", sampleMid))
+    else
+        -- Fallback simple range display
+        local turretRange = turret and (turret.moduleName and TurretRegistry.getModule(turret.moduleName) and TurretRegistry.getModule(turret.moduleName).RANGE) or 0
+        table.insert(combatStats, string.format("Range: %d", turretRange or 0))
+    end
+
+    drawStatSection(contentY, "COMBAT", combatStats)
 
     local survivalStats = { string.format("Eff. HP: %d", totalEffectiveHP) }
     if shield and shield.max > 0 then

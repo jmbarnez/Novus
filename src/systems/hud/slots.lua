@@ -145,30 +145,61 @@ function HUDSlots.drawTurretSlots(viewportWidth, viewportHeight, hudSystem)
                     end
                 end
 
-                -- Draw progress bar at the bottom of the slot
-                if progress > 0 then
-                    local barWidth = slotWidth - 8 * scaleX
-                    local barHeight = 4 * scaleY
-                    local barX = slotX + 4 * scaleX
-                    local barY = slotY + slotHeight - barHeight - 4 * scaleY
+                -- Draw progress overlay using the entire slot area (fills proportionally)
+                -- Only show progress bar when NOT overheated (during cooldown, only show red blinking)
+                if progress > 0 and not isOverheated then
+                    -- Inner padding so slot border is still visible
+                    local pad = 2 * scaleX
+                    local innerX = slotX + pad
+                    local innerY = slotY + pad
+                    local innerW = slotWidth - pad * 2
+                    local innerH = slotHeight - pad * 2
 
-                    -- Apply blinking effect for overheated weapons
-                    if isOverheated and isBlinking then
-                        barColor[4] = 0.3 -- Reduce opacity for blinking effect
-                    end
-
-                    -- Progress bar background
+                    -- Inner background
                     love.graphics.setColor(0.05, 0.05, 0.05, 0.9)
-                    love.graphics.rectangle("fill", barX, barY, barWidth, barHeight, 1, 1)
+                    love.graphics.rectangle("fill", innerX, innerY, innerW, innerH, cornerRadius, cornerRadius)
 
-                    -- Progress bar fill
+                    -- Fill the inner area proportionally (bottom-up)
+                    local fillH = math.max(2, (innerH - 2) * progress)
+                    local fillX = innerX + 1
+                    local fillY = innerY + (innerH - fillH) - 1
+
                     love.graphics.setColor(barColor)
-                    love.graphics.rectangle("fill", barX + 1, barY + 1, (barWidth - 2) * progress, barHeight - 2, 1, 1)
+                    love.graphics.rectangle("fill", fillX, fillY, innerW - 2, fillH, math.max(1, cornerRadius / 2), math.max(1, cornerRadius / 2))
 
-                    -- Progress bar border
+                    -- Inner border
                     love.graphics.setColor(0.15, 0.15, 0.15, 1.0)
                     love.graphics.setLineWidth(1)
-                    love.graphics.rectangle("line", barX, barY, barWidth, barHeight, 1, 1)
+                    love.graphics.rectangle("line", innerX, innerY, innerW, innerH, cornerRadius, cornerRadius)
+                    love.graphics.setLineWidth(1)
+                end
+
+                -- Overheat cooldown: solid red bar that empties from top to bottom
+                if isOverheated then
+                    local pad = 2 * scaleX
+                    local innerX = slotX + pad
+                    local innerY = slotY + pad
+                    local innerW = slotWidth - pad * 2
+                    local innerH = slotHeight - pad * 2
+
+                    -- Draw inner background
+                    love.graphics.setColor(0.05, 0.05, 0.05, 0.9)
+                    love.graphics.rectangle("fill", innerX, innerY, innerW, innerH, cornerRadius, cornerRadius)
+
+                    -- Draw red fill representing remaining cooldown (empties top -> bottom)
+                    local rem = math.max(0, 1 - (progress or 0))
+                    local fillH = math.max(2, (innerH - 2) * rem)
+                    local fillX = innerX + 1
+                    -- Anchor fill to bottom so it empties top-down
+                    local fillY = innerY + (innerH - fillH) - 1
+
+                    love.graphics.setColor(1.0, 0.2, 0.1, 1.0) -- Solid red
+                    love.graphics.rectangle("fill", fillX, fillY, innerW - 2, fillH, math.max(1, cornerRadius / 2), math.max(1, cornerRadius / 2))
+
+                    -- Inner border
+                    love.graphics.setColor(0.15, 0.15, 0.15, 1.0)
+                    love.graphics.setLineWidth(1)
+                    love.graphics.rectangle("line", innerX, innerY, innerW, innerH, cornerRadius, cornerRadius)
                     love.graphics.setLineWidth(1)
                 end
 
