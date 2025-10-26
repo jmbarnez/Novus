@@ -258,8 +258,9 @@ function UISystem.draw(viewportWidth, viewportHeight, uiMx, uiMy)
     
     -- Check for hovered items in priority order
     local hoveredSlot = ShipWindow.hoveredItemSlot or ShipWindow.hoveredTurretSlot or ShipWindow.hoveredDefensiveSlot
-    
-    if hoveredSlot then
+    local contextMenuOpen = ShipWindow.contextMenu ~= nil
+
+    if hoveredSlot and not contextMenuOpen then
         Tooltips.drawItemTooltip(
             hoveredSlot.itemId,
             hoveredSlot.itemDef,
