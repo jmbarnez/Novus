@@ -10,38 +10,45 @@ local StartScreen = require('src.start_screen')
 local LoadingScreen = require('src.loading_screen')
 local TimeManager = require('src.time_manager')
 local Profiler = require('src.profiler')
+local GameState = require('src.game_state')
 
 local gameState = "start" -- Possible values: "start", "loading", "game"
 local loadingTimer = 0
 local loadingDuration = 0.8 -- seconds
 
--- Game state management module (exposed for UI)
-_G.Game = _G.Game or {}
+-- Initialize global Game object
+_G.Game = {}
 
-function _G.Game.returnToMainMenu()
-    if gameState == "game" then
+-- Initialize GameState module with current state and callbacks
+GameState.setGameState(gameState)
+GameState.initCallbacks({
+    quit = function()
         Core.quit()
-        gameState = "start"
+    end,
+    loadSnapshot = function(snapshot)
+        return Core.loadSnapshot(snapshot)
     end
+})
+
+-- Game state management functions (now using module)
+function _G.Game.returnToMainMenu()
+    GameState.returnToMainMenu()
+    gameState = GameState.getGameState()
 end
 
 function _G.Game.save(slotName)
-    return Core.saveGame(slotName)
+    return GameState.save(slotName)
 end
 
 function _G.Game.load(slotName)
-    local ok, err = Core.loadGame(slotName)
-    if ok then
-        gameState = "game"
-    end
+    local ok, err = GameState.load(slotName)
+    gameState = GameState.getGameState()
     return ok, err
 end
 
 function _G.Game.loadSnapshot(snapshot)
-    local ok, err = Core.loadSnapshot(snapshot)
-    if ok then
-        gameState = "game"
-    end
+    local ok, err = GameState.loadSnapshot(snapshot)
+    gameState = GameState.getGameState()
     return ok, err
 end
 
@@ -77,6 +84,7 @@ function love.update(dt)
         if loadingTimer >= loadingDuration then
             Core.init()
             gameState = "game"
+            GameState.setGameState(gameState)
         end
     elseif gameState == "game" then
         Profiler.start("update_total")
@@ -186,11 +194,11 @@ function love.mousepressed(x, y, button)
     if gameState == "start" then
         if StartScreen.mousepressed and StartScreen.mousepressed(x, y, button) then
             gameState = "loading"
+            GameState.setGameState(gameState)
             loadingTimer = 0
             return
         end
     elseif gameState == "game" then
-        print("love.mousepressed called (top-level)", x, y, button)
         Core.mousepressed(x, y, button)
     end
 end
