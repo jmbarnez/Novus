@@ -8,6 +8,7 @@ local SkillUtils = require('src.skill_utils')
 local Theme = require('src.ui.theme')
 local MapWindow = require('src.ui.map_window')
 local ShipWindow = require('src.ui.ship_window')
+local StatsWindow = require('src.ui.stats_window')
 local QuestWindow = require('src.ui.quest_window')
 local Tooltips = require('src.ui.tooltips')
 local Dialogs = require('src.ui.dialogs')
@@ -129,6 +130,18 @@ end, function(x, y, button)
     return true
 end)
 
+
+-- Stats window
+UISystem.registerInteractive('stats_window', function(x, y, button)
+    return StatsWindow:getOpen() and StatsWindow.position and x >= StatsWindow.position.x and x <= StatsWindow.position.x + StatsWindow.width
+           and y >= StatsWindow.position.y and y <= StatsWindow.position.y + StatsWindow.height
+end, function(x, y, button)
+    UISystem.setWindowFocus('stats_window')
+    if StatsWindow.mousepressed then StatsWindow:mousepressed(x, y, button) end
+    return true
+end)
+
+
 -- Quest window
 UISystem.registerInteractive('quest_window', function(x, y, button)
     return QuestWindow.isOpen and QuestWindow.position and x >= QuestWindow.position.x and x <= QuestWindow.position.x + QuestWindow.width
@@ -199,6 +212,7 @@ function UISystem.draw(viewportWidth, viewportHeight, uiMx, uiMy)
     local windows = {
         map_window = MapWindow,
         ship_window = ShipWindow,
+        stats_window = StatsWindow,
         quest_window = QuestWindow,
         settings_window = SettingsWindow
     }
@@ -392,7 +406,8 @@ function UISystem.mousereleased(x, y, button)
     -- Forward to windows in focus order (most focused first) - only if open
     local windows = {
         map_window = MapWindow,
-        ship_window = ShipWindow
+        ship_window = ShipWindow,
+        stats_window = StatsWindow
     }
 
     for i = #windowOrder, 1, -1 do
@@ -441,6 +456,7 @@ function UISystem.mousemoved(x, y, dx, dy, isTouch)
     local windows = {
         map_window = MapWindow,
         ship_window = ShipWindow,
+        stats_window = StatsWindow,
         quest_window = QuestWindow
     }
 
@@ -488,7 +504,8 @@ function UISystem.wheelmoved(x, y)
     -- Forward to other windows - only if open
     local windows = {
         map_window = MapWindow,
-        ship_window = ShipWindow
+        ship_window = ShipWindow,
+        stats_window = StatsWindow
     }
 
     for i = #windowOrder, 1, -1 do
@@ -542,6 +559,7 @@ end
 function UISystem.isMapWindowOpen()
     return MapWindow:getOpen()
 end
+
 
 -- Quest window functions
 function UISystem.setQuestWindowOpen(state)
