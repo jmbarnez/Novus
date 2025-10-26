@@ -355,7 +355,18 @@ function SettingsWindow:initializeHotkeyButtons()
     local audioHeight = Theme.spacing.padding * 30  -- Scaled audio section height
     local hotkeyStartY = fpsHeight + resHeight + audioHeight  -- Start position for hotkey buttons
     local bottomPadding = Theme.spacing.padding * 3.33  -- Scaled bottom padding
-    local contentHeight = hotkeyStartY + hotkeyButtonsHeight + bottomPadding
+
+    -- Add extra bottom padding to ensure the scrollable content extends far enough
+    -- so all hotkey entries can be reached on smaller screens / tighter layouts.
+    local extraBottomPadding = Theme.spacing.padding * 12
+
+    local contentHeight = hotkeyStartY + hotkeyButtonsHeight + bottomPadding + extraBottomPadding
+
+    -- Ensure contentHeight is at least as tall as the window to avoid an unexpectedly
+    -- small scrollable range on some layouts.
+    if self.height and contentHeight < self.height then
+        contentHeight = self.height
+    end
 
     -- Define position and width variables for panel initialization
     local paddingX = Theme.spacing.padding * 5  -- Scaled padding

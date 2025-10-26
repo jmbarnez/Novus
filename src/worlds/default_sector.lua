@@ -15,21 +15,21 @@ return {
         count = 3,
         clusters = {
             {
-                x = 5000,            -- Cluster center X
+                x = 2500,            -- Cluster center X (scaled for smaller world)
                 y = 0,               -- Cluster center Y
-                radius = 3000,       -- Cluster radius
+                radius = 1500,       -- Cluster radius (scaled)
                 maxAsteroids = 40    -- Asteroids per cluster
             },
             {
-                x = -7000,           -- Cluster center X
-                y = 4000,            -- Cluster center Y
-                radius = 2500,       -- Cluster radius
+                x = -3500,           -- Cluster center X (scaled)
+                y = 2000,            -- Cluster center Y (scaled)
+                radius = 1250,       -- Cluster radius (scaled)
                 maxAsteroids = 30
             },
             {
-                x = 12000,           -- Cluster center X
-                y = -5000,           -- Cluster center Y
-                radius = 3500,       -- Cluster radius
+                x = 6000,            -- Cluster center X (scaled)
+                y = -2500,           -- Cluster center Y (scaled)
+                radius = 1750,       -- Cluster radius (scaled)
                 maxAsteroids = 50
             }
         }
@@ -67,7 +67,7 @@ return {
     -- Stations (custom static objects)
     stations = {
         {
-            x = -1800, y = 0, size = 100, mass = 1200,
+            x = 0, y = 0, size = 100, mass = 1200,
             color = {0.79, 0.85, 1, 1},
             detail = {
                 hullSides = 12,

@@ -23,13 +23,13 @@ Constants.screen_width = 1920
 Constants.screen_height = 1080
 
 -- World dimensions (much larger than screen for exploration)
--- Scaled up by 10x to make sectors much larger for exploration
-Constants.world_width = 40000
-Constants.world_height = 40000
-Constants.world_min_x = -20000
-Constants.world_max_x = 20000
-Constants.world_min_y = -20000
-Constants.world_max_y = 20000
+-- NOTE: Reduced world size to half of previous value for tighter play area
+Constants.world_width = 20000
+Constants.world_height = 20000
+Constants.world_min_x = -10000
+Constants.world_max_x = 10000
+Constants.world_min_y = -10000
+Constants.world_max_y = 10000
 Constants.WORLD_RADIUS = Constants.world_width / 2 -- Assuming world_width is the diameter
 
 -- Player physics

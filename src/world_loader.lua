@@ -77,8 +77,8 @@ function WorldLoader.initWorld(worldId)
         WorldLoader.spawnEnemies(world.enemies)
     end
     
-    -- Spawn warp gate at left boundary (visible in every world; use for demo)
-    local gateX = Constants.world_min_x + 120
+    -- Spawn warp gate near the center (keep it accessible / visible for demo)
+    local gateX = 200
     local gateY = 0
     local gateComponents = require('src.procedural').generateEntity('warp_gate', {x = gateX, y = gateY, active = false})
     local ecs = require('src.ecs')
@@ -105,17 +105,21 @@ function WorldLoader.initWorld(worldId)
         end
         
         -- Find safe position for station using universal collision detection
+        -- Prefer positions near the world center so stations are close to the player start
         local stationDef = world.stations[1]  -- Only one station for now
         local stationRadius = 120  -- Station collision radius
         local minDistance = 350   -- Minimum distance from other objects
-        
-        local x, y, success = SpawnCollisionUtils.findSafePositionInWorld(
+
+        -- Try to find a position near the world center (search radius small)
+        local x, y, success = SpawnCollisionUtils.findSafePosition(
+            0, 0,         -- centerX, centerY -> bias toward world center
+            800,          -- searchRadius: 800 units around center
             stationRadius, 
             minDistance, 
             100,  -- max attempts
             {}    -- no excluded types
         )
-        
+
         if success then
             stationDef.x, stationDef.y = x, y
         else
@@ -226,10 +230,45 @@ end
 -- Spawn enemies based on world configuration
 function WorldLoader.spawnEnemies(config)
     local spawnCount = 0
-    
+    local SpawnCollisionUtils = require('src.spawn_collision_utils')
+
+    -- Prefer spawning enemies near asteroid clusters when possible
+    local clusters = AsteroidClusters.getClusters()
+    local clusterList = {}
+    for _, c in pairs(clusters) do
+        table.insert(clusterList, c)
+    end
+
     for enemyType, count in pairs(config.types or {}) do
         for i = 1, count do
-            local shipId = WorldLoader.spawnEnemy(enemyType, config)
+            local shipId = nil
+            local enemyRadius = 25
+            local minDistance = 200
+
+            -- Try cluster-based spawn first
+            if #clusterList > 0 then
+                local cluster = clusterList[math.random(1, #clusterList)]
+                local radius = cluster.radius or Constants.asteroid_cluster_radius
+                local x, y, success = SpawnCollisionUtils.findSafePosition(
+                    cluster.centerX,
+                    cluster.centerY,
+                    math.max(200, radius),
+                    enemyRadius,
+                    minDistance,
+                    30,
+                    {}
+                )
+
+                if success then
+                    shipId = ShipLoader.createShip(enemyType, x, y, "ai")
+                end
+            end
+
+            -- Fallback to world-wide spawn if cluster spawn failed
+            if not shipId then
+                shipId = WorldLoader.spawnEnemy(enemyType, config)
+            end
+
             if shipId then
                 spawnCount = spawnCount + 1
             end

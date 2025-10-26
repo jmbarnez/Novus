@@ -194,8 +194,25 @@ function GameInit.setupPlayerShip(pilotId)
     ShipLoader.loadAllDesigns("src.ship_designs")
 
     -- Create player's starter drone using modular system (will be blue)
-    -- Spawn player away from asteroid clusters on the left side of the world
-    local droneId = ShipLoader.createShip("starter_drone", -1500, 0, "player", pilotId)
+    -- Find a collision-safe spawn position near world center so player doesn't overlap station/gate
+    local SpawnCollisionUtils = require('src.spawn_collision_utils')
+    local playerRadius = 40 -- approximate collision radius for starter drone
+    local minDistance = 220 -- keep some buffer from other objects
+    local spawnSearchRadius = 300 -- search radius around center for player spawn
+    local px, py, pfound = SpawnCollisionUtils.findSafePosition(
+        0, 0,               -- centerX, centerY (world center)
+        spawnSearchRadius,  -- searchRadius
+        playerRadius,       -- entityRadius
+        minDistance,        -- minDistance
+        50,                 -- maxAttempts
+        {}                  -- excludeTypes
+    )
+
+    if not pfound then
+        px, py = 0, 0
+    end
+
+    local droneId = ShipLoader.createShip("starter_drone", px, py, "player", pilotId)
     
     -- Apply ship-specific movement parameters if defined
     local droneDesign = ShipLoader.getDesign("starter_drone")

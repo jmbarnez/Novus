@@ -11,7 +11,9 @@ local Tooltips = {}
 function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
     if not itemDef then return end
     local module = itemDef.module
-    local isTurret = module and module.displayName and (module.DPS or module.COOLDOWN or module.RANGE)
+    -- Don't treat an item as a turret just because it has a RANGE value.
+    -- Turret detection should rely on offensive stats like DPS or COOLDOWN.
+    local isTurret = module and module.displayName and (module.DPS or module.COOLDOWN)
     -- Build tooltip lines
     local lines = {}
     if isTurret then
@@ -48,8 +50,20 @@ function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
             end
         end
         
-        if module.RANGE then 
-            table.insert(lines, string.format("Range: %d units", module.RANGE)) 
+        -- Show laser-specific range details (optimal/falloff) for continuous weapons only.
+        -- Do NOT display a generic "Range" value for turrets.
+        if module.CONTINUOUS then
+            local optimal = module.FALLOFF_START
+            local falloffEnd = module.FALLOFF_END or module.ZERO_DAMAGE_RANGE
+            if optimal or falloffEnd then
+                if optimal then
+                    table.insert(lines, string.format("Optimal Range: %dm", optimal))
+                end
+                if falloffEnd then
+                    table.insert(lines, string.format("Falloff Ends: %dm", falloffEnd))
+                end
+                table.insert(lines, "")
+            end
         end
         table.insert(lines, "")
     else
