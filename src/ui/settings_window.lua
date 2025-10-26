@@ -502,29 +502,7 @@ function SettingsWindow:draw()
     -- Disable scissor
     love.graphics.setScissor()
     
-    -- Exit to Main Menu Button (positioned in bottom bar)
-    local btnW, btnH = 160, 34
-    local startX = x + (self.width - btnW) / 2
-    
-    -- Position button in the bottom bar area
-    local btnY = y + self.height - Theme.window.bottomBarHeight + (Theme.window.bottomBarHeight - btnH) / 2
-    
-    self._exitBtn = {x = startX, y = btnY, w = btnW, h = btnH}
-    
-    local mx, my
-    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
-        mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
-    else
-        mx, my = Scaling.toUI(love.mouse.getPosition())
-    end
-    
-    -- Exit to Main Menu Button (red)
-    local exitHovered = mx >= startX and mx <= startX + btnW and my >= btnY and my <= btnY + btnH
-    love.graphics.setColor(exitHovered and Theme.colors.buttonCloseHover or Theme.colors.buttonClose)
-    love.graphics.rectangle('fill', startX, btnY, btnW, btnH, 6, 6)
-    love.graphics.setColor(1, 1, 1, alpha)
-    love.graphics.setFont(Theme.getFontBold(Theme.fonts.normal))
-    love.graphics.printf('Exit to Main Menu', startX, btnY + 8, btnW, 'center')
+    -- (Exit to Main Menu button removed)
     
     -- Close button
     self:drawCloseButton(x, y, alpha)
@@ -556,16 +534,7 @@ function SettingsWindow:mousepressed(mx, my, button)
     -- Debug coordinate conversion (remove in production)
     -- print(string.format("Settings Mouse: raw(%d,%d) -> UI(%.1f,%.1f)", mx, my, uiMx, uiMy))
     
-    -- Check Exit to Main Menu button (before any scrollable content)
-    -- This prevents click-through to content behind it
-    if self._exitBtn and uiMx >= self._exitBtn.x and uiMx <= self._exitBtn.x + self._exitBtn.w and
-       uiMy >= self._exitBtn.y and uiMy <= self._exitBtn.y + self._exitBtn.h then
-        self:closeWindow()
-        if _G.Game and _G.Game.returnToMainMenu then
-            _G.Game.returnToMainMenu()
-        end
-        return true
-    end
+    -- (Exit to Main Menu click handling removed)
     
     -- Check close button (from WindowBase)
     local closeBtn = {
