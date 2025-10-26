@@ -22,13 +22,25 @@ local EntityPool = {
 -- reset: function that resets an entity for reuse (clears specific components)
 -- maxSize: maximum number of pooled entities
 function EntityPool.registerPool(poolName, factory, reset, maxSize)
+    if type(poolName) ~= "string" or poolName == "" then
+        error("Pool name must be a non-empty string")
+    end
+
+    if type(factory) ~= "function" then
+        error("Pool '" .. poolName .. "' requires a factory function")
+    end
+
+    if reset ~= nil and type(reset) ~= "function" then
+        error("Reset handler for pool '" .. poolName .. "' must be a function")
+    end
+
     maxSize = maxSize or 100
-    
+
     EntityPool.pools[poolName] = {
         available = {},
         inUse = {},
         factory = factory,
-        reset = reset,
+        reset = reset or function() end,
         maxSize = maxSize,
         stats = {
             created = 0,

@@ -31,4 +31,15 @@ local secondRelease = EntityPool.release('dummy', entityId)
 assert(secondRelease == false, 'Second release should be ignored')
 assert(#EntityPool.pools['dummy'].available == 1, 'Available list should not gain duplicates')
 
+-- Pools should also work without providing a custom reset handler
+local function bareFactory()
+    return ECS.createEntity()
+end
+
+EntityPool.registerPool('bare', bareFactory, nil, 2)
+local bareEntityId = EntityPool.acquire('bare')
+local bareRelease = EntityPool.release('bare', bareEntityId)
+assert(bareRelease == true, 'Release should succeed even without a reset handler')
+assert(#EntityPool.pools['bare'].available == 1, 'Entity should be recycled when no reset handler is provided')
+
 print('Entity pool release test passed')
