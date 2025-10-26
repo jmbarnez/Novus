@@ -27,6 +27,21 @@ local cometColor = {0.85, 0.95, 1, 0.35}
 local cometParticleLife = 0.7
 local cometParticleRate = 0.012
 
+-- Floating particles for atmosphere
+local particleCount = 20
+local particles = {}
+for i = 1, particleCount do
+    particles[i] = {
+        x = math.random(0, Constants.getScreenWidth()),
+        y = math.random(0, Constants.getScreenHeight()),
+        vx = math.random(-10, 10),
+        vy = math.random(-5, 5),
+        size = math.random(1, 3),
+        alpha = math.random(20, 60) / 100,
+        life = math.random(50, 100) / 100
+    }
+end
+
 -- Initialize comets
 local function resetComet(i, width, height)
     local angle = math.rad(25 + i * 10)
@@ -85,6 +100,23 @@ function start_screen.update(dt)
                 table.remove(particles, j)
             end
         end
+    end
+    
+    -- Update floating particles
+    for i = 1, particleCount do
+        local p = particles[i]
+        p.x = p.x + p.vx * dt
+        p.y = p.y + p.vy * dt
+        
+        -- Wrap around screen
+        if p.x < 0 then p.x = width end
+        if p.x > width then p.x = 0 end
+        if p.y < 0 then p.y = height end
+        if p.y > height then p.y = 0 end
+        
+        -- Subtle life cycle
+        p.life = p.life + dt * 0.1
+        if p.life > 1.0 then p.life = 0.0 end
     end
 end
 
@@ -152,6 +184,15 @@ end
 function start_screen.draw()
     love.graphics.clear(0.01, 0.02, 0.05)
     local width, height = love.graphics.getDimensions()
+    
+    -- Draw subtle background gradient
+    local gradientSteps = 20
+    for i = 0, gradientSteps do
+        local alpha = (1 - i / gradientSteps) * 0.1
+        local y = height * (i / gradientSteps)
+        love.graphics.setColor(0.1, 0.2, 0.4, alpha)
+        love.graphics.rectangle('fill', 0, y, width, height / gradientSteps)
+    end
     -- Draw twinkling stars
     local t = love.timer.getTime()
     -- Render stars as points for a sharper look, like in-game
@@ -192,6 +233,14 @@ function start_screen.draw()
             love.graphics.setColor(1, 1, 1, 0.5)
             love.graphics.circle('fill', c.x, c.y, 4)
         end
+    end
+    
+    -- Draw floating particles
+    for i = 1, particleCount do
+        local p = particles[i]
+        local alpha = p.alpha * (0.5 + 0.5 * math.sin(p.life * math.pi * 2))
+        love.graphics.setColor(1, 1, 1, alpha)
+        love.graphics.circle('fill', p.x, p.y, p.size)
     end
 
     -- Draw title with aurora shader effect
@@ -235,28 +284,40 @@ function start_screen.draw()
         love.graphics.print(titleText, titleX, titleY)
     end
 
-    -- Draw 'New Game' button
-    local buttonFont = Theme.getFontBold(22)
+    -- Draw 'New Game' button with subtle styling
+    local buttonFont = Theme.getFontBold(24)
     love.graphics.setFont(buttonFont)
     buttonY = height * 0.55
     buttonX = width/2 - buttonWidth/2
     -- Check hover
     local mx, my = love.mouse.getPosition()
     buttonHovered = mx >= buttonX and mx <= buttonX + buttonWidth and my >= buttonY and my <= buttonY + buttonHeight
-    -- Minimal button: flat color, small corner radius, no shadow
-    -- Monochrome button: use theme background and border colors
-    local bgColor = buttonHovered and Theme.colors.bgLight or Theme.colors.bgMedium
-    local borderColor = {1, 1, 1, 1} -- white border
-    local cornerRadius = 0
-    -- Draw button background
-    love.graphics.setColor(bgColor)
+    
+    -- Subtle button styling
+    local cornerRadius = 8
+    local hoverScale = buttonHovered and 1.05 or 1.0
+    local hoverAlpha = buttonHovered and 0.9 or 0.6
+    
+    -- Draw subtle glow effect behind button
+    if buttonHovered then
+        love.graphics.setColor(1, 1, 1, 0.1)
+        love.graphics.rectangle('fill', buttonX - 4, buttonY - 4, buttonWidth + 8, buttonHeight + 8, cornerRadius + 2, cornerRadius + 2)
+    end
+    
+    -- Draw button background with subtle gradient effect
+    local bgAlpha = hoverAlpha * 0.3
+    love.graphics.setColor(1, 1, 1, bgAlpha)
     love.graphics.rectangle('fill', buttonX, buttonY, buttonWidth, buttonHeight, cornerRadius, cornerRadius)
-    -- Draw button border
-    love.graphics.setColor(borderColor)
-    love.graphics.setLineWidth(2)
+    
+    -- Draw subtle border
+    local borderAlpha = hoverAlpha * 0.8
+    love.graphics.setColor(1, 1, 1, borderAlpha)
+    love.graphics.setLineWidth(1.5)
     love.graphics.rectangle('line', buttonX, buttonY, buttonWidth, buttonHeight, cornerRadius, cornerRadius)
-    -- Draw button text
-    love.graphics.setColor(Theme.colors.textPrimary)
+    
+    -- Draw button text with subtle glow
+    local textAlpha = hoverAlpha
+    love.graphics.setColor(1, 1, 1, textAlpha)
     love.graphics.printf(buttonText, buttonX, buttonY + (buttonHeight - buttonFont:getHeight())/2, buttonWidth, "center")
 end
 
