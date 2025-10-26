@@ -103,22 +103,57 @@ end
 
 -- Skills component - Tracks player skills and experience
 -- @field skills table: Map of skill names to skill data {level, experience, requiredXp}
-Components.Skills = function()
-    return {
-        skills = {
-            mining = {
-                level = 1,
-                experience = 0,
-                requiredXp = 100,  -- XP needed for next level
-                totalXp = 0        -- Total XP earned (for history)
-            },
-            salvaging = {
-                level = 1,
-                experience = 0,
-                requiredXp = 100,  -- XP needed for next level
-                totalXp = 0        -- Total XP earned (for history)
-            }
+-- Default template used for new skill entries
+local defaultSkills = {
+    mining = {
+        level = 1,
+        experience = 0,
+        requiredXp = 100,  -- XP needed for next level
+        totalXp = 0,        -- Total XP earned (for history)
+    },
+    salvaging = {
+        level = 1,
+        experience = 0,
+        requiredXp = 100,  -- XP needed for next level
+        totalXp = 0,        -- Total XP earned (for history)
+    }
+}
+
+local function mergeSkillData(savedSkills)
+    local result = {}
+
+    -- Apply defaults first so missing fields are populated
+    for skillName, defaults in pairs(defaultSkills) do
+        local saved = savedSkills and savedSkills[skillName] or {}
+        result[skillName] = {
+            level = saved.level or defaults.level,
+            experience = saved.experience or defaults.experience,
+            requiredXp = saved.requiredXp or defaults.requiredXp,
+            totalXp = saved.totalXp or defaults.totalXp,
         }
+    end
+
+    -- Preserve any additional skills that may have been added at runtime
+    if savedSkills then
+        for skillName, saved in pairs(savedSkills) do
+            if not result[skillName] then
+                result[skillName] = {
+                    level = saved.level or 1,
+                    experience = saved.experience or 0,
+                    requiredXp = saved.requiredXp or 100,
+                    totalXp = saved.totalXp or 0,
+                }
+            end
+        end
+    end
+
+    return result
+end
+
+-- @param savedSkills table|nil: Optional serialized skill data to restore
+Components.Skills = function(savedSkills)
+    return {
+        skills = mergeSkillData(savedSkills)
     }
 end
 

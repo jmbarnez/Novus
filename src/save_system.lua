@@ -100,7 +100,7 @@ ComponentSerializers.Skills = {
         return {skills = comp.skills}
     end,
     deserialize = function(data)
-        return Components.Skills()
+        return Components.Skills(data and data.skills)
     end
 }
 
