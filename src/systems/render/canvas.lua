@@ -16,7 +16,7 @@ local function ensureCanvasComponent()
 
     local renderW, renderH = DisplayManager.getRenderDimensions()
     if not canvasComp.canvas or canvasComp.width ~= renderW or canvasComp.height ~= renderH then
-        local Components = require('src/components')
+        local Components = require('src.components')
         Components.resizeCanvas(canvasComp, renderW, renderH)
     end
 
