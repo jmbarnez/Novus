@@ -219,30 +219,53 @@ end
 -- @field seed number: Random seed for particle generation
 Components.NebulaCloud = function(x, y, radius, color, particleCount, seed)
     seed = seed or math.random(1000000)
-    math.randomseed(seed)
-    
+
+    local randomFloat
+    if love and love.math and love.math.newRandomGenerator then
+        local rng = love.math.newRandomGenerator(seed)
+        randomFloat = function()
+            return rng:random()
+        end
+    else
+        local state = seed % 2147483647
+        if state <= 0 then
+            state = state + 2147483646
+        end
+        randomFloat = function()
+            state = (state * 16807) % 2147483647
+            return state / 2147483647
+        end
+    end
+
+    local function randomRange(scale)
+        if scale then
+            return randomFloat() * scale
+        end
+        return randomFloat()
+    end
+
     local particles = {}
-    local particleCount = particleCount or 80
-    
+    local totalParticles = particleCount or 80
+
     -- Generate wispy, organic cloud shapes
-    for i = 1, particleCount do
+    for i = 1, totalParticles do
         -- Random angle
-        local angle = math.random() * 2 * math.pi
-        
+        local angle = randomFloat() * 2 * math.pi
+
         -- Create more organic distribution with multiple density zones
-        local distRandom = math.random()
+        local distRandom = randomFloat()
         local dist
         if distRandom < 0.5 then
             -- Core of cloud - dense particles
-            dist = math.random() * radius * 0.5
+            dist = randomRange(radius * 0.5)
         elseif distRandom < 0.8 then
             -- Middle zone - medium density
-            dist = radius * 0.5 + math.random() * radius * 0.4
+            dist = radius * 0.5 + randomRange(radius * 0.4)
         else
             -- Outer wisps - sparse particles
-            dist = radius * 0.9 + math.random() * radius * 0.6
+            dist = radius * 0.9 + randomRange(radius * 0.6)
         end
-        
+
         -- Add organic noise to create wispy tendrils
         local noise1 = math.sin(angle * 2.3) * math.cos(angle * 3.7)
         local noise2 = math.sin(angle * 5.1) * 0.2
@@ -253,57 +276,57 @@ Components.NebulaCloud = function(x, y, radius, color, particleCount, seed)
         local size
         if dist < radius * 0.4 then
             -- Core particles - larger
-            size = 3 + math.random() * 5
+            size = 3 + randomRange(5)
         elseif dist < radius * 0.7 then
             -- Middle particles - medium
-            size = 2 + math.random() * 4
+            size = 2 + randomRange(4)
         else
             -- Wisp particles - smaller and more varied
-            size = 1 + math.random() * 3
+            size = 1 + randomRange(3)
         end
-        
+
         -- Varied brightness based on position
         local brightness
         if dist < radius * 0.3 then
             -- Bright core
-            brightness = 0.7 + math.random() * 0.3
+            brightness = 0.7 + randomRange(0.3)
         elseif dist < radius * 0.6 then
             -- Medium brightness
-            brightness = 0.4 + math.random() * 0.3
+            brightness = 0.4 + randomRange(0.3)
         else
             -- Dim wisps
-            brightness = 0.2 + math.random() * 0.3
+            brightness = 0.2 + randomRange(0.3)
         end
-        
+
         -- Add tendrils extending outward
-        local tendrilChance = math.random()
+        local tendrilChance = randomFloat()
         if tendrilChance > 0.92 then
             -- Create a wispy tendril
-            local tendrilAngle = angle + (math.random() - 0.5) * 0.5
-            local tendrilLength = radius * 0.8 + math.random() * radius * 0.5
-            local tendrilParticles = 3 + math.random() * 5
+            local tendrilAngle = angle + (randomFloat() - 0.5) * 0.5
+            local tendrilLength = radius * 0.8 + randomRange(radius * 0.5)
+            local tendrilParticles = 3 + randomRange(5)
             for j = 1, tendrilParticles do
                 local tendrilDist = dist + j * 15
                 table.insert(particles, {
                     x = x + math.cos(tendrilAngle) * tendrilDist,
                     y = y + math.sin(tendrilAngle) * tendrilDist,
-                    size = 1 + math.random() * 2,
-                    brightness = 0.15 + math.random() * 0.15,
-                    alpha = 0.1 + math.random() * 0.2
+                    size = 1 + randomRange(2),
+                    brightness = 0.15 + randomRange(0.15),
+                    alpha = 0.1 + randomRange(0.2)
                 })
             end
         end
-        
+
         -- Alpha varies with distance from center
         local alpha
         if dist < radius * 0.4 then
-            alpha = 0.5 + math.random() * 0.3
+            alpha = 0.5 + randomRange(0.3)
         elseif dist < radius * 0.7 then
-            alpha = 0.3 + math.random() * 0.2
+            alpha = 0.3 + randomRange(0.2)
         else
-            alpha = 0.1 + math.random() * 0.2
+            alpha = 0.1 + randomRange(0.2)
         end
-        
+
         table.insert(particles, {
             x = x + math.cos(angle) * dist,
             y = y + math.sin(angle) * dist,
@@ -312,12 +335,12 @@ Components.NebulaCloud = function(x, y, radius, color, particleCount, seed)
             alpha = alpha
         })
     end
-    
+
     return {
         particles = particles,
         color = color or {0.5, 0.6, 1.0, 0.5},
         radius = radius or 150,
-        particleCount = particleCount,
+        particleCount = totalParticles,
         seed = seed
     }
 end
