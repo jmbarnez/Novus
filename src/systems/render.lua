@@ -213,7 +213,12 @@ local RenderSystem = {
         local ui = getUISystem()
         if ui and ui.draw then
             local screenWidth, screenHeight = Constants.getScreenWidth(), Constants.getScreenHeight()
-            ui.draw(screenWidth, screenHeight) -- Pass display resolution
+            -- Compute scaled UI mouse position once and pass it to UI draw to avoid per-window queries
+            local rawMx, rawMy = love.mouse.getPosition()
+            local uiMx, uiMy = Scaling.toUI(rawMx, rawMy)
+            -- Store cached UI mouse coords for draw-time access (so individual windows can avoid querying mouse)
+            Scaling._lastMouseUI = {uiMx, uiMy}
+            ui.draw(screenWidth, screenHeight, uiMx, uiMy) -- Pass display resolution and cached mouse
         end
         Profiler.stop("ui_windows")
 

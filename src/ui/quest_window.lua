@@ -78,7 +78,12 @@ function QuestWindow:drawCloseButton(x, y, alpha)
     local closeSize = 20
     local closeX = x + self.width - closeSize - 8
     local closeY = y + 8
-    local mx, my = Scaling.toUI(love.mouse.getX(), love.mouse.getY())
+    local mx, my
+    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+        mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+    else
+        mx, my = Scaling.toUI(love.mouse.getX(), love.mouse.getY())
+    end
     
     local isHovered = mx >= closeX and mx <= closeX + closeSize and my >= closeY and my <= closeY + closeSize
     
@@ -208,7 +213,12 @@ function QuestWindow:drawQuest(qx, qy, qw, qh, quest, alpha, index)
     
     -- Accept button (if not accepted)
     if not quest.accepted then
-        local mx, my = Scaling.toUI(love.mouse.getX(), love.mouse.getY())
+        local mx, my
+        if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+            mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+        else
+            mx, my = Scaling.toUI(love.mouse.getX(), love.mouse.getY())
+        end
         local buttonX = qx + qw - buttonW - 12
         local buttonY = qy + qh - buttonH - 8
         

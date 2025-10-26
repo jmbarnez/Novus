@@ -2,8 +2,6 @@
 -- Universal UI Window Base Module
 -- Provides neon border, fade animation, elastic drag, and shared window logic
 
--- Review: This file is the likely base for all UI windows. Look for per-frame allocations, expensive draw logic, or unnecessary state changes. Check if draw() or update() methods allocate new tables, create canvases, or do expensive calculations every frame. Also check if any theme or batch renderer is called in a way that prevents batching or caching.
-
 local Theme = require('src.ui.theme')
 local Scaling = require('src.scaling')
 
@@ -17,17 +15,12 @@ function WindowBase:new(opts)
     o.width = opts.width or 400
     o.height = opts.height or 300
     o.isOpen = opts.isOpen or false
+    -- Animations removed: keep static alpha for compatibility
     o.animAlpha = 1
-    o.animAlphaTarget = 1
-    o.animAlphaSpeed = 0
     o.animAlphaActive = false
     o.isDragging = false
     o.dragOffset = {x = 0, y = 0}
-    o.elasticityActive = false
-    o.elasticityTarget = nil
-    o.elasticityVelocity = {x = 0, y = 0}
-    o.elasticitySpring = opts.elasticitySpring or 18
-    o.elasticityDamping = opts.elasticityDamping or 0.7
+    -- Elasticity/animation removed: windows are static and non-animated
     o.positionInitialized = false  -- Track if position has been centered
     o.autoCenter = opts.position == nil
     o.userMoved = false
@@ -44,11 +37,7 @@ function WindowBase:setOpen(state)
         end
     end
     
-    if state then
-        self.animAlpha = 1
-    else
-        self.animAlpha = 0
-    end
+    -- No fade animations: open/close is immediate
 end
 
 function WindowBase:centerOnScreen(screenW, screenH)
@@ -96,7 +85,7 @@ function WindowBase:onResize(screenW, screenH)
 end
 
 function WindowBase:update(dt)
-    -- No fade or sliding/elasticity: do nothing
+    -- Animations removed; nothing to update per-frame
 end
 
 function WindowBase:mousepressed(x, y, button)
@@ -119,13 +108,21 @@ function WindowBase:mousepressed(x, y, button)
 end
 
 -- Default close button drawing for all windows
-function WindowBase:drawCloseButton(x, y, alpha)
+function WindowBase:drawCloseButton(x, y, alpha, mx, my)
     alpha = alpha or 1
     local border = 3
     local closeSize = 18
     local closeX = x + self.width - closeSize - 8 - border
     local closeY = y + border + (Theme.window.topBarHeight - 2*border - closeSize) / 2
-    local mx, my = Scaling.toUI(love.mouse.getPosition())
+
+    -- Use provided mouse coords if passed in (to avoid repeated calls per window)
+    if not mx or not my then
+        if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+            mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+        else
+            mx, my = Scaling.toUI(love.mouse.getPosition())
+        end
+    end
 
     local closeHover = mx >= closeX and mx <= closeX + closeSize and my >= closeY and my <= closeY + closeSize
     -- Minimal X: black by default, red on hover, no background
@@ -153,7 +150,7 @@ function WindowBase:mousemoved(x, y, dx, dy)
     end
 end
 
-function WindowBase:draw()
+function WindowBase:draw(viewportWidth, viewportHeight, uiMx, uiMy)
     if not self.isOpen or not self.position then return end
     local x = self.position.x
     local y = self.position.y

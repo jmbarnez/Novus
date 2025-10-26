@@ -1,5 +1,3 @@
--- Review: This file likely handles the plasma theme for UI. Look for expensive per-frame effects, shader usage, or allocations. If using shaders, ensure they are not recreated or recompiled every frame. If drawing gradients or effects, check if they can be cached or precomputed.
-
 ---@diagnostic disable: undefined-global
 -- Plasma Theme Configuration
 -- Provides universal plasma/energy-style styling for all UI and rendering elements

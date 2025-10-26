@@ -111,7 +111,12 @@ end
 function Slider:draw(alpha)
     alpha = alpha or 1
     
-    local mx, my = Scaling.toUI(love.mouse.getPosition())
+    local mx, my
+    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+        mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+    else
+        mx, my = Scaling.toUI(love.mouse.getPosition())
+    end
     local hovered = self:isMouseOver(mx, my)
     
     -- Draw track background

@@ -62,7 +62,12 @@ end
 --- Draw just the closed dropdown button
 -- @param alpha number Alpha for rendering (opacity)
 function Dropdown:drawClosed(alpha)
-    local mx, my = Scaling.toUI(love.mouse.getPosition())
+    local mx, my
+    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+        mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+    else
+        mx, my = Scaling.toUI(love.mouse.getPosition())
+    end
     
     -- Draw closed dropdown button
     love.graphics.setColor(Theme.colors.bgMedium)
@@ -110,7 +115,12 @@ end
 --- Draw just the open dropdown menu (no button)
 -- @param alpha number Alpha for rendering (opacity)
 function Dropdown:drawOpen(alpha)
-    local mx, my = Scaling.toUI(love.mouse.getPosition())
+    local mx, my
+    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+        mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+    else
+        mx, my = Scaling.toUI(love.mouse.getPosition())
+    end
     
     local total = #self.options
     local visibleCount = math.min(total, self.maxVisible)
@@ -240,7 +250,11 @@ function Dropdown:wheelmoved(dy, mx, my)
     if not self.isOpen then return false end
     -- Get mouse position if not provided
     if not mx or not my then
-        mx, my = Scaling.toUI(love.mouse.getPosition())
+        if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+            mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+        else
+            mx, my = Scaling.toUI(love.mouse.getPosition())
+        end
     end
 
     local total = #self.options

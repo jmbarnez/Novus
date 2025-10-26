@@ -90,7 +90,12 @@ function CargoWindow:drawCargoContentOnly(windowX, windowY, alpha)
 
     -- Draw dragged item icon at mouse position if dragging (use UI coords)
     if self.draggedItem and self.draggedItem.itemDef then
-        local mx, my = Scaling.toUI(love.mouse.getPosition())
+        local mx, my
+        if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+            mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+        else
+            mx, my = Scaling.toUI(love.mouse.getPosition())
+        end
         love.graphics.setColor(1, 1, 1, 0.8 * alpha)
 
         local itemDef = self.draggedItem.itemDef
@@ -282,7 +287,12 @@ function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
     local maxRows = math.max(1, math.floor(availableHeight / cellHeight))
     local cols = math.max(1, math.ceil(totalItems / maxRows))
 
-    local mx, my = Scaling.toUI(love.mouse.getPosition())
+    local mx, my
+    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+        mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+    else
+        mx, my = Scaling.toUI(love.mouse.getPosition())
+    end
     self.hoveredItemSlot = nil
 
     local i = 0

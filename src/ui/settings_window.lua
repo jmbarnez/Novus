@@ -119,7 +119,12 @@ end
 function SettingsWindow:drawHotkeyButtons(alpha)
     if not self.hotkeyButtons then return end
     
-    local mx, my = Scaling.toUI(love.mouse.getPosition())
+    local mx, my
+    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+        mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+    else
+        mx, my = Scaling.toUI(love.mouse.getPosition())
+    end
     
     for i, button in ipairs(self.hotkeyButtons) do
         local hovered = mx >= button.x and mx <= button.x + button.width and 
@@ -209,7 +214,12 @@ function SettingsWindow:drawScrollBar(alpha)
     -- Only draw thumb if there's scrollable content
     if self.maxScrollY > 0 then
         -- Scroll bar thumb
-        local mx, my = Scaling.toUI(love.mouse.getPosition())
+        local mx, my
+        if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+            mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+        else
+            mx, my = Scaling.toUI(love.mouse.getPosition())
+        end
         local thumbHovered = mx >= sb.x and mx <= sb.x + sb.width and 
                             my >= sb.thumbY and my <= sb.thumbY + sb.thumbHeight
         
@@ -501,7 +511,12 @@ function SettingsWindow:draw()
     
     self._exitBtn = {x = startX, y = btnY, w = btnW, h = btnH}
     
-    local mx, my = Scaling.toUI(love.mouse.getPosition())
+    local mx, my
+    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+        mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+    else
+        mx, my = Scaling.toUI(love.mouse.getPosition())
+    end
     
     -- Exit to Main Menu Button (red)
     local exitHovered = mx >= startX and mx <= startX + btnW and my >= btnY and my <= btnY + btnH
@@ -632,7 +647,12 @@ function SettingsWindow:wheelmoved(x, y)
     if not self.isOpen then return false end
     
     -- Check if mouse is over the settings window
-    local uiMx, uiMy = Scaling.toUI(love.mouse.getPosition())
+    local uiMx, uiMy
+    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+        uiMx, uiMy = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+    else
+        uiMx, uiMy = Scaling.toUI(love.mouse.getPosition())
+    end
 
     -- If an open dropdown is under the mouse, forward the wheel to it so it can scroll
     local function tryForward(dd)

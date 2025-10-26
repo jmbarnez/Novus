@@ -11,6 +11,7 @@ local TargetHUD = {
     hoveredItem = nil,
     hoveredEnemy = nil,
     hoveredAsteroid = nil,
+    hoveredWreckage = nil,
     hoverRadius = 30,  -- World units
 }
 
@@ -24,6 +25,7 @@ function TargetHUD.update()
         TargetHUD.hoveredItem = nil
         TargetHUD.hoveredEnemy = nil
         TargetHUD.hoveredAsteroid = nil
+        TargetHUD.hoveredWreckage = nil
         return
     end
     
@@ -33,6 +35,7 @@ function TargetHUD.update()
         TargetHUD.hoveredItem = nil
         TargetHUD.hoveredEnemy = nil
         TargetHUD.hoveredAsteroid = nil
+        TargetHUD.hoveredWreckage = nil
         return
     end
     
@@ -110,23 +113,52 @@ function TargetHUD.update()
         end
     end
     
-    -- Prioritize items > asteroids > enemies if multiple are hovered
+    -- Find closest wreckage (salvageable pieces)
+    local wreckages = ECS.getEntitiesWith({"Wreckage", "Position", "Durability", "Collidable"})
+    local closestWreckage = nil
+    local closestWreckageDist = math.huge
+
+    for _, wreckId in ipairs(wreckages) do
+        local position = ECS.getComponent(wreckId, "Position")
+        local collidable = ECS.getComponent(wreckId, "Collidable")
+        if position and collidable then
+            local dx = worldX - position.x
+            local dy = worldY - position.y
+            local dist = math.sqrt(dx * dx + dy * dy)
+            local hoverThreshold = (collidable.radius or 20) + 20
+            if dist < hoverThreshold and dist < closestWreckageDist then
+                closestWreckageDist = dist
+                closestWreckage = wreckId
+            end
+        end
+    end
+
+    -- Prioritize items > wreckage > asteroids > enemies if multiple are hovered
     if closestItem then
         TargetHUD.hoveredItem = closestItem
         TargetHUD.hoveredEnemy = nil
         TargetHUD.hoveredAsteroid = nil
+        TargetHUD.hoveredWreckage = nil
+    elseif closestWreckage then
+        TargetHUD.hoveredItem = nil
+        TargetHUD.hoveredEnemy = nil
+        TargetHUD.hoveredAsteroid = nil
+        TargetHUD.hoveredWreckage = closestWreckage
     elseif closestAsteroid then
         TargetHUD.hoveredItem = nil
         TargetHUD.hoveredEnemy = nil
         TargetHUD.hoveredAsteroid = closestAsteroid
+        TargetHUD.hoveredWreckage = nil
     elseif closestEnemy then
         TargetHUD.hoveredItem = nil
         TargetHUD.hoveredEnemy = closestEnemy
         TargetHUD.hoveredAsteroid = nil
+        TargetHUD.hoveredWreckage = nil
     else
         TargetHUD.hoveredItem = nil
         TargetHUD.hoveredEnemy = nil
         TargetHUD.hoveredAsteroid = nil
+        TargetHUD.hoveredWreckage = nil
     end
 end
 
@@ -238,8 +270,8 @@ end
 
 -- Draw popup (in screen space, same style/position as skill notifications)
 function TargetHUD.drawPopup()
-    -- Only show popup if hovering an item, asteroid, or enemy
-    if not TargetHUD.hoveredItem and not TargetHUD.hoveredEnemy and not TargetHUD.hoveredAsteroid then return end
+    -- Only show popup if hovering an item, asteroid, enemy, or wreckage
+    if not TargetHUD.hoveredItem and not TargetHUD.hoveredEnemy and not TargetHUD.hoveredAsteroid and not TargetHUD.hoveredWreckage then return end
     
     -- Same positioning as skill notifications
     local screenW = Scaling.getCurrentWidth()
@@ -287,39 +319,40 @@ function TargetHUD.drawPopup()
             -- Draw item name
             BatchRenderer.queueText(string.upper(item.def.name), x + Scaling.scaleX(48), y + Scaling.scaleY(14), normalFont, Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
         end
-    -- Handle asteroid popup
+    -- Handle asteroid popup (minimal)
     elseif TargetHUD.hoveredAsteroid then
         local asteroid = ECS.getComponent(TargetHUD.hoveredAsteroid, "Asteroid")
         local durability = ECS.getComponent(TargetHUD.hoveredAsteroid, "Durability")
-        
+
         if asteroid and durability then
-            -- Determine asteroid type name
             local asteroidTypeName = "ASTEROID"
             if asteroid.asteroidType == "iron" then
                 asteroidTypeName = "IRON ASTEROID"
             elseif asteroid.asteroidType == "stone" then
                 asteroidTypeName = "STONE ASTEROID"
             end
-            
-            -- Draw asteroid type name (no icon, just text)
-            BatchRenderer.queueText(asteroidTypeName, x + Scaling.scaleX(14), y + Scaling.scaleY(14), normalFont, Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
-            
-            -- Draw durability bar using PlasmaTheme style
-            local barWidth = popupWidth - Scaling.scaleX(28)
-            local barHeight = Scaling.scaleSize(8)
-            local barX = x + Scaling.scaleX(14)
-            local barY = y + Scaling.scaleY(32)
-            local durabilityPercent = math.min(durability.current / durability.max, 1.0)
-            
-            -- Use PlasmaTheme.drawDurabilityBar for consistent ship info style
-            -- This function uses immediate mode, so we'll need to replicate its logic
-            -- with the BatchRenderer.
-            
-            -- Durability text
-            local smallFont = Theme.getFont(Scaling.scaleSize(Theme.fonts.small))
-            local durabilityText = string.format("%.0f / %.0f", durability.current, durability.max)
-            BatchRenderer.queueText(durabilityText, barX + barWidth - smallFont:getWidth(durabilityText), barY - Scaling.scaleSize(14), smallFont, Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], 1)
+
+            -- Minimal: type name + durability percent
+            BatchRenderer.queueText(asteroidTypeName, x + Scaling.scaleX(14), y + Scaling.scaleY(12), normalFont, Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
+
+            local percent = math.floor((durability.current / math.max(durability.max, 1)) * 100)
+            local percentText = string.format("%d%%", percent)
+            BatchRenderer.queueText(percentText, x + popupWidth - Scaling.scaleX(14) - normalFont:getWidth(percentText), y + Scaling.scaleY(12), normalFont, Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], 1)
         end
+    -- Handle wreckage popup (minimal)
+    elseif TargetHUD.hoveredWreckage then
+        local wreck = ECS.getComponent(TargetHUD.hoveredWreckage, "Wreckage")
+        local durability = ECS.getComponent(TargetHUD.hoveredWreckage, "Durability")
+
+        if wreck and durability then
+            local name = wreck.sourceShip or "WRECKAGE"
+            BatchRenderer.queueText(string.upper(name), x + Scaling.scaleX(14), y + Scaling.scaleY(12), normalFont, Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
+
+            local percent = math.floor((durability.current / math.max(durability.max, 1)) * 100)
+            local percentText = string.format("%d%%", percent)
+            BatchRenderer.queueText(percentText, x + popupWidth - Scaling.scaleX(14) - normalFont:getWidth(percentText), y + Scaling.scaleY(12), normalFont, Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], 1)
+        end
+
     -- Handle enemy popup
     elseif TargetHUD.hoveredEnemy then
         local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
@@ -327,8 +360,35 @@ function TargetHUD.drawPopup()
         local isTargeted = inputComp and inputComp.targetedEnemy == TargetHUD.hoveredEnemy
         
         if isTargeted then
-            -- Show detailed info for targeted enemy
-            -- ... (this section is complex and will require more work to convert to the BatchRenderer)
+            -- Minimal targeted enemy info: name, level, hull/shield percents
+            local wreck = ECS.getComponent(TargetHUD.hoveredEnemy, "Wreckage")
+            local name = (wreck and wreck.sourceShip) and string.upper(wreck.sourceShip) or "ENEMY"
+            local levelComp = ECS.getComponent(TargetHUD.hoveredEnemy, "Level")
+            local levelText = levelComp and string.format("Lv %d", levelComp.level) or ""
+
+            -- Name (left) and level (right)
+            BatchRenderer.queueText(name, x + Scaling.scaleX(14), y + Scaling.scaleY(12), normalFont, Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
+            if levelText ~= "" then
+                BatchRenderer.queueText(levelText, x + popupWidth - Scaling.scaleX(14) - normalFont:getWidth(levelText), y + Scaling.scaleY(12), normalFont, Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], 1)
+            end
+
+            -- Hull / Shield percents (small font)
+            local hull = ECS.getComponent(TargetHUD.hoveredEnemy, "Hull")
+            local shield = ECS.getComponent(TargetHUD.hoveredEnemy, "Shield")
+            local smallFont = Theme.getFont(Scaling.scaleSize(Theme.fonts.small))
+            local stats = ""
+            if hull and hull.max and hull.max > 0 then
+                local hpPct = math.floor((hull.current / math.max(hull.max, 1)) * 100)
+                stats = string.format("Hull: %d%%", hpPct)
+            end
+            if shield and shield.max and shield.max > 0 then
+                local shPct = math.floor((shield.current / math.max(shield.max, 1)) * 100)
+                if stats ~= "" then stats = stats .. "  " end
+                stats = stats .. string.format("Shield: %d%%", shPct)
+            end
+            if stats ~= "" then
+                BatchRenderer.queueText(stats, x + Scaling.scaleX(14), y + Scaling.scaleY(36), smallFont, Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], 1)
+            end
         else
             -- Show simple message for untargeted enemies
             local message = "Ctrl+Click to scan"

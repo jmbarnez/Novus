@@ -5,6 +5,7 @@
 local ECS = require('src.ecs')
 local Theme = require('src.ui.theme')
 local BatchRenderer = require('src.ui.batch_renderer')
+local Scaling = require('src.scaling')
 
 local QuestOverlay = {}
 

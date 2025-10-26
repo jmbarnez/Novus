@@ -27,6 +27,10 @@ local UISystem = {
     priority = 10
 }
 
+-- UI draw throttle: limit UI draws to this interval (seconds)
+local ui_last_draw = 0
+local ui_draw_interval = 1 / 60 -- 60 FPS
+
 -- Track whether the UI has captured (consumed) pointer input
 local mouseCaptured = false
 
@@ -158,7 +162,7 @@ end)
 -- HUD drawing has been moved to `src.systems.hud`
 
 -- Main draw function
-function UISystem.draw(viewportWidth, viewportHeight)
+function UISystem.draw(viewportWidth, viewportHeight, uiMx, uiMy)
     -- Get viewport dimensions from parameters or canvas
     if not viewportWidth or not viewportHeight then
         local canvasEntities = ECS.getEntitiesWith({"Canvas"})
@@ -174,6 +178,12 @@ function UISystem.draw(viewportWidth, viewportHeight)
         end
     end
     -- viewportWidth/viewportHeight are already canvas (reference) units
+    -- UI throttling removed to fix flickering issue
+    -- local now = love.timer.getTime()
+    -- if now - ui_last_draw < ui_draw_interval then
+    --     return false
+    -- end
+    -- ui_last_draw = now
     
     -- HUD elements are rendered by the HUD system inside RenderSystem
     
@@ -197,7 +207,7 @@ function UISystem.draw(viewportWidth, viewportHeight)
     for _, windowName in ipairs(windowOrder) do
         local window = windows[windowName]
         if window and window:getOpen() then
-            window:draw(viewportWidth, viewportHeight)
+            window:draw(viewportWidth, viewportHeight, uiMx, uiMy)
         end
     end
 
@@ -215,7 +225,7 @@ function UISystem.draw(viewportWidth, viewportHeight)
             end
         end
         if not inOrder then
-            window:draw(viewportWidth, viewportHeight)
+            window:draw(viewportWidth, viewportHeight, uiMx, uiMy)
         end
 
         ::skip_window::
