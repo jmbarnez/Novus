@@ -21,27 +21,20 @@ function SkillsPanel.draw(x, y, width, height, alpha)
     local skills = ECS.getComponent(playerId, "Skills")
     if not skills then return end
 
-    -- Draw title
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-    love.graphics.printf("Skills", contentX, contentY, contentWidth, "center")
-
-    -- Draw divider line
-    love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], alpha)
-    love.graphics.line(contentX + 8, contentY + 30, contentX + contentWidth - 8, contentY + 30)
+    local currentY = contentY
 
     -- Draw mining skill
     local miningSkill = skills.skills.mining
     if miningSkill then
-        local skillY = contentY + 40
-        SkillsPanel.drawSkillEntry("Mining", miningSkill, contentX, skillY, contentWidth, alpha, {0.2, 0.6, 1.0})
+        SkillsPanel.drawSkillEntry("Mining", miningSkill, contentX, currentY, contentWidth, alpha, {0.2, 0.6, 1.0})
+        currentY = currentY + 58
     end
 
     -- Draw salvaging skill
     local salvagingSkill = skills.skills.salvaging
     if salvagingSkill then
-        local skillY = contentY + 40 + 58  -- Offset below mining skill
-        SkillsPanel.drawSkillEntry("Salvaging", salvagingSkill, contentX, skillY, contentWidth, alpha, {0.2, 1.0, 0.2})
+        SkillsPanel.drawSkillEntry("Salvaging", salvagingSkill, contentX, currentY, contentWidth, alpha, {0.2, 1.0, 0.2})
+        currentY = currentY + 58
     end
 end
 
