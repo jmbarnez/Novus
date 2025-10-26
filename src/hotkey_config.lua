@@ -4,6 +4,25 @@
 
 local HotkeyConfig = {}
 
+local function formatActionLabel(action)
+    if type(action) ~= "string" or action == "" then
+        return "Unknown Action"
+    end
+
+    local words = {}
+    for word in action:gmatch("[^_]+") do
+        word = word:lower()
+        word = word:gsub("^%l", string.upper)
+        table.insert(words, word)
+    end
+
+    if #words == 0 then
+        return "Unknown Action"
+    end
+
+    return table.concat(words, " ")
+end
+
 -- Default hotkey mappings
 HotkeyConfig.defaults = {
     move_up = "w",
@@ -132,13 +151,14 @@ end
 function HotkeyConfig.getDisplayText(action)
     local key = HotkeyConfig.getHotkey(action)
     local formattedKey = HotkeyConfig.formatKey(key)
-    local description = HotkeyConfig.descriptions[action]
+    local description = HotkeyConfig.descriptions[action] or formatActionLabel(action)
 
     if action == "target_enemy" then
+        local trimmedDescription = description:gsub(" %(Ctrl%+Click%)", "")
         if key == nil or key == "" then
-            return formattedKey .. ": " .. description:gsub(" %(Ctrl%+Click%)", "")
+            return formattedKey .. ": " .. trimmedDescription
         end
-        return formattedKey .. "+Click: " .. description:gsub(" %(Ctrl%+Click%)", "")
+        return formattedKey .. "+Click: " .. trimmedDescription
     else
         return formattedKey .. ": " .. description
     end

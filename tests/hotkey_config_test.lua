@@ -51,6 +51,15 @@ if targetDisplay:match('Unbound%+Click') then
 end
 HotkeyConfig.setHotkey('target_enemy', targetOrig)
 
+print('Testing display text for unknown action fallback...')
+local okFallback, fallbackText = pcall(HotkeyConfig.getDisplayText, 'mystery_action')
+if not okFallback then
+    error('getDisplayText should not error for unknown actions')
+end
+if not fallbackText:match('Unbound: Mystery Action') then
+    error(string.format('Fallback display text unexpected: %s', fallbackText))
+end
+
 -- Restore original
 HotkeyConfig.setHotkey(action, orig)
 print('Restored original key:', orig)
