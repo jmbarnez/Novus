@@ -11,6 +11,7 @@ local EnemyBars = {}
 
 -- Cached font for level indicators (create once, reuse forever)
 local levelFont = love.graphics.newFont(8)
+levelFont:setFilter("nearest", "nearest")
 
 function EnemyBars.draw(viewportWidth, viewportHeight)
     local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})

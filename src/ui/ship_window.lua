@@ -128,7 +128,7 @@ function ShipWindow:drawTabHeaders(windowX, windowY, alpha)
 
     self.tabButtons = {}
 
-    local font = Theme.getFont(Theme.fonts.small)
+    local font = Theme.getFontBold(Theme.fonts.normal)
     for i, tabKey in ipairs(self.tabs) do
         local tabX = windowX + (i - 1) * tabWidth
         local isHovered = mx >= tabX and mx <= tabX + tabWidth and my >= tabY and my <= tabY + TAB_HEIGHT

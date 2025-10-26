@@ -39,10 +39,10 @@ local Theme = {
     
     -- Font sizes and paths (clean, readable sizes)
     fonts = {
-        small = 10,      -- Tooltips, small text
-        normal = 11,     -- Default UI text
-        title = 13,      -- Window titles, headers
-        tiny = 9,        -- Very small text (e.g., stat lines)
+        small = 14,      -- Tooltips, small text
+        normal = 16,     -- Default UI text
+        title = 22,      -- Window titles, headers
+        tiny = 12,       -- Very small text (e.g., stat lines)
         fontPath = "assets/fonts/Orbitron-Regular.ttf",  -- Clean sci-fi font
         fontPathBold = "assets/fonts/Orbitron-Bold.ttf",  -- Clean sci-fi bold font
     },
@@ -52,7 +52,7 @@ local Theme = {
         padding = 6,           -- Standard padding inside elements
         margin = 8,            -- Standard margin between elements
         windowBorder = 1,      -- Border thickness
-    slotSize = 72,         -- Cargo/turret/defensive slot size
+        slotSize = 72,         -- Cargo/turret/defensive slot size
         iconSize = 48,         -- Base icon size (icons are scaled 1x to fit 48px slots)
         iconGridPadding = 12,  -- Grid spacing for icon layout
     },
@@ -60,9 +60,9 @@ local Theme = {
     -- Window styling (Clean Boxy style)
     window = {
         borderThickness = 1,        -- Thin, clean border
-        topBarHeight = 32,          -- Standard title bar height
-        bottomBarHeight = 40,       -- Clean bottom bar height
-        tabHeight = 60,             -- Default tab button height (matches pause buttons)
+        topBarHeight = 44,          -- Standard title bar height
+        bottomBarHeight = 56,       -- Clean bottom bar height
+        tabHeight = 72,             -- Default tab button height (matches pause buttons)
         cornerRadius = 0,           -- Sharp corners (no rounding)
         framePadding = 8,           -- Default padding between frame and content elements
     },
@@ -70,22 +70,47 @@ local Theme = {
 
 local Scaling = require('src.scaling')
 
+Theme._fontCache = {
+    regular = {},
+    bold = {},
+    fallback = {}
+}
+
+local function cacheKey(path, size)
+    return string.format("%s:%d", path or "__default__", size)
+end
+
+local function configureFont(font)
+    if font and font.setFilter then
+        font:setFilter("nearest", "nearest")
+    end
+    return font
+end
+
 -- Helper function to create a font with sci-fi styling
 function Theme.getFont(size)
     size = size or Theme.fonts.normal
     size = Scaling and Scaling.scaleSize and Scaling.scaleSize(size) or size
     local fontPath = Theme.fonts.fontPath
-    
+
     -- Check if font file exists, if not fall back to default
     if fontPath then
         local fontFile = love.filesystem.getInfo(fontPath)
         if fontFile then
-            return love.graphics.newFont(fontPath, size)
+            local key = cacheKey(fontPath, size)
+            if not Theme._fontCache.regular[key] then
+                Theme._fontCache.regular[key] = configureFont(love.graphics.newFont(fontPath, size))
+            end
+            return Theme._fontCache.regular[key]
         end
     end
-    
+
     -- Fallback to default font
-    return love.graphics.newFont(size)
+    local key = cacheKey("__fallback__", size)
+    if not Theme._fontCache.fallback[key] then
+        Theme._fontCache.fallback[key] = configureFont(love.graphics.newFont(size))
+    end
+    return Theme._fontCache.fallback[key]
 end
 
 -- Helper function to create a bold sci-fi font
@@ -93,17 +118,25 @@ function Theme.getFontBold(size)
     size = size or Theme.fonts.normal
     size = Scaling and Scaling.scaleSize and Scaling.scaleSize(size) or size
     local fontPath = Theme.fonts.fontPathBold
-    
+
     -- Check if font file exists, if not fall back to default
     if fontPath then
         local fontFile = love.filesystem.getInfo(fontPath)
         if fontFile then
-            return love.graphics.newFont(fontPath, size)
+            local key = cacheKey(fontPath, size)
+            if not Theme._fontCache.bold[key] then
+                Theme._fontCache.bold[key] = configureFont(love.graphics.newFont(fontPath, size))
+            end
+            return Theme._fontCache.bold[key]
         end
     end
-    
+
     -- Fallback to default font
-    return love.graphics.newFont(size)
+    local key = cacheKey("__fallback_bold__", size)
+    if not Theme._fontCache.bold[key] then
+        Theme._fontCache.bold[key] = configureFont(love.graphics.newFont(size))
+    end
+    return Theme._fontCache.bold[key]
 end
 
 -- Helper function to draw clean, flat border (boxy style)
@@ -157,8 +190,11 @@ function Theme.drawButton(x, y, w, h, text, isHovered, buttonColor, buttonColorH
 
     -- Text (centered)
     love.graphics.setColor(Theme.colors.textPrimary)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-    love.graphics.printf(text, x, y + h / 2 - 12, w, "center")
+    local font = Theme.getFont(Theme.fonts.normal)
+    love.graphics.setFont(font)
+    local textHeight = font:getHeight()
+    local textYOffset = (h - textHeight) / 2
+    love.graphics.printf(text, x, y + textYOffset, w, "center")
 end
 
 -- Helper function to draw menu/pause style buttons that tabs can also use
@@ -212,7 +248,7 @@ function Theme.drawTab(x, y, w, h, text, isActive, isHovered, alpha)
         isActive = isActive,
         isHovered = isHovered,
         alpha = alpha,
-        font = Theme.getFont(Theme.fonts.small),
+        font = Theme.getFontBold(Theme.fonts.normal),
         idleAlpha = 0.85,
         hoverAlpha = 0.95,
         activeAlpha = 1.0,
