@@ -1,3 +1,4 @@
+-- Review: This file likely handles batching of UI draw calls. Look for missed batching opportunities, per-frame table allocations, or excessive state changes (e.g., love.graphics.setColor, setShader, setScissor). Ensure draw calls are batched as much as possible and static UI elements are not redrawn unnecessarily.
 ---@diagnostic disable: undefined-global
 -- Batch Renderer - Minimizes draw calls and state changes for UI/HUD elements
 -- Accumulates primitives and draws them in optimized batches

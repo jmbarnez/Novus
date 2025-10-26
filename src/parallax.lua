@@ -7,7 +7,9 @@ function Parallax.new(layers, worldSize)
     local parallax = {
         layers = {},
         nebula = {},
-        worldSize = worldSize or 10000
+        worldSize = worldSize or 10000,
+        -- Allow caller to opt-out of nebula rendering (default: enabled)
+        nebulaEnabled = false
     }
     
     -- Initialize nebula shader immediately to avoid mid-render creation
@@ -333,7 +335,8 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
         -- Draw nebula clouds for this layer (if shader available)
         local pf = layer.parallaxFactor or 1.0
         local isStatic = (pf == 0)
-        if parallax.nebula.shaderEnabled and layer.nebulaClouds and #layer.nebulaClouds > 0 then
+        -- Skip nebula rendering if globally disabled on this parallax instance
+        if (parallax.nebulaEnabled ~= false) and parallax.nebula.shaderEnabled and layer.nebulaClouds and #layer.nebulaClouds > 0 then
             local shader = parallax.nebula.shader
             -- Send common uniforms
             shader:send('resolution', {screenWidth, screenHeight})

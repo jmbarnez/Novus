@@ -204,31 +204,8 @@ function start_screen.draw()
         love.graphics.rectangle('fill', 0, y, width, height / gradientSteps)
     end
     
-    -- Draw nebula cloud background
-    local nebulaShader = ShaderManager.getNebulaShader()
-    if nebulaShader then
-        local t = love.timer.getTime()
-        
-        -- Cycle through nebula colors slowly
-        local colorIndex1 = math.floor(t * 0.05) % #nebulaColors + 1
-        local colorIndex2 = (colorIndex1) % #nebulaColors + 1
-        local colorIndex3 = (colorIndex2 + 1) % #nebulaColors + 1
-        
-        local color1 = nebulaColors[colorIndex1]
-        local color2 = nebulaColors[colorIndex2]
-        local color3 = nebulaColors[colorIndex3]
-        
-        -- Update shader uniforms and strengthen nebula visibility on start screen
-        ShaderManager.setNebulaColors(color1, color2, color3)
-        ShaderManager.setNebulaResolution(width, height)
-        ShaderManager.setNebulaIntensity(0.6) -- Stronger intensity for start screen
-        
-        -- Draw nebula background
-        love.graphics.setShader(nebulaShader)
-        love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.rectangle('fill', 0, 0, width, height)
-        love.graphics.setShader() -- Reset shader
-    end
+    -- Nebula background intentionally disabled on start screen.
+    -- Keeping nebula shader assets in the project but not drawing them here.
     -- Draw twinkling stars
     local t = love.timer.getTime()
     -- Render stars as points for a sharper look, like in-game

@@ -2,6 +2,8 @@
 -- Universal UI Window Base Module
 -- Provides neon border, fade animation, elastic drag, and shared window logic
 
+-- Review: This file is the likely base for all UI windows. Look for per-frame allocations, expensive draw logic, or unnecessary state changes. Check if draw() or update() methods allocate new tables, create canvases, or do expensive calculations every frame. Also check if any theme or batch renderer is called in a way that prevents batching or caching.
+
 local Theme = require('src.ui.theme')
 local Scaling = require('src.scaling')
 
