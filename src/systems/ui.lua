@@ -202,6 +202,9 @@ function UISystem.draw(viewportWidth, viewportHeight, uiMx, uiMy)
     
     -- Quest overlay moved to HUD system for batched rendering
     
+    -- Draw pause menu overlay/panel before other windows so pop-out windows can appear in front
+    PauseMenu:draw()
+
     -- Draw windows in focus order (background to foreground)
     local windows = {
         map_window = MapWindow,
@@ -238,9 +241,6 @@ function UISystem.draw(viewportWidth, viewportHeight, uiMx, uiMy)
 
         ::skip_window::
     end
-    
-    -- Draw pause menu overlay last so it sits above other UI
-    PauseMenu:draw()
 
     -- Draw confirmation dialog if active (highest priority)
     if Dialogs.confirmDialog then
@@ -333,12 +333,13 @@ function UISystem.mousepressed(x, y, button)
     -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale) - ONCE
     local mx, my = Scaling.toUI(x, y)
 
-    if PauseMenu:getOpen() then
+    local pauseOpen = PauseMenu:getOpen()
+    if pauseOpen then
         local handled = PauseMenu:mousepressed(mx, my, button)
         if handled then
             UISystem.captureMouse()
+            return true
         end
-        return true
     end
     -- Check construction button (screen-space, not UI-space)
     if ConstructionButton.checkPressed(x, y, button) then
@@ -413,6 +414,12 @@ function UISystem.mousepressed(x, y, button)
             return true
         end
     end
+
+    if pauseOpen then
+        return true
+    end
+
+    return false
 end
 
 -- Mouse released handler
@@ -420,12 +427,9 @@ function UISystem.mousereleased(x, y, button)
     -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale) - ONCE
     local mx, my = Scaling.toUI(x, y)
 
-    if PauseMenu:getOpen() then
+    local pauseOpen = PauseMenu:getOpen()
+    if pauseOpen then
         PauseMenu:mousereleased(mx, my, button)
-        if button == 1 then
-            UISystem.releaseMouse()
-        end
-        return true
     end
 
     -- Forward to windows in focus order (most focused first) - only if open
@@ -470,6 +474,12 @@ function UISystem.mousereleased(x, y, button)
     if button == 1 then
         UISystem.releaseMouse()
     end
+
+    if pauseOpen then
+        return true
+    end
+
+    return false
 end
 
 -- Mouse moved handler
@@ -477,9 +487,9 @@ function UISystem.mousemoved(x, y, dx, dy, isTouch)
     -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale) - ONCE
     local mx, my = Scaling.toUI(x, y)
 
-    if PauseMenu:getOpen() then
+    local pauseOpen = PauseMenu:getOpen()
+    if pauseOpen then
         PauseMenu:mousemoved(mx, my, dx, dy)
-        return
     end
 
     -- Forward to windows in focus order (most focused first) - only if open
@@ -520,12 +530,19 @@ function UISystem.mousemoved(x, y, dx, dy, isTouch)
     if QuestWindow and QuestWindow:getOpen() and QuestWindow.mousemoved then
         QuestWindow:mousemoved(mx, my, dx, dy)
     end
+
+    if pauseOpen then
+        return
+    end
 end
 
 -- Mouse wheel handler
 function UISystem.wheelmoved(x, y)
-    if PauseMenu:getOpen() then
-        return PauseMenu:wheelmoved(x, y)
+    local pauseOpen = PauseMenu:getOpen()
+    if pauseOpen then
+        if PauseMenu:wheelmoved(x, y) then
+            return true
+        end
     end
 
     -- Forward to settings window first if open
@@ -550,6 +567,10 @@ function UISystem.wheelmoved(x, y)
                 return true -- Consumed by window
             end
         end
+    end
+
+    if pauseOpen then
+        return true
     end
 
     return false -- Not consumed

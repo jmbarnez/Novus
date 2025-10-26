@@ -39,10 +39,10 @@ local Theme = {
     
     -- Font sizes and paths (clean, readable sizes)
     fonts = {
-        small = 10,      -- Tooltips, small text
-        normal = 11,     -- Default UI text
-        title = 13,      -- Window titles, headers
-        tiny = 9,        -- Very small text (e.g., stat lines)
+        small = 14,      -- Tooltips, small text
+        normal = 16,     -- Default UI text
+        title = 22,      -- Window titles, headers
+        tiny = 12,       -- Very small text (e.g., stat lines)
         fontPath = "assets/fonts/Orbitron-Regular.ttf",  -- Clean sci-fi font
         fontPathBold = "assets/fonts/Orbitron-Bold.ttf",  -- Clean sci-fi bold font
     },
@@ -52,7 +52,7 @@ local Theme = {
         padding = 6,           -- Standard padding inside elements
         margin = 8,            -- Standard margin between elements
         windowBorder = 1,      -- Border thickness
-    slotSize = 72,         -- Cargo/turret/defensive slot size
+        slotSize = 72,         -- Cargo/turret/defensive slot size
         iconSize = 48,         -- Base icon size (icons are scaled 1x to fit 48px slots)
         iconGridPadding = 12,  -- Grid spacing for icon layout
     },
@@ -60,8 +60,9 @@ local Theme = {
     -- Window styling (Clean Boxy style)
     window = {
         borderThickness = 1,        -- Thin, clean border
-        topBarHeight = 32,          -- Standard title bar height
-        bottomBarHeight = 40,       -- Clean bottom bar height
+        topBarHeight = 44,          -- Standard title bar height
+        bottomBarHeight = 56,       -- Clean bottom bar height
+        tabHeight = 72,             -- Default tab button height (matches pause buttons)
         cornerRadius = 0,           -- Sharp corners (no rounding)
         framePadding = 8,           -- Default padding between frame and content elements
     },
@@ -69,22 +70,47 @@ local Theme = {
 
 local Scaling = require('src.scaling')
 
+Theme._fontCache = {
+    regular = {},
+    bold = {},
+    fallback = {}
+}
+
+local function cacheKey(path, size)
+    return string.format("%s:%d", path or "__default__", size)
+end
+
+local function configureFont(font)
+    if font and font.setFilter then
+        font:setFilter("nearest", "nearest")
+    end
+    return font
+end
+
 -- Helper function to create a font with sci-fi styling
 function Theme.getFont(size)
     size = size or Theme.fonts.normal
     size = Scaling and Scaling.scaleSize and Scaling.scaleSize(size) or size
     local fontPath = Theme.fonts.fontPath
-    
+
     -- Check if font file exists, if not fall back to default
     if fontPath then
         local fontFile = love.filesystem.getInfo(fontPath)
         if fontFile then
-            return love.graphics.newFont(fontPath, size)
+            local key = cacheKey(fontPath, size)
+            if not Theme._fontCache.regular[key] then
+                Theme._fontCache.regular[key] = configureFont(love.graphics.newFont(fontPath, size))
+            end
+            return Theme._fontCache.regular[key]
         end
     end
-    
+
     -- Fallback to default font
-    return love.graphics.newFont(size)
+    local key = cacheKey("__fallback__", size)
+    if not Theme._fontCache.fallback[key] then
+        Theme._fontCache.fallback[key] = configureFont(love.graphics.newFont(size))
+    end
+    return Theme._fontCache.fallback[key]
 end
 
 -- Helper function to create a bold sci-fi font
@@ -92,17 +118,25 @@ function Theme.getFontBold(size)
     size = size or Theme.fonts.normal
     size = Scaling and Scaling.scaleSize and Scaling.scaleSize(size) or size
     local fontPath = Theme.fonts.fontPathBold
-    
+
     -- Check if font file exists, if not fall back to default
     if fontPath then
         local fontFile = love.filesystem.getInfo(fontPath)
         if fontFile then
-            return love.graphics.newFont(fontPath, size)
+            local key = cacheKey(fontPath, size)
+            if not Theme._fontCache.bold[key] then
+                Theme._fontCache.bold[key] = configureFont(love.graphics.newFont(fontPath, size))
+            end
+            return Theme._fontCache.bold[key]
         end
     end
-    
+
     -- Fallback to default font
-    return love.graphics.newFont(size)
+    local key = cacheKey("__fallback_bold__", size)
+    if not Theme._fontCache.bold[key] then
+        Theme._fontCache.bold[key] = configureFont(love.graphics.newFont(size))
+    end
+    return Theme._fontCache.bold[key]
 end
 
 -- Helper function to draw clean, flat border (boxy style)
@@ -156,37 +190,69 @@ function Theme.drawButton(x, y, w, h, text, isHovered, buttonColor, buttonColorH
 
     -- Text (centered)
     love.graphics.setColor(Theme.colors.textPrimary)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-    love.graphics.printf(text, x, y + h / 2 - 12, w, "center")
+    local font = Theme.getFont(Theme.fonts.normal)
+    love.graphics.setFont(font)
+    local textHeight = font:getHeight()
+    local textYOffset = (h - textHeight) / 2
+    love.graphics.printf(text, x, y + textYOffset, w, "center")
+end
+
+-- Helper function to draw menu/pause style buttons that tabs can also use
+function Theme.drawPanelButton(x, y, w, h, text, state)
+    state = state or {}
+    local alpha = state.alpha or 1
+    local isActive = not not state.isActive
+    local isHovered = not not state.isHovered
+
+    local baseColor = state.baseColor or Theme.colors.bgMedium
+    local hoverColor = state.hoverColor or Theme.colors.buttonHover
+    local activeColor = state.activeColor or hoverColor
+    local borderColor = state.borderColor or Theme.colors.borderDark
+    local textColor = state.textColor or Theme.colors.textPrimary
+    local radius = state.cornerRadius or Theme.window.cornerRadius or 0
+    local borderWidth = state.borderWidth or 2
+    local idleAlpha = state.idleAlpha or 0.9
+    local hoverAlpha = state.hoverAlpha or 1.0
+    local activeAlpha = state.activeAlpha or 1.0
+
+    local function setColor(color, multiplier)
+        multiplier = multiplier or 1
+        love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha * multiplier)
+    end
+
+    if isActive then
+        setColor(activeColor, activeAlpha)
+    elseif isHovered then
+        setColor(hoverColor, hoverAlpha)
+    else
+        setColor(baseColor, idleAlpha)
+    end
+    love.graphics.rectangle("fill", x, y, w, h, radius, radius)
+
+    setColor(borderColor)
+    love.graphics.setLineWidth(borderWidth)
+    love.graphics.rectangle("line", x, y, w, h, radius, radius)
+    love.graphics.setLineWidth(1)
+
+    local font = state.font or Theme.getFont(Theme.fonts.normal)
+    love.graphics.setFont(font)
+    setColor(textColor)
+    local textHeight = font:getHeight()
+    local textYOffset = state.textYOffset or (h - textHeight) / 2
+    love.graphics.printf(text, x, y + textYOffset, w, state.textAlign or "center")
 end
 
 -- Helper function to draw tab-style button (clean boxy style)
 function Theme.drawTab(x, y, w, h, text, isActive, isHovered, alpha)
-    alpha = alpha or 1
-
-    -- Tab background (sharp corners)
-    local baseColor = isActive and Theme.colors.bgMedium or Theme.colors.bgDark
-    local hoverColor = Theme.colors.buttonHover
-
-    if isActive then
-        love.graphics.setColor(baseColor[1], baseColor[2], baseColor[3], alpha)
-    elseif isHovered then
-        love.graphics.setColor(hoverColor[1], hoverColor[2], hoverColor[3], alpha)
-    else
-        love.graphics.setColor(baseColor[1], baseColor[2], baseColor[3], alpha * 0.6)
-    end
-    love.graphics.rectangle("fill", x, y, w, h)
-
-    -- Tab border (sharp corners)
-    love.graphics.setColor(Theme.colors.borderDark)
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", x, y, w, h)
-    love.graphics.setLineWidth(1)
-
-    -- Tab text (centered)
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-    love.graphics.printf(text, x, y + h / 2 - 12, w, "center")
+    Theme.drawPanelButton(x, y, w, h, text, {
+        isActive = isActive,
+        isHovered = isHovered,
+        alpha = alpha,
+        font = Theme.getFontBold(Theme.fonts.normal),
+        idleAlpha = 0.85,
+        hoverAlpha = 0.95,
+        activeAlpha = 1.0,
+    })
 end
 
 return Theme

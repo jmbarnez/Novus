@@ -114,7 +114,7 @@ function ShipWindow:draw(viewportWidth, viewportHeight, uiMx, uiMy)
 end
 
 -- Tab management
-local TAB_HEIGHT = 40
+local TAB_HEIGHT = Theme.window.tabHeight or 60
 
 function ShipWindow:drawTabHeaders(windowX, windowY, alpha)
     local tabY = windowY + Theme.window.topBarHeight
@@ -128,39 +128,28 @@ function ShipWindow:drawTabHeaders(windowX, windowY, alpha)
 
     self.tabButtons = {}
 
+    local font = Theme.getFontBold(Theme.fonts.normal)
     for i, tabKey in ipairs(self.tabs) do
         local tabX = windowX + (i - 1) * tabWidth
-        local isActive = self.activeTab == tabKey
         local isHovered = mx >= tabX and mx <= tabX + tabWidth and my >= tabY and my <= tabY + TAB_HEIGHT
+        local isActive = self.activeTab == tabKey and not isHovered
 
-        -- Tab background
-        if isActive then
-            love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], Theme.colors.bgMedium[3], alpha)
-        elseif isHovered then
-            love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.8)
-        else
-            love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.6)
-        end
-        love.graphics.rectangle("fill", tabX, tabY, tabWidth, TAB_HEIGHT)
+        Theme.drawPanelButton(tabX, tabY, tabWidth, TAB_HEIGHT, self.tabNames[tabKey], {
+            isHovered = isHovered,
+            isActive = isActive,
+            alpha = alpha,
+            font = font,
+            idleAlpha = 0.95,
+        })
 
-        -- Tab border
-        love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha)
-        love.graphics.rectangle("line", tabX, tabY, tabWidth, TAB_HEIGHT)
-
-        -- Tab text - centered vertically
-        love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
-        love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-        love.graphics.printf(self.tabNames[tabKey], tabX, tabY + TAB_HEIGHT/2 - 8, tabWidth, "center")
-
-        -- Store tab button for click handling
         table.insert(self.tabButtons, {
             x = tabX, y = tabY, w = tabWidth, h = TAB_HEIGHT,
             tabKey = tabKey
         })
     end
 
-    -- Tab separator line
-    love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], alpha)
+    local borderColor = Theme.colors.borderDark
+    love.graphics.setColor(borderColor[1], borderColor[2], borderColor[3], (borderColor[4] or 1) * alpha)
     love.graphics.line(windowX, tabY + TAB_HEIGHT, windowX + self.width, tabY + TAB_HEIGHT)
 end
 
