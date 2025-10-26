@@ -147,7 +147,7 @@ function AiTurretHelper.fireLaserAtTarget(eid, turret, turretModule, targetPos, 
     end
     
     -- Calculate laser start position from barrel
-    local fireAngle = math.atan2(dy, dx)
+    local fireAngle = math.atan(dy, dx)
     local muzzleDistance = computeMuzzleDistance(eid)
     local laserStartX = pos.x + math.cos(fireAngle) * muzzleDistance
     local laserStartY = pos.y + math.sin(fireAngle) * muzzleDistance
@@ -195,7 +195,7 @@ function AiTurretHelper.aimTurretAtTarget(eid, turret, shooterPos, targetPos)
     if not eid or not turret or not shooterPos or not targetPos then return end
     local dx = targetPos.x - shooterPos.x
     local dy = targetPos.y - shooterPos.y
-    local fireAngle = math.atan2(dy, dx)
+    local fireAngle = math.atan(dy, dx)
     local muzzleDistance = computeMuzzleDistance(eid)
     turret.aimX = shooterPos.x + math.cos(fireAngle) * muzzleDistance
     turret.aimY = shooterPos.y + math.sin(fireAngle) * muzzleDistance

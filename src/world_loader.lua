@@ -298,7 +298,7 @@ function WorldLoader.spawnEnemy(enemyType, config)
         -- Make sure not too close to spawn point
         local distanceFromSpawn = math.sqrt(x * x + y * y)
         if distanceFromSpawn < 500 then
-            local angle = math.atan2(y, x)
+            local angle = math.atan(y, x)
             x = math.cos(angle) * 500
             y = math.sin(angle) * 500
         end
