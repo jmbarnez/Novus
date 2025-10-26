@@ -63,20 +63,29 @@ function EntityPool.acquire(poolName)
 end
 
 -- Return an entity to the pool
+-- @return boolean: true if the entity was reclaimed, false if it was not managed by this pool
 function EntityPool.release(poolName, entityId)
     local pool = EntityPool.pools[poolName]
     if not pool then
         error(string.format("Pool '%s' not registered", poolName))
     end
-    
+
     -- Find and remove from inUse
+    local wasInUse = false
     for i, id in ipairs(pool.inUse) do
         if id == entityId then
             table.remove(pool.inUse, i)
+            wasInUse = true
             break
         end
     end
-    
+
+    if not wasInUse then
+        -- Prevent duplicate entries in the available list when an entity is
+        -- released multiple times or was never acquired from this pool.
+        return false
+    end
+
     -- Add back to available if pool not full
     if #pool.available < pool.maxSize then
         table.insert(pool.available, entityId)
@@ -85,6 +94,8 @@ function EntityPool.release(poolName, entityId)
         ECS.destroyEntity(entityId)
         pool.stats.destroyed = pool.stats.destroyed + 1
     end
+
+    return true
 end
 
 -- Get pool statistics
