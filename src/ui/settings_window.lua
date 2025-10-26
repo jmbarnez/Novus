@@ -28,7 +28,7 @@ local DisplaySettingsPanel = require('src.ui.settings.display_settings_panel')
 local ScrollHandler = require('src.ui.settings.scroll_handler')
 
 local SettingsWindow = WindowBase:new{
-    width = 600,
+    width = 700,
     height = 500,
     isOpen = false,
     animAlphaSpeed = 2.0,
@@ -392,7 +392,11 @@ end
 function SettingsWindow:updatePanelPositions()
     if not self._initialized or not self.position then return end
     
-    local x, y = self.position.x + 30, self.position.y + 60
+    local paddingX = Theme.spacing.padding * 5  -- Scaled padding
+    local controlOffset = Theme.window.topBarHeight + Theme.spacing.padding * 4  -- Y offset for the first control from window top
+    
+    local x = self.position.x + paddingX
+    local y = self.position.y + controlOffset
     local scrollY = self.scrollHandler:getScrollY()
     
     -- Update display panel positions
@@ -467,12 +471,12 @@ function SettingsWindow:draw()
     local scrollY = self.scrollHandler:getScrollY()
     local paddingX = Theme.spacing.padding * 5  -- Scaled padding
     local labelOffset = Theme.window.topBarHeight + Theme.spacing.padding * 3  -- Y offset for labels from window top
-    local controlOffset = Theme.window.topBarHeight + Theme.spacing.padding * 4  -- Y offset for the first control from window top
-    local sectionSpacing = Theme.spacing.padding * 10  -- Vertical spacing between control sections
+    local sectionSpacing = Theme.spacing.padding * 12  -- Vertical spacing between sections (increased for better alignment)
 
     local labelX = x + paddingX
     local baseLabelY = y + labelOffset - scrollY
 
+    -- Draw labels aligned with controls
     love.graphics.print("FPS Limit:", labelX, baseLabelY)
     love.graphics.print("Resolution:", labelX, baseLabelY + sectionSpacing)
     love.graphics.print("Master Volume:", labelX, baseLabelY + sectionSpacing * 2)

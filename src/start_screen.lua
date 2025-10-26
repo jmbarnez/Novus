@@ -297,41 +297,38 @@ function start_screen.draw()
         love.graphics.print(titleText, titleX, titleY)
     end
 
-    -- Draw 'New Game' button with subtle styling
-    local buttonFont = Theme.getFontBold(24)
-    love.graphics.setFont(buttonFont)
+    -- Draw 'New Game' button using theme colors and styling
     buttonY = height * 0.55
     buttonX = width/2 - buttonWidth/2
     -- Check hover
     local mx, my = love.mouse.getPosition()
     buttonHovered = mx >= buttonX and mx <= buttonX + buttonWidth and my >= buttonY and my <= buttonY + buttonHeight
     
-    -- Subtle button styling
-    local cornerRadius = 8
-    local hoverScale = buttonHovered and 1.05 or 1.0
-    local hoverAlpha = buttonHovered and 0.9 or 0.6
+    -- Draw button using theme's colors and style (with custom bold font)
+    local baseColor = Theme.colors.bgMedium
+    local hoverColor = Theme.colors.buttonHover
     
-    -- Draw subtle glow effect behind button
+    -- Background
     if buttonHovered then
-        love.graphics.setColor(1, 1, 1, 0.1)
-        love.graphics.rectangle('fill', buttonX - 4, buttonY - 4, buttonWidth + 8, buttonHeight + 8, cornerRadius + 2, cornerRadius + 2)
+        love.graphics.setColor(hoverColor[1], hoverColor[2], hoverColor[3], hoverColor[4])
+    else
+        love.graphics.setColor(baseColor[1], baseColor[2], baseColor[3], baseColor[4])
     end
+    love.graphics.rectangle("fill", buttonX, buttonY, buttonWidth, buttonHeight)
     
-    -- Draw button background with subtle gradient effect
-    local bgAlpha = hoverAlpha * 0.3
-    love.graphics.setColor(1, 1, 1, bgAlpha)
-    love.graphics.rectangle('fill', buttonX, buttonY, buttonWidth, buttonHeight, cornerRadius, cornerRadius)
+    -- Border
+    love.graphics.setColor(Theme.colors.borderDark)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", buttonX, buttonY, buttonWidth, buttonHeight)
+    love.graphics.setLineWidth(1)
     
-    -- Draw subtle border
-    local borderAlpha = hoverAlpha * 0.8
-    love.graphics.setColor(1, 1, 1, borderAlpha)
-    love.graphics.setLineWidth(1.5)
-    love.graphics.rectangle('line', buttonX, buttonY, buttonWidth, buttonHeight, cornerRadius, cornerRadius)
-    
-    -- Draw button text with subtle glow
-    local textAlpha = hoverAlpha
-    love.graphics.setColor(1, 1, 1, textAlpha)
-    love.graphics.printf(buttonText, buttonX, buttonY + (buttonHeight - buttonFont:getHeight())/2, buttonWidth, "center")
+    -- Text with custom font
+    local buttonFont = Theme.getFontBold(24)
+    love.graphics.setColor(Theme.colors.textPrimary)
+    love.graphics.setFont(buttonFont)
+    local textHeight = buttonFont:getHeight()
+    local textYOffset = (buttonHeight - textHeight) / 2
+    love.graphics.printf(buttonText, buttonX, buttonY + textYOffset, buttonWidth, "center")
 end
 
 function start_screen.mousepressed(x, y, button)

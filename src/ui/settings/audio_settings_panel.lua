@@ -38,7 +38,7 @@ function AudioSettingsPanel:initialize(position, width, onSettingsChange)
         self.volumeMin,
         self.volumeMax,
         self:getCurrentVolume("master"),
-        x, y + Theme.spacing.padding * 30,  -- Scaled position
+        x, y,  -- Will be positioned by updatePositions
         width - 50,  -- Leave space for value text
         Theme.spacing.padding * 3.33,  -- Scaled height
         function(value)
@@ -54,7 +54,7 @@ function AudioSettingsPanel:initialize(position, width, onSettingsChange)
         self.volumeMin,
         self.volumeMax,
         self:getCurrentVolume("music"),
-        x, y + Theme.spacing.padding * 40,  -- Scaled position
+        x, y,  -- Will be positioned by updatePositions
         width - 50,
         Theme.spacing.padding * 3.33,  -- Scaled height
         function(value)
@@ -70,7 +70,7 @@ function AudioSettingsPanel:initialize(position, width, onSettingsChange)
         self.volumeMin,
         self.volumeMax,
         self:getCurrentVolume("sfx"),
-        x, y + Theme.spacing.padding * 50,  -- Scaled position
+        x, y,  -- Will be positioned by updatePositions
         width - 50,
         Theme.spacing.padding * 3.33,  -- Scaled height
         function(value)
@@ -86,20 +86,22 @@ end
 function AudioSettingsPanel:updatePositions(position, contentScrollY)
     self.position = position
     local x, y = position.x, position.y - contentScrollY
+    local sectionSpacing = Theme.spacing.padding * 12  -- Match settings window spacing
+    local controlVerticalOffset = Theme.spacing.padding * 2  -- Offset controls below labels
 
     if self.masterVolumeSlider then
         self.masterVolumeSlider.x = x
-        self.masterVolumeSlider.y = y + Theme.spacing.padding * 30  -- Scaled position
+        self.masterVolumeSlider.y = y + sectionSpacing * 2 + controlVerticalOffset  -- Align with Master Volume label
     end
 
     if self.musicVolumeSlider then
         self.musicVolumeSlider.x = x
-        self.musicVolumeSlider.y = y + Theme.spacing.padding * 40  -- Scaled position
+        self.musicVolumeSlider.y = y + sectionSpacing * 3 + controlVerticalOffset  -- Align with Music Volume label
     end
 
     if self.sfxVolumeSlider then
         self.sfxVolumeSlider.x = x
-        self.sfxVolumeSlider.y = y + Theme.spacing.padding * 50  -- Scaled position
+        self.sfxVolumeSlider.y = y + sectionSpacing * 4 + controlVerticalOffset  -- Align with SFX Volume label
     end
 end
 

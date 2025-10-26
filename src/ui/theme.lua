@@ -6,15 +6,15 @@ local Theme = {
     -- Color palette (Clean Boxy style)
     colors = {
         -- Backgrounds (neutral gray for professional look)
-        bgDark = {0.25, 0.25, 0.25, 1},         -- Main window background (medium gray)
-        bgMedium = {0.30, 0.30, 0.30, 1},       -- Secondary background (lighter gray)
-        bgLight = {0.35, 0.35, 0.35, 1},        -- Slightly lighter background
+        bgDark = {0.10, 0.10, 0.10, 1},         -- Main window background (medium gray)
+        bgMedium = {0.12, 0.12, 0.12, 1},       -- Secondary background (lighter gray)
+        bgLight = {0.15, 0.15, 0.15, 1},        -- Slightly lighter background
 
         -- Borders (clean gray borders)
-        borderDark = {0.15, 0.15, 0.15, 1},     -- Dark gray border
-        borderMedium = {0.20, 0.20, 0.20, 1},   -- Medium gray border
-        borderLight = {0.40, 0.40, 0.40, 1},    -- Light gray border
-        borderNeon = {0.50, 0.50, 0.50, 1},     -- Subtle accent border
+        borderDark = {0.06, 0.06, 0.06, 1},     -- Dark gray border
+        borderMedium = {0.08, 0.08, 0.08, 1},   -- Medium gray border
+        borderLight = {0.20, 0.20, 0.20, 1},    -- Light gray border
+        borderNeon = {0.30, 0.30, 0.30, 1},     -- Subtle accent border
 
         -- Text (high contrast, clean)
         textPrimary = {0.95, 0.95, 0.95, 1},    -- Main text (near white)

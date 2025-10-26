@@ -15,8 +15,8 @@ function WindowBase:new(opts)
     o.width = opts.width or 400
     o.height = opts.height or 300
     o.isOpen = opts.isOpen or false
-    -- Animations removed: keep static alpha for compatibility
-    o.animAlpha = 1
+    o.animAlphaSpeed = opts.animAlphaSpeed or 6
+    o.animAlpha = o.isOpen and 1 or 0
     o.animAlphaActive = false
     o.isDragging = false
     o.dragOffset = {x = 0, y = 0}
@@ -28,6 +28,14 @@ function WindowBase:new(opts)
 end
 
 function WindowBase:setOpen(state)
+    state = not not state
+    if self.isOpen == state then
+        if state and ((not self.positionInitialized and not self.position) or (self.autoCenter and not self.userMoved)) then
+            self:centerOnScreen()
+        end
+        return
+    end
+
     self.isOpen = state
     
     -- Center window if it has no explicit position or has not yet been initialized
@@ -37,7 +45,8 @@ function WindowBase:setOpen(state)
         end
     end
     
-    -- No fade animations: open/close is immediate
+    -- Trigger fade effect when state changes
+    self.animAlphaActive = true
 end
 
 function WindowBase:centerOnScreen(screenW, screenH)
@@ -85,7 +94,28 @@ function WindowBase:onResize(screenW, screenH)
 end
 
 function WindowBase:update(dt)
-    -- Animations removed; nothing to update per-frame
+    local target = self.isOpen and 1 or 0
+    local alpha = self.animAlpha or 0
+    if math.abs(alpha - target) < 0.001 then
+        self.animAlpha = target
+        self.animAlphaActive = false
+        return
+    end
+
+    local speed = self.animAlphaSpeed or 6
+    local delta = (dt or 0) * speed
+    if delta <= 0 then
+        return
+    end
+
+    if alpha < target then
+        alpha = math.min(target, alpha + delta)
+    else
+        alpha = math.max(target, alpha - delta)
+    end
+
+    self.animAlpha = alpha
+    self.animAlphaActive = math.abs(alpha - target) >= 0.001
 end
 
 function WindowBase:mousepressed(x, y, button)
@@ -154,8 +184,16 @@ function WindowBase:mousemoved(x, y, dx, dy)
     end
 end
 
+function WindowBase:isVisible()
+    if self.isOpen then
+        return true
+    end
+    local alpha = self.animAlpha or 0
+    return alpha > 0.001 or self.animAlphaActive
+end
+
 function WindowBase:draw(viewportWidth, viewportHeight, uiMx, uiMy)
-    if not self.isOpen or not self.position then return end
+    if (not self:isVisible()) or not self.position then return end
 
     love.graphics.push('all')
 
@@ -167,6 +205,11 @@ function WindowBase:draw(viewportWidth, viewportHeight, uiMx, uiMy)
     local bottomBarH = Theme.window.bottomBarHeight or 0
     local radius = Theme.window.cornerRadius or 0
     local alpha = self.animAlpha or 1
+
+    if alpha <= 0 then
+        love.graphics.pop()
+        return
+    end
 
     local function setColor(color, multiplier)
         love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha * (multiplier or 1))

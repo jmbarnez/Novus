@@ -34,12 +34,10 @@ function HotkeyConfigPanel:initialize(position, width, contentScrollY)
     local buttonHeight = Theme.spacing.padding * 3.33  -- Scaled button height
     local buttonSpacing = Theme.spacing.padding  -- Scaled spacing
 
-    -- Compute start Y based on section heights so it matches the main settings layout
-    local fpsHeight = Theme.spacing.padding * 10  -- Scaled FPS section height
-    local modeHeight = Theme.spacing.padding * 10  -- Scaled mode section height
-    local resHeight = Theme.spacing.padding * 10  -- Scaled resolution section height
-    local audioHeight = Theme.spacing.padding * 30  -- Scaled audio section height
-    local hotkeyStartY = fpsHeight + modeHeight + resHeight + audioHeight
+    -- Compute start Y to align with hotkeys label (5 sections: FPS, Resolution, Master, Music, SFX)
+    local sectionSpacing = Theme.spacing.padding * 12  -- Match settings window spacing
+    local controlVerticalOffset = Theme.spacing.padding * 2  -- Offset controls below labels
+    local hotkeyStartY = sectionSpacing * 5 + controlVerticalOffset
     
     for i, hotkey in ipairs(hotkeys) do
         table.insert(self.buttons, {
@@ -61,11 +59,11 @@ function HotkeyConfigPanel:updatePositions(position, contentScrollY)
 
     local buttonHeight = Theme.spacing.padding * 3.33  -- Scaled button height
     local buttonSpacing = Theme.spacing.padding  -- Scaled spacing
-    local fpsHeight = Theme.spacing.padding * 10  -- Scaled FPS section height
-    local modeHeight = Theme.spacing.padding * 10  -- Scaled mode section height
-    local resHeight = Theme.spacing.padding * 10  -- Scaled resolution section height
-    local audioHeight = Theme.spacing.padding * 30  -- Scaled audio section height
-    local hotkeyStartY = fpsHeight + modeHeight + resHeight + audioHeight
+    local sectionSpacing = Theme.spacing.padding * 12  -- Match settings window spacing
+    local controlVerticalOffset = Theme.spacing.padding * 2  -- Offset controls below labels
+    
+    -- Calculate start Y to align with hotkeys label (5 sections: FPS, Resolution, Master, Music, SFX)
+    local hotkeyStartY = sectionSpacing * 5 + controlVerticalOffset
 
     for i, button in ipairs(self.buttons) do
         button.x = position.x

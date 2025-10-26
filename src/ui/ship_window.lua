@@ -113,8 +113,8 @@ function ShipWindow:draw(viewportWidth, viewportHeight, uiMx, uiMy)
     self:drawBottomBar(x, y, alpha)
 end
 
--- Tab management
-local TAB_HEIGHT = Theme.window.tabHeight or 60
+-- Keep ship tabs compact even if the theme sets a taller default
+local TAB_HEIGHT = math.min(Theme.window.tabHeight or 60, 42)
 
 function ShipWindow:drawTabHeaders(windowX, windowY, alpha)
     local tabY = windowY + Theme.window.topBarHeight
@@ -377,7 +377,7 @@ end
 
 
 function ShipWindow:drawSkillsContent(windowX, windowY, alpha)
-    SkillsPanelWrapper.draw(self, windowX, windowY, self.width - 20, self.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - TAB_HEIGHT - 20, alpha)
+    SkillsPanelWrapper.draw(self, windowX, windowY, self.width - 20, self.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - 20, alpha)
 end
 
 function ShipWindow:equipModule(itemId)

@@ -70,7 +70,7 @@ function DisplaySettingsPanel:initialize(position, width, onSettingsChange)
     self.resDropdown = Dropdown:new(
         resLabels,
         self:getCurrentResIndex(), 
-        x, y + 120, 
+        x, y,  -- Will be positioned by updatePositions
         width, 
         function(idx, val)
             local res = self.resolutions[idx]
@@ -94,15 +94,17 @@ end
 function DisplaySettingsPanel:updatePositions(position, contentScrollY)
     self.position = position
     local x, y = position.x, position.y - contentScrollY
+    local sectionSpacing = Theme.spacing.padding * 12  -- Match settings window spacing
+    local controlVerticalOffset = Theme.spacing.padding * 2  -- Offset controls below labels
 
     if self.fpsDropdown then
         self.fpsDropdown.x = x
-        self.fpsDropdown.y = y
+        self.fpsDropdown.y = y + controlVerticalOffset
     end
 
     if self.resDropdown then
         self.resDropdown.x = x
-        self.resDropdown.y = y + Theme.spacing.padding * 10  -- Scaled spacing
+        self.resDropdown.y = y + sectionSpacing + controlVerticalOffset  -- Align with resolution label
     end
 end
 
