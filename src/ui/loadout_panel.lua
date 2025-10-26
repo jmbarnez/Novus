@@ -3,20 +3,25 @@ local Theme = require('src.ui.theme')
 local ECS = require('src.ecs')
 local TurretRegistry = require('src.turret_registry')
 local Scaling = require('src.scaling')
+local StatsWindow = require('src.ui.stats_window')
 
 local LoadoutPanel = {}
+
+local function getMousePositionUI()
+    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+        return Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+    end
+    return Scaling.toUI(love.mouse.getPosition())
+end
 
 function LoadoutPanel.draw(shipWin, windowX, windowY, width, height, alpha)
     local contentX = windowX + 10
     local contentY = windowY + Theme.window.topBarHeight + 40 + 10
     local contentWidth = shipWin.width - 20
-    local contentHeight = shipWin.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - 40 - 20
 
-    -- Reset hovered items
     shipWin.hoveredItemSlot = nil
     shipWin.hoveredEquipmentSlot = nil
 
-    -- Get ship equipment and cargo
     local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
     if #pilotEntities == 0 then return end
     local pilotId = pilotEntities[1]
@@ -27,206 +32,76 @@ function LoadoutPanel.draw(shipWin, windowX, windowY, width, height, alpha)
     local turretSlots = ECS.getComponent(droneId, "TurretSlots")
     local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
     local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
-    local cargo = ECS.getComponent(droneId, "Cargo")
-    local hull = ECS.getComponent(droneId, "Hull")
-    local shield = ECS.getComponent(droneId, "Shield")
 
-    -- Use the full content area for stats + equipment (no right-side cargo in this tab)
     local leftPanelWidth = contentWidth
-
-    -- LEFT PANEL: Ship Stats and Equipment
     local slotSize = Theme.spacing.slotSize
-    local sectionHeight = 88
 
-    local Constants = require('src.constants')
-    local physics = ECS.getComponent(droneId, "Physics")
-    local mass = physics and physics.mass or 1
-    local baseMaxVelocity = Constants.player_max_speed
-    local maxVelocity = baseMaxVelocity / mass
-    local acceleration = maxVelocity / 2.0
+    local buttonWidth = 180
+    local buttonHeight = 34
+    local buttonX = contentX + leftPanelWidth - buttonWidth - 10
+    local buttonY = contentY
+    local mx, my = getMousePositionUI()
+    local isHovered = mx and my and mx >= buttonX and mx <= buttonX + buttonWidth and my >= buttonY and my <= buttonY + buttonHeight
+    local isPressed = shipWin._statsButtonDown and isHovered
 
-    local totalEffectiveHP = (hull and hull.max or 0) + (shield and shield.max or 0)
-    local survivalTime = 0
-    if totalEffectiveHP > 0 then
-        local typicalEnemyDPS = 5
-        survivalTime = totalEffectiveHP / typicalEnemyDPS
+    shipWin._statsButtonRect = {x = buttonX, y = buttonY, w = buttonWidth, h = buttonHeight}
+
+    local buttonColor = {0.1, 0.4, 0.55, alpha * 0.9}
+    local buttonHoverColor = {0.2, 0.55, 0.75, alpha}
+    local buttonActiveColor = {0.15, 0.5, 0.7, alpha}
+
+    if StatsWindow:getOpen() then
+        buttonColor = {0.15, 0.55, 0.35, alpha * 0.9}
+        buttonHoverColor = {0.25, 0.7, 0.5, alpha}
+        buttonActiveColor = {0.2, 0.6, 0.4, alpha}
     end
 
-    local turret = ECS.getComponent(droneId, "Turret")
-    local turretDPS = 0
-    local baseDPS = 0
-    local turretCooldown = 0
-    local effectiveDPS = 0
-    local optimalRange = nil
-    local falloffEnd = nil
-    local zeroRange = nil
-
-    if turret and turret.moduleName and turret.moduleName ~= "" then
-        local turretModule = TurretRegistry.getModule(turret.moduleName)
-        if turretModule then
-            turretDPS = turretModule.DPS or 0
-            -- Determine base DPS (account for pulsed weapons using COOLDOWN)
-            if turretModule.CONTINUOUS then
-                baseDPS = turretDPS
-                effectiveDPS = baseDPS
-            else
-                turretCooldown = turretModule.COOLDOWN or 1
-                baseDPS = turretDPS / math.max(turretCooldown, 1)
-                effectiveDPS = baseDPS
-            end
-
-            -- Range / falloff information (lasers use falloff start/end or zero damage range)
-            optimalRange = turretModule.FALLOFF_START or turretModule.FALLOFF_START
-            falloffEnd = turretModule.FALLOFF_END or turretModule.ZERO_DAMAGE_RANGE or turretModule.ZERO_DAMAGE_RANGE
-            zeroRange = turretModule.ZERO_DAMAGE_RANGE or falloffEnd
-        end
+    local drawColor = buttonColor
+    if isPressed then
+        drawColor = buttonActiveColor
+    elseif isHovered then
+        drawColor = buttonHoverColor
     end
 
-    -- Use a smaller font for compact stat display and support scrolling via a ScrollHandler
-    local ScrollHandler = require('src.ui.settings.scroll_handler')
-    shipWin._statScroll = shipWin._statScroll or ScrollHandler:new()
+    love.graphics.setColor(drawColor)
+    love.graphics.rectangle('fill', buttonX, buttonY, buttonWidth, buttonHeight, 5, 5)
+    love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], alpha)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle('line', buttonX, buttonY, buttonWidth, buttonHeight, 5, 5)
+    love.graphics.setLineWidth(1)
 
-    -- Initialize scroll area on first draw (contentHeight will be estimated)
-    local function ensureStatScrollInitialized(contentHeight)
-        if not shipWin.position then return end
-        if not shipWin._statScroll._initialized then
-            shipWin._statScroll:initialize({x = shipWin.position.x, y = shipWin.position.y}, shipWin.width, shipWin.height, contentHeight, function()
-                -- no-op: positions are read directly during draw
-            end)
-            shipWin._statScroll._initialized = true
-        else
-            -- Update dimensions each frame
-            shipWin._statScroll.position = {x = shipWin.position.x, y = shipWin.position.y}
-            shipWin._statScroll.width = shipWin.width
-            shipWin._statScroll.height = shipWin.height
-            shipWin._statScroll.contentHeight = contentHeight
-            shipWin._statScroll.maxScrollY = math.max(0, contentHeight - (shipWin.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - 40))
-        end
-    end
+    local buttonLabel = StatsWindow:getOpen() and "Close Stats" or "Open Stats"
+    love.graphics.setFont(Theme.getFontBold(Theme.fonts.normal))
+    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+    love.graphics.printf(buttonLabel, buttonX, buttonY + 8, buttonWidth, 'center')
 
-    local function drawStatSection(sectionY, label, stats)
-        local sectionX = contentX + 10
-        local boxWidth = leftPanelWidth - 20
-        local boxHeight = sectionHeight - 8
-
-        love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.4)
-        love.graphics.rectangle("fill", sectionX, sectionY, boxWidth, boxHeight, 3, 3)
-        love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha * 0.2)
-        love.graphics.rectangle("line", sectionX, sectionY, boxWidth, boxHeight, 3, 3)
-
-        love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-        love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
-        love.graphics.printf(label, sectionX + 5, sectionY + 8, boxWidth - 10, "left")
-
-        -- Use a slightly smaller font for stat lines to fit more data
-        love.graphics.setFont(Theme.getFont(Theme.fonts.tiny - 1))
-        love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
-        local statY = sectionY + 26
-        for i, stat in ipairs(stats) do
-            love.graphics.printf(stat, sectionX + 8, statY, boxWidth - 16, "left")
-            statY = statY + 16
-        end
-    end
-
-    -- Prepare combat stat lines with more detailed range/falloff info
-    local combatStats = {}
-    table.insert(combatStats, string.format("Damage: %.0f", turretDPS))
-    table.insert(combatStats, string.format("DPS: %.1f", effectiveDPS))
-
-    if optimalRange and falloffEnd then
-        table.insert(combatStats, string.format("Optimal: %dm", optimalRange))
-        table.insert(combatStats, string.format("Falloff end: %dm", falloffEnd))
-        if zeroRange and zeroRange > 0 then
-            table.insert(combatStats, string.format("Max effective: %dm", zeroRange))
-        end
-
-        -- Show sample effective DPS at optimal and mid-falloff for clarity
-        local function sampleDPSAt(distance)
-            if not optimalRange or not falloffEnd then return effectiveDPS end
-            if distance <= optimalRange then return effectiveDPS end
-            if distance >= falloffEnd then return 0 end
-            local falloffRange = falloffEnd - optimalRange
-            local falloffProgress = (distance - optimalRange) / falloffRange
-            local multiplier = math.max(0, 1.0 - falloffProgress)
-            return effectiveDPS * multiplier
-        end
-
-        local sampleOptimal = sampleDPSAt(optimalRange)
-        local sampleMid = sampleDPSAt((optimalRange + falloffEnd) / 2)
-        table.insert(combatStats, string.format("DPS @ optimal: %.1f", sampleOptimal))
-        table.insert(combatStats, string.format("DPS @ mid-falloff: %.1f", sampleMid))
-    else
-        -- Fallback simple range display
-        local turretRange = turret and (turret.moduleName and TurretRegistry.getModule(turret.moduleName) and TurretRegistry.getModule(turret.moduleName).RANGE) or 0
-        table.insert(combatStats, string.format("Range: %d", turretRange or 0))
-    end
-
-    -- Compute the total vertical height of the stat area (3 sections stacked)
-    local statsAreaHeight = sectionHeight * 3
-    ensureStatScrollInitialized(statsAreaHeight)
-
-    -- Clip and translate stats area according to current scroll
-    local sectionX = contentX + 10
-    local boxWidth = leftPanelWidth - 20
-    local contentAreaX = sectionX
-    local contentAreaY = contentY
-    local contentAreaW = boxWidth
-    local contentAreaH = statsAreaHeight - 8
-
-    local scrollY = shipWin._statScroll and shipWin._statScroll:getScrollY() or 0
-
-    love.graphics.setScissor(contentAreaX, contentAreaY, contentAreaW, contentAreaH)
-    love.graphics.push()
-    love.graphics.translate(0, -scrollY)
-
-    drawStatSection(contentY, "COMBAT", combatStats)
-
-    local survivalStats = { string.format("Eff. HP: %d", totalEffectiveHP) }
-    if shield and shield.max > 0 then
-        table.insert(survivalStats, string.format("Shield: +%d", shield.max))
-        table.insert(survivalStats, string.format("Regen: %.1f/s", shield.regenRate or 0))
-    end
-    table.insert(survivalStats, string.format("Uptime: ~%.0fs", survivalTime))
-    drawStatSection(contentY + sectionHeight, "SURVIVAL", survivalStats)
-    drawStatSection(contentY + sectionHeight * 2, "MOVEMENT", {
-        string.format("Max Vel: %.0f u/s", maxVelocity),
-        string.format("Accel: %.0f u/s²", acceleration),
-        string.format("Mass: %.1f", mass)
-    })
-
-    love.graphics.pop()
-    love.graphics.setScissor()
-
-    -- Draw the stat scrollbar for this area
-    if shipWin._statScroll then
-        shipWin._statScroll:draw(alpha)
-    end
-
-    local equipmentY = contentY + sectionHeight * 3 + 10
+    love.graphics.setFont(Theme.getFontBold(Theme.fonts.title))
+    love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
+    love.graphics.printf("Ship Loadout", contentX + 10, contentY, leftPanelWidth - buttonWidth - 40, 'left')
 
     love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
-    love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha * 0.7)
-    love.graphics.printf("TURRET", contentX + 10, equipmentY, leftPanelWidth - 20, "left")
-    LoadoutPanel.drawEquipmentSlot(shipWin, "Turret Module", turretSlots and turretSlots.slots[1], contentX + (leftPanelWidth - slotSize) / 2, equipmentY + 12, slotSize, alpha, droneId)
+    love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha * 0.8)
+    love.graphics.printf("Detailed statistics are available in the stats window.", contentX + 10, contentY + 26, leftPanelWidth - buttonWidth - 40, 'left')
 
-    local defenseY = equipmentY + slotSize + 12
-    love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha * 0.7)
-    love.graphics.printf("DEFENSE", contentX + 10, defenseY, leftPanelWidth - 20, "left")
-    LoadoutPanel.drawEquipmentSlot(shipWin, "Defensive Module", defensiveSlots and defensiveSlots.slots[1], contentX + (leftPanelWidth - slotSize) / 2, defenseY + 12, slotSize, alpha, droneId)
+    local equipmentY = contentY + buttonHeight + 24
 
-    local generatorY = defenseY + slotSize + 12
+    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
     love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha * 0.7)
-    love.graphics.printf("GENERATOR", contentX + 10, generatorY, leftPanelWidth - 20, "left")
-    LoadoutPanel.drawEquipmentSlot(shipWin, "Generator Module", generatorSlots and generatorSlots.slots[1], contentX + (leftPanelWidth - slotSize) / 2, generatorY + 12, slotSize, alpha, droneId)
+    love.graphics.printf("TURRET", contentX + 10, equipmentY, leftPanelWidth - 20, 'left')
+    LoadoutPanel.drawEquipmentSlot(shipWin, "Turret Module", turretSlots and turretSlots.slots[1], contentX + (leftPanelWidth - slotSize) / 2, equipmentY + 18, slotSize, alpha, droneId)
 
-    -- Draw dragged item at mouse position
+    local defenseY = equipmentY + slotSize + 36
+    love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha * 0.7)
+    love.graphics.printf("DEFENSE", contentX + 10, defenseY, leftPanelWidth - 20, 'left')
+    LoadoutPanel.drawEquipmentSlot(shipWin, "Defensive Module", defensiveSlots and defensiveSlots.slots[1], contentX + (leftPanelWidth - slotSize) / 2, defenseY + 18, slotSize, alpha, droneId)
+
+    local generatorY = defenseY + slotSize + 36
+    love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha * 0.7)
+    love.graphics.printf("GENERATOR", contentX + 10, generatorY, leftPanelWidth - 20, 'left')
+    LoadoutPanel.drawEquipmentSlot(shipWin, "Generator Module", generatorSlots and generatorSlots.slots[1], contentX + (leftPanelWidth - slotSize) / 2, generatorY + 18, slotSize, alpha, droneId)
+
     if shipWin.draggedItem and shipWin.draggedItem.itemDef then
-        local mx, my
-        if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
-            mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
-        else
-            mx, my = Scaling.toUI(love.mouse.getPosition())
-        end
+        local mx, my = getMousePositionUI()
         love.graphics.setColor(1, 1, 1, 0.8 * alpha)
         local itemDef = shipWin.draggedItem.itemDef
         love.graphics.push()
@@ -239,7 +114,7 @@ function LoadoutPanel.draw(shipWin, windowX, windowY, width, height, alpha)
         else
             local color = itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}
             love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * 0.8 * alpha)
-            love.graphics.circle("fill", 0, 0, 10)
+            love.graphics.circle('fill', 0, 0, 10)
         end
         love.graphics.pop()
     end
@@ -247,12 +122,7 @@ end
 
 function LoadoutPanel.drawEquipmentSlot(shipWin, slotName, equippedItemId, x, y, width, alpha, droneId)
     local slotSize = width
-    local mx, my
-    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
-        mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
-    else
-    mx, my = Scaling.toUI(love.mouse.getPosition())
-    end
+    local mx, my = getMousePositionUI()
 
     local isDropZone = false
     if shipWin.draggedItem and shipWin.draggedItem.itemDef then
@@ -283,11 +153,11 @@ function LoadoutPanel.drawEquipmentSlot(shipWin, slotName, equippedItemId, x, y,
     else
         love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.8)
     end
-    love.graphics.rectangle("fill", x, y, slotSize, slotSize, 4, 4)
+    love.graphics.rectangle('fill', x, y, slotSize, slotSize, 4, 4)
 
     local borderColor = isDropZone and {0.3, 1, 0.3, alpha} or {Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha}
     love.graphics.setColor(borderColor)
-    love.graphics.rectangle("line", x, y, slotSize, slotSize, 4, 4)
+    love.graphics.rectangle('line', x, y, slotSize, slotSize, 4, 4)
 
     shipWin.equipmentSlots = shipWin.equipmentSlots or {}
     shipWin.equipmentSlots[slotName] = {x = x, y = y, w = slotSize, h = slotSize, slotType = slotName, itemId = equippedItemId}
@@ -299,7 +169,7 @@ function LoadoutPanel.drawEquipmentSlot(shipWin, slotName, equippedItemId, x, y,
             if isHoveringSlot then
                 local color = (itemDef.module and itemDef.module.design and itemDef.module.design.color) or (itemDef.design and itemDef.design.color) or {0.7, 0.7, 0.8, 1}
                 love.graphics.setColor(color[1] * 1.3, color[2] * 1.3, color[3] * 1.3, 0.3 * alpha)
-                love.graphics.rectangle("fill", x, y, slotSize, slotSize, 4, 4)
+                love.graphics.rectangle('fill', x, y, slotSize, slotSize, 4, 4)
             end
             local iconSize = slotSize * 0.8
             local iconX = x + (slotSize - iconSize) / 2
@@ -315,7 +185,7 @@ function LoadoutPanel.drawEquipmentSlot(shipWin, slotName, equippedItemId, x, y,
             else
                 local color = itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}
                 love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha)
-                love.graphics.circle("fill", 0, 0, iconSize / 4)
+                love.graphics.circle('fill', 0, 0, iconSize / 4)
             end
             love.graphics.pop()
         end
@@ -398,23 +268,18 @@ function LoadoutPanel.equipModule(shipWin, itemId)
             if itemDef.module and itemDef.module.name then
                 playerTurret.moduleName = itemDef.module.name
                 if not TurretRegistry.hasModule(playerTurret.moduleName) then
-                    playerTurret.moduleName = nil
+                    TurretRegistry.registerModule(playerTurret.moduleName, itemDef.module)
                 end
-            else
-                playerTurret.moduleName = nil
             end
             cargo:removeItem(itemId, 1)
         end
-    elseif string.match(itemId, "shield") then
+    elseif itemDef.type == "shield" or string.match(itemId, "shield") then
         local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
+
         if defensiveSlots then
             local oldModuleId = defensiveSlots.slots[1]
             if oldModuleId then
                 cargo:addItem(oldModuleId, 1)
-                local oldItemDef = ItemDefs[oldModuleId]
-                if oldItemDef and oldItemDef.module and oldItemDef.module.unequip then
-                    oldItemDef.module.unequip(droneId)
-                end
             end
             defensiveSlots.slots[1] = itemId
             if itemDef.module and itemDef.module.equip then
@@ -424,14 +289,11 @@ function LoadoutPanel.equipModule(shipWin, itemId)
         end
     elseif itemDef.type == "generator" then
         local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
+
         if generatorSlots then
             local oldModuleId = generatorSlots.slots[1]
             if oldModuleId then
                 cargo:addItem(oldModuleId, 1)
-                local oldItemDef = ItemDefs[oldModuleId]
-                if oldItemDef and oldItemDef.module and oldItemDef.module.unequip then
-                    oldItemDef.module.unequip(droneId)
-                end
             end
             generatorSlots.slots[1] = itemId
             if itemDef.module and itemDef.module.equip then
@@ -443,8 +305,15 @@ function LoadoutPanel.equipModule(shipWin, itemId)
 end
 
 function LoadoutPanel.mousepressed(shipWin, x, y, button)
-    -- Left click: start dragging from cargo or equipment slots
     if button == 1 then
+        if shipWin._statsButtonRect then
+            local rect = shipWin._statsButtonRect
+            if x >= rect.x and x <= rect.x + rect.w and y >= rect.y and y <= rect.y + rect.h then
+                shipWin._statsButtonDown = true
+                return
+            end
+        end
+
         if shipWin.hoveredItemSlot then
             shipWin.draggedItem = {
                 itemId = shipWin.hoveredItemSlot.itemId,
@@ -466,7 +335,6 @@ function LoadoutPanel.mousepressed(shipWin, x, y, button)
             end
         end
     elseif button == 2 then
-        -- Right click: remove from equipment slot
         if shipWin.hoveredEquipmentSlot then
             LoadoutPanel.unequipModule(shipWin, shipWin.hoveredEquipmentSlot.slotName, shipWin.hoveredEquipmentSlot.itemId)
         end
@@ -474,37 +342,59 @@ function LoadoutPanel.mousepressed(shipWin, x, y, button)
 end
 
 function LoadoutPanel.mousereleased(shipWin, x, y, button)
+    local handledStatsClick = false
+    if shipWin._statsButtonDown then
+        shipWin._statsButtonDown = false
+        if button == 1 and shipWin._statsButtonRect then
+            local rect = shipWin._statsButtonRect
+            if x >= rect.x and x <= rect.x + rect.w and y >= rect.y and y <= rect.y + rect.h then
+                local shouldOpen = not StatsWindow:getOpen()
+                StatsWindow:setOpen(shouldOpen)
+                if shouldOpen then
+                    local UISystem = require('src.systems.ui')
+                    if UISystem and UISystem.setWindowFocus then
+                        UISystem.setWindowFocus('stats_window')
+                    end
+                end
+                handledStatsClick = true
+            end
+        end
+    end
+
+    if handledStatsClick then
+        return
+    end
+
     if button == 1 and shipWin.draggedItem then
-        -- Get the player's controlled ship for cargo access
-        local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
+        local controllers = ECS.getEntitiesWith({'InputControlled', 'Player'})
         if #controllers == 0 then
             shipWin.draggedItem = nil
             return
         end
+
         local pilotId = controllers[1]
-        local inputComp = ECS.getComponent(pilotId, "InputControlled")
+        local inputComp = ECS.getComponent(pilotId, 'InputControlled')
         local shipId = inputComp and inputComp.targetEntity or nil
         if not shipId then
             shipWin.draggedItem = nil
             return
         end
 
-        local cargo = ECS.getComponent(shipId, "Cargo")
+        local cargo = ECS.getComponent(shipId, 'Cargo')
         if not cargo then
             shipWin.draggedItem = nil
             return
         end
 
-        -- Check if dropped on an equipment slot
         local equippedToSlot = false
         if shipWin.equipmentSlots then
             for slotName, slotRect in pairs(shipWin.equipmentSlots) do
                 if x >= slotRect.x and x <= slotRect.x + slotRect.w and
                    y >= slotRect.y and y <= slotRect.y + slotRect.h then
                     local itemDef = shipWin.draggedItem.itemDef
-                    if (slotName == "Turret Module" and itemDef.type == "turret") or
-                       (slotName == "Defensive Module" and string.match(shipWin.draggedItem.itemId, "shield")) or
-                       (slotName == "Generator Module" and itemDef.type == "generator") then
+                    if (slotName == 'Turret Module' and itemDef.type == 'turret') or
+                       (slotName == 'Defensive Module' and string.match(shipWin.draggedItem.itemId, 'shield')) or
+                       (slotName == 'Generator Module' and itemDef.type == 'generator') then
                         if shipWin.draggedItem.fromEquipment and shipWin.draggedItem.slotName then
                             LoadoutPanel.unequipModule(shipWin, shipWin.draggedItem.slotName, shipWin.draggedItem.itemId)
                         end
@@ -556,7 +446,7 @@ function LoadoutPanel.mousereleased(shipWin, x, y, button)
 end
 
 function LoadoutPanel.mousemoved(shipWin, x, y, dx, dy)
-    -- No-op; ShipWindow handles context menu hover centrally
+    -- No special handling needed beyond hover detection in draw
 end
 
 return LoadoutPanel

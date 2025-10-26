@@ -412,10 +412,6 @@ function ShipWindow:mousepressed(x, y, button)
 
     if self.activeTab == "loadout" then
         if LoadoutPanel and LoadoutPanel.mousepressed then LoadoutPanel.mousepressed(self, x, y, button) end
-        -- Forward mouse pressed to stat scroll handler (for scrollbar clicks)
-        if self._statScroll and self._statScroll:handleScrollBarClick(x, y) then
-            return
-        end
     elseif self.activeTab == "cargo" then
         if CargoPanel and CargoPanel.mousepressed then CargoPanel.mousepressed(self, x, y, button) end
     elseif self.activeTab == "skills" then
@@ -435,10 +431,6 @@ function ShipWindow:mousereleased(x, y, button)
 
     if self.activeTab == "loadout" then
         if LoadoutPanel and LoadoutPanel.mousereleased then LoadoutPanel.mousereleased(self, x, y, button) end
-        -- Forward mouse release to stat scroll handler
-        if self._statScroll and self._statScroll:mousereleased(x, y, button) then
-            return
-        end
     elseif self.activeTab == "cargo" then
         if CargoPanel and CargoPanel.mousereleased then CargoPanel.mousereleased(self, x, y, button) end
     elseif self.activeTab == "skills" then
@@ -482,10 +474,6 @@ function ShipWindow:mousemoved(x, y, dx, dy)
 
     if self.activeTab == "loadout" then
         if LoadoutPanel and LoadoutPanel.mousemoved then LoadoutPanel.mousemoved(self, x, y, dx, dy) end
-        -- Forward mouse move to stat scroll handler if present
-        if self._statScroll and self._statScroll:mousemoved(x, y, dx, dy) then
-            return
-        end
     elseif self.activeTab == "cargo" then
         if CargoPanel and CargoPanel.mousemoved then CargoPanel.mousemoved(self, x, y, dx, dy) end
     elseif self.activeTab == "skills" then
@@ -509,21 +497,6 @@ end
 -- Handle mouse wheel for scrolling within the ship window (stat area)
 function ShipWindow:wheelmoved(x, y)
     if not self.isOpen then return false end
-    if self.activeTab ~= "loadout" or not self._statScroll then return false end
-
-    local uiMx, uiMy
-    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
-        uiMx, uiMy = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
-    else
-        uiMx, uiMy = Scaling.toUI(love.mouse.getPosition())
-    end
-
-    if uiMx >= self.position.x and uiMx <= self.position.x + self.width and
-       uiMy >= self.position.y and uiMy <= self.position.y + self.height then
-        self._statScroll:updateScroll(-y)
-        return true
-    end
-
     return false
 end
 
