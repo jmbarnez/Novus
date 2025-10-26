@@ -86,7 +86,7 @@ function MissileLauncher.fire(ownerId, startX, startY, endX, endY)
     }
 
     -- Calculate initial rotation to face the direction of travel
-    local initialRotation = math.atan(dirY, dirX)
+    local initialRotation = math.atan2(dirY, dirX)
 
     ECS.addComponent(missileId, "PolygonShape", Components.PolygonShape(missileVertices, initialRotation))
     ECS.addComponent(missileId, "Renderable", Components.Renderable("polygon", nil, nil, MissileLauncher.MISSILE_RADIUS, MissileLauncher.MISSILE_COLOR))
@@ -175,8 +175,8 @@ function MissileLauncher.updateHoming(missileId, dt)
             local currentDirY = velocity.vy / speed
             
             -- Calculate angle difference
-            local currentAngle = math.atan(currentDirY, currentDirX)
-            local targetAngle = math.atan(targetDirY, targetDirX)
+            local currentAngle = math.atan2(currentDirY, currentDirX)
+            local targetAngle = math.atan2(targetDirY, targetDirX)
             local angleDiff = targetAngle - currentAngle
             
             -- Normalize angle difference to [-pi, pi]
@@ -213,7 +213,7 @@ function MissileLauncher.updateHoming(missileId, dt)
     if speed > 0 then
         local currentDirX = velocity.vx / speed
         local currentDirY = velocity.vy / speed
-        polygonShape.rotation = math.atan(currentDirY, currentDirX)
+        polygonShape.rotation = math.atan2(currentDirY, currentDirX)
     end
     
     -- Apply acceleration for all missiles

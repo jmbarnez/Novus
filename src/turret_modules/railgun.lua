@@ -56,7 +56,7 @@ function Railgun.fire(ownerId, startX, startY, endX, endY)
 	local spawnX = startX + dirX * barrelOffset
 	local spawnY = startY + dirY * barrelOffset
 
-        local slugRotation = math.atan(dirY, dirX)
+	local slugRotation = math.atan2(dirY, dirX)
 	-- Create a long, narrow triangle pointing in +X local space
 	local halfLength = Railgun.SLUG_LENGTH * 0.5
 	local thickness = Railgun.SLUG_THICKNESS
