@@ -83,10 +83,10 @@ function ShipWindow:draw(viewportWidth, viewportHeight, uiMx, uiMy)
     -- Draw base window (background, top/bottom bars, dividers)
     WindowBase.draw(self, uiMx, uiMy)
 
-    -- Only draw when open
-    if not self.isOpen then return end
+    if not self.position then return end
 
-    local alpha = 1
+    local alpha = self.animAlpha or 0
+    if alpha <= 0 then return end
 
     -- Window variables are in reference/UI space (1920x1080)
     local x = self.position.x

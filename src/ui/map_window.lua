@@ -43,10 +43,11 @@ end
 -- Draw a scaled map that fits the world bounds
 function MapWindow:draw(viewportWidth, viewportHeight)
     WindowBase.draw(self)
-    if not self.isOpen or not self.position then return end
+    if not self.position then return end
+    local alpha = self.animAlpha or 0
+    if alpha <= 0 then return end
     local x, y = self.position.x, self.position.y
     local w, h = self.width, self.height
-    local alpha = self.animAlpha
 
     -- Map rectangle (fit within window content area, respect top/bottom bars)
     local padding = Theme.spacing.padding

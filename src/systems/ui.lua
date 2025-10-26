@@ -214,17 +214,17 @@ function UISystem.draw(viewportWidth, viewportHeight, uiMx, uiMy)
         settings_window = SettingsWindow
     }
 
-    -- Draw windows in focus order (least focused first, most focused last) - only if open
+    -- Draw windows in focus order (least focused first, most focused last)
     for _, windowName in ipairs(windowOrder) do
         local window = windows[windowName]
-        if window and window:getOpen() then
+        if window and window:isVisible() then
             window:draw(viewportWidth, viewportHeight, uiMx, uiMy)
         end
     end
 
-    -- Draw any windows not yet in the order (newly opened windows) - only if open
+    -- Draw any windows not yet in the order (newly opened windows)
     for windowName, window in pairs(windows) do
-        if not window:getOpen() then
+        if not window:isVisible() then
             goto skip_window
         end
 
@@ -279,6 +279,11 @@ end
 function UISystem.update(dt)
     Notifications.update(dt)
     PauseMenu:update(dt)
+    MapWindow:update(dt)
+    ShipWindow:update(dt)
+    StatsWindow:update(dt)
+    QuestWindow:update(dt)
+    SettingsWindow:update(dt)
     -- CargoWindow removed - now integrated into ShipWindow
 end
 

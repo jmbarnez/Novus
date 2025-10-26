@@ -52,8 +52,7 @@ function QuestWindow:draw(viewportWidth, viewportHeight)
     -- Draw base window (background, top/bottom bars, dividers)
     WindowBase.draw(self)
 
-    -- Check if should be visible
-    if not self.isOpen and not self.animAlphaActive then return end
+    if not self.position then return end
 
     local alpha = self.animAlpha
     if alpha <= 0 then return end

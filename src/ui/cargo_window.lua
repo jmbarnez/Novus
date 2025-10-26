@@ -35,11 +35,10 @@ function CargoWindow:draw(viewportWidth, viewportHeight)
     -- Draw base window (background, top/bottom bars, dividers)
     WindowBase.draw(self)
 
-    -- Check if should be visible
-    if not self.isOpen and not self.animAlphaActive then return end
+    if not self.position then return end
 
     local alpha = self.animAlpha
-    if alpha <= 0 then return end
+    if not alpha or alpha <= 0 then return end
 
     -- Window variables are in reference/UI space (1920x1080)
     local x = self.position.x

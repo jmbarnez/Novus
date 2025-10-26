@@ -193,9 +193,10 @@ end
 
 function StatsWindow:draw(viewportWidth, viewportHeight, uiMx, uiMy)
     WindowBase.draw(self, viewportWidth, viewportHeight, uiMx, uiMy)
-    if not self.isOpen or not self.position then return end
+    if not self.position then return end
 
-    local alpha = 1
+    local alpha = self.animAlpha or 0
+    if alpha <= 0 then return end
     local x = self.position.x
     local y = self.position.y
     local w = self.width
