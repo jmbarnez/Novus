@@ -53,6 +53,9 @@ function PauseMenu:setOpen(state)
         self:_refreshFonts()
         self:_updateLayout()
         self._selectedIndex = self._selectedIndex or 1
+        -- When the game loop is paused, UISystem.update won't advance the fade animation,
+        -- so force the overlay visible immediately to ensure it renders.
+        self._alpha = 1
     else
         self._hoverIndex = nil
         self._selectedIndex = nil
