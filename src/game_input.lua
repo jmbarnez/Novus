@@ -10,6 +10,15 @@ local Systems = require('src.systems')
 local UISystem = require('src.systems.ui')
 
 function GameInput.keypressed(key)
+    -- If death overlay is visible, consume all key input so game/world cannot act
+    local DeathOverlay = require('src.ui.death_overlay')
+    if DeathOverlay and DeathOverlay.isVisible then
+        -- Let the UI handle any relevant overlay keys via UISystem (if needed)
+        if UISystem and UISystem.keypressed then
+            UISystem.keypressed(key)
+        end
+        return
+    end
     -- Handle station/world interactions first (E key)
     if key == "e" or key == "return" then
         local WorldTooltipsSystem = Systems.WorldTooltipsSystem
@@ -63,6 +72,14 @@ function GameInput.keypressed(key)
 end
 
 function GameInput.mousepressed(x, y, button)
+    local DeathOverlay = require('src.ui.death_overlay')
+    if DeathOverlay and DeathOverlay.isVisible then
+        -- Let UI handle overlay clicks and consume them
+        if UISystem and UISystem.mousepressed then
+            UISystem.mousepressed(x, y, button)
+        end
+        return
+    end
     if UISystem.mousepressed then
         local consumed = UISystem.mousepressed(x, y, button)
         if consumed then
@@ -79,10 +96,21 @@ function GameInput.mousepressed(x, y, button)
 end
 
 function GameInput.keyreleased(key)
+    local DeathOverlay = require('src.ui.death_overlay')
+    if DeathOverlay and DeathOverlay.isVisible then
+        return
+    end
     Systems.InputSystem.keyreleased(key)
 end
 
 function GameInput.mousemoved(x, y, dx, dy, isTouch)
+    local DeathOverlay = require('src.ui.death_overlay')
+    if DeathOverlay and DeathOverlay.isVisible then
+        if UISystem and UISystem.mousemoved then
+            UISystem.mousemoved(x, y, dx, dy, isTouch)
+        end
+        return
+    end
     if UISystem.mousemoved then
         UISystem.mousemoved(x, y, dx, dy, isTouch)
     end
@@ -96,6 +124,13 @@ function GameInput.mousemoved(x, y, dx, dy, isTouch)
 end
 
 function GameInput.mousereleased(x, y, button)
+    local DeathOverlay = require('src.ui.death_overlay')
+    if DeathOverlay and DeathOverlay.isVisible then
+        if UISystem and UISystem.mousereleased then
+            UISystem.mousereleased(x, y, button)
+        end
+        return
+    end
     if UISystem.mousereleased then
         UISystem.mousereleased(x, y, button)
     end
@@ -109,6 +144,13 @@ function GameInput.mousereleased(x, y, button)
 end
 
 function GameInput.wheelmoved(x, y)
+    local DeathOverlay = require('src.ui.death_overlay')
+    if DeathOverlay and DeathOverlay.isVisible then
+        if UISystem and UISystem.wheelmoved then
+            UISystem.wheelmoved(x, y)
+        end
+        return
+    end
     -- Forward to UI system first
     if UISystem.wheelmoved then
         local consumed = UISystem.wheelmoved(x, y)

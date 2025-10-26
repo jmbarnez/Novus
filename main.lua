@@ -84,6 +84,9 @@ function love.draw()
     else
         Profiler.start("draw_total")
         Core.draw()
+        -- Ensure death overlay renders above everything drawn by Core
+        local DeathOverlay = require('src.ui.death_overlay')
+        DeathOverlay.draw()
         Profiler.stop("draw_total")
         Profiler.frame()
         -- FPS cap enforcement (software sleep)
