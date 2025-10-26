@@ -334,14 +334,14 @@ function PauseMenu:draw()
     love.graphics.setColor(Theme.colors.overlay[1], Theme.colors.overlay[2], Theme.colors.overlay[3], alpha * Theme.colors.overlay[4])
     love.graphics.rectangle('fill', 0, 0, Scaling.getCurrentWidth(), Scaling.getCurrentHeight())
 
-    -- Panel background
+    -- Panel background (boxy style)
     love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], clamp(alpha * 0.95, 0, 1))
-    love.graphics.rectangle('fill', x, y, w, h, 12, 12)
+    love.graphics.rectangle('fill', x, y, w, h)
 
-    -- Panel border
+    -- Panel border (boxy style)
     love.graphics.setColor(Theme.colors.borderDark)
     love.graphics.setLineWidth(2)
-    love.graphics.rectangle('line', x, y, w, h, 12, 12)
+    love.graphics.rectangle('line', x, y, w, h)
 
     -- Title
     love.graphics.setFont(self._titleFont)
@@ -365,11 +365,11 @@ function PauseMenu:draw()
         else
             love.graphics.setColor(baseColor[1], baseColor[2], baseColor[3], clamp(alpha * 0.95, 0, 1))
         end
-        love.graphics.rectangle('fill', bx, by, bw, bh, 8, 8)
+        love.graphics.rectangle('fill', bx, by, bw, bh)
 
         love.graphics.setColor(Theme.colors.borderDark)
         love.graphics.setLineWidth(2)
-        love.graphics.rectangle('line', bx, by, bw, bh, 8, 8)
+        love.graphics.rectangle('line', bx, by, bw, bh)
 
         love.graphics.setColor(Theme.colors.textPrimary)
         love.graphics.printf(entry.label, bx, by + bh / 2 - 12, bw, 'center')

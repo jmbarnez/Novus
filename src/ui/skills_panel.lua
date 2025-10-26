@@ -9,9 +9,9 @@ local SkillsPanel = {}
 -- Draw the skills panel content
 function SkillsPanel.draw(x, y, width, height, alpha)
     local contentX = x + 10
-    local contentY = y + 10
+    local contentY = y + Theme.window.topBarHeight + 60 + 40 + 10  -- Account for topBarHeight (32) + tabHeight (60) + spacing (40) + padding (10)
     local contentWidth = width - 20
-    local contentHeight = height - 20
+    local contentHeight = height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - 60 - 40 - 20  -- Account for all UI elements
 
     -- Get player skills
     local playerEntities = ECS.getEntitiesWith({"Player", "Skills"})

@@ -180,7 +180,7 @@ function WindowBase:draw(viewportWidth, viewportHeight, uiMx, uiMy)
     local h = self.height
     local topBarH = Theme.window.topBarHeight
     local bottomBarH = Theme.window.bottomBarHeight
-    local radius = Theme.window.cornerRadius or 12
+    local radius = Theme.window.cornerRadius or 0
     local padding = Theme.window.framePadding or 6
     local alpha = self.animAlpha or 1
 
@@ -188,12 +188,10 @@ function WindowBase:draw(viewportWidth, viewportHeight, uiMx, uiMy)
         love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha * (multiplier or 1))
     end
 
-    -- Base plasma frame with rounded corners and neon rim
+    -- Clean boxy frame
     Theme.draw3DBorder(x, y, w, h, Theme.window.borderThickness, {
         alpha = alpha,
         cornerRadius = radius,
-        rimInset = 3,
-        highlightInset = padding + 2,
     })
 
     -- Soft interior glow to keep the sci-fi look consistent with the pause menu

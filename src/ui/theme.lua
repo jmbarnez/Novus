@@ -1,50 +1,50 @@
 ---@diagnostic disable: undefined-global
--- UI Theme - Universal styling for all UI windows and components
--- Provides consistent colors, fonts, and styling across the game
+-- UI Theme - Clean Boxy theme for all UI windows and components
+-- Provides sharp corners, clean borders, and professional styling
 
 local Theme = {
-    -- Color palette (Plasma/Energy Style)
+    -- Color palette (Clean Boxy style)
     colors = {
-        -- Backgrounds
-        bgDark = {0.05, 0.05, 0.05, 1},      -- Main window background (darker)
-        bgMedium = {0.08, 0.08, 0.08, 1},    -- Secondary background (darker)
-        bgLight = {0.12, 0.12, 0.12, 1},     -- Slightly lighter background
-        
-        -- Borders and accents (thick black with plasma glow)
-        borderDark = {0, 0, 0, 1},              -- Pure black border
-        borderMedium = {0, 0, 0, 1},            -- Pure black border
-        borderLight = {0, 0, 0, 1},              -- Pure black border
-        borderNeon = {0.2, 0.95, 1, 1},         -- Neon blue/cyan border (electric plasma)
-        
-        -- Text (high contrast with energy glow)
-        textPrimary = {1, 1, 1, 1},              -- Main text (white)
-        textSecondary = {0.95, 0.95, 0.95, 1},   -- Secondary text (brighter)
-        textAccent = {0.4, 0.9, 1, 1},           -- Accent text (bright cyan plasma)
-        textMuted = {0.7, 0.7, 0.7, 1},          -- Muted text (brighter)
-        
-        -- Interactive elements (vibrant plasma energy)
-        buttonHover = {0.3, 0.5, 0.7, 1},        -- Button hover state (electric blue)
-        buttonYes = {0.1, 0.8, 0.5, 1},          -- Confirmation yes button (plasma green)
-        buttonYesHover = {0.2, 1, 0.6, 1},       -- Yes button hover (brighter plasma)
-        buttonNo = {1, 0.2, 0.5, 1},             -- Confirmation no button (plasma pink)
-        buttonNoHover = {1, 0.4, 0.6, 1},        -- No button hover (brighter plasma)
-        buttonClose = {1, 0.2, 0.5, 1},          -- Close button (plasma pink)
-        buttonCloseHover = {1, 0.4, 0.6, 1},    -- Close button hover (brighter plasma)
-        
-        -- Highlights and effects
-        highlightBright = {0.4, 0.7, 1, 0.3},    -- Bright highlight (plasma blue glow)
-        shadowDark = {0, 0, 0, 0.3},             -- Dark shadow (pure black)
-        overlay = {0, 0, 0, 0.7},                 -- Modal overlay (darker)
+        -- Backgrounds (neutral gray for professional look)
+        bgDark = {0.25, 0.25, 0.25, 1},         -- Main window background (medium gray)
+        bgMedium = {0.30, 0.30, 0.30, 1},       -- Secondary background (lighter gray)
+        bgLight = {0.35, 0.35, 0.35, 1},        -- Slightly lighter background
+
+        -- Borders (clean gray borders)
+        borderDark = {0.15, 0.15, 0.15, 1},     -- Dark gray border
+        borderMedium = {0.20, 0.20, 0.20, 1},   -- Medium gray border
+        borderLight = {0.40, 0.40, 0.40, 1},    -- Light gray border
+        borderNeon = {0.50, 0.50, 0.50, 1},     -- Subtle accent border
+
+        -- Text (high contrast, clean)
+        textPrimary = {0.95, 0.95, 0.95, 1},    -- Main text (near white)
+        textSecondary = {0.80, 0.80, 0.80, 1},  -- Secondary text (light gray)
+        textAccent = {0.60, 0.80, 1.0, 1},      -- Accent text (subtle blue)
+        textMuted = {0.60, 0.60, 0.60, 1},      -- Muted text (medium gray)
+
+        -- Interactive elements (subtle, professional)
+        buttonHover = {0.40, 0.60, 0.80, 1},    -- Button hover (subtle blue)
+        buttonYes = {0.20, 0.70, 0.30, 1},      -- Yes button (subtle green)
+        buttonYesHover = {0.30, 0.85, 0.40, 1}, -- Yes hover (brighter green)
+        buttonNo = {0.80, 0.30, 0.30, 1},       -- No button (subtle red)
+        buttonNoHover = {0.95, 0.40, 0.40, 1},  -- No hover (brighter red)
+        buttonClose = {0.15, 0.15, 0.15, 1},    -- Close button (minimal dark)
+        buttonCloseHover = {0.80, 0.30, 0.30, 1}, -- Close hover (red)
+
+        -- Highlights and effects (minimal)
+        highlightBright = {0.60, 0.80, 1.0, 0.2}, -- Subtle highlight
+        shadowDark = {0.10, 0.10, 0.10, 0.5},     -- Subtle shadow
+        overlay = {0.05, 0.05, 0.05, 0.8},        -- Dark overlay
     },
     
-    -- Font sizes and paths
+    -- Font sizes and paths (clean, readable sizes)
     fonts = {
-        small = 11,      -- Tooltips, small text
-        normal = 12,     -- Default UI text
-        title = 14,      -- Window titles, headers
+        small = 10,      -- Tooltips, small text
+        normal = 11,     -- Default UI text
+        title = 13,      -- Window titles, headers
         tiny = 9,        -- Very small text (e.g., stat lines)
-        fontPath = "assets/fonts/Orbitron-Regular.ttf",  -- Sci-fi font
-        fontPathBold = "assets/fonts/Orbitron-Bold.ttf",  -- Sci-fi bold font
+        fontPath = "assets/fonts/Orbitron-Regular.ttf",  -- Clean sci-fi font
+        fontPathBold = "assets/fonts/Orbitron-Bold.ttf",  -- Clean sci-fi bold font
     },
     
     -- Dimensions and spacing
@@ -57,12 +57,12 @@ local Theme = {
         iconGridPadding = 12,  -- Grid spacing for icon layout
     },
     
-    -- Window styling (Plasma/Energy)
+    -- Window styling (Clean Boxy style)
     window = {
-        borderThickness = 3,        -- Thick plasma-style border
-        topBarHeight = 28,          -- Top bar height
-        bottomBarHeight = 50,       -- Bottom bar height
-        cornerRadius = 14,          -- Rounded corners to match pause menu styling
+        borderThickness = 1,        -- Thin, clean border
+        topBarHeight = 32,          -- Standard title bar height
+        bottomBarHeight = 40,       -- Clean bottom bar height
+        cornerRadius = 0,           -- Sharp corners (no rounding)
         framePadding = 8,           -- Default padding between frame and content elements
     },
 }
@@ -105,90 +105,88 @@ function Theme.getFontBold(size)
     return love.graphics.newFont(size)
 end
 
--- Helper function to create plasma-style thick border with opaque background
+-- Helper function to draw clean, flat border (boxy style)
 function Theme.draw3DBorder(x, y, w, h, depth, opts)
     if type(depth) == "table" and opts == nil then
         opts = depth
         depth = opts.depth
     end
 
-    depth = depth or Theme.window.borderThickness or 3
+    depth = depth or Theme.window.borderThickness or 1
     opts = opts or {}
 
     local alpha = opts.alpha or 1
-    local radius = opts.cornerRadius or Theme.window.cornerRadius or 12
-    local rimInset = opts.rimInset or 2
-    local highlightInset = opts.highlightInset or math.max(rimInset + 3, 6)
-    local neonAlpha = (opts.neonAlpha ~= nil) and opts.neonAlpha or 0.45
-
-    rimInset = math.min(rimInset, math.max((w - 2) * 0.5, 0))
-    rimInset = math.min(rimInset, math.max((h - 2) * 0.5, 0))
-    highlightInset = math.min(highlightInset, math.max((w - 2) * 0.5, 0))
-    highlightInset = math.min(highlightInset, math.max((h - 2) * 0.5, 0))
+    local radius = opts.cornerRadius or Theme.window.cornerRadius or 0
 
     local function setColor(color, multiplier)
         love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha * (multiplier or 1))
     end
 
-    -- Background fill with rounded corners
+    -- Background fill (sharp corners)
     setColor(Theme.colors.bgDark)
-    love.graphics.rectangle("fill", x, y, w, h, radius, radius)
+    love.graphics.rectangle("fill", x, y, w, h)
 
-    -- Exterior frame
+    -- Simple flat border (sharp corners)
     setColor(Theme.colors.borderDark)
     love.graphics.setLineWidth(depth)
-    love.graphics.rectangle("line", x, y, w, h, radius, radius)
-
-    -- Neon inner rim
-    if w > rimInset * 2 and h > rimInset * 2 then
-        setColor(Theme.colors.borderNeon, neonAlpha)
-        love.graphics.setLineWidth(2)
-        love.graphics.rectangle(
-            "line",
-            x + rimInset,
-            y + rimInset,
-            w - rimInset * 2,
-            h - rimInset * 2,
-            math.max(0, radius - rimInset),
-            math.max(0, radius - rimInset)
-        )
-    end
-
-    -- Subtle inner highlight to sell the plasma sheen
-    if w > highlightInset * 2 and h > highlightInset * 2 then
-        setColor(Theme.colors.highlightBright)
-        love.graphics.setLineWidth(1)
-        love.graphics.rectangle(
-            "line",
-            x + highlightInset,
-            y + highlightInset,
-            w - highlightInset * 2,
-            h - highlightInset * 2,
-            math.max(0, radius - highlightInset),
-            math.max(0, radius - highlightInset)
-        )
-    end
+    love.graphics.rectangle("line", x, y, w, h)
 
     love.graphics.setLineWidth(1)
 end
 
--- Helper function to draw a button with plasma-style consistent styling
+-- Helper function to draw standard button (clean boxy style)
 function Theme.drawButton(x, y, w, h, text, isHovered, buttonColor, buttonColorHover)
-    local color = isHovered and buttonColorHover or buttonColor
-    
-    -- Background
-    love.graphics.setColor(color)
+    -- Use standard button colors as defaults if none provided
+    local baseColor = buttonColor or Theme.colors.bgMedium
+    local hoverColor = buttonColorHover or Theme.colors.buttonHover
+
+    -- Background (sharp corners for boxy look)
+    if isHovered then
+        love.graphics.setColor(hoverColor[1], hoverColor[2], hoverColor[3], hoverColor[4])
+    else
+        love.graphics.setColor(baseColor[1], baseColor[2], baseColor[3], baseColor[4])
+    end
     love.graphics.rectangle("fill", x, y, w, h)
-    
-    -- Thick black border
+
+    -- Border (sharp corners for boxy look)
     love.graphics.setColor(Theme.colors.borderDark)
     love.graphics.setLineWidth(2)
     love.graphics.rectangle("line", x, y, w, h)
     love.graphics.setLineWidth(1)
-    
-    -- Text
+
+    -- Text (centered)
     love.graphics.setColor(Theme.colors.textPrimary)
-    love.graphics.printf(text, x, y + 6, w, "center")
+    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
+    love.graphics.printf(text, x, y + h / 2 - 12, w, "center")
+end
+
+-- Helper function to draw tab-style button (clean boxy style)
+function Theme.drawTab(x, y, w, h, text, isActive, isHovered, alpha)
+    alpha = alpha or 1
+
+    -- Tab background (sharp corners)
+    local baseColor = isActive and Theme.colors.bgMedium or Theme.colors.bgDark
+    local hoverColor = Theme.colors.buttonHover
+
+    if isActive then
+        love.graphics.setColor(baseColor[1], baseColor[2], baseColor[3], alpha)
+    elseif isHovered then
+        love.graphics.setColor(hoverColor[1], hoverColor[2], hoverColor[3], alpha)
+    else
+        love.graphics.setColor(baseColor[1], baseColor[2], baseColor[3], alpha * 0.6)
+    end
+    love.graphics.rectangle("fill", x, y, w, h)
+
+    -- Tab border (sharp corners)
+    love.graphics.setColor(Theme.colors.borderDark)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", x, y, w, h)
+    love.graphics.setLineWidth(1)
+
+    -- Tab text (centered)
+    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
+    love.graphics.printf(text, x, y + h / 2 - 12, w, "center")
 end
 
 return Theme
