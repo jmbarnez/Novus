@@ -137,6 +137,8 @@ function GameInit.createCoreEntities()
     ECS.addComponent(pilotId, "Player", Components.Player())
     ECS.addComponent(pilotId, "Skills", Components.Skills())
     ECS.addComponent(pilotId, "Wallet", Components.Wallet(1000))  -- Start with 1000 credits
+    -- Add Level component to player (start at level 1)
+    ECS.addComponent(pilotId, "Level", Components.Level(1))
 
     -- Create Camera Entity
     local cameraId = ECS.createEntity()
@@ -300,7 +302,7 @@ function GameInit.spawnEnemies()
                 end
                 
                 -- Add level component (random level 1-5 for now)
-                local level = math.random(1, 5)
+                local level = math.random(1, 3)
                 ECS.addComponent(shipId, "Level", {level = level})
             end
         end
@@ -332,7 +334,7 @@ function GameInit.spawnEnemies()
                 end
                 
                 -- Add level component (random level 1-5 for now)
-                local level = math.random(1, 5)
+                local level = math.random(1, 3)
                 ECS.addComponent(shipId, "Level", {level = level})
             end
         end
@@ -358,7 +360,7 @@ function GameInit.spawnEnemies()
             end
             
             -- Add level component (higher level for heavy drone - 3-7)
-            local level = math.random(3, 7)
+            local level = math.random(1, 3)
             ECS.addComponent(heavyDroneId, "Level", {level = level})
         end
     end

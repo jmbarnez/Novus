@@ -10,6 +10,7 @@ local Tooltips = require('src.ui.tooltips')
 local TargetHUD = require('src.systems.hud.target_hud')
 local ConstructionButton = require('src.ui.construction_button')
 local QuestOverlay = require('src.ui.quest_overlay')
+-- WarpGateHUD overlay removed; only world-space tooltip remains
 
 local HUDSystem = {
     name = "HUDSystem",
@@ -69,6 +70,8 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     end
     -- Always-on ConstructionButton (HUD layer)
     ConstructionButton.draw(viewportWidth, viewportHeight)
+
+    -- Warp gate HUD overlay removed; only world-space tooltip remains
 
 end
 

@@ -76,9 +76,8 @@ function InputSystem.update(dt)
         local physics = ECS.getComponent(controlledEntity, "Physics")
         
         if force and physics then
-            -- Apply constant thrust force while keys are held
-            -- Constant thrust = realistic thruster behavior (like a rocket engine)
-            local thrustMagnitude = 300  -- Constant thrust force (Newtons)
+            -- Use thrustForce from Physics component if present, otherwise fall back to input.speed or default
+            local thrustMagnitude = (physics.thrustForce) or (input and input.speed) or 300
             
             local thrust_x = 0
             local thrust_y = 0
@@ -287,13 +286,19 @@ function InputSystem.mousemoved(x, y, dx, dy, isTouch)
 end
 
 function InputSystem.mousepressed(x, y, button, istouch, presses)
+    -- Handle world tooltip button clicks first
+    local WorldTooltips = require('src.systems.world_tooltips')
+    if button == 1 and WorldTooltips and WorldTooltips.handleClick then
+        if WorldTooltips.handleClick(x, y, button) then
+            return
+        end
+    end
+
     -- Handle enemy targeting with configurable target key + Left Click
     local targetKey = HotkeyConfig.getHotkey("target_enemy")
     if button == 1 and love.keyboard.isDown(targetKey) then
-        -- Get mouse position in world coordinates
+        -- ...existing code...
         local mouseX, mouseY = x, y
-
-        -- Convert screen coordinates to world coordinates using Scaling helper
         local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
         if #cameraEntities > 0 then
             local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
@@ -301,59 +306,42 @@ function InputSystem.mousepressed(x, y, button, istouch, presses)
             local Scaling = require('src.scaling')
             mouseX, mouseY = Scaling.toWorld(mouseX, mouseY, cameraComp, cameraPos)
         else
-            -- Fallback: convert using global canvas transform if present
             local Scaling = require('src.scaling')
             mouseX, mouseY = Scaling.toUI(mouseX, mouseY)
         end
-
-        -- Find closest enemy ship
         local closestEnemy = nil
         local closestDist = math.huge
-
-        -- Get all enemy ships (AI-controlled, not controlled by player)
         local allAIEntities = ECS.getEntitiesWith({"AI", "Position", "Collidable"})
-        
-        -- Filter to uncontrolled entities
         local enemyEntities = {}
         for _, enemyId in ipairs(allAIEntities) do
             if not ECS.hasComponent(enemyId, "ControlledBy") then
                 table.insert(enemyEntities, enemyId)
             end
         end
-
-        -- Find closest enemy to mouse position
         for _, enemyId in ipairs(enemyEntities) do
             local enemyPos = ECS.getComponent(enemyId, "Position")
             local enemyColl = ECS.getComponent(enemyId, "Collidable")
-
             if enemyPos and enemyColl then
                 local dx = mouseX - enemyPos.x
                 local dy = mouseY - enemyPos.y
                 local dist = math.sqrt(dx * dx + dy * dy)
-
-                -- Check if mouse is within reasonable targeting range (enemy radius + some tolerance)
                 if dist <= (enemyColl.radius + 50) and dist < closestDist then
                     closestDist = dist
                     closestEnemy = enemyId
                 end
             end
         end
-
-        -- Start targeting process on the player controller
         local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
         if #controllers > 0 then
             local inputComp = ECS.getComponent(controllers[1], "InputControlled")
             if inputComp then
-                -- Clear any existing target
                 inputComp.targetedEnemy = nil
-                -- Start new targeting process
                 inputComp.targetingTarget = closestEnemy
                 inputComp.targetingProgress = 0
                 inputComp.targetingStartTime = love.timer.getTime()
             end
         end
-
-        return -- Don't process as regular left click
+        return
     end
 end
 

@@ -77,7 +77,9 @@ function MagnetSystem.update(dt)
             end
             if next(collectedByType) then
                 if SoundSystem and SoundSystem.play then
-                    SoundSystem.play("item_pickup", {volume = 0.3})
+                    -- Increase pickup sound base loudness: use full fractional volume (1.0)
+                    -- SoundSystem.play expects a fractional volume in 0.0-1.0 to scale the base SFX volume.
+                    SoundSystem.play("item_pickup", {volume = 1.0})
                 end
             end
         end

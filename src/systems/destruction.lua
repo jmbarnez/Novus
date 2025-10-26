@@ -64,8 +64,7 @@ function DestructionSystem.spawnItems(x, y, params)
                 ECS.addComponent(itemId, "Item", {id = type_, def = itemDef})
                 ECS.addComponent(itemId, "Stack", Components.Stack(quantity))
                 ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
-                ECS.addComponent(itemId, "Collidable", Components.Collidable(8))
-                -- Add polygon shape if supported by item
+                -- Add polygon shape if supported by item (for precise highlights, but no Collidable)
                 if itemDef.design and (itemDef.design.shape == "polygon" or itemDef.design.shape == "custom") then
                     local sz = (itemDef.design.size or 12)
                     -- Use a diamond/square polygon for universal fallback
@@ -105,8 +104,7 @@ function DestructionSystem.spawnItems(x, y, params)
                 ECS.addComponent(itemId, "Item", {id = type_, def = itemDef})
                 ECS.addComponent(itemId, "Stack", Components.Stack(1))
                 ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
-                ECS.addComponent(itemId, "Collidable", Components.Collidable(8))
-                -- Add polygon shape if supported by item
+                -- Add polygon shape if supported by item (for precise highlights, but no Collidable)
                 if itemDef.design and (itemDef.design.shape == "polygon" or itemDef.design.shape == "custom") then
                     local sz = (itemDef.design.size or 12)
                     -- Use a diamond/square polygon for universal fallback

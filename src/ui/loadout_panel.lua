@@ -6,6 +6,34 @@ local Scaling = require('src.scaling')
 local StatsWindow = require('src.ui.stats_window')
 
 local LoadoutPanel = {}
+LoadoutPanel.MAX_SUBSLOTS_PER_MODULE = 3
+
+local function resolveModuleSubslotCount(itemDef)
+    if not itemDef or not itemDef.module then return 0 end
+
+    local module = itemDef.module
+
+    if type(module.subslotCount) == "number" then
+        return module.subslotCount
+    end
+    if type(module.subSlotCount) == "number" then
+        return module.subSlotCount
+    end
+    if type(module.subSlots) == "table" then
+        return #module.subSlots
+    end
+    if type(module.subslots) == "table" then
+        return #module.subslots
+    end
+    if type(module.maxSubslots) == "number" then
+        return module.maxSubslots
+    end
+    if type(module.maxSubSlots) == "number" then
+        return module.maxSubSlots
+    end
+
+    return 0
+end
 
 local function getMousePositionUI()
     if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
@@ -123,6 +151,7 @@ end
 function LoadoutPanel.drawEquipmentSlot(shipWin, slotName, equippedItemId, x, y, width, alpha, droneId)
     local slotSize = width
     local mx, my = getMousePositionUI()
+    shipWin.moduleSubslots = shipWin.moduleSubslots or {}
 
     local isDropZone = false
     if shipWin.draggedItem and shipWin.draggedItem.itemDef then
@@ -162,34 +191,39 @@ function LoadoutPanel.drawEquipmentSlot(shipWin, slotName, equippedItemId, x, y,
     shipWin.equipmentSlots = shipWin.equipmentSlots or {}
     shipWin.equipmentSlots[slotName] = {x = x, y = y, w = slotSize, h = slotSize, slotType = slotName, itemId = equippedItemId}
 
+    local itemDef
     if equippedItemId then
         local ItemDefs = require('src.items.item_loader')
-        local itemDef = ItemDefs[equippedItemId]
-        if itemDef then
-            if isHoveringSlot then
-                local color = (itemDef.module and itemDef.module.design and itemDef.module.design.color) or (itemDef.design and itemDef.design.color) or {0.7, 0.7, 0.8, 1}
-                love.graphics.setColor(color[1] * 1.3, color[2] * 1.3, color[3] * 1.3, 0.3 * alpha)
-                love.graphics.rectangle('fill', x, y, slotSize, slotSize, 4, 4)
-            end
-            local iconSize = slotSize * 0.8
-            local iconX = x + (slotSize - iconSize) / 2
-            local iconY = y + (slotSize - iconSize) / 2
-            love.graphics.push()
-            love.graphics.translate(iconX + iconSize/2, iconY + iconSize/2)
-            love.graphics.scale(iconSize/48, iconSize/48)
-            if itemDef.module and itemDef.module.draw then
-                love.graphics.setColor(1, 1, 1, alpha)
-                itemDef.module.draw(itemDef.module, 0, 0)
-            elseif itemDef.draw then
-                itemDef:draw(0, 0)
-            else
-                local color = itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}
-                love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha)
-                love.graphics.circle('fill', 0, 0, iconSize / 4)
-            end
-            love.graphics.pop()
-        end
+        itemDef = ItemDefs[equippedItemId]
     end
+
+    if itemDef then
+        if isHoveringSlot then
+            local color = (itemDef.module and itemDef.module.design and itemDef.module.design.color) or (itemDef.design and itemDef.design.color) or {0.7, 0.7, 0.8, 1}
+            love.graphics.setColor(color[1] * 1.3, color[2] * 1.3, color[3] * 1.3, 0.3 * alpha)
+            love.graphics.rectangle('fill', x, y, slotSize, slotSize, 4, 4)
+        end
+        local iconSize = slotSize * 0.8
+        local iconX = x + (slotSize - iconSize) / 2
+        local iconY = y + (slotSize - iconSize) / 2
+        love.graphics.push()
+        love.graphics.translate(iconX + iconSize/2, iconY + iconSize/2)
+        love.graphics.scale(iconSize/48, iconSize/48)
+        if itemDef.module and itemDef.module.draw then
+            love.graphics.setColor(1, 1, 1, alpha)
+            itemDef.module.draw(itemDef.module, 0, 0)
+        elseif itemDef.draw then
+            itemDef:draw(0, 0)
+        else
+            local color = itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}
+            love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha)
+            love.graphics.circle('fill', 0, 0, iconSize / 4)
+        end
+        love.graphics.pop()
+    end
+
+    local activeSubslots = resolveModuleSubslotCount(itemDef)
+    LoadoutPanel.drawModuleSubslots(shipWin, slotName, x, y, slotSize, alpha, activeSubslots, LoadoutPanel.MAX_SUBSLOTS_PER_MODULE)
 end
 
 function LoadoutPanel.unequipModule(shipWin, slotType, itemId)
@@ -447,6 +481,70 @@ end
 
 function LoadoutPanel.mousemoved(shipWin, x, y, dx, dy)
     -- No special handling needed beyond hover detection in draw
+end
+
+function LoadoutPanel.drawModuleSubslots(shipWin, slotName, slotX, slotY, slotSize, alpha, activeCount, totalCount)
+    totalCount = totalCount or LoadoutPanel.MAX_SUBSLOTS_PER_MODULE or 0
+    if totalCount <= 0 then return end
+
+    activeCount = math.max(0, math.min(activeCount or 0, totalCount))
+
+    local innerMargin = math.max(6, slotSize * 0.14)
+    local spacing = math.max(4, slotSize * 0.06)
+    local availableWidth = slotSize - innerMargin * 2
+    local totalSpacing = spacing * (totalCount - 1)
+    local subslotSize = (availableWidth - totalSpacing) / totalCount
+
+    if subslotSize > 20 then
+        subslotSize = 20
+    elseif subslotSize < 10 then
+        subslotSize = math.max(8, subslotSize)
+    end
+
+    local actualWidth = subslotSize * totalCount + spacing * (totalCount - 1)
+    local startX = slotX + (slotSize - actualWidth) / 2
+    local subslotY = slotY + slotSize - innerMargin - subslotSize
+
+    shipWin.moduleSubslots[slotName] = {}
+
+    local enabledColor = Theme.colors.buttonHover
+    local disabledFill = Theme.colors.bgMedium
+    local disabledBorder = Theme.colors.borderDark
+    local activeBorder = Theme.colors.borderLight
+    local crossColor = Theme.colors.textMuted
+
+    for index = 1, totalCount do
+        local sx = startX + (index - 1) * (subslotSize + spacing)
+        local sy = subslotY
+        local isActive = index <= activeCount
+
+        if isActive then
+            love.graphics.setColor(enabledColor[1], enabledColor[2], enabledColor[3], (enabledColor[4] or 1) * alpha * 0.55)
+        else
+            love.graphics.setColor(disabledFill[1], disabledFill[2], disabledFill[3], (disabledFill[4] or 1) * alpha * 0.6)
+        end
+        love.graphics.rectangle('fill', sx, sy, subslotSize, subslotSize, 3, 3)
+
+        local borderColor = isActive and activeBorder or disabledBorder
+        love.graphics.setColor(borderColor[1], borderColor[2], borderColor[3], (borderColor[4] or 1) * alpha)
+        love.graphics.rectangle('line', sx, sy, subslotSize, subslotSize, 3, 3)
+
+        if not isActive then
+            love.graphics.setColor(crossColor[1], crossColor[2], crossColor[3], (crossColor[4] or 1) * alpha * 0.6)
+            love.graphics.setLineWidth(2)
+            love.graphics.line(sx + 3, sy + 3, sx + subslotSize - 3, sy + subslotSize - 3)
+            love.graphics.line(sx + 3, sy + subslotSize - 3, sx + subslotSize - 3, sy + 3)
+            love.graphics.setLineWidth(1)
+        end
+
+        shipWin.moduleSubslots[slotName][index] = {
+            x = sx,
+            y = sy,
+            w = subslotSize,
+            h = subslotSize,
+            enabled = isActive
+        }
+    end
 end
 
 return LoadoutPanel

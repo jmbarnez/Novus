@@ -456,6 +456,12 @@ local PhysicsCollisionSystem = {
             local coll1 = ECS.getComponent(entity1Id, "Collidable")
             local poly1 = ECS.getComponent(entity1Id, "PolygonShape")
             
+            -- Skip item entities entirely for physics collision resolution. Items are collected
+            -- by the magnet/collection systems and shouldn't physically collide with ships.
+            if ECS.getComponent(entity1Id, "Item") then
+                goto continue_entity1
+            end
+
             if not (pos1 and vel1 and phys1 and coll1) then
                 goto continue_entity1
             end

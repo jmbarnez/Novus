@@ -63,11 +63,17 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
     ECS.addComponent(shipId, "Acceleration", Components.Acceleration(0, 0))
     
     -- Physics
-    ECS.addComponent(shipId, "Physics", Components.Physics(
+    local physicsComp = Components.Physics(
         design.friction or 0.95,
         design.mass or 1,
         design.angularDamping or 0.95  -- Ships get controlled damping by default
-    ))
+    )
+    -- If the design specifies a thrustForce, attach it to the Physics component so systems
+    -- (input/ai) can read thrust directly from Physics without depending on design lookup.
+    if design.thrustForce then
+        physicsComp.thrustForce = design.thrustForce
+    end
+    ECS.addComponent(shipId, "Physics", physicsComp)
     
     -- Determine color based on design or controller type
     local shipColor = nil
@@ -115,20 +121,29 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
         ECS.addComponent(shipId, "Collidable", Components.Collidable(design.collisionRadius))
     end
     
-    -- Hull/Shield
+    -- Hull/Shield (scale for AI by level)
+    local level = 1
+    if controllerType == "ai" then
+        local levelComp = ECS.getComponent(shipId, "Level")
+        if levelComp and levelComp.level then
+            level = levelComp.level
+        end
+    end
+    local hullCurrent, hullMax = design.hull and design.hull.current or 0, design.hull and design.hull.max or 0
+    local shieldCurrent, shieldMax = design.shield and design.shield.current or 0, design.shield and design.shield.max or 0
+    -- Example scaling: +20% per level above 1
+    local scale = 1 + 0.2 * (level - 1)
     if design.hull then
-        ECS.addComponent(shipId, "Hull", Components.Hull(design.hull.current, design.hull.max))
+        ECS.addComponent(shipId, "Hull", Components.Hull(math.floor(hullCurrent * scale), math.floor(hullMax * scale)))
     end
     if design.shield then
         ECS.addComponent(shipId, "Shield", Components.Shield(
-            design.shield.current,
-            design.shield.max,
+            math.floor(shieldCurrent * scale),
+            math.floor(shieldMax * scale),
             design.shield.regenRate or 5,
             design.shield.regenDelay or 3
         ))
     end
-    
-    -- Hull/Shield only - no durability component
     
     -- Energy - All ships get energy component (base regeneration rate)
     ECS.addComponent(shipId, "Energy", Components.Energy(100, 100, 2))  -- 2 energy/sec base rate

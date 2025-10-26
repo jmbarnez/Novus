@@ -33,6 +33,14 @@ function EnemyBars.draw(viewportWidth, viewportHeight)
     local outlineColor = PlasmaTheme.colors.outlineBlack
     local outlineWidth = PlasmaTheme.colors.outlineThick
     
+    -- Determine player's level (pilot entity has the Player tag)
+    local playerLevel = 1
+    local playerEntities = ECS.getEntitiesWith({"Player", "Level"})
+    if #playerEntities > 0 then
+        local pl = ECS.getComponent(playerEntities[1], "Level")
+        if pl and pl.level then playerLevel = pl.level end
+    end
+
     for _, entityId in ipairs(shipEntities) do
         -- Skip player drone
         if ECS.hasComponent(entityId, "ControlledBy") then
@@ -71,8 +79,19 @@ function EnemyBars.draw(viewportWidth, viewportHeight)
             -- Level indicator (always render, default to level 1 if no level component)
             local currentLevel = level and level.level or 1
 
-            -- Red level box background
-            BatchRenderer.queueRect(levelBoxX, levelBoxY, levelBoxSize, levelBoxSize, 1, 0, 0, 0.9, 2)
+            -- Choose level box color relative to player level:
+            -- green if enemy < player, yellow if equal, red if enemy > player
+            local lr, lg, lb, la = 1, 0, 0, 0.9 -- default red
+            if currentLevel < playerLevel then
+                lr, lg, lb = 0, 1, 0 -- green
+            elseif currentLevel == playerLevel then
+                lr, lg, lb = 1, 1, 0 -- yellow
+            else
+                lr, lg, lb = 1, 0, 0 -- red
+            end
+
+            -- Level box background
+            BatchRenderer.queueRect(levelBoxX, levelBoxY, levelBoxSize, levelBoxSize, lr, lg, lb, la, 2)
 
             -- Red level box outline
             BatchRenderer.queueRectLine(levelBoxX, levelBoxY, levelBoxSize, levelBoxSize, 0, 0, 0, 1, 2, 2)

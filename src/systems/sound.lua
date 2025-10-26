@@ -69,8 +69,18 @@ function SoundSystem.play(name, opts)
     
     -- Apply volume scaling based on master and sfx volumes
     local finalVolume = (SoundSystem.volumes.master / 100) * (SoundSystem.volumes.sfx / 100)
-    if opts and opts.volume then 
-        finalVolume = finalVolume * (opts.volume / 100)
+    if opts and opts.volume then
+        -- Accept either a 0..1 fractional volume (e.g. 0.3) or a 0..100 percent (e.g. 30).
+        local v = opts.volume
+        if type(v) == "number" then
+            if v <= 1 and v >= 0 then
+                -- fractional: 0.0 - 1.0
+                finalVolume = finalVolume * v
+            else
+                -- percent-style: 0 - 100
+                finalVolume = finalVolume * (math.max(0, math.min(100, v)) / 100)
+            end
+        end
     end
     clone:setVolume(finalVolume)
     

@@ -175,6 +175,65 @@ function WorldTooltips.handleKeyPress(key)
             QuestWindow.currentStationId = closestStationId
             UISystem.setQuestWindowOpen(true)
         end
+        -- If not interacting with a station, check nearby interactables (warp gates)
+        -- Use the nearbyInteractables table populated during draw
+        local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+        local playerCargo = nil
+        if #playerEntities > 0 then
+            local pilotId = playerEntities[1]
+            local input = ECS.getComponent(pilotId, "InputControlled")
+            if input and input.targetEntity then
+                playerCargo = ECS.getComponent(input.targetEntity, "Cargo")
+            end
+        end
+
+        for entId, data in pairs(nearbyInteractables) do
+            if entId and data and ECS.hasComponent(entId, "WarpGate") then
+                local gate = ECS.getComponent(entId, "WarpGate")
+                if gate and not gate.active and data.buttonEnabled then
+                    -- Required costs (must match update logic)
+                    local requiredScrap = 100
+                    local requiredStone = 200
+                    local requiredIron = 80
+
+                    -- Remove items from cargo (use component methods if present)
+                    local removed = true
+                    if playerCargo and playerCargo.removeItem then
+                        removed = removed and playerCargo:removeItem("scrap", requiredScrap)
+                        removed = removed and playerCargo:removeItem("stone", requiredStone)
+                        removed = removed and playerCargo:removeItem("iron", requiredIron)
+                    else
+                        removed = false
+                    end
+
+                    if removed then
+                        gate.active = true
+                        -- Update tooltip immediately
+                        WorldTooltips.registerTooltip(entId, {
+                            title = "Warp Gate Active",
+                            hasResources = false,
+                            resources = {},
+                            buttonText = nil,
+                            buttonEnabled = false,
+                            triggerDistance = 800
+                        })
+                        -- Play repair sound if available
+                        local SoundSystem = require('src.systems.sound')
+                        if SoundSystem and SoundSystem.play then
+                            pcall(function() SoundSystem.play('assets/sounds/repair.ogg') end)
+                        end
+                    else
+                        -- Could show a notification for insufficient resources
+                        local Notifications = require('src.ui.notifications')
+                        if Notifications and Notifications.show then
+                            pcall(function() Notifications.show("Not enough resources to repair the gate") end)
+                        end
+                    end
+                    -- Only handle one interactable per keypress
+                    return
+                end
+            end
+        end
     end
 end
 
@@ -216,28 +275,35 @@ function WorldTooltips.drawTooltip(entityId, pos, coll, data)
     local bx = gx - boxW/2
     local by = gy - gr - boxH - 10
     
-    -- Draw tooltip background (plasma-style dark background)
-    BatchRenderer.queueRect(bx, by, boxW, boxH, Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], 1, 6)
-    
+    -- Draw tooltip background (plasma-style dark background) - immediate draw so it appears in world space
+    love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], 1)
+    love.graphics.rectangle("fill", bx, by, boxW, boxH, 6, 6)
+
     -- Draw thick plasma-style border
-    BatchRenderer.queueRectLine(bx, by, boxW, boxH, Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1, 3, 6)
-    
+    love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1)
+    love.graphics.setLineWidth(3)
+    love.graphics.rectangle("line", bx, by, boxW, boxH, 6, 6)
+
     -- Draw title with plasma accent color
-    BatchRenderer.queueText(data.title, bx + (boxW - tw) / 2, by + 8, font, Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], 1)
+    love.graphics.setFont(font)
+    love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], 1)
+    love.graphics.print(data.title, bx + (boxW - tw) / 2, by + 8)
     
     -- Draw message if provided
     local yOffset = by + th + 16
     if data.message then
         local smallFont = Theme.getFont(12)
-        BatchRenderer.queueText(data.message, bx + 16, yOffset, smallFont, Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
+        love.graphics.setFont(smallFont)
+        love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
+        love.graphics.print(data.message, bx + 16, yOffset)
         yOffset = yOffset + 16 + 8
     end
-    
+
     -- Draw resources if needed
     if data.hasResources then
         WorldTooltips.drawResources(bx, by, th, boxW, boxH, data)
     end
-    
+
     -- Draw button if provided (and not already drawn via resources)
     if data.buttonText and not data.hasResources then
         WorldTooltips.drawButton(bx, by, boxW, boxH, data)
@@ -251,63 +317,73 @@ function WorldTooltips.drawResources(bx, by, th, boxW, boxH, data)
     local smallFont = Theme.getFont(12)
     love.graphics.setFont(smallFont)
     local yOffset = by + th + 16
-    
+
     -- Draw "Required Resources:" label
-    BatchRenderer.queueText("Required Resources:", bx + 12, yOffset, smallFont, Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
+    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
+    love.graphics.print("Required Resources:", bx + 12, yOffset)
     yOffset = yOffset + 18 + 8
-    
+
     -- Draw resource list
     if data.resources then
         for i, resource in ipairs(data.resources) do
             local color = resource.hasEnough and {0.1, 0.8, 0.5, 1} or {1, 0.2, 0.5, 1}
-            BatchRenderer.queueText(string.format("%s: %d/%d", resource.name, resource.current, resource.required), bx + 16, yOffset, smallFont, color[1], color[2], color[3], 1)
+            love.graphics.setColor(color[1], color[2], color[3], color[4] or 1)
+            love.graphics.print(string.format("%s: %d/%d", resource.name, resource.current, resource.required), bx + 16, yOffset)
             yOffset = yOffset + 16
         end
     end
-    
+
     -- Draw button if provided
     if data.buttonText then
-        local buttonW = 200
-        local buttonH = 30
+        local buttonW = 260
+        local buttonH = 38
         local buttonX = bx + (boxW - buttonW) / 2
         local buttonY = by + boxH - buttonH - 8
-        
-        local buttonBgColor = data.buttonEnabled and Theme.colors.buttonYes or Theme.colors.bgMedium
-        local buttonTextColor = data.buttonEnabled and Theme.colors.textPrimary or Theme.colors.textMuted
-        
-        -- Draw button background
-        BatchRenderer.queueRect(buttonX, buttonY, buttonW, buttonH, buttonBgColor[1], buttonBgColor[2], buttonBgColor[3], 1, 4)
-        
-        -- Draw button border
-        BatchRenderer.queueRectLine(buttonX, buttonY, buttonW, buttonH, Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1, 2, 4)
-        
-        -- Draw button text
-        local font = Theme.getFont(16)
-        local buttonTextW = font:getWidth(data.buttonText)
-        BatchRenderer.queueText(data.buttonText, buttonX + (buttonW - buttonTextW) / 2, buttonY + (buttonH - font:getHeight()) / 2, font, buttonTextColor[1], buttonTextColor[2], buttonTextColor[3], 1)
+
+        -- Draw using theme button for consistent style and hover
+        local mx, my = love.mouse.getPosition()
+        local Scaling = require('src.scaling')
+        local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+        local isHovered = false
+        if #cameraEntities > 0 then
+            local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
+            local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
+            local wx, wy = Scaling.toWorld(mx, my, cameraComp, cameraPos)
+            isHovered = mx and my and wx >= buttonX and wx <= buttonX + buttonW and wy >= buttonY and wy <= buttonY + buttonH
+        end
+        Theme.drawButton(
+            buttonX, buttonY, buttonW, buttonH, data.buttonText, isHovered,
+            data.buttonEnabled and Theme.colors.buttonYes or Theme.colors.bgMedium,
+            data.buttonEnabled and Theme.colors.buttonYesHover or Theme.colors.bgMedium,
+            {textColor = data.buttonEnabled and Theme.colors.textPrimary or Theme.colors.textMuted, font = Theme.getFont(18)}
+        )
     end
 end
 
 -- Draw button helper function
 function WorldTooltips.drawButton(bx, by, boxW, boxH, data)
-    local buttonW = 200
-    local buttonH = 30
+    local buttonW = 260
+    local buttonH = 38
     local buttonX = bx + (boxW - buttonW) / 2
     local buttonY = by + boxH - buttonH - 8
-    
-    local buttonBgColor = data.buttonEnabled and Theme.colors.buttonYes or Theme.colors.bgMedium
-    local buttonTextColor = data.buttonEnabled and Theme.colors.textPrimary or Theme.colors.textMuted
-    
-    -- Draw button background
-    BatchRenderer.queueRect(buttonX, buttonY, buttonW, buttonH, buttonBgColor[1], buttonBgColor[2], buttonBgColor[3], 1, 4)
-    
-    -- Draw button border
-    BatchRenderer.queueRectLine(buttonX, buttonY, buttonW, buttonH, Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1, 2, 4)
-    
-    -- Draw button text
-    local font = Theme.getFont(16)
-    local buttonTextW = font:getWidth(data.buttonText)
-    BatchRenderer.queueText(data.buttonText, buttonX + (buttonW - buttonTextW) / 2, buttonY + (buttonH - font:getHeight()) / 2, font, buttonTextColor[1], buttonTextColor[2], buttonTextColor[3], 1)
+
+    -- Draw using theme button for consistent style and hover
+    local mx, my = love.mouse.getPosition()
+    local Scaling = require('src.scaling')
+    local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+    local isHovered = false
+    if #cameraEntities > 0 then
+        local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
+        local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
+        local wx, wy = Scaling.toWorld(mx, my, cameraComp, cameraPos)
+        isHovered = mx and my and wx >= buttonX and wx <= buttonX + buttonW and wy >= buttonY and wy <= buttonY + buttonH
+    end
+    Theme.drawButton(
+        buttonX, buttonY, buttonW, buttonH, data.buttonText, isHovered,
+        data.buttonEnabled and Theme.colors.buttonYes or Theme.colors.bgMedium,
+        data.buttonEnabled and Theme.colors.buttonYesHover or Theme.colors.bgMedium,
+        {textColor = data.buttonEnabled and Theme.colors.textPrimary or Theme.colors.textMuted, font = Theme.getFont(18)}
+    )
 end
 
 -- Handle mouse clicks on world tooltips
@@ -315,12 +391,94 @@ function WorldTooltips.handleClick(mx, my, button)
     -- Convert screen coordinates to world coordinates
     local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
     if #cameraEntities == 0 then return false end
-    
+
     local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
     local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
-    
     if not cameraComp or not cameraPos then return false end
-    
+
+    local Scaling = require('src.scaling')
+    local wx, wy = Scaling.toWorld(mx, my, cameraComp, cameraPos)
+
+    -- Check all nearby interactables for a button click
+    for entId, data in pairs(nearbyInteractables) do
+        if data.buttonText then
+            -- Button geometry must match drawResources/drawButton
+            local pos = ECS.getComponent(entId, "Position")
+            local coll = ECS.getComponent(entId, "Collidable")
+            if pos and coll then
+                local gx, gy, gr = pos.x, pos.y, coll.radius or 80
+                local font = Theme.getFont(16)
+                local tw = font:getWidth(data.title)
+                local boxW = math.max(tw + 32, 260)
+                local boxH = font:getHeight() + 16
+                if data.message then
+                    local smallFont = Theme.getFont(12)
+                    boxH = boxH + 16 + 8
+                end
+                if data.hasResources then
+                    boxH = boxH + 18 + 8 + 48 + 12 + 30 + 8
+                end
+                if data.buttonText then
+                    boxH = boxH + 30 + 8
+                end
+                local bx = gx - boxW/2
+                local by = gy - gr - boxH - 10
+                local buttonW = 260
+                local buttonH = 38
+                local buttonX = bx + (boxW - buttonW) / 2
+                local buttonY = by + boxH - buttonH - 8
+                if wx >= buttonX and wx <= buttonX + buttonW and wy >= buttonY and wy <= buttonY + buttonH then
+                    if data.buttonEnabled then
+                        -- Simulate E-key repair logic
+                        local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+                        local playerCargo = nil
+                        if #playerEntities > 0 then
+                            local pilotId = playerEntities[1]
+                            local input = ECS.getComponent(pilotId, "InputControlled")
+                            if input and input.targetEntity then
+                                playerCargo = ECS.getComponent(input.targetEntity, "Cargo")
+                            end
+                        end
+                        local gate = ECS.getComponent(entId, "WarpGate")
+                        if gate and not gate.active then
+                            local requiredScrap = 100
+                            local requiredStone = 200
+                            local requiredIron = 80
+                            local removed = true
+                            if playerCargo and playerCargo.removeItem then
+                                removed = removed and playerCargo:removeItem("scrap", requiredScrap)
+                                removed = removed and playerCargo:removeItem("stone", requiredStone)
+                                removed = removed and playerCargo:removeItem("iron", requiredIron)
+                            else
+                                removed = false
+                            end
+                            if removed then
+                                gate.active = true
+                                WorldTooltips.registerTooltip(entId, {
+                                    title = "Warp Gate Active",
+                                    hasResources = false,
+                                    resources = {},
+                                    buttonText = nil,
+                                    buttonEnabled = false,
+                                    triggerDistance = 800
+                                })
+                                local SoundSystem = require('src.systems.sound')
+                                if SoundSystem and SoundSystem.play then
+                                    pcall(function() SoundSystem.play('assets/sounds/repair.ogg') end)
+                                end
+                            else
+                                local Notifications = require('src.ui.notifications')
+                                if Notifications and Notifications.show then
+                                    pcall(function() Notifications.show("Not enough resources to repair the gate") end)
+                                end
+                            end
+                        end
+                    end
+                    return true
+                end
+            end
+        end
+    end
     return false
 end
 

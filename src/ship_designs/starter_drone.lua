@@ -114,9 +114,10 @@ return {
 
     -- Physics (light and responsive)
     friction = 0.9999, -- Space has no air resistance, nearly 1.0 for realistic coasting
-    mass = 5, -- Very light for a ship (projectiles are 0.5, asteroids are 50-500)
+    mass = 50, -- Reduced for better acceleration (asteroids are 200-1800)
     angularDamping = 0.95, -- Ships damp rotation faster (more control)
 
+    thrustForce = 2000, -- Greatly increased thrust for high acceleration
     -- Equipment (modular utility setup)
     turretSlots = 1,
     defaultTurret = "",

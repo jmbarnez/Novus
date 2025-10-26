@@ -149,6 +149,10 @@ end
 
 -- Level component - Tracks entity level (enemies, players, etc.)
 -- @field level number: Entity level (1-10, higher = more difficult/powerful)
+--
+-- Both player and enemy AI entities use this component.
+-- Enemy stats (hull, shield, etc.) are scaled by level automatically in ShipLoader.createShip.
+-- Player level can be used for future scaling, progression, or stat bonuses.
 Components.Level = function(level)
     return {
         level = level or 1
