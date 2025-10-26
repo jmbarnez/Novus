@@ -1,32 +1,22 @@
 ---@diagnostic disable: undefined-global
 -- Parallax starfield module
 local Constants = require('src.constants')
+local ECS = require('src.ecs')
+
 local Parallax = {}
 
-function Parallax.new(layers, worldSize)
-    local parallax = {
-        layers = {},
-        nebula = {},
-        worldSize = worldSize or 10000,
-        -- Allow caller to opt-out of nebula rendering (default: enabled)
-        nebulaEnabled = false
-    }
-    
-    -- Initialize nebula shader immediately to avoid mid-render creation
-    parallax.nebula.shaderEnabled = false
-    if love.graphics and love.graphics.newShader then
-        local nebulaShaderCode = [[
+local nebulaShaderCode = [[
             extern vec2 resolution;
             extern number time;
             extern vec2 cameraOffset;
             extern float cloudScale;
             extern float nebulaDim;
-            
+
             // Simplex-like noise approximation
             vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
             vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
             vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
-            
+
             float snoise(vec2 v) {
                 const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
                 vec2 i  = floor(v + dot(v, C.yy));
@@ -48,7 +38,7 @@ function Parallax.new(layers, worldSize)
                 g.yz = a0.yz * x12.xz + h.yz * x12.yw;
                 return 130.0 * dot(m, g);
             }
-            
+
             // Multi-octave noise for wispy clouds
             float fbm(vec2 p) {
                 float value = 0.0;
@@ -61,40 +51,40 @@ function Parallax.new(layers, worldSize)
                 }
                 return value;
             }
-            
+
             vec4 effect(vec4 color, Image tex, vec2 tc, vec2 pc)
             {
                 // World position with parallax
                 vec2 worldPos = (pc - resolution * 0.5) * 0.8 + cameraOffset * 0.02;
-                
+
                 // Multiple noise layers for realistic nebula
                 float scale = 0.0008 * (cloudScale > 0.0 ? cloudScale : 1.0);
                 float n1 = fbm(worldPos * scale);
                 float n2 = fbm(worldPos * scale * 1.8 + vec2(100.0, 50.0));
                 float n3 = fbm(worldPos * scale * 3.2 + vec2(200.0, 150.0));
-                
+
                 // Combine noise layers to create wispy tendrils
                 float density = n1 * 0.4 + n2 * 0.25 + n3 * 0.15;
                 density = smoothstep(0.0, 0.8, density);
-                
+
                 // Add turbulence for more detail (reduced animation speed)
                 float turbulence = snoise(worldPos * scale * 5.0 + time * 0.01) * 0.15;
                 density += turbulence;
-                
+
                 // Vertical gradient (thinner at top/bottom)
                 float verticalGradient = 1.0 - abs(tc.y - 0.5) * 2.0;
                 verticalGradient = smoothstep(0.2, 0.8, verticalGradient);
                 density *= verticalGradient;
-                
+
                 // Color variations (blue to cyan-green nebula)
                 vec3 color1 = vec3(0.1, 0.3, 0.95);  // Deep blue
                 vec3 color2 = vec3(0.08, 0.85, 0.6); // Cyan-green
                 vec3 color3 = vec3(0.3, 0.6, 1.0);   // Light blue
-                
+
                 float colorMix = snoise(worldPos * scale * 0.5) * 0.5 + 0.5;
                 vec3 nebulaColor = mix(color1, color2, colorMix);
                 nebulaColor = mix(nebulaColor, color3, n3 * 0.5 + 0.5);
-                
+
                 // Final nebula with stronger visibility (scaled by nebulaDim)
                 float alpha = density * 0.12 * nebulaDim; // stronger base alpha
                 // Boost color by nebulaDim for richer tones
@@ -102,25 +92,46 @@ function Parallax.new(layers, worldSize)
                 return vec4(finalColor, alpha);
             }
         ]]
+
+local function setupNebulaResources(parallax)
+    parallax.nebula = parallax.nebula or {}
+    parallax.nebula.shaderEnabled = false
+
+    if love.graphics and love.graphics.newShader then
         local ok, shader = pcall(love.graphics.newShader, nebulaShaderCode)
         if ok and shader then
             parallax.nebula.shaderEnabled = true
             parallax.nebula.shader = shader
-            -- Initialize shader uniforms immediately
-            local winW = love.graphics.getWidth()
-            local winH = love.graphics.getHeight()
-            shader:send('resolution', {winW, winH})
+            if love.graphics.getWidth and love.graphics.getHeight then
+                local winW = love.graphics.getWidth()
+                local winH = love.graphics.getHeight()
+                shader:send('resolution', {winW, winH})
+            end
             shader:send('time', 0)
             shader:send('cameraOffset', {0, 0})
             shader:send('cloudScale', 1.0)
             shader:send('nebulaDim', 0.55)
         end
     end
-    
-    -- Create dummy canvas for shader (needs a texture)
-    if parallax.nebula.shaderEnabled then
+
+    if parallax.nebula.shaderEnabled and love.graphics and love.graphics.newCanvas then
         parallax.nebula.dummyCanvas = love.graphics.newCanvas(2, 2)
+    else
+        parallax.nebula.dummyCanvas = nil
     end
+end
+
+
+function Parallax.new(layers, worldSize)
+    local parallax = {
+        layers = {},
+        nebula = {},
+        worldSize = worldSize or 10000,
+        -- Allow caller to opt-out of nebula rendering (default: enabled)
+        nebulaEnabled = false
+    }
+    
+    setupNebulaResources(parallax)
     
     for i, layer in ipairs(layers) do
         parallax.layers[i] = {
@@ -402,5 +413,115 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
     -- Restore no shader (clean state for caller)
     love.graphics.setShader()
 end
+
+function Parallax.serialize(parallax)
+    if not parallax then return nil end
+
+    local data = {
+        worldSize = parallax.worldSize,
+        nebulaEnabled = parallax.nebulaEnabled,
+        layers = {}
+    }
+
+    for i, layer in ipairs(parallax.layers or {}) do
+        local layerData = {
+            parallaxFactor = layer.parallaxFactor,
+            brightness = layer.brightness,
+            count = layer.count,
+            stars = {},
+            nebulaClouds = {}
+        }
+
+        for _, star in ipairs(layer.stars or {}) do
+            table.insert(layerData.stars, {
+                x = star.x,
+                y = star.y,
+                size = star.size,
+                brightness = star.brightness,
+                baseBrightness = star.baseBrightness,
+                r = star.r,
+                g = star.g,
+                b = star.b,
+                twinkleSpeed = star.twinkleSpeed,
+                twinkleAmplitude = star.twinkleAmplitude,
+                twinklePhase = star.twinklePhase,
+            })
+        end
+
+        for _, cloud in ipairs(layer.nebulaClouds or {}) do
+            table.insert(layerData.nebulaClouds, {
+                x = cloud.x,
+                y = cloud.y,
+                scale = cloud.scale,
+                opacity = cloud.opacity,
+            })
+        end
+
+        data.layers[i] = layerData
+    end
+
+    return data
+end
+
+function Parallax.deserialize(data)
+    if not data then return nil end
+
+    local parallax = {
+        layers = {},
+        nebula = {},
+        worldSize = data.worldSize or 10000,
+        nebulaEnabled = data.nebulaEnabled,
+    }
+
+    setupNebulaResources(parallax)
+
+    for i, layerData in ipairs(data.layers or {}) do
+        local layer = {
+            parallaxFactor = layerData.parallaxFactor,
+            brightness = layerData.brightness,
+            count = layerData.count,
+            stars = {},
+            nebulaClouds = {},
+        }
+
+        for _, star in ipairs(layerData.stars or {}) do
+            table.insert(layer.stars, {
+                x = star.x,
+                y = star.y,
+                size = star.size,
+                brightness = star.brightness,
+                baseBrightness = star.baseBrightness,
+                r = star.r,
+                g = star.g,
+                b = star.b,
+                twinkleSpeed = star.twinkleSpeed,
+                twinkleAmplitude = star.twinkleAmplitude,
+                twinklePhase = star.twinklePhase,
+            })
+        end
+
+        for _, cloud in ipairs(layerData.nebulaClouds or {}) do
+            table.insert(layer.nebulaClouds, {
+                x = cloud.x,
+                y = cloud.y,
+                scale = cloud.scale,
+                opacity = cloud.opacity,
+            })
+        end
+
+        parallax.layers[i] = layer
+    end
+
+    return parallax
+end
+
+ECS.registerComponentSerializer("StarField", {
+    serialize = function(_, component)
+        return Parallax.serialize(component)
+    end,
+    deserialize = function(_, data)
+        return Parallax.deserialize(data)
+    end,
+})
 
 return Parallax

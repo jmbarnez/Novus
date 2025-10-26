@@ -365,27 +365,29 @@ function GameInit.spawnEnemies()
 end
 
 -- Main initialization function
+function GameInit.bootstrapEnvironment(options)
+    options = options or {}
+
+    Scaling.update()
+    ShaderManager.init()
+    GameInit.initPools()
+    Procedural.init()
+    GameInit.registerSystems()
+    WorldLoader.loadAllWorlds("src.worlds")
+
+    if options.skipAsteroidInit then
+        if AsteroidClusters.clear then
+            AsteroidClusters.clear()
+        end
+    else
+        AsteroidClusters.init()
+    end
+end
+
 function GameInit.init()
     print("=== NOVUS Loading ===")
-    Scaling.update()
-    
-    -- Initialize shader manager
-    ShaderManager.init()
 
-    -- Initialize entity pools
-    GameInit.initPools()
-
-    -- Initialize procedural generation system
-    Procedural.init()
-
-    -- Register all ECS systems
-    GameInit.registerSystems()
-
-    -- Load world definitions
-    WorldLoader.loadAllWorlds("src.worlds")
-    
-    -- Initialize asteroid cluster system (will be overridden by world)
-    AsteroidClusters.init()
+    GameInit.bootstrapEnvironment()
 
     -- Create core entities
     local pilotId = GameInit.createCoreEntities()

@@ -4,6 +4,10 @@
 
 local ECS = {}
 
+-- Custom serialization handlers per component type
+local componentSerializers = {}
+local componentDeserializers = {}
+
 -- Unique ID generator for entities
 local nextEntityId = 1
 
@@ -25,6 +29,51 @@ local systems = {}
 
 -- System execution order is now determined by system priority
 local systemOrder = nil -- Will be computed after all systems are registered
+
+-- Utility: deep copy tables while skipping functions/userdata
+local function deepCopy(value, visited)
+    local valueType = type(value)
+    if valueType ~= "table" then
+        if valueType == "function" or valueType == "userdata" or valueType == "thread" then
+            return nil
+        end
+        return value
+    end
+
+    visited = visited or {}
+    if visited[value] then
+        return visited[value]
+    end
+
+    local copy = {}
+    visited[value] = copy
+
+    for k, v in pairs(value) do
+        local newKey = deepCopy(k, visited)
+        local newValue = deepCopy(v, visited)
+        if newKey ~= nil and newValue ~= nil then
+            copy[newKey] = newValue
+        end
+    end
+
+    return copy
+end
+
+-- Allow systems/components to provide custom serialization logic
+function ECS.registerComponentSerializer(componentType, handlers)
+    if type(componentType) ~= "string" then
+        error("componentType must be a string")
+    end
+    handlers = handlers or {}
+    if handlers.serialize and type(handlers.serialize) ~= "function" then
+        error("serialize handler must be a function")
+    end
+    if handlers.deserialize and type(handlers.deserialize) ~= "function" then
+        error("deserialize handler must be a function")
+    end
+    componentSerializers[componentType] = handlers.serialize
+    componentDeserializers[componentType] = handlers.deserialize
+end
 
 -- Create a new entity
 -- @return entityId number: Unique identifier for the entity
@@ -428,6 +477,82 @@ function ECS.debugCanvasEntities()
         end
     end
     print("Total Canvas entities: " .. canvasCount)
+end
+
+-- Serialize the ECS state into a plain Lua table
+function ECS.serialize()
+    local state = {
+        nextEntityId = nextEntityId,
+        recycledEntityIds = deepCopy(recycledEntityIds),
+        entities = {},
+    }
+
+    for entityId, componentSet in pairs(entities) do
+        local entityComponents = {}
+        for componentType in pairs(componentSet) do
+            local componentStore = components[componentType]
+            if componentStore then
+                local componentData = componentStore[entityId]
+                if componentData then
+                    local serializer = componentSerializers[componentType]
+                    local serialized
+                    if serializer then
+                        serialized = serializer(entityId, componentData)
+                    else
+                        serialized = deepCopy(componentData)
+                    end
+                    if serialized ~= nil then
+                        entityComponents[componentType] = serialized
+                    end
+                end
+            end
+        end
+        if next(entityComponents) ~= nil then
+            state.entities[entityId] = entityComponents
+        end
+    end
+
+    return state
+end
+
+-- Restore ECS state from serialized data
+function ECS.deserialize(state)
+    if type(state) ~= "table" then
+        error("Invalid ECS state: expected table")
+    end
+
+    entities = {}
+    components = {}
+    componentIndex = {}
+    nextEntityId = state.nextEntityId or 1
+    recycledEntityIds = deepCopy(state.recycledEntityIds or {}) or {}
+
+    for entityId, componentMap in pairs(state.entities or {}) do
+        local numericId = tonumber(entityId) or entityId
+        entities[numericId] = {}
+        for componentType, componentData in pairs(componentMap) do
+            if not components[componentType] then
+                components[componentType] = {}
+                componentIndex[componentType] = {}
+            end
+
+            local deserializer = componentDeserializers[componentType]
+            local restored
+            if deserializer then
+                restored = deserializer(numericId, componentData)
+            else
+                restored = deepCopy(componentData)
+            end
+
+            if restored ~= nil then
+                components[componentType][numericId] = restored
+                componentIndex[componentType][numericId] = true
+                entities[numericId][componentType] = true
+            end
+        end
+    end
+
+    systemOrder = nil
 end
 
 return ECS

@@ -10,7 +10,8 @@ local AsteroidClusters = require('src.systems.asteroid_clusters')
 
 local WorldLoader = {
     worlds = {},
-    currentWorld = nil
+    currentWorld = nil,
+    currentWorldId = nil
 }
 
 -- Load a single world definition file
@@ -57,8 +58,9 @@ function WorldLoader.initWorld(worldId)
     if not world then
         error("World not found: " .. worldId)
     end
-    
+
     WorldLoader.currentWorld = world
+    WorldLoader.currentWorldId = worldId
     
     -- Set random seed if provided
     if world.seed then
@@ -134,6 +136,21 @@ function WorldLoader.initWorld(worldId)
             SpawnCollisionUtils.registerEntity(stationId, stationPos.x, stationPos.y, stationColl.radius, "station")
         end
     end
+end
+
+function WorldLoader.getCurrentWorldId()
+    return WorldLoader.currentWorldId
+end
+
+function WorldLoader.setCurrentWorld(worldId)
+    if not worldId then
+        WorldLoader.currentWorld = nil
+        WorldLoader.currentWorldId = nil
+        return
+    end
+    local world = WorldLoader.getWorld(worldId)
+    WorldLoader.currentWorld = world
+    WorldLoader.currentWorldId = worldId
 end
 
 -- Initialize asteroid clusters for a world

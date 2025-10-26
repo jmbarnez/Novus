@@ -25,6 +25,26 @@ function _G.Game.returnToMainMenu()
     end
 end
 
+function _G.Game.save(slotName)
+    return Core.saveGame(slotName)
+end
+
+function _G.Game.load(slotName)
+    local ok, err = Core.loadGame(slotName)
+    if ok then
+        gameState = "game"
+    end
+    return ok, err
+end
+
+function _G.Game.loadSnapshot(snapshot)
+    local ok, err = Core.loadSnapshot(snapshot)
+    if ok then
+        gameState = "game"
+    end
+    return ok, err
+end
+
 -- Love2D callback functions - delegate to core module
 
 function love.load()

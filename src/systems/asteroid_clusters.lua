@@ -365,4 +365,77 @@ function AsteroidClusters.getClusterForAsteroid(asteroidId)
     return nil
 end
 
+function AsteroidClusters.clear()
+    clusters = {}
+    nextClusterId = 1
+end
+
+function AsteroidClusters.serialize()
+    local data = {
+        nextClusterId = nextClusterId,
+        clusters = {}
+    }
+
+    for id, cluster in pairs(clusters) do
+        local clusterCopy = {
+            id = cluster.id,
+            centerX = cluster.centerX,
+            centerY = cluster.centerY,
+            radius = cluster.radius,
+            maxAsteroids = cluster.maxAsteroids,
+            respawnTimer = cluster.respawnTimer,
+            asteroids = {},
+            respawnQueue = {}
+        }
+
+        for _, asteroidId in ipairs(cluster.asteroids or {}) do
+            table.insert(clusterCopy.asteroids, asteroidId)
+        end
+
+        for _, entry in ipairs(cluster.respawnQueue or {}) do
+            table.insert(clusterCopy.respawnQueue, {
+                clusterId = entry.clusterId,
+                spawnTime = entry.spawnTime,
+            })
+        end
+
+        data.clusters[id] = clusterCopy
+    end
+
+    return data
+end
+
+function AsteroidClusters.deserialize(data)
+    AsteroidClusters.clear()
+    if not data then return end
+
+    nextClusterId = data.nextClusterId or nextClusterId
+
+    for id, clusterData in pairs(data.clusters or {}) do
+        local cluster = {
+            id = clusterData.id or id,
+            centerX = clusterData.centerX,
+            centerY = clusterData.centerY,
+            radius = clusterData.radius,
+            maxAsteroids = clusterData.maxAsteroids,
+            respawnTimer = clusterData.respawnTimer or 0,
+            asteroids = {},
+            respawnQueue = {}
+        }
+
+        for _, asteroidId in ipairs(clusterData.asteroids or {}) do
+            table.insert(cluster.asteroids, asteroidId)
+        end
+
+        for _, entry in ipairs(clusterData.respawnQueue or {}) do
+            table.insert(cluster.respawnQueue, {
+                clusterId = entry.clusterId,
+                spawnTime = entry.spawnTime,
+            })
+        end
+
+        clusters[id] = cluster
+    end
+end
+
 return AsteroidClusters

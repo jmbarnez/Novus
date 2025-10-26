@@ -124,3 +124,24 @@ Components.Wallet = function(credits)
 end
 
 return Components
+
+local ECS = require('src.ecs')
+
+ECS.registerComponentSerializer("Cargo", {
+    serialize = function(_, component)
+        local itemsCopy = {}
+        for id, quantity in pairs(component.items or {}) do
+            itemsCopy[id] = quantity
+        end
+        return {
+            items = itemsCopy,
+            capacity = component.capacity,
+            currentVolume = component.currentVolume,
+        }
+    end,
+    deserialize = function(_, data)
+        local component = Components.Cargo(data.items or {}, data.capacity)
+        component.currentVolume = data.currentVolume or component.currentVolume
+        return component
+    end,
+})

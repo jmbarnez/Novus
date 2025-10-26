@@ -133,5 +133,28 @@ function TimeManager.setUpdateRate(hz)
     TimeManager.config.fixedDt = 1 / hz
 end
 
+function TimeManager.serialize()
+    local data = {}
+    for k, v in pairs(TimeManager.config) do
+        data[k] = v
+    end
+    return data
+end
+
+function TimeManager.deserialize(data)
+    if type(data) ~= "table" then
+        TimeManager.init()
+        return
+    end
+
+    for k, v in pairs(TimeManager.config) do
+        if data[k] ~= nil then
+            TimeManager.config[k] = data[k]
+        else
+            TimeManager.config[k] = v
+        end
+    end
+end
+
 return TimeManager
 
