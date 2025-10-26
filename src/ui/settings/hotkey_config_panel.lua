@@ -48,7 +48,7 @@ function HotkeyConfigPanel:initialize(position, width, contentScrollY)
             key = hotkey.key,
             x = position.x,
             y = position.y + hotkeyStartY + (i - 1) * (buttonHeight + buttonSpacing) - contentScrollY,
-            width = width - 80,  -- Leave space for scroll bar
+            width = self.width,
             height = buttonHeight
         })
     end
@@ -70,7 +70,7 @@ function HotkeyConfigPanel:updatePositions(position, contentScrollY)
     for i, button in ipairs(self.buttons) do
         button.x = position.x
         button.y = position.y + hotkeyStartY + (i - 1) * (buttonHeight + buttonSpacing) - contentScrollY
-        button.width = self.width - 80  -- Leave space for scroll bar
+        button.width = self.width
     end
 end
 
