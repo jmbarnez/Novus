@@ -112,7 +112,8 @@ function WindowBase:drawCloseButton(x, y, alpha, mx, my)
     alpha = alpha or 1
     local border = 3
     local closeSize = 18
-    local closeX = x + self.width - closeSize - 8 - border
+    local closePadding = 6
+    local closeX = x + self.width - closeSize - closePadding - border
     local closeY = y + border + (Theme.window.topBarHeight - 2*border - closeSize) / 2
 
     -- Use provided mouse coords if passed in (to avoid repeated calls per window)
@@ -124,15 +125,33 @@ function WindowBase:drawCloseButton(x, y, alpha, mx, my)
         end
     end
 
-    local closeHover = mx >= closeX and mx <= closeX + closeSize and my >= closeY and my <= closeY + closeSize
-    -- Minimal X: black by default, red on hover, no background
-    local xColor = closeHover and {1,0.15,0.15,alpha} or {0,0,0,alpha}
+    local closeHover = mx >= closeX - 4 and mx <= closeX + closeSize + 4 and my >= closeY - 2 and my <= closeY + closeSize + 6
+
+    local function setColor(color, multiplier)
+        love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha * (multiplier or 1))
+    end
+
+    local backX = closeX - 6
+    local backY = closeY - 4
+    local backW = closeSize + 12
+    local backH = closeSize + 8
+
+    -- Plasma tinted backdrop behind the X
+    setColor(Theme.colors.buttonClose, closeHover and 0.7 or 0.35)
+    love.graphics.rectangle('fill', backX, backY, backW, backH, 6, 6)
+
+    setColor(Theme.colors.borderDark, closeHover and 0.9 or 0.6)
+    love.graphics.setLineWidth(1.5)
+    love.graphics.rectangle('line', backX, backY, backW, backH, 6, 6)
+
+    local xColor = closeHover and Theme.colors.buttonCloseHover or Theme.colors.textPrimary
+    setColor(xColor, closeHover and 1.0 or 0.8)
     love.graphics.setLineWidth(2)
-    love.graphics.setColor(xColor)
-    love.graphics.line(closeX+4, closeY+4, closeX+closeSize-4, closeY+closeSize-4)
-    love.graphics.line(closeX+closeSize-4, closeY+4, closeX+4, closeY+closeSize-4)
+    love.graphics.line(closeX + 4, closeY + 4, closeX + closeSize - 4, closeY + closeSize - 4)
+    love.graphics.line(closeX + closeSize - 4, closeY + 4, closeX + 4, closeY + closeSize - 4)
     love.graphics.setLineWidth(1)
-    self.closeButtonRect = {x = closeX, y = closeY, w = closeSize, h = closeSize}
+
+    self.closeButtonRect = {x = backX, y = backY, w = backW, h = backH}
 end
 
 function WindowBase:mousereleased(x, y, button)
@@ -152,27 +171,83 @@ end
 
 function WindowBase:draw(viewportWidth, viewportHeight, uiMx, uiMy)
     if not self.isOpen or not self.position then return end
+
+    love.graphics.push('all')
+
     local x = self.position.x
     local y = self.position.y
     local w = self.width
     local h = self.height
     local topBarH = Theme.window.topBarHeight
     local bottomBarH = Theme.window.bottomBarHeight
-    local border = 3
+    local radius = Theme.window.cornerRadius or 12
+    local padding = Theme.window.framePadding or 6
+    local alpha = self.animAlpha or 1
 
-    -- Draw window border
-    love.graphics.setColor(1, 1, 1, 1)
-    Theme.draw3DBorder(x, y, w, h)
+    local function setColor(color, multiplier)
+        love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha * (multiplier or 1))
+    end
 
-    -- Divider line below top bar (thick plasma style)
-    love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1)
-    love.graphics.setLineWidth(2)
-    love.graphics.line(x+border, y+topBarH, x+w-border, y+topBarH)
+    -- Base plasma frame with rounded corners and neon rim
+    Theme.draw3DBorder(x, y, w, h, Theme.window.borderThickness, {
+        alpha = alpha,
+        cornerRadius = radius,
+        rimInset = 3,
+        highlightInset = padding + 2,
+    })
 
-    -- Divider line above bottom bar (thick plasma style)
-    love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1)
-    love.graphics.line(x+border, y+h-bottomBarH, x+w-border, y+h-bottomBarH)
-    love.graphics.setLineWidth(1)
+    -- Soft interior glow to keep the sci-fi look consistent with the pause menu
+    if w > padding * 2 and h > padding * 2 then
+        setColor(Theme.colors.highlightBright, 0.6)
+        love.graphics.rectangle(
+            'line',
+            x + padding,
+            y + padding,
+            w - padding * 2,
+            h - padding * 2,
+            math.max(0, radius - padding),
+            math.max(0, radius - padding)
+        )
+    end
+
+    -- Top bar background & accent line
+    if topBarH and topBarH > 0 then
+        local barHeight = math.max(0, topBarH - 4)
+        setColor(Theme.colors.bgMedium, 0.95)
+        love.graphics.rectangle('fill', x + 4, y + 4, w - 8, barHeight, math.max(0, radius - 4), math.max(0, radius - 4))
+
+        if w > 24 then
+            setColor(Theme.colors.borderNeon, 0.65)
+            love.graphics.rectangle('fill', x + 12, y + topBarH - 2, w - 24, 2, 1, 1)
+        end
+
+        if w > 8 then
+            setColor(Theme.colors.highlightBright, 1.1)
+            love.graphics.rectangle('fill', x + 4, y + 4, w - 8, 2, math.max(0, radius - 4), math.max(0, radius - 4))
+        end
+    end
+
+    -- Bottom bar background & accent line
+    if bottomBarH and bottomBarH > 0 then
+        local barHeight = math.max(0, bottomBarH - 4)
+        setColor(Theme.colors.bgMedium, 0.9)
+        love.graphics.rectangle(
+            'fill',
+            x + 4,
+            y + h - bottomBarH,
+            w - 8,
+            barHeight,
+            math.max(0, radius - 4),
+            math.max(0, radius - 4)
+        )
+
+        if w > 24 then
+            setColor(Theme.colors.borderNeon, 0.35)
+            love.graphics.rectangle('fill', x + 12, y + h - bottomBarH + 2, w - 24, 2, 1, 1)
+        end
+    end
+
+    love.graphics.pop()
 end
 
 -- Helper for sign
