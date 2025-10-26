@@ -131,15 +131,24 @@ function Scaling.toWorld(screenX, screenY, cameraComp, cameraPos)
 end
 
 function Scaling.getCurrentResolution()
-    return love.graphics.getWidth(), love.graphics.getHeight()
+    if love and love.graphics and love.graphics.getWidth and love.graphics.getHeight then
+        return love.graphics.getWidth(), love.graphics.getHeight()
+    end
+    return Scaling.REFERENCE_WIDTH, Scaling.REFERENCE_HEIGHT
 end
 
 function Scaling.getCurrentWidth()
-    return love.graphics.getWidth()
+    if love and love.graphics and love.graphics.getWidth then
+        return love.graphics.getWidth()
+    end
+    return Scaling.REFERENCE_WIDTH
 end
 
 function Scaling.getCurrentHeight()
-    return love.graphics.getHeight()
+    if love and love.graphics and love.graphics.getHeight then
+        return love.graphics.getHeight()
+    end
+    return Scaling.REFERENCE_HEIGHT
 end
 
 return Scaling
