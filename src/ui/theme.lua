@@ -178,13 +178,16 @@ function Theme.draw3DBorder(x, y, w, h, depth, opts)
 end
 
 -- Helper function to draw standard button (clean boxy style)
-function Theme.drawButton(x, y, w, h, text, isHovered, buttonColor, buttonColorHover)
+function Theme.drawButton(x, y, w, h, text, isHovered, buttonColor, buttonColorHover, opts)
     -- Use standard button colors as defaults if none provided
     local baseColor = buttonColor or Theme.colors.bgMedium
     local hoverColor = buttonColorHover or Theme.colors.buttonHover
+    opts = opts or {}
     HoverSound.update(makeHoverId("button", x, y, w, h, text), isHovered, {
-        bounds = {x = x, y = y, w = w, h = h},
-        space = "screen",
+        bounds = opts.bounds or {x = x, y = y, w = w, h = h},
+        space = opts.space or "screen",
+        clickSoundOpts = opts.clickSoundOpts,
+        hoverSoundOpts = opts.hoverSoundOpts,
     })
 
     -- Background (sharp corners for boxy look)
@@ -202,12 +205,14 @@ function Theme.drawButton(x, y, w, h, text, isHovered, buttonColor, buttonColorH
     love.graphics.setLineWidth(1)
 
     -- Text (centered)
-    love.graphics.setColor(Theme.colors.textPrimary)
-    local font = Theme.getFont(Theme.fonts.normal)
+    local textColor = opts.textColor or Theme.colors.textPrimary
+    love.graphics.setColor(textColor[1], textColor[2], textColor[3], (textColor[4] or 1))
+
+    local font = opts.font or Theme.getFont(Theme.fonts.normal)
     love.graphics.setFont(font)
     local textHeight = font:getHeight()
-    local textYOffset = (h - textHeight) / 2
-    love.graphics.printf(text, x, y + textYOffset, w, "center")
+    local textYOffset = opts.textYOffset or (h - textHeight) / 2
+    love.graphics.printf(text, x, y + textYOffset, w, opts.textAlign or "center")
 end
 
 -- Helper function to draw menu/pause style buttons that tabs can also use
@@ -264,17 +269,4 @@ function Theme.drawPanelButton(x, y, w, h, text, state)
 end
 
 -- Helper function to draw tab-style button (clean boxy style)
-function Theme.drawTab(x, y, w, h, text, isActive, isHovered, alpha)
-    Theme.drawPanelButton(x, y, w, h, text, {
-        isActive = isActive,
-        isHovered = isHovered,
-        alpha = alpha,
-        font = Theme.getFontBold(Theme.fonts.normal),
-        idleAlpha = 0.85,
-        hoverAlpha = 0.95,
-        activeAlpha = 1.0,
-        hoverSoundSpace = "ui",
-    })
-end
-
 return Theme

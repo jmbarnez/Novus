@@ -132,10 +132,15 @@ function InputSystem.update(dt)
         end
         if turretOwner then
             local turret = ECS.getComponent(turretOwner, "Turret")
-            if turret and turret.laserEntity then
-                local laserBeam = ECS.getComponent(turret.laserEntity, "LaserBeam")
-                if laserBeam then
-                    ECS.destroyEntity(turret.laserEntity)
+            if turret then
+                local turretModule = turret.moduleName and TurretRegistry.getModule(turret.moduleName) or nil
+                if turretModule and turretModule.stopFiring then
+                    turretModule.stopFiring(turret)
+                elseif turret.laserEntity then
+                    local laserBeam = ECS.getComponent(turret.laserEntity, "LaserBeam")
+                    if laserBeam then
+                        ECS.destroyEntity(turret.laserEntity)
+                    end
                     turret.laserEntity = nil
                 end
             end
@@ -249,20 +254,22 @@ function InputSystem.update(dt)
             -- Mouse released - destroy laser
             local turretModule = TurretRegistry.getModule(turret.moduleName)
             local turretComp = ECS.getComponent(turretOwner, "Turret")
-            local laserEntityId = turretComp and turretComp.laserEntity
-            if laserEntityId then
-                local laserBeam = ECS.getComponent(laserEntityId, "LaserBeam")
-                if laserBeam then
-                    ECS.destroyEntity(laserEntityId)
-                end
-                if turretComp then
+            if turretComp then
+                if turretModule and turretModule.stopFiring then
+                    turretModule.stopFiring(turretComp)
+                elseif turretComp.laserEntity then
+                    local laserEntityId = turretComp.laserEntity
+                    local laserBeam = ECS.getComponent(laserEntityId, "LaserBeam")
+                    if laserBeam then
+                        ECS.destroyEntity(laserEntityId)
+                    end
                     turretComp.laserEntity = nil
                 end
             end
-                    -- On release, start cooling down heat for continuous lasers
-                    if turretComp and turretComp.heat and turretComp.heat.current > 0 then
-                        -- We'll rely on TurretSystem.update to cool down over time
-                    end
+            -- On release, start cooling down heat for continuous lasers
+            if turretComp and turretComp.heat and turretComp.heat.current > 0 then
+                -- We'll rely on TurretSystem.update to cool down over time
+            end
         end
     end
 end

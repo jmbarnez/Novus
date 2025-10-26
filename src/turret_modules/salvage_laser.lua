@@ -8,6 +8,7 @@ local CollisionSystem = require('src.systems.collision')
 local DebrisSystem = require('src.systems.debris')
 local SkillXP = require('src.systems.skill_xp')
 local EntityPool = require('src.entity_pool')
+local LaserAudio = require('src.turret_modules.laser_audio')
 
 local SalvageLaser = {
     name = "salvage_laser",
@@ -106,6 +107,8 @@ function SalvageLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
         laserComp.color = {0.2, 1, 0, 1}  -- Vibrant green
         laserComp.ownerId = ownerId
     end
+
+    LaserAudio.start(turretComp)
 end
 
 -- Called every frame while the laser is firing
@@ -114,6 +117,8 @@ end
 -- dt: delta time
 -- turretComp: turret component with heat information
 function SalvageLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretComp)
+    LaserAudio.start(turretComp)
+
     -- Offset start position to barrel end to match where laser visually originates
     local offsetStartX = startX
     local offsetStartY = startY
@@ -207,6 +212,7 @@ function SalvageLaser.stopFiring(turretComp)
         end
         turretComp.laserEntity = nil
     end
+    LaserAudio.stop(turretComp)
 end
 
 return SalvageLaser

@@ -13,7 +13,8 @@ Components.Turret = function(moduleName)
         heat = {
             current = 0,
             cooldownTimer = 0
-        }
+        },
+        laserSound = nil
     }
 end
 

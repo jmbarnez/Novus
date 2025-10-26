@@ -8,6 +8,7 @@ local DebrisSystem = require('src.systems.debris')
 local SkillXP = require('src.systems.skill_xp')
 local EntityPool = require('src.entity_pool')
 local EntityHelpers = require('src.entity_helpers')
+local LaserAudio = require('src.turret_modules.laser_audio')
 
 local CombatLaser = {
     name = "combat_laser",
@@ -106,6 +107,8 @@ function CombatLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
         laserComp.color = {0, 0.7, 1, 1}  -- Vibrant cyan blue
         laserComp.ownerId = ownerId
     end
+
+    LaserAudio.start(turretComp)
 end
 
 -- Called every frame while the laser is firing
@@ -114,6 +117,8 @@ end
 -- dt: delta time
 -- turretComp: turret component with heat information
 function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretComp)
+    LaserAudio.start(turretComp)
+
     -- Offset start position to barrel end to match where laser visually originates
     local offsetStartX = startX
     local offsetStartY = startY
@@ -231,6 +236,7 @@ function CombatLaser.stopFiring(turretComp)
         end
         turretComp.laserEntity = nil
     end
+    LaserAudio.stop(turretComp)
 end
 
 return CombatLaser

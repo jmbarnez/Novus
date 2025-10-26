@@ -98,7 +98,7 @@ function ShipWindow:draw(viewportWidth, viewportHeight, uiMx, uiMy)
     self:drawCloseButton(x, y, alpha, uiMx, uiMy)
 
     -- Draw tab headers
-    self:drawTabHeaders(x, y, alpha)
+    self:drawSectionButtons(x, y, alpha)
 
     -- Draw content based on active tab by delegating to respective window objects
     if self.activeTab == "loadout" then
@@ -114,9 +114,9 @@ function ShipWindow:draw(viewportWidth, viewportHeight, uiMx, uiMy)
 end
 
 -- Keep ship tabs compact even if the theme sets a taller default
-local TAB_HEIGHT = math.min(Theme.window.tabHeight or 60, 42)
+local NAV_BUTTON_HEIGHT = math.min(Theme.window.tabHeight or 60, 42)
 
-function ShipWindow:drawTabHeaders(windowX, windowY, alpha)
+function ShipWindow:drawSectionButtons(windowX, windowY, alpha)
     local tabY = windowY + Theme.window.topBarHeight
     local tabWidth = self.width / #self.tabs
     local mx, my
@@ -131,27 +131,27 @@ function ShipWindow:drawTabHeaders(windowX, windowY, alpha)
     local font = Theme.getFontBold(Theme.fonts.normal)
     for i, tabKey in ipairs(self.tabs) do
         local tabX = windowX + (i - 1) * tabWidth
-        local isHovered = mx >= tabX and mx <= tabX + tabWidth and my >= tabY and my <= tabY + TAB_HEIGHT
+        local isHovered = mx >= tabX and mx <= tabX + tabWidth and my >= tabY and my <= tabY + NAV_BUTTON_HEIGHT
         local isActive = self.activeTab == tabKey and not isHovered
 
-        Theme.drawPanelButton(tabX, tabY, tabWidth, TAB_HEIGHT, self.tabNames[tabKey], {
-            isHovered = isHovered,
-            isActive = isActive,
-            alpha = alpha,
+        local baseColor = isActive and Theme.colors.buttonHover or Theme.colors.bgMedium
+        local hoverColor = Theme.colors.buttonHover
+        Theme.drawButton(tabX, tabY, tabWidth, NAV_BUTTON_HEIGHT, self.tabNames[tabKey], isHovered, baseColor, hoverColor, {
+            space = "ui",
+            bounds = {x = tabX, y = tabY, w = tabWidth, h = NAV_BUTTON_HEIGHT},
             font = font,
-            idleAlpha = 0.95,
-            hoverSoundSpace = "ui",
+            textColor = Theme.colors.textPrimary,
         })
 
         table.insert(self.tabButtons, {
-            x = tabX, y = tabY, w = tabWidth, h = TAB_HEIGHT,
+            x = tabX, y = tabY, w = tabWidth, h = NAV_BUTTON_HEIGHT,
             tabKey = tabKey
         })
     end
 
     local borderColor = Theme.colors.borderDark
     love.graphics.setColor(borderColor[1], borderColor[2], borderColor[3], (borderColor[4] or 1) * alpha)
-    love.graphics.line(windowX, tabY + TAB_HEIGHT, windowX + self.width, tabY + TAB_HEIGHT)
+    love.graphics.line(windowX, tabY + NAV_BUTTON_HEIGHT, windowX + self.width, tabY + NAV_BUTTON_HEIGHT)
 end
 
 -- Draw bottom status bar with credits and cargo info
@@ -403,7 +403,7 @@ function ShipWindow:mousepressed(x, y, button)
         local windowX, windowY = self.position.x, self.position.y
         local tabY = windowY + Theme.window.topBarHeight
         local tabWidth = self.width / #self.tabs
-        if uiY >= tabY and uiY <= tabY + TAB_HEIGHT and uiX >= windowX and uiX <= windowX + self.width then
+        if uiY >= tabY and uiY <= tabY + NAV_BUTTON_HEIGHT and uiX >= windowX and uiX <= windowX + self.width then
             local relX = uiX - windowX
             local idx = math.floor(relX / tabWidth) + 1
             local tabKey = self.tabs[idx]

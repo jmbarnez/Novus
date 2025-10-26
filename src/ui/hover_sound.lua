@@ -73,6 +73,24 @@ local function cloneOpts(src)
     return copy
 end
 
+local function normalizeBounds(bounds)
+    if not bounds then
+        return nil
+    end
+
+    local x = bounds.x or bounds[1] or 0
+    local y = bounds.y or bounds[2] or 0
+    local w = bounds.w or bounds.width or bounds[3] or 0
+    local h = bounds.h or bounds.height or bounds[4] or 0
+
+    return {
+        x = x,
+        y = y,
+        w = w,
+        h = h,
+    }
+end
+
 local function playHoverSound(opts)
     local settings = cloneOpts(opts)
     settings = settings or {}
@@ -110,7 +128,30 @@ local function pointInRect(px, py, rect)
     if not rect then
         return true
     end
-    return px >= rect.x and px <= rect.x + rect.w and py >= rect.y and py <= rect.y + rect.h
+    local function asNumber(value, fallback)
+        if type(value) == "number" then
+            return value
+        elseif type(value) == "string" then
+            local parsed = tonumber(value)
+            if parsed ~= nil then
+                return parsed
+            end
+        end
+        return fallback
+    end
+
+    local x = asNumber(rect.x, asNumber(rect[1], 0))
+    local y = asNumber(rect.y, asNumber(rect[2], 0))
+    local w = asNumber(rect.w, asNumber(rect.width, asNumber(rect[3], 0)))
+    local h = asNumber(rect.h, asNumber(rect.height, asNumber(rect[4], 0)))
+    local pxn = asNumber(px, nil)
+    local pyn = asNumber(py, nil)
+
+    if not pxn or not pyn then
+        return false
+    end
+
+    return pxn >= x and pxn <= x + w and pyn >= y and pyn <= y + h
 end
 
 --- Update hover sound state for a given control
@@ -142,9 +183,14 @@ function HoverSound.update(id, isHovered, opts)
     end
 
     record.hovered = currentlyHovered
-    record.bounds = opts.bounds or record.bounds
+    local newBounds = normalizeBounds(opts.bounds)
+    if newBounds then
+        record.bounds = newBounds
+    end
     record.space = opts.space or record.space or "screen"
-    record.clickSoundOpts = opts.clickSoundOpts or record.clickSoundOpts
+    if opts.clickSoundOpts then
+        record.clickSoundOpts = cloneOpts(opts.clickSoundOpts)
+    end
     record.lastUpdate = now
 
     if not record.hovered then
@@ -226,4 +272,3 @@ if SoundSystem and SoundSystem.getVolume and SoundSystem.setVolume then
 end
 
 return HoverSound
-

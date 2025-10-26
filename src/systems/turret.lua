@@ -37,7 +37,9 @@ function TurretSystem.fireTurret(entityId, targetX, targetY, dt)
             -- Laser turrets use Heat (stored in turret component)
             if turret.heat and turret.heat.current >= (module.MAX_HEAT or 10) then
                 -- At max heat - don't fire
-                if turret.laserEntity then
+                if module and module.stopFiring then
+                    module.stopFiring(turret)
+                elseif turret.laserEntity then
                     ECS.destroyEntity(turret.laserEntity)
                     turret.laserEntity = nil
                 end
@@ -61,7 +63,9 @@ function TurretSystem.fireTurret(entityId, targetX, targetY, dt)
             if energy and energyCost > 0 then
                 if not EnergySystem.consume(energy, energyCost) then
                     -- Not enough energy - stop firing
-                    if turret.laserEntity then
+                    if module and module.stopFiring then
+                        module.stopFiring(turret)
+                    elseif turret.laserEntity then
                         ECS.destroyEntity(turret.laserEntity)
                         turret.laserEntity = nil
                     end

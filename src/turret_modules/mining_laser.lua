@@ -6,6 +6,7 @@ local Components = require('src.components')
 local CollisionSystem = require('src.systems.collision')
 local DebrisSystem = require('src.systems.debris')
 local EntityPool = require('src.entity_pool')
+local LaserAudio = require('src.turret_modules.laser_audio')
 
 local MiningLaser = {
     name = "mining_laser",
@@ -104,6 +105,8 @@ function MiningLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
         laserComp.color = {1, 1, 0, 1}  -- Vibrant yellow
         laserComp.ownerId = ownerId
     end
+
+    LaserAudio.start(turretComp)
 end
 
 -- Called every frame while the laser is firing
@@ -112,6 +115,8 @@ end
 -- dt: delta time
 -- turretComp: turret component with heat information
 function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretComp)
+    LaserAudio.start(turretComp)
+
     -- Offset start position to barrel end to match where laser visually originates
     local offsetStartX = startX
     local offsetStartY = startY
@@ -239,6 +244,7 @@ function MiningLaser.stopFiring(turretComp)
         end
         turretComp.laserEntity = nil
     end
+    LaserAudio.stop(turretComp)
 end
 
 return MiningLaser
