@@ -8,6 +8,8 @@ local Constants = require('src.constants')
 local Theme = require('src.ui.theme')
 local TimeManager = require('src.time_manager')
 local Dropdown = require('src.ui.dropdown')
+local DisplayManager = require('src.display_manager')
+local RenderCanvas = require('src.systems.render.canvas')
 
 local DisplaySettingsPanel = {}
 
@@ -24,8 +26,8 @@ function DisplaySettingsPanel:new()
         fpsOptions = {30, 60, 90, 120, 144, 240, nil},
         fpsLabels = {"30", "60", "90", "120", "144", "240", "Unlimited"},
         
-        -- Window modes
-        modes = { 'Windowed', 'Borderless', 'Fullscreen' },
+    -- Window modes (restricted to Windowed only)
+    modes = { 'Windowed' },
         
         -- Resolutions
         resolutions = {
@@ -57,13 +59,7 @@ function DisplaySettingsPanel:initialize(position, width, onSettingsChange)
         end
     end)
     
-    -- Mode Dropdown
-    self.modeDropdown = Dropdown:new(self.modes, self:currentModeIndex(), x, y + 60, width, function(idx, val)
-        self:setWindowMode(idx)
-        if self.onSettingsChange then
-            self.onSettingsChange()
-        end
-    end)
+    -- Mode is fixed to Windowed in this build; no dropdown rendered.
     
     -- Resolution Dropdown
     local resLabels = {}
@@ -78,7 +74,15 @@ function DisplaySettingsPanel:initialize(position, width, onSettingsChange)
         width, 
         function(idx, val)
             local res = self.resolutions[idx]
-            love.window.setMode(res.w, res.h, {fullscreen = false, borderless = false})
+            if res then
+                -- Use DisplayManager to properly set render resolution
+                RenderCanvas.setRenderResolution(res.w, res.h)
+                
+                -- Update window mode if in windowed mode
+                if DisplayManager.getWindowMode() == 'windowed' then
+                    DisplayManager.applyWindowMode('windowed', { width = res.w, height = res.h })
+                end
+            end
             if self.onSettingsChange then
                 self.onSettingsChange()
             end
@@ -90,20 +94,15 @@ end
 function DisplaySettingsPanel:updatePositions(position, contentScrollY)
     self.position = position
     local x, y = position.x, position.y - contentScrollY
-    
+
     if self.fpsDropdown then
         self.fpsDropdown.x = x
         self.fpsDropdown.y = y
     end
-    
-    if self.modeDropdown then
-        self.modeDropdown.x = x
-        self.modeDropdown.y = y + 60
-    end
-    
+
     if self.resDropdown then
         self.resDropdown.x = x
-        self.resDropdown.y = y + 120
+        self.resDropdown.y = y + Theme.spacing.padding * 10  -- Scaled spacing
     end
 end
 
@@ -126,14 +125,9 @@ end
 
 -- Get current resolution index
 function DisplaySettingsPanel:getCurrentResIndex()
-    local w, h = love.graphics.getWidth(), love.graphics.getHeight()
+    local renderW, renderH = DisplayManager.getRenderDimensions()
     for i, res in ipairs(self.resolutions) do
-        if res.w == w and res.h == h then return i end
-    end
-    -- Default to current window resolution
-    local currentW, currentH = Constants.getScreenWidth(), Constants.getScreenHeight()
-    for i, res in ipairs(self.resolutions) do
-        if res.w == currentW and res.h == currentH then return i end
+        if res.w == renderW and res.h == renderH then return i end
     end
     return 4  -- Default to 1920x1080 if not found
 end
@@ -141,21 +135,15 @@ end
 -- Set window mode based on index
 function DisplaySettingsPanel:setWindowMode(idx)
     if idx == 1 then
-        -- Windowed: restore a sane default windowed resolution
-        local currentW, currentH = Constants.getScreenWidth(), Constants.getScreenHeight()
-        love.window.setMode(currentW, currentH, {fullscreen = false, borderless = false})
+        -- Windowed: use current render resolution as window size
+        local renderRes = DisplayManager.getRenderResolution()
+        DisplayManager.applyWindowMode('windowed', { width = renderRes.w, height = renderRes.h })
     elseif idx == 2 then
-        -- Borderless: set to desktop resolution and borderless to avoid mode-switch flashes
-        local ok, dw, dh = pcall(love.window.getDesktopDimensions)
-        if ok and dw and dh and dw > 0 then
-            love.window.setMode(dw, dh, {fullscreen = false, borderless = true})
-        else
-            -- Fallback to current size
-            love.window.setMode(love.graphics.getWidth(), love.graphics.getHeight(), {fullscreen = false, borderless = true})
-        end
+        -- Borderless: match desktop resolution
+        DisplayManager.applyWindowMode('borderless')
     elseif idx == 3 then
-        -- Fullscreen: use desktop/fullscreen desktop type to avoid exclusive mode flicker
-        love.window.setMode(0, 0, {fullscreen = true, fullscreentype = "desktop"})
+        -- Fullscreen desktop (no exclusive mode flicker)
+        DisplayManager.applyWindowMode('fullscreen')
     end
 end
 
@@ -164,9 +152,6 @@ function DisplaySettingsPanel:draw(alpha)
     -- Draw closed dropdown buttons first
     if self.fpsDropdown then
         self.fpsDropdown:drawClosed(alpha)
-    end
-    if self.modeDropdown then
-        self.modeDropdown:drawClosed(alpha)
     end
     if self.resDropdown then
         self.resDropdown:drawClosed(alpha)
@@ -178,9 +163,6 @@ function DisplaySettingsPanel:drawOpen(alpha)
     if self.fpsDropdown and self.fpsDropdown.isOpen then
         self.fpsDropdown:drawOpen(alpha)
     end
-    if self.modeDropdown and self.modeDropdown.isOpen then
-        self.modeDropdown:drawOpen(alpha)
-    end
     if self.resDropdown and self.resDropdown.isOpen then
         self.resDropdown:drawOpen(alpha)
     end
@@ -189,9 +171,6 @@ end
 -- Handle mouse press on dropdowns
 function DisplaySettingsPanel:mousepressed(mx, my)
     if self.fpsDropdown and self.fpsDropdown:mousepressed(mx, my) then 
-        return true
-    end
-    if self.modeDropdown and self.modeDropdown:mousepressed(mx, my) then 
         return true
     end
     if self.resDropdown and self.resDropdown:mousepressed(mx, my) then 
@@ -205,7 +184,7 @@ function DisplaySettingsPanel:getSettings()
     return {
         fps = TimeManager.getTargetFps(),
         windowMode = self:currentModeIndex(),
-        resolution = {w = love.graphics.getWidth(), h = love.graphics.getHeight()}
+        resolution = DisplayManager.getRenderResolution()
     }
 end
 
@@ -222,7 +201,7 @@ function DisplaySettingsPanel:restoreSettings(settings)
     end
     
     if settings.resolution then
-        love.window.setMode(settings.resolution.w, settings.resolution.h, {fullscreen = false, borderless = false})
+        RenderCanvas.setRenderResolution(settings.resolution.w, settings.resolution.h)
     end
 end
 

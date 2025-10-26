@@ -1,5 +1,13 @@
--- Asteroid Cluster Respawning System
+-- Enhanced Asteroid Cluster Respawning System
 -- Manages asteroid clusters with automatic respawning when asteroids are destroyed
+--
+-- Features:
+-- - Three asteroid types: Stone (50%), Iron (35%), Crystal (15%)
+-- - Enhanced visual design with realistic colors and multi-layer rendering
+-- - Crystal asteroids have animated sparkle effects and glow
+-- - Varied physics properties based on asteroid type
+-- - Enhanced XP rewards for rare asteroid types
+-- - Realistic mineral-based color variations for stone asteroids
 
 local Constants = require('src.constants')
 local ECS = require('src.ecs')
@@ -101,49 +109,150 @@ end
 
 -- Create a single asteroid
 function AsteroidClusters.createAsteroid(x, y)
-    local size = Procedural.randomRange(Constants.asteroid_size_min, Constants.asteroid_size_max)
-    local vertexCount = math.random(Constants.asteroid_vertices_min, Constants.asteroid_vertices_max)
-    local vertices = Procedural.generatePolygonVertices(vertexCount, size / 2)
-    
-    local asteroidMass = size * size * 0.5
-    local rotationalInertia = Components.calculatePolygonInertia(vertices, asteroidMass) * 2
-    
-    local asteroidId = ECS.createEntity()
-    ECS.addComponent(asteroidId, "Position", Components.Position(x, y))
-    ECS.addComponent(asteroidId, "Velocity", Components.Velocity(0, 0))
-    ECS.addComponent(asteroidId, "Physics", Components.Physics(0.999, asteroidMass, 0.985))
-    ECS.addComponent(asteroidId, "PolygonShape", Components.PolygonShape(vertices, 0))
-    ECS.addComponent(asteroidId, "AngularVelocity", Components.AngularVelocity(0))
-    ECS.addComponent(asteroidId, "RotationalMass", Components.RotationalMass(rotationalInertia))
-    ECS.addComponent(asteroidId, "Collidable", Components.Collidable(size / 2))
-    ECS.addComponent(asteroidId, "Durability", Components.Durability(size * 2, size * 2))
-    
-    -- Determine asteroid type
+    -- Enhanced asteroid type determination with crystal asteroids
     local asteroidType = "stone"
     local rand = math.random()
-    if rand < 0.55 then
+
+    -- Stone: 50% (most common)
+    -- Iron: 35% (valuable)
+    -- Crystal: 15% (rare and valuable)
+    if rand < 0.15 then
+        asteroidType = "crystal"
+    elseif rand < 0.5 then
         asteroidType = "iron"
     else
         asteroidType = "stone"
     end
 
+    local size = Procedural.randomRange(Constants.asteroid_size_min, Constants.asteroid_size_max)
+
+    -- Vary size based on asteroid type for more visual distinction
+    local sizeMultiplier = 1.0
+    if asteroidType == "crystal" then
+        sizeMultiplier = 0.8 + math.random() * 0.4  -- 0.8-1.2x (slightly smaller but denser)
+    elseif asteroidType == "iron" then
+        sizeMultiplier = 0.9 + math.random() * 0.3  -- 0.9-1.2x (medium variation)
+    else -- stone
+        sizeMultiplier = 0.7 + math.random() * 0.6  -- 0.7-1.3x (wide variation)
+    end
+    size = size * sizeMultiplier
+
+    local vertexCount = math.random(Constants.asteroid_vertices_min, Constants.asteroid_vertices_max)
+
+    -- Vary vertex count based on type for different shapes
+    if asteroidType == "crystal" then
+        vertexCount = math.random(6, 8)  -- More regular, geometric shapes for crystals
+    elseif asteroidType == "iron" then
+        vertexCount = math.random(7, 10)  -- Medium irregularity
+    else -- stone
+        vertexCount = math.random(Constants.asteroid_vertices_min, Constants.asteroid_vertices_max)  -- Full range
+    end
+
+    local vertices = Procedural.generatePolygonVertices(vertexCount, size / 2)
+
+    local asteroidMass = size * size * 0.5
+    local rotationalInertia = Components.calculatePolygonInertia(vertices, asteroidMass) * 2
+
+    -- Adjust physics properties based on asteroid type
+    local friction = 0.999
+    local angularDamping = 0.985
+    local durabilityMultiplier = 1.0
+
+    if asteroidType == "crystal" then
+        durabilityMultiplier = 1.5  -- Crystals are harder to break
+        angularDamping = 0.99  -- Crystals rotate slower (more stable)
+    elseif asteroidType == "iron" then
+        durabilityMultiplier = 1.2  -- Iron is denser
+        friction = 0.998  -- Iron asteroids have slightly less friction
+    else -- stone
+        durabilityMultiplier = 1.0  -- Standard stone
+    end
+
+    local asteroidId = ECS.createEntity()
+    ECS.addComponent(asteroidId, "Position", Components.Position(x, y))
+    ECS.addComponent(asteroidId, "Velocity", Components.Velocity(0, 0))
+    ECS.addComponent(asteroidId, "Physics", Components.Physics(friction, asteroidMass, angularDamping))
+    ECS.addComponent(asteroidId, "PolygonShape", Components.PolygonShape(vertices, 0))
+    ECS.addComponent(asteroidId, "AngularVelocity", Components.AngularVelocity(0))
+    ECS.addComponent(asteroidId, "RotationalMass", Components.RotationalMass(rotationalInertia))
+    ECS.addComponent(asteroidId, "Collidable", Components.Collidable(size / 2))
+    ECS.addComponent(asteroidId, "Durability", Components.Durability(size * 2 * durabilityMultiplier, size * 2 * durabilityMultiplier))
+
     -- Set XP reward based on asteroid type
     local xpReward = nil  -- Default (uses SkillXP calculation)
     if asteroidType == "iron" then
         xpReward = 18  -- Iron asteroids give 18 XP
+    elseif asteroidType == "crystal" then
+        xpReward = 35  -- Crystal asteroids give 35 XP (rare and valuable)
+    end
+
+    -- Create crystal formation data for crystal asteroids
+    local crystalFormation = nil
+    if asteroidType == "crystal" then
+        crystalFormation = {
+            crystals = {},
+            glowIntensity = 0.3 + math.random() * 0.4, -- 0.3-0.7 glow intensity
+            formationType = math.random(1, 3), -- Different crystal formations
+        }
     end
 
     ECS.addComponent(asteroidId, "Asteroid", Components.Asteroid(asteroidType, crystalFormation, xpReward))
-    
-    -- Different colors for different asteroid types
-    local color
-    if asteroidType == "iron" then
-        color = {0.6, 0.4, 0.2, 1}  -- Brown iron asteroid
-    else
-        color = {0.5, 0.5, 0.5, 1}  -- Gray stone asteroid
+
+    -- Enhanced colors for different asteroid types
+    local baseColor, accentColor, shadowColor
+
+    if asteroidType == "crystal" then
+        -- Crystal asteroids: purple/magenta with glow
+        local hue = 0.7 + math.random() * 0.1  -- Purple to magenta range
+        local sat = 0.6 + math.random() * 0.3  -- High saturation
+        local brightness = 0.7 + math.random() * 0.2  -- Bright crystals
+
+        -- Convert HSV to RGB (simplified)
+        baseColor = {hue * sat * brightness, (1 - hue) * sat * brightness, brightness, 1}
+        accentColor = {math.min(1, baseColor[1] + 0.3), math.min(1, baseColor[2] + 0.3), math.min(1, baseColor[3] + 0.3), 0.8}
+        shadowColor = {baseColor[1] * 0.4, baseColor[2] * 0.4, baseColor[3] * 0.4, 0.7}
+
+    elseif asteroidType == "iron" then
+        -- Enhanced iron asteroids: rich metallic browns and oranges
+        local rustFactor = 0.3 + math.random() * 0.4  -- Vary the rust level
+        baseColor = {
+            0.5 + rustFactor * 0.3,  -- Red component (more rust = more red)
+            0.3 + rustFactor * 0.2,  -- Green component
+            0.1 + rustFactor * 0.15, -- Blue component (less blue = more rust)
+            1
+        }
+        accentColor = {math.min(1, baseColor[1] + 0.25), math.min(1, baseColor[2] + 0.2), math.min(1, baseColor[3] + 0.1), 0.6}
+        shadowColor = {baseColor[1] * 0.5, baseColor[2] * 0.5, baseColor[3] * 0.5, 0.8}
+
+    else -- stone
+        -- Enhanced stone asteroids: varied gray with mineral streaks
+        local mineralType = math.random(1, 4)
+        if mineralType == 1 then
+            -- Quartz-like stone (slightly blue-gray)
+            baseColor = {0.45, 0.48, 0.55, 1}
+        elseif mineralType == 2 then
+            -- Granite-like stone (warm gray)
+            baseColor = {0.5, 0.45, 0.4, 1}
+        elseif mineralType == 3 then
+            -- Shale-like stone (darker gray)
+            baseColor = {0.35, 0.38, 0.42, 1}
+        else
+            -- Feldspar-like stone (slightly pink-gray)
+            baseColor = {0.5, 0.45, 0.48, 1}
+        end
+
+        accentColor = {math.min(1, baseColor[1] + 0.2), math.min(1, baseColor[2] + 0.2), math.min(1, baseColor[3] + 0.2), 0.5}
+        shadowColor = {baseColor[1] * 0.6, baseColor[2] * 0.6, baseColor[3] * 0.6, 0.7}
     end
-    ECS.addComponent(asteroidId, "Renderable", Components.Renderable("polygon", nil, nil, nil, color))
-    
+
+    -- Enhanced renderable with multi-layer coloring for depth
+    ECS.addComponent(asteroidId, "Renderable", Components.Renderable("polygon", nil, nil, nil, {
+        stripes = baseColor,
+        accent = accentColor,
+        shadow = shadowColor,
+        detail = asteroidType == "crystal" and {1, 1, 1, 0.3} or {0.8, 0.8, 0.8, 0.4}
+    }))
+
     return asteroidId
 end
 
@@ -217,6 +326,7 @@ function AsteroidClusters.update(dt)
                         end
                         
                         if validPosition then
+                            -- Respawn asteroids maintain the same type distribution as initial spawn
                             local newAsteroidId = AsteroidClusters.createAsteroid(x, y)
                             if newAsteroidId then
                                 table.insert(cluster.asteroids, newAsteroidId)

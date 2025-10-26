@@ -147,6 +147,7 @@ function SalvageLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretC
     end
 
     if closestIntersection and hitEntityId then
+        local debrisCreated = false
         -- Only apply damage if target is wreckage
         local isWrackage = ECS.getComponent(hitEntityId, "Wreckage")
         if isWrackage then
@@ -182,10 +183,15 @@ function SalvageLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretC
                 if durability.current <= 0 then
                     SkillXP.awardXp("salvaging")
                 end
+                debrisCreated = true
             end
         end
-        -- Create impact debris with laser beam color
-        DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, {0.2, 1, 0, 1})
+        -- Create impact debris with laser beam color if nothing else created debris
+        if not debrisCreated then
+            DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, SalvageLaser.design.color)
+        else
+            DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, {0.2, 1, 0, 1})
+        end
         return {hit = true, intersection = closestIntersection}
     else
         return {hit = false}

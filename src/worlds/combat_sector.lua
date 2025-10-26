@@ -33,7 +33,7 @@ return {
     },
     
     theme = {
-        background = {0.02, 0.01, 0.01},
+        background = {0.12, 0.08, 0.15},  -- Purple-tinted navy for combat sector
         starDensity = "sparse",
         nebulaEnabled = false
     },

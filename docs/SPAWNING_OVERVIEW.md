@@ -122,7 +122,7 @@ end)
 ## 5. **Wreckage Spawning** (`src/systems/wreckage.lua`)
 **Spawned when ships are destroyed**
 
-### Function: `WrackageSystem.spawnWrackage(x, y, sourceShip)`
+### Function: `WreckageSystem.spawnWreckage(x, y, sourceShip)`
 
 **Creates:**
 - Multiple wreckage pieces around destruction point

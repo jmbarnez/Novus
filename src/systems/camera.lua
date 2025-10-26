@@ -62,6 +62,41 @@ local CameraSystem = {
     -- Reset camera transform
     resetTransform = function()
         CameraUtils.resetTransform()
+    end,
+
+    -- Handle resolution changes - re-center camera on target
+    onResize = function(screenW, screenH)
+        local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+        local targetEntities = ECS.getEntitiesWith({"Position", "CameraTarget"})
+
+        if #cameraEntities > 0 and #targetEntities > 0 then
+            local cameraId = cameraEntities[1]
+            local cameraPos = ECS.getComponent(cameraId, "Position")
+            local camera = ECS.getComponent(cameraId, "Camera")
+
+            -- Find highest priority camera target
+            local bestTarget = nil
+            local highestPriority = -1
+
+            for _, targetId in ipairs(targetEntities) do
+                local target = ECS.getComponent(targetId, "CameraTarget")
+                if target.priority > highestPriority then
+                    bestTarget = targetId
+                    highestPriority = target.priority
+                end
+            end
+
+            if bestTarget and cameraPos and camera then
+                local targetPos = ECS.getComponent(bestTarget, "Position")
+
+                -- Immediately re-center camera on target (no smoothing for resize)
+                local targetX = targetPos.x - (camera.width / camera.zoom) / 2
+                local targetY = targetPos.y - (camera.height / camera.zoom) / 2
+
+                cameraPos.x = targetX
+                cameraPos.y = targetY
+            end
+        end
     end
 }
 

@@ -39,6 +39,13 @@ function love.load()
     
     DisplayManager.init()
     Scaling.update()
+    
+    -- Initialize shader manager early so start screen can use aurora shader
+    print("=== Initializing ShaderManager ===")
+    local ShaderManager = require('src.shader_manager')
+    ShaderManager.init()
+    print("=== ShaderManager initialization complete ===")
+    
     -- Only initialize game when leaving start screen
 end
 
@@ -77,6 +84,9 @@ function love.draw()
     else
         Profiler.start("draw_total")
         Core.draw()
+        -- Ensure death overlay renders above everything drawn by Core
+        local DeathOverlay = require('src.ui.death_overlay')
+        DeathOverlay.draw()
         Profiler.stop("draw_total")
         Profiler.frame()
         -- FPS cap enforcement (software sleep)

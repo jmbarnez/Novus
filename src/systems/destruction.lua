@@ -4,7 +4,7 @@ local ECS = require('src.ecs')
 local Components = require('src.components')
 local Constants = require('src.constants')
 local DebrisSystem = require('src.systems.debris') -- Import DebrisSystem
-local WrackageSystem = require('src.systems.wreckage') -- Import WrackageSystem
+local WreckageSystem = require('src.systems.wreckage') -- Import WreckageSystem
 local ItemDefs = require('src.items.item_loader')
 local AsteroidClusters = require('src.systems.asteroid_clusters')
 local SkillXP = require('src.systems.skill_xp')
@@ -180,12 +180,21 @@ function DestructionSystem.update(dt)
                     -- Determine item type and base count
                     local itemType = "stone"
                     local baseCount = math.random(8, 15)
-                    
-                    if asteroid.asteroidType == "iron" then
+
+                    if asteroid.asteroidType == "crystal" then
+                        itemType = "crystal"
+                        baseCount = math.random(3, 6)  -- Crystals are rarer, so fewer drop
+                    elseif asteroid.asteroidType == "iron" then
                         itemType = "iron"
+                        baseCount = math.random(6, 12)  -- Iron gives good yield
                     end
 
-                    -- Crystal formations are now separate attached entities; asteroid itself does not directly spawn crystals
+                    -- Crystal asteroids may also drop some stone fragments
+                    if asteroid.asteroidType == "crystal" and math.random() < 0.3 then
+                        DestructionSystem.spawnItems(pos.x + math.random(-10, 10), pos.y + math.random(-10, 10), {
+                            {itemId = "stone", count = math.random(2, 4)}
+                        })
+                    end
                     
                     -- Size bonus: Larger asteroids give more resources
                     local sizeMultiplier = 1.0 + (parentSize / 100)  -- +1% per radius unit
@@ -267,16 +276,18 @@ function DestructionSystem.update(dt)
 
             -- Spawn wreckage when ships are destroyed (AI-controlled or with Hull)
             if (ai or hull) and pos then
-                local WrackageSystem = require('src.systems.wreckage')
                 local sourceShip = "unknown"
-                
+
                 -- Try to get ship type from wreckage component if it exists
                 local existingWreckage = ECS.getComponent(entityId, "Wreckage")
                 if existingWreckage and existingWreckage.sourceShip then
                     sourceShip = existingWreckage.sourceShip
                 end
-                
-                WrackageSystem.spawnWrackage(pos.x, pos.y, sourceShip)
+
+                -- Pass parent size (collision radius) so wreckage pieces scale visually
+                local parentColl = ECS.getComponent(entityId, "Collidable")
+                local parentSize = parentColl and parentColl.radius or 16
+                WreckageSystem.spawnWreckage(pos.x, pos.y, sourceShip, parentSize)
             end
 
             -- Wreckage shatters into bits

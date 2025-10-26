@@ -5,6 +5,7 @@
 local ECS = require('src.ecs')
 local Theme = require('src.ui.theme')
 local BatchRenderer = require('src.ui.batch_renderer')
+local Scaling = require('src.scaling')
 
 local QuestOverlay = {}
 
@@ -58,26 +59,34 @@ function QuestOverlay.draw()
     if #quests == 0 then return end
     
     local alpha = 0.85
-    local font = Theme.getFont(11)
-    local smallFont = Theme.getFont(9)
+    local font = Theme.getFont(Theme.fonts.normal)
+    local smallFont = Theme.getFont(Theme.fonts.small)
     
     -- Position: below minimap (right side)
-    -- Minimap is at: x = screenW - 100, y = 100, radius = 80
-    -- So minimap bottom is at y = 180
+    -- Get actual minimap position from HUDMinimap
+    local HUDMinimap = require('src.systems.hud.minimap')
     local viewportWidth, viewportHeight = love.graphics.getDimensions()
-    local minimapRadius = 80
-    local minimapMargin = 20
-    local minimapX = viewportWidth - minimapRadius - minimapMargin
-    local minimapY = minimapRadius + minimapMargin
+
+    -- Calculate minimap position the same way as HUDMinimap.draw()
+    local scaleX = Scaling.canvasScaleX or 1
+    local scaleY = Scaling.canvasScaleY or 1
+    local scaleU = math.min(scaleX, scaleY)
+    local marginX = 20 * scaleX
+    local marginY = 20 * scaleY
+    local baseRadius = 80 * scaleU
+    local minimapRadius = math.max(48, baseRadius)
+    local screenRight = Scaling.getCurrentWidth()
+    local minimapX = screenRight - marginX - minimapRadius
+    local minimapY = marginY + minimapRadius
     local minimapBottom = minimapY + minimapRadius
-    
+
     local overlayWidth = minimapRadius * 2 + 20
     local overlayX = minimapX - minimapRadius - 10
     local overlayY = minimapBottom + 15
     
     -- Calculate height based on number of quests
-    local questHeight = 32
-    local dividerHeight = 2
+    local questHeight = Theme.spacing.padding * 5.33  -- Scaled quest height
+    local dividerHeight = Theme.spacing.padding * 0.33  -- Scaled divider height
     local totalHeight = (#quests * questHeight) + ((#quests - 1) * dividerHeight)
     
     -- Background (batched)
@@ -109,14 +118,14 @@ end
 function QuestOverlay.drawQuest(quest, x, y, w, h, alpha, font, smallFont)
     -- Quest title (batched text)
     local textColor = Theme.colors.textAccent
-    BatchRenderer.queueText(quest.title, x, y + 4, font, 
+    BatchRenderer.queueText(quest.title, x, y + Theme.spacing.padding * 0.67, font,
         textColor[1], textColor[2], textColor[3], alpha)
-    
+
     -- Progress bar
     local barX = x
-    local barY = y + 18
+    local barY = y + Theme.spacing.padding * 3
     local barW = w
-    local barH = 6
+    local barH = Theme.spacing.padding
     
     -- Progress background
     local bgColor = Theme.colors.bgMedium
@@ -151,7 +160,7 @@ function QuestOverlay.drawQuest(quest, x, y, w, h, alpha, font, smallFont)
         local mutedColor = Theme.colors.textMuted
         local textX = barX + (barW - smallFont:getWidth(progressText)) / 2
         local textY = barY + (barH - smallFont:getHeight()) / 2
-        BatchRenderer.queueText(progressText, textX, textY, smallFont, 
+        BatchRenderer.queueText(progressText, textX, textY, smallFont,
             mutedColor[1], mutedColor[2], mutedColor[3], alpha)
     end
 end

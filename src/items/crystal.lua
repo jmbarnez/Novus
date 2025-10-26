@@ -9,6 +9,7 @@ return {
     description = "A rare crystalline formation rich in energy. Used for advanced crafting.",
     stackable = true,
     value = 50,  -- Valuable resource
+    volume = 0.003, -- 3 liters per unit, higher volume due to energy density
     
     -- Visual/Design properties
     design = {

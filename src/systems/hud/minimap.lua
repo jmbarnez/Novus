@@ -1,5 +1,5 @@
 ---@diagnostic disable: undefined-global
--- Minimap System
+-- HUD Minimap Module
 -- Draws a circular minimap with player, asteroids, and items
 
 local ECS = require('src.ecs')
@@ -8,7 +8,7 @@ local Scaling = require('src.scaling')
 local Constants = require('src.constants')
 local EntityHelpers = require('src.entity_helpers')
 
-local Minimap = {}
+local HUDMinimap = {}
 
 local BASE_MINIMAP_RADIUS = 80
 local BASE_MINIMAP_MARGIN = 20
@@ -26,7 +26,7 @@ local function projectToMinimap(worldX, worldY, playerX, playerY, scale)
     return minimapX + dx * scale, minimapY + dy * scale
 end
 
-function Minimap.draw()
+function HUDMinimap.draw()
     local scaleX = Scaling.canvasScaleX or 1
     local scaleY = Scaling.canvasScaleY or 1
     local scaleU = math.min(scaleX, scaleY)
@@ -36,7 +36,7 @@ function Minimap.draw()
     local baseRadius = BASE_MINIMAP_RADIUS * scaleU
     minimapRadius = math.max(48, baseRadius)
 
-    local screenRight = Scaling.REFERENCE_WIDTH
+    local screenRight = Scaling.getCurrentWidth()
     minimapX = screenRight - marginX - minimapRadius
     minimapY = marginY + minimapRadius
 
@@ -93,7 +93,7 @@ function Minimap.draw()
     end
 end
 
-function Minimap.isPointOver(sx, sy)
+function HUDMinimap.isPointOver(sx, sy)
     if not minimapRadius or minimapRadius <= 0 then return false end
     local uiX, uiY = Scaling.toUI(sx, sy)
     if not uiX or not uiY then return false end
@@ -102,4 +102,4 @@ function Minimap.isPointOver(sx, sy)
     return dx * dx + dy * dy <= minimapRadius * minimapRadius
 end
 
-return Minimap
+return HUDMinimap

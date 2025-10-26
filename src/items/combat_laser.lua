@@ -8,6 +8,7 @@ local CombatLaserItem = {
     stackable = false,
     value = 150,
     type = "turret",
+    volume = 0.2, -- 0.2 cubic meters for combat laser
     module = require("src.turret_modules.combat_laser"), -- Links to the combat_laser.lua module
     update = function(self, dt)
         -- Turret item update logic if needed

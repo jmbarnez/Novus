@@ -46,7 +46,12 @@ function Dialogs.drawContextMenu(x, y)
     love.graphics.setFont(Theme.getFont(Scaling.scaleSize(Theme.fonts.normal)))
     for i, option in ipairs(options) do
         local optY_ui = y + (i - 1) * optionH_ui
-        local mx, my = Scaling.toUI(love.mouse.getPosition())
+        local mx, my
+        if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+            mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+        else
+            mx, my = Scaling.toUI(love.mouse.getPosition())
+        end
         local isHovering = mx >= x and mx <= x + optionW_ui and my >= optY_ui and my <= optY_ui + optionH_ui
 
         -- Convert menu origin (UI space) to screen space for drawing
@@ -102,7 +107,12 @@ function Dialogs.drawConfirmDialog()
     local noX = startX + btnW + btnSpacing
     local btnY = y + dialogH - Scaling.scaleY(45)
     
-    local mx, my = Scaling.toUI(love.mouse.getPosition())
+    local mx, my
+    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+        mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+    else
+        mx, my = Scaling.toUI(love.mouse.getPosition())
+    end
 
     -- Convert button boxes to UI space for hover checks
     local uiYesX, uiYesY = Scaling.toUI(yesX, btnY)
@@ -168,8 +178,8 @@ function Dialogs.handleConfirmDialogClick(x, y, button)
             local cargoEntities = ECS.getEntitiesWith({"Player", "Cargo"})
             if #cargoEntities > 0 then
                 local cargo = ECS.getComponent(cargoEntities[1], "Cargo")
-                if cargo and cargo.items[Dialogs.confirmDialog.itemId] then
-                    cargo.items[Dialogs.confirmDialog.itemId] = nil
+                if cargo then
+                    cargo:removeItem(Dialogs.confirmDialog.itemId, 1)
                     -- ...existing code...
                 end
             end

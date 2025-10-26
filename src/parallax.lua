@@ -7,7 +7,9 @@ function Parallax.new(layers, worldSize)
     local parallax = {
         layers = {},
         nebula = {},
-        worldSize = worldSize or 10000
+        worldSize = worldSize or 10000,
+        -- Allow caller to opt-out of nebula rendering (default: enabled)
+        nebulaEnabled = false
     }
     
     -- Initialize nebula shader immediately to avoid mid-render creation
@@ -17,6 +19,8 @@ function Parallax.new(layers, worldSize)
             extern vec2 resolution;
             extern number time;
             extern vec2 cameraOffset;
+            extern float cloudScale;
+            extern float nebulaDim;
             
             // Simplex-like noise approximation
             vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -64,7 +68,7 @@ function Parallax.new(layers, worldSize)
                 vec2 worldPos = (pc - resolution * 0.5) * 0.8 + cameraOffset * 0.02;
                 
                 // Multiple noise layers for realistic nebula
-                float scale = 0.0008;
+                float scale = 0.0008 * (cloudScale > 0.0 ? cloudScale : 1.0);
                 float n1 = fbm(worldPos * scale);
                 float n2 = fbm(worldPos * scale * 1.8 + vec2(100.0, 50.0));
                 float n3 = fbm(worldPos * scale * 3.2 + vec2(200.0, 150.0));
@@ -91,10 +95,11 @@ function Parallax.new(layers, worldSize)
                 vec3 nebulaColor = mix(color1, color2, colorMix);
                 nebulaColor = mix(nebulaColor, color3, n3 * 0.5 + 0.5);
                 
-                // Final nebula with soft glow (further reduced alpha and dimmer color)
-                float alpha = density * 0.035; // was 0.08, now dimmer
-                float nebulaDim = 0.55; // reduce color intensity
-                return vec4(nebulaColor * nebulaDim, alpha);
+                // Final nebula with stronger visibility (scaled by nebulaDim)
+                float alpha = density * 0.12 * nebulaDim; // stronger base alpha
+                // Boost color by nebulaDim for richer tones
+                vec3 finalColor = nebulaColor * (0.8 + 1.0 * nebulaDim);
+                return vec4(finalColor, alpha);
             }
         ]]
         local ok, shader = pcall(love.graphics.newShader, nebulaShaderCode)
@@ -107,6 +112,8 @@ function Parallax.new(layers, worldSize)
             shader:send('resolution', {winW, winH})
             shader:send('time', 0)
             shader:send('cameraOffset', {0, 0})
+            shader:send('cloudScale', 1.0)
+            shader:send('nebulaDim', 0.55)
         end
     end
     
@@ -167,27 +174,74 @@ function Parallax.new(layers, worldSize)
                 sx = love.math.random(-parallax.worldSize/2, parallax.worldSize/2)
                 sy = love.math.random(-parallax.worldSize/2, parallax.worldSize/2)
             end
-            -- brightness as float in [0.8..1.0]*layer.brightness
-            local brightness = (layer.brightness or 0.5) * (0.8 + love.math.random() * 0.2)
+            -- Much more varied brightness distribution based on star type
+            -- Create a more realistic brightness curve with some very bright stars and many dim ones
+            local brightnessRoll = love.math.random()
+            local baseBrightness
+            if brightnessRoll < 0.05 then
+                -- 5% chance for very bright stars (magnitude -1 to 1)
+                baseBrightness = 0.9 + love.math.random() * 0.1
+            elseif brightnessRoll < 0.15 then
+                -- 10% chance for bright stars (magnitude 1 to 3)
+                baseBrightness = 0.7 + love.math.random() * 0.2
+            elseif brightnessRoll < 0.35 then
+                -- 20% chance for medium stars (magnitude 3 to 5)
+                baseBrightness = 0.4 + love.math.random() * 0.3
+            elseif brightnessRoll < 0.65 then
+                -- 30% chance for dim stars (magnitude 5 to 7)
+                baseBrightness = 0.2 + love.math.random() * 0.2
+            else
+                -- 35% chance for very dim stars (magnitude 7+)
+                baseBrightness = 0.05 + love.math.random() * 0.15
+            end
+            
+            -- Adjust brightness based on star type (hotter stars tend to be brighter)
+            local typeMultiplier = 1.0
+            if colorType <= 2 then
+                -- Blue stars (O/B type) - hottest and brightest
+                typeMultiplier = 1.0 + love.math.random() * 0.3
+            elseif colorType <= 4 then
+                -- White stars (A type) - very bright
+                typeMultiplier = 0.9 + love.math.random() * 0.2
+            elseif colorType <= 6 then
+                -- Yellow/White stars (F/G type) - moderate brightness
+                typeMultiplier = 0.8 + love.math.random() * 0.2
+            elseif colorType <= 8 then
+                -- Orange stars (K type) - dimmer
+                typeMultiplier = 0.6 + love.math.random() * 0.2
+            else
+                -- Red stars (M type) - coolest and dimmest
+                typeMultiplier = 0.4 + love.math.random() * 0.2
+            end
+            
+            local brightness = (layer.brightness or 0.5) * baseBrightness * typeMultiplier
             table.insert(parallax.layers[i].stars, {
                 x = sx,
                 y = sy,
                 size = love.math.random(1, 3),
                 brightness = brightness,
+                baseBrightness = brightness, -- Store original brightness for twinkling
                 r = r,
                 g = g,
-                b = b
+                b = b,
+                -- Twinkling parameters for dynamic brightness
+                twinkleSpeed = love.math.random(2, 15) / 10, -- 0.2 to 1.5
+                twinkleAmplitude = love.math.random(5, 25) / 100, -- 0.05 to 0.25
+                twinklePhase = love.math.random() * (2 * math.pi)
             })
         end
         -- Generate nebula clouds for non-static layers
         if not isStatic then
             local numClouds = love.math.random(2, 4)
             for c = 1, numClouds do
+                -- Choose random parallax factor per cloud so clouds land on different layers
+                local cloudScale = love.math.random(40, 90) / 100 -- 0.4 .. 0.9
+                local cloudOpacity = love.math.random(20, 50) / 100 -- 0.2 .. 0.5
                 table.insert(parallax.layers[i].nebulaClouds, {
                     x = love.math.random(-parallax.worldSize/2, parallax.worldSize/2),
                     y = love.math.random(-parallax.worldSize/2, parallax.worldSize/2),
-                    scale = love.math.random(30, 60) / 100, -- 0.3 to 0.6
-                    opacity = love.math.random(25, 45) / 100, -- 0.25 to 0.45
+                    scale = cloudScale,
+                    opacity = cloudOpacity,
                 })
             end
         end
@@ -266,13 +320,46 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
     -- Safety checks
     if not parallax or not parallax.layers then return end
 
+    -- Draw black background first
+    love.graphics.setColor(0, 0, 0, 1)
+    love.graphics.rectangle('fill', 0, 0, screenWidth, screenHeight)
+
     -- Ensure no shader affects parallax rendering
     love.graphics.setShader()
 
-    -- No nebula or background: only draw stars
+    -- Draw nebula clouds and stars
     
     for _, layer in ipairs(parallax.layers) do
         if not layer or not layer.stars then goto continue end
+
+        -- Draw nebula clouds for this layer (if shader available)
+        local pf = layer.parallaxFactor or 1.0
+        local isStatic = (pf == 0)
+        -- Skip nebula rendering if globally disabled on this parallax instance
+        if (parallax.nebulaEnabled ~= false) and parallax.nebula.shaderEnabled and layer.nebulaClouds and #layer.nebulaClouds > 0 then
+            local shader = parallax.nebula.shader
+            -- Send common uniforms
+            shader:send('resolution', {screenWidth, screenHeight})
+            shader:send('time', love.timer.getTime())
+            love.graphics.setShader(shader)
+            for _, cloud in ipairs(layer.nebulaClouds) do
+                -- Compute camera offset including cloud world position and parallax
+                local camX = cameraX or 0
+                local camY = cameraY or 0
+                local offsetX = camX * pf + (cloud.x or 0)
+                local offsetY = camY * pf + (cloud.y or 0)
+                shader:send('cameraOffset', {offsetX, offsetY})
+                -- Send per-cloud scale and dim to shader
+                shader:send('cloudScale', cloud.scale or 1.0)
+                shader:send('nebulaDim', (cloud.opacity or 0.35) * (layer.brightness or 1.0))
+
+                -- Draw full-screen quad (shader uses pixel coords) with neutral color
+                love.graphics.setColor(1, 1, 1, 1)
+                love.graphics.draw(parallax.nebula.dummyCanvas, 0, 0, 0, screenWidth, screenHeight)
+            end
+            love.graphics.setShader()
+            love.graphics.setColor(1, 1, 1, 1)
+        end
 
         -- Draw stars with per-layer parallax while ensuring full-screen coverage.
         -- For world-space layers we compute a world->screen scale so stars span the viewport,
@@ -296,7 +383,16 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
             if sx < -4 or sx > screenWidth + 4 or sy < -4 or sy > screenHeight + 4 then
                 goto star_continue
             end
-            love.graphics.setColor(star.r, star.g, star.b, star.brightness)
+            
+            -- Apply twinkling effect for dynamic brightness
+            local currentTime = love.timer.getTime()
+            local twinkle = 1.0
+            if star.twinkleSpeed and star.twinkleAmplitude and star.twinklePhase then
+                twinkle = 1.0 + star.twinkleAmplitude * math.abs(math.sin(currentTime * star.twinkleSpeed + star.twinklePhase))
+            end
+            local finalBrightness = (star.baseBrightness or star.brightness) * twinkle
+            
+            love.graphics.setColor(star.r, star.g, star.b, finalBrightness)
             love.graphics.points(sx, sy)
             ::star_continue::
         end

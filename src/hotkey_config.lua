@@ -99,10 +99,18 @@ end
 
 -- Format key for display (handles special keys)
 function HotkeyConfig.formatKey(key)
+    if key == nil or key == "" then
+        return "Unbound"
+    end
+
+    if type(key) ~= "string" then
+        return tostring(key)
+    end
+
     local keyMap = {
         ["lctrl"] = "Ctrl",
         ["rctrl"] = "Ctrl",
-        ["lshift"] = "Shift", 
+        ["lshift"] = "Shift",
         ["rshift"] = "Shift",
         ["lalt"] = "Alt",
         ["ralt"] = "Alt",
@@ -125,8 +133,11 @@ function HotkeyConfig.getDisplayText(action)
     local key = HotkeyConfig.getHotkey(action)
     local formattedKey = HotkeyConfig.formatKey(key)
     local description = HotkeyConfig.descriptions[action]
-    
+
     if action == "target_enemy" then
+        if key == nil or key == "" then
+            return formattedKey .. ": " .. description:gsub(" %(Ctrl%+Click%)", "")
+        end
         return formattedKey .. "+Click: " .. description:gsub(" %(Ctrl%+Click%)", "")
     else
         return formattedKey .. ": " .. description

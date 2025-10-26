@@ -98,13 +98,12 @@ function GameInit.registerSystems()
     ECS.registerSystem("RenderSystem", Systems.RenderSystem)
     ECS.registerSystem("CameraSystem", Systems.CameraSystem)
     -- UI and HUD systems are now handled only by RenderCanvas, not registered with ECS
-    -- Systems.UISystem.priority = 300
-    -- ECS.registerSystem("UISystem", Systems.UISystem)
-    -- Systems.HUDSystem.priority = 200
-    -- ECS.registerSystem("HUDSystem", Systems.HUDSystem)
+    Systems.UISystem.priority = 300
+    ECS.registerSystem("UISystem", Systems.UISystem)
+    Systems.HUDSystem.priority = 200
+    ECS.registerSystem("HUDSystem", Systems.HUDSystem)
     ECS.registerSystem("TrailSystem", Systems.TrailSystem)
     ECS.registerSystem("CombatAlertSystem", require('src.systems.combat_alert'))
-    -- ECS.registerSystem("PlayerFaceVelocitySystem", require('src.systems.player_face_velocity'))
     ECS.registerSystem("AISystem", Systems.AISystem)
     ECS.registerSystem("CollisionSystem", Systems.CollisionSystem)
     ECS.registerSystem("MagnetSystem", Systems.MagnetSystem)
@@ -121,7 +120,7 @@ function GameInit.registerSystems()
     ECS.registerSystem("EnergySystem", Systems.EnergySystem)
     ECS.registerSystem("WorldTooltipsSystem", Systems.WorldTooltipsSystem)
     ECS.registerSystem("QuestSystem", require('src.systems.quest_system'))
-    ECS.registerSystem("WrackageSystem", Systems.WrackageSystem)
+    ECS.registerSystem("WreckageSystem", Systems.WreckageSystem)
     -- NebulaCloudSystem is called explicitly from RenderSystem
 end
 
@@ -206,14 +205,14 @@ function GameInit.setupPlayerShip(pilotId)
     -- Add initial items to ship's cargo
     local shipCargo = ECS.getComponent(droneId, "Cargo")
     if shipCargo then
-        shipCargo.items[miningLaserId] = 1
-        shipCargo.items[basicCannonId] = 1
-    shipCargo.items["railgun"] = 1 -- Add a railgun to starter cargo (powerful but slow)
-        shipCargo.items[combatLaserId] = 1
-        shipCargo.items[salvageLaserId] = 1
-        shipCargo.items[missileLauncherId] = 1
-        shipCargo.items["basic_shield_module"] = 1  -- Add starting defensive module
-        shipCargo.items["basic_generator"] = 1  -- Add starting generator module
+        shipCargo:addItem(miningLaserId, 1)
+        shipCargo:addItem(basicCannonId, 1)
+        shipCargo:addItem("railgun", 1) -- Add a railgun to starter cargo (powerful but slow)
+        shipCargo:addItem(combatLaserId, 1)
+        shipCargo:addItem(salvageLaserId, 1)
+        shipCargo:addItem(missileLauncherId, 1)
+        shipCargo:addItem("basic_shield_module", 1)  -- Add starting defensive module
+        shipCargo:addItem("basic_generator", 1)  -- Add starting generator module
     end
 
     -- Debug: print starter cargo contents so we can verify item addition at runtime

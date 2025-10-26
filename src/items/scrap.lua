@@ -8,6 +8,7 @@ return {
     description = "Generic salvageable material from destroyed ships and structures.",
     stackable = true,
     value = 2,
+    volume = 0.001, -- 1 liter per unit, similar to stone
     
     -- Visual/Design properties
     design = {

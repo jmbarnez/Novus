@@ -32,7 +32,7 @@ end
 
 -- Main game render loop
 function Core.draw()
-    love.graphics.clear(0.01, 0.01, 0.02)
+    love.graphics.clear(0, 0, 0)
 
     ECS.draw() -- Draw all world and UI systems
 end
@@ -107,8 +107,30 @@ end
 
 function Core.onResize(w, h)
     Scaling.update()
+
+    -- Update UI system
     if UISystem and UISystem.onResize then
         UISystem.onResize(w, h)
+    end
+
+    -- Update camera system
+    local CameraSystem = require('src.systems.camera')
+    if CameraSystem and CameraSystem.onResize then
+        CameraSystem.onResize(w, h)
+    end
+
+    -- Update canvas system
+    local RenderCanvas = require('src.systems.render.canvas')
+    if RenderCanvas and RenderCanvas.onResize then
+        RenderCanvas.onResize(w, h)
+    end
+
+    -- Update any other systems that have onResize functions
+    local Systems = require('src.systems')
+    for systemName, system in pairs(Systems) do
+        if system.onResize and systemName ~= "UISystem" and systemName ~= "CameraSystem" and systemName ~= "RenderSystem" then
+            system.onResize(w, h)
+        end
     end
 end
 

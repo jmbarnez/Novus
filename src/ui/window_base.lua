@@ -15,17 +15,12 @@ function WindowBase:new(opts)
     o.width = opts.width or 400
     o.height = opts.height or 300
     o.isOpen = opts.isOpen or false
+    -- Animations removed: keep static alpha for compatibility
     o.animAlpha = 1
-    o.animAlphaTarget = 1
-    o.animAlphaSpeed = 0
     o.animAlphaActive = false
     o.isDragging = false
     o.dragOffset = {x = 0, y = 0}
-    o.elasticityActive = false
-    o.elasticityTarget = nil
-    o.elasticityVelocity = {x = 0, y = 0}
-    o.elasticitySpring = opts.elasticitySpring or 18
-    o.elasticityDamping = opts.elasticityDamping or 0.7
+    -- Elasticity/animation removed: windows are static and non-animated
     o.positionInitialized = false  -- Track if position has been centered
     o.autoCenter = opts.position == nil
     o.userMoved = false
@@ -42,16 +37,12 @@ function WindowBase:setOpen(state)
         end
     end
     
-    if state then
-        self.animAlpha = 1
-    else
-        self.animAlpha = 0
-    end
+    -- No fade animations: open/close is immediate
 end
 
 function WindowBase:centerOnScreen(screenW, screenH)
-    screenW = screenW or Scaling.REFERENCE_WIDTH
-    screenH = screenH or Scaling.REFERENCE_HEIGHT
+    screenW = screenW or Scaling.getCurrentWidth()
+    screenH = screenH or Scaling.getCurrentHeight()
     local w = self.width or 0
     local h = self.height or 0
     local x = math.floor(((screenW or 0) - w) / 2)
@@ -67,20 +58,34 @@ end
 
 function WindowBase:onResize(screenW, screenH)
     if not self.position then return end
-    local uiWidth = Scaling.REFERENCE_WIDTH
-    local uiHeight = Scaling.REFERENCE_HEIGHT
+    local uiWidth = Scaling.getCurrentWidth()
+    local uiHeight = Scaling.getCurrentHeight()
+
+    -- Always re-center auto-centered windows that haven't been manually moved
     if self.autoCenter and not self.userMoved then
         self:centerOnScreen(uiWidth, uiHeight)
         return
     end
+
+    -- For manually positioned windows, check if they're still valid
     local maxX = math.max(0, uiWidth - (self.width or 0))
     local maxY = math.max(0, uiHeight - (self.height or 0))
+
+    -- If window is completely off-screen or in an invalid position, re-center it
+    if self.position.x > maxX or self.position.y > maxY or
+       self.position.x < -self.width * 0.5 or self.position.y < -self.height * 0.5 then
+        self:centerOnScreen(uiWidth, uiHeight)
+        self.userMoved = false -- Reset userMoved since we're auto-repositioning
+        return
+    end
+
+    -- Otherwise, just clamp to valid bounds
     self.position.x = math.max(0, math.min(self.position.x or 0, maxX))
     self.position.y = math.max(0, math.min(self.position.y or 0, maxY))
 end
 
 function WindowBase:update(dt)
-    -- No fade or sliding/elasticity: do nothing
+    -- Animations removed; nothing to update per-frame
 end
 
 function WindowBase:mousepressed(x, y, button)
@@ -103,13 +108,21 @@ function WindowBase:mousepressed(x, y, button)
 end
 
 -- Default close button drawing for all windows
-function WindowBase:drawCloseButton(x, y, alpha)
+function WindowBase:drawCloseButton(x, y, alpha, mx, my)
     alpha = alpha or 1
     local border = 3
     local closeSize = 18
     local closeX = x + self.width - closeSize - 8 - border
     local closeY = y + border + (Theme.window.topBarHeight - 2*border - closeSize) / 2
-    local mx, my = Scaling.toUI(love.mouse.getPosition())
+
+    -- Use provided mouse coords if passed in (to avoid repeated calls per window)
+    if not mx or not my then
+        if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+            mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+        else
+            mx, my = Scaling.toUI(love.mouse.getPosition())
+        end
+    end
 
     local closeHover = mx >= closeX and mx <= closeX + closeSize and my >= closeY and my <= closeY + closeSize
     -- Minimal X: black by default, red on hover, no background
@@ -137,7 +150,7 @@ function WindowBase:mousemoved(x, y, dx, dy)
     end
 end
 
-function WindowBase:draw()
+function WindowBase:draw(viewportWidth, viewportHeight, uiMx, uiMy)
     if not self.isOpen or not self.position then return end
     local x = self.position.x
     local y = self.position.y

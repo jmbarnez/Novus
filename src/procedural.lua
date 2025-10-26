@@ -255,7 +255,7 @@ Procedural.registerTemplate("station", function(spawnData)
     
     local detail = spawnData.detail or {}
     
-    -- Octagonal hull
+    -- Polygon hull helpers
     local function regularPolygon(sides, radius)
         local verts = {}
         local angleStep = (2 * math.pi) / sides
@@ -265,58 +265,346 @@ Procedural.registerTemplate("station", function(spawnData)
         end
         return verts
     end
-    local verts = regularPolygon(8, size)
-    local inertia = Components.calculatePolygonInertia(verts, mass)
-    
-    -- Compose details for rendering system
-    local drawDetails = {}
-    -- Habitat ring (no physics, just visual)
-    if detail.habitatRing then
-        table.insert(drawDetails, {
-            type = "ring",
-            radius = detail.habitatRing.radius,
-            color = detail.habitatRing.color or {0.7,0.7,1,0.16},
-            width = 12
-        })
-    end
-    -- Solar panels (visual only, no physics)
-    if detail.solarPanels then
-        local c = detail.solarPanels.count or 4
-        local angleStep = 2*math.pi/c
-        for i = 1, c do
-            local angle = (i-1)*angleStep
-            table.insert(drawDetails, {
-                type = "rect",
-                x = math.cos(angle)*(detail.solarPanels.radius or size+40),
-                y = math.sin(angle)*(detail.solarPanels.radius or size+40),
-                width = detail.solarPanels.width or 50,
-                height = detail.solarPanels.height or 12,
-                rot = angle,
-                color = detail.solarPanels.color or {0.2,0.7,1,0.28}
+
+    local function buildStationDetails(hullRadius, detailDef)
+        local parts = {}
+        if not detailDef then return parts end
+
+        local function add(part)
+            if part then
+                table.insert(parts, part)
+            end
+        end
+
+        if detailDef.modules then
+            for _, module in ipairs(detailDef.modules) do
+                local moduleType = module.type or module.kind
+                if moduleType == "ring" then
+                    add({
+                        type = "ring",
+                        radius = module.radius or hullRadius,
+                        width = module.width or module.thickness or 10,
+                        color = module.color or {0.68, 0.82, 1, 0.32},
+                        spinSpeed = module.spinSpeed
+                    })
+                elseif moduleType == "disc" or moduleType == "core" then
+                    add({
+                        type = "circle",
+                        radius = module.radius or (hullRadius * 0.3),
+                        color = module.color or {1, 1, 1, 0.3},
+                        spinSpeed = module.spinSpeed
+                    })
+                elseif moduleType == "spokes" then
+                    local count = module.count or 4
+                    local inner = module.innerRadius or (hullRadius * 0.2)
+                    local outer = module.outerRadius or hullRadius
+                    local width = module.width or 8
+                    local offset = module.angleOffset or 0
+                    local len = outer - inner
+                    for i = 1, count do
+                        local angle = offset + (i - 1) * ((2 * math.pi) / count)
+                        add({
+                            type = "rect",
+                            x = math.cos(angle) * (inner + len / 2),
+                            y = math.sin(angle) * (inner + len / 2),
+                            width = len,
+                            height = width,
+                            rot = angle,
+                            color = module.color or {0.75, 0.85, 1, 0.35},
+                            spinSpeed = module.spinSpeed
+                        })
+                    end
+                elseif moduleType == "arms" then
+                    local count = module.count or 3
+                    local radius = module.radius or (hullRadius + 12)
+                    local length = module.length or 40
+                    local width = module.width or 12
+                    local offset = module.angleOffset or 0
+                    for i = 1, count do
+                        local angle = offset + (i - 1) * ((2 * math.pi) / count)
+                        add({
+                            type = "rect",
+                            x = math.cos(angle) * radius,
+                            y = math.sin(angle) * radius,
+                            width = length,
+                            height = width,
+                            rot = angle,
+                            color = module.color or {0.6, 0.75, 0.95, 0.5},
+                            spinSpeed = module.spinSpeed
+                        })
+                        if module.capRadius then
+                            local tipDistance = radius + (module.capOffset or (length / 2))
+                            add({
+                                type = "circle",
+                                x = math.cos(angle) * tipDistance,
+                                y = math.sin(angle) * tipDistance,
+                                radius = module.capRadius,
+                                color = module.capColor or module.color or {0.6, 0.75, 0.95, 0.5}
+                            })
+                        end
+                    end
+                elseif moduleType == "panels" then
+                    local count = module.count or 4
+                    local radius = module.radius or (hullRadius + 18)
+                    local width = module.width or 48
+                    local height = module.height or 14
+                    local offset = module.angleOffset or 0
+                    for i = 1, count do
+                        local angle = offset + (i - 1) * ((2 * math.pi) / count)
+                        add({
+                            type = "rect",
+                            x = math.cos(angle) * radius,
+                            y = math.sin(angle) * radius,
+                            width = width,
+                            height = height,
+                            rot = angle,
+                            color = module.color or {0.3, 0.7, 1, 0.46},
+                            spinSpeed = module.spinSpeed
+                        })
+                    end
+                elseif moduleType == "pods" then
+                    local count = module.count or 4
+                    local radius = module.radius or (hullRadius + 40)
+                    local sides = module.sides or 6
+                    local podRadius = module.podRadius or (radius * 0.08)
+                    local offset = module.angleOffset or 0
+                    local rotationOffset = module.rotationOffset or 0
+                    for i = 1, count do
+                        local angle = offset + (i - 1) * ((2 * math.pi) / count)
+                        local px = math.cos(angle) * radius
+                        local py = math.sin(angle) * radius
+                        add({
+                            type = "polygon",
+                            x = px,
+                            y = py,
+                            rot = angle + rotationOffset,
+                            color = module.color or {0.7, 0.85, 1, 0.5},
+                            vertices = regularPolygon(sides, podRadius),
+                            spinSpeed = module.spinSpeed
+                        })
+                        if module.glow then
+                            add({
+                                type = "glow",
+                                x = px,
+                                y = py,
+                                radius = module.glow.radius or (podRadius * 1.2),
+                                color = module.glow.color or module.color or {0.7, 0.85, 1, 0.25}
+                            })
+                        end
+                    end
+                elseif moduleType == "light_ring" or moduleType == "lights" or moduleType == "beacons" then
+                    local count = module.count or 10
+                    local radius = module.radius or (hullRadius + 20)
+                    local size = module.size or 6
+                    local offset = module.angleOffset or 0
+                    for i = 1, count do
+                        local angle = offset + (i - 1) * ((2 * math.pi) / count)
+                        add({
+                            type = "glow",
+                            x = math.cos(angle) * radius,
+                            y = math.sin(angle) * radius,
+                            radius = size,
+                            color = module.color or {1, 1, 1, 0.35}
+                        })
+                    end
+                elseif moduleType == "dish" or moduleType == "radar" then
+                    add({
+                        type = "arc",
+                        radius = module.radius or (hullRadius * 0.6),
+                        startAngle = module.startAngle or -0.4,
+                        endAngle = module.endAngle or 0.4,
+                        width = module.width or 3,
+                        color = module.color or {0.9, 0.95, 1, 0.55},
+                        spinSpeed = module.spinSpeed or 0.6
+                    })
+                    add({
+                        type = "rect",
+                        width = module.mastLength or 22,
+                        height = module.mastWidth or 6,
+                        rot = module.mastAngle or 0,
+                        color = module.mastColor or module.color or {0.75, 0.8, 0.95, 0.6}
+                    })
+                    if module.capRadius then
+                        add({
+                            type = "circle",
+                            radius = module.capRadius,
+                            color = module.capColor or module.color or {0.9, 0.95, 1, 0.5}
+                        })
+                    end
+                elseif moduleType == "antenna" then
+                    add({
+                        type = "line",
+                        rot = module.angle or 0,
+                        x1 = 0,
+                        y1 = 0,
+                        x2 = module.length or (hullRadius * 0.75),
+                        y2 = 0,
+                        width = module.width or 2,
+                        color = module.color or {0.9, 0.95, 1, 0.7},
+                        spinSpeed = module.spinSpeed
+                    })
+                elseif moduleType == "shield" then
+                    add({
+                        type = "glow",
+                        radius = module.radius or (hullRadius * 1.3),
+                        color = module.color or {0.5, 0.7, 1, 0.2}
+                    })
+                elseif moduleType == "core_glow" then
+                    add({
+                        type = "glow",
+                        radius = module.radius or (hullRadius * 0.35),
+                        color = module.color or {1, 1, 1, 0.3}
+                    })
+                end
+            end
+        end
+
+        -- Legacy field support for older configs
+        if detailDef.habitatRing then
+            add({
+                type = "ring",
+                radius = detailDef.habitatRing.radius or (hullRadius - 12),
+                color = detailDef.habitatRing.color or {0.7, 0.7, 1, 0.16},
+                width = detailDef.habitatRing.width or 12
             })
         end
+        if detailDef.solarPanels then
+            local c = detailDef.solarPanels.count or 4
+            local angleStep = 2 * math.pi / c
+            for i = 1, c do
+                local angle = (i - 1) * angleStep
+                add({
+                    type = "rect",
+                    x = math.cos(angle) * (detailDef.solarPanels.radius or (hullRadius + 40)),
+                    y = math.sin(angle) * (detailDef.solarPanels.radius or (hullRadius + 40)),
+                    width = detailDef.solarPanels.width or 50,
+                    height = detailDef.solarPanels.height or 12,
+                    rot = angle,
+                    color = detailDef.solarPanels.color or {0.2, 0.7, 1, 0.28}
+                })
+            end
+        end
+        if detailDef.core then
+            add({
+                type = "circle",
+                radius = detailDef.core.radius or (hullRadius * 0.28),
+                color = detailDef.core.color or {1, 1, 1, 0.25}
+            })
+        end
+        if detailDef.spokes and not detailDef.modules then
+            local c = detailDef.spokes.count or 4
+            local inner = detailDef.spokes.innerRadius or (hullRadius * 0.2)
+            local outer = detailDef.spokes.outerRadius or (hullRadius * 0.95)
+            local w = detailDef.spokes.width or 8
+            local angleStep = 2 * math.pi / c
+            for i = 1, c do
+                local a = (i - 1) * angleStep
+                local len = outer - inner
+                add({
+                    type = "rect",
+                    x = math.cos(a) * (inner + len / 2),
+                    y = math.sin(a) * (inner + len / 2),
+                    width = len,
+                    height = w,
+                    rot = a,
+                    color = detailDef.spokes.color or {0.75, 0.8, 0.95, 0.35}
+                })
+            end
+        end
+        if detailDef.dockingArms and not detailDef.modules then
+            local c = detailDef.dockingArms.count or 3
+            local radius = detailDef.dockingArms.radius or (hullRadius + 10)
+            local len = detailDef.dockingArms.length or 40
+            local w = detailDef.dockingArms.width or 12
+            local offset = detailDef.dockingArms.angleOffset or 0
+            local angleStep = 2 * math.pi / c
+            for i = 1, c do
+                local a = offset + (i - 1) * angleStep
+                add({
+                    type = "rect",
+                    x = math.cos(a) * radius,
+                    y = math.sin(a) * radius,
+                    width = len,
+                    height = w,
+                    rot = a,
+                    color = detailDef.dockingArms.color or {0.6, 0.75, 0.95, 0.5}
+                })
+            end
+        end
+        if detailDef.lights and not detailDef.modules then
+            local c = detailDef.lights.count or 8
+            local r = detailDef.lights.radius or (hullRadius + 16)
+            local col = detailDef.lights.color or {1, 1, 1, 0.35}
+            local angleStep = 2 * math.pi / c
+            for i = 1, c do
+                local a = (i - 1) * angleStep
+                add({
+                    type = "glow",
+                    x = math.cos(a) * r,
+                    y = math.sin(a) * r,
+                    radius = detailDef.lights.size or 6,
+                    color = col
+                })
+            end
+        end
+        if detailDef.radar and not detailDef.modules then
+            local r = detailDef.radar.radius or (hullRadius * 0.6)
+            add({
+                type = "arc",
+                radius = r,
+                startAngle = detailDef.radar.startAngle or -0.4,
+                endAngle = detailDef.radar.endAngle or 0.4,
+                width = detailDef.radar.width or 3,
+                color = detailDef.radar.color or {0.9, 0.95, 1, 0.55},
+                spinSpeed = detailDef.radar.spinSpeed or 0.6
+            })
+            add({
+                type = "rect",
+                width = (detailDef.radar.mastLength or 22),
+                height = (detailDef.radar.mastWidth or 6),
+                rot = detailDef.radar.mastAngle or 0,
+                color = detailDef.radar.mastColor or {0.75, 0.8, 0.95, 0.6}
+            })
+        end
+        if detailDef.antenna and not detailDef.modules then
+            local a = detailDef.antenna.angle or 0
+            local len = detailDef.antenna.length or (hullRadius * 0.8)
+            local w = detailDef.antenna.width or 2
+            add({
+                type = "line",
+                rot = a,
+                x1 = 0,
+                y1 = 0,
+                x2 = len,
+                y2 = 0,
+                width = w,
+                color = detailDef.antenna.color or {0.9, 0.95, 1, 0.7}
+            })
+        end
+
+        return parts
     end
-    -- Station core glow (visual only)
-    if detail.core then
-        table.insert(drawDetails, {
-            type = "circle",
-            radius = detail.core.radius or (size*0.28),
-            color = detail.core.color or {1,1,1,0.25}
-        })
-    end
+
+    local hullSides = detail.hullSides or spawnData.hullSides or 8
+    local hullRadius = detail.hullRadius or size
+    local verts = regularPolygon(hullSides, hullRadius)
+    local inertia = Components.calculatePolygonInertia(verts, mass)
+
+    -- Compose details for rendering system
+    local drawDetails = buildStationDetails(hullRadius, detail)
     -- Only the main base polygon/shape gets physics, collidable, etc!
     return {
         Position = Components.Position(x, y),
         Velocity = Components.Velocity(0, 0),  -- Static station with zero velocity
         Physics = Components.Physics(0.995, mass, 0.999),
-        PolygonShape = Components.PolygonShape(verts, 0),
+        PolygonShape = Components.PolygonShape(verts, detail.hullRotation or 0),
         RotationalMass = Components.RotationalMass(inertia),
-        Collidable = Components.Collidable(size),
-        Renderable = Components.Renderable("polygon", nil, nil, nil, color),
+        Collidable = Components.Collidable(detail.collidableRadius or hullRadius),
+        Renderable = Components.Renderable("polygon", nil, nil, nil, detail.hullColor or color),
         Station = Components.Station(),  -- Explicit station marker
         StationDetails = drawDetails,
         StationLabel = label and {label} or nil,
-        FloatingQuestionMark = Components.FloatingQuestionMark(12, 1.5, {1, 1, 0.2, 0.9}),
+        FloatingQuestionMark = detail.disableQuestionMark and nil or Components.FloatingQuestionMark(12, 1.5, {1, 1, 0.2, 0.9}),
     }
 end)
 

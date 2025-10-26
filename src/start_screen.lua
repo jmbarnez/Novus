@@ -2,8 +2,31 @@
 -- Start screen module
 
 local Constants = require('src.constants')
+local Theme = require('src.ui.theme')
+local ShaderManager = require('src.shader_manager')
 local start_screen = {}
 
+-- Aurora colors for the shader
+local auroraColors = {
+    {0.2, 0.9, 0.4}, -- bright green
+    {0.4, 0.8, 0.9}, -- teal
+    {0.6, 0.3, 0.8}, -- purple
+    {0.9, 0.2, 0.7}, -- magenta
+    {0.3, 0.6, 0.9}, -- blue
+    {0.8, 0.6, 0.2}, -- orange
+    {0.5, 0.9, 0.6}, -- light green
+    {0.7, 0.4, 0.9}, -- violet
+}
+
+-- Nebula colors for background shader
+local nebulaColors = {
+    {0.3, 0.1, 0.4}, -- deep purple
+    {0.1, 0.2, 0.5}, -- deep blue
+    {0.2, 0.1, 0.3}, -- dark violet
+    {0.1, 0.3, 0.2}, -- dark teal
+    {0.4, 0.1, 0.2}, -- deep red
+    {0.2, 0.2, 0.1}, -- dark olive
+}
 
 -- Comet parameters
 local cometCount = 4
@@ -13,6 +36,21 @@ local cometSpeed = 120
 local cometColor = {0.85, 0.95, 1, 0.35}
 local cometParticleLife = 0.7
 local cometParticleRate = 0.012
+
+-- Floating particles for atmosphere
+local particleCount = 20
+local particles = {}
+for i = 1, particleCount do
+    particles[i] = {
+        x = math.random(0, Constants.getScreenWidth()),
+        y = math.random(0, Constants.getScreenHeight()),
+        vx = math.random(-10, 10),
+        vy = math.random(-5, 5),
+        size = math.random(1, 3),
+        alpha = math.random(20, 60) / 100,
+        life = math.random(50, 100) / 100
+    }
+end
 
 -- Initialize comets
 local function resetComet(i, width, height)
@@ -32,6 +70,9 @@ local function resetComet(i, width, height)
 end
 
 function start_screen.update(dt)
+    -- Update shader time for aurora animation
+    ShaderManager.updateTime()
+
     local width, height = love.graphics.getDimensions()
     for i = 1, cometCount do
         if not comets[i] then
@@ -70,9 +111,24 @@ function start_screen.update(dt)
             end
         end
     end
+    
+    -- Update floating particles
+    for i = 1, particleCount do
+        local p = particles[i]
+        p.x = p.x + p.vx * dt
+        p.y = p.y + p.vy * dt
+        
+        -- Wrap around screen
+        if p.x < 0 then p.x = width end
+        if p.x > width then p.x = 0 end
+        if p.y < 0 then p.y = height end
+        if p.y > height then p.y = 0 end
+        
+        -- Subtle life cycle
+        p.life = p.life + dt * 0.1
+        if p.life > 1.0 then p.life = 0.0 end
+    end
 end
-local Constants = require('src.constants')
-local Theme = require('src.ui.theme')
 
 local title = "Novus"
 local buttonText = "New Game"
@@ -83,25 +139,51 @@ local buttonX = nil -- will be set in draw
 local buttonHovered = false
 
 -- Twinkling stars
-local starCount = 80
+local starCount = 150
 local stars = {}
 for i = 1, starCount do
-    local brightness = math.random(70, 100) / 100
-    local colorType = math.random(1, 3)
+    -- Much more varied brightness distribution for start screen stars
+    local brightnessRoll = math.random()
+    local brightness
+    if brightnessRoll < 0.08 then
+        -- 8% chance for very bright stars (like Sirius, Vega)
+        brightness = math.random(85, 100) / 100
+    elseif brightnessRoll < 0.20 then
+        -- 12% chance for bright stars (like Polaris, Arcturus)
+        brightness = math.random(70, 85) / 100
+    elseif brightnessRoll < 0.45 then
+        -- 25% chance for medium stars (most visible stars)
+        brightness = math.random(50, 70) / 100
+    elseif brightnessRoll < 0.75 then
+        -- 30% chance for dim stars (faint but visible)
+        brightness = math.random(25, 50) / 100
+    else
+        -- 25% chance for very dim stars (barely visible)
+        brightness = math.random(10, 25) / 100
+    end
+    
+    local colorType = math.random(1, 4)
     local color
     if colorType == 1 then
         color = {1, 1, 1} -- white
     elseif colorType == 2 then
         color = {0.7, 0.8, 1} -- blue-white
-    else
+    elseif colorType == 3 then
         color = {1, 0.95, 0.85} -- yellow-white
+    else
+        color = {1, 0.8, 0.6} -- orange-white
     end
+    
     stars[i] = {
         x = math.random(0, Constants.getScreenWidth()),
         y = math.random(0, Constants.getScreenHeight()),
-        baseAlpha = brightness * math.random(12, 32) / 100,
-        twinkleSpeed = math.random(12, 32) / 10,
-        size = math.random(1, 2),
+        -- Base alpha varies more widely now (20% - 100% of brightness)
+        baseAlpha = brightness * math.random(20, 100) / 100,
+        -- Per-star twinkle speed, amplitude and phase for more variance
+        twinkleSpeed = math.random(3, 50) / 10, -- 0.3 .. 5.0
+        twinkleAmplitude = math.random(15, 80) / 100, -- 0.15 .. 0.80
+        twinklePhase = math.random() * (2 * math.pi),
+        size = math.random(1, 4), -- Slightly larger size range
         color = color,
         brightness = brightness
     }
@@ -109,18 +191,21 @@ end
 
     -- Twinkling stars don't need update
 
--- Aurora color gradient for the title
-local auroraColors = {
-    {0.3, 0.8, 1.0}, -- cyan
-    {0.6, 1.0, 0.7}, -- green
-    {1.0, 0.7, 0.9}, -- pink
-    {0.7, 0.9, 1.0}, -- blue
-    {0.9, 1.0, 0.6}, -- yellow-green
-}
-
 function start_screen.draw()
-    love.graphics.clear(0, 0, 0)
+    love.graphics.clear(0.01, 0.02, 0.05)
     local width, height = love.graphics.getDimensions()
+    
+    -- Draw subtle background gradient
+    local gradientSteps = 20
+    for i = 0, gradientSteps do
+        local alpha = (1 - i / gradientSteps) * 0.1
+        local y = height * (i / gradientSteps)
+        love.graphics.setColor(0.1, 0.2, 0.4, alpha)
+        love.graphics.rectangle('fill', 0, y, width, height / gradientSteps)
+    end
+    
+    -- Nebula background intentionally disabled on start screen.
+    -- Keeping nebula shader assets in the project but not drawing them here.
     -- Draw twinkling stars
     local t = love.timer.getTime()
     -- Render stars as points for a sharper look, like in-game
@@ -128,10 +213,13 @@ function start_screen.draw()
     local starColors = {}
     for i = 1, starCount do
         local s = stars[i]
-        local twinkle = s.baseAlpha + 0.18 * math.abs(math.sin(t * s.twinkleSpeed + i))
+        -- Use per-star amplitude and phase for larger, varied twinkles
+        local twinkle = s.baseAlpha + s.twinkleAmplitude * math.abs(math.sin(t * s.twinkleSpeed + s.twinklePhase))
+        -- Cap alpha to 1.0 after applying brightness
+        local alpha = math.min(1, twinkle * s.brightness)
         table.insert(starCoords, s.x)
         table.insert(starCoords, s.y)
-        table.insert(starColors, {s.color[1], s.color[2], s.color[3], twinkle * s.brightness})
+        table.insert(starColors, {s.color[1], s.color[2], s.color[3], alpha})
     end
     for i = 1, starCount do
         local idx = (i-1)*2+1
@@ -159,48 +247,90 @@ function start_screen.draw()
             love.graphics.circle('fill', c.x, c.y, 4)
         end
     end
+    
+    -- Draw floating particles
+    for i = 1, particleCount do
+        local p = particles[i]
+        local alpha = p.alpha * (0.5 + 0.5 * math.sin(p.life * math.pi * 2))
+        love.graphics.setColor(1, 1, 1, alpha)
+        love.graphics.circle('fill', p.x, p.y, p.size)
+    end
 
-    -- Draw title with aurora effect per letter
-    local font = Theme.getFontBold(96)
+    -- Draw title with aurora shader effect
+    local font = Theme.getFontBold(192)
     love.graphics.setFont(font)
     local titleText = title
     local titleWidth = font:getWidth(titleText)
     local titleX = width/2 - titleWidth/2
-    local titleY = height * 0.28
-    local t = love.timer.getTime()
-    local x = titleX
-    for i = 1, #titleText do
-        local letter = titleText:sub(i, i)
-        local colorIdx = ((i-1) % #auroraColors) + 1
-        local baseColor = auroraColors[colorIdx]
-        local shimmer = 0.7 + 0.3 * math.sin(t * 2 + i * 0.7)
-        love.graphics.setColor(baseColor[1] * shimmer, baseColor[2] * shimmer, baseColor[3] * shimmer, 1)
-        love.graphics.print(letter, x, titleY)
-        x = x + font:getWidth(letter)
+    local titleY = height * 0.25
+
+    -- Calculate text bounds for shader (extend bounds for aurora glow effect)
+    local textHeight = font:getHeight() * 1.5 -- Make taller for aurora effect
+    local glowPadding = titleWidth * 0.3 -- Add horizontal padding for glow
+
+    -- Set up aurora shader
+    local auroraShader = ShaderManager.getAuroraShader()
+    if auroraShader then
+        local t = love.timer.getTime()
+
+        -- Cycle through aurora colors over time (slower for better visibility)
+        local colorIndex1 = math.floor(t * 0.1) % #auroraColors + 1
+        local colorIndex2 = (colorIndex1) % #auroraColors + 1
+        local colorIndex3 = (colorIndex2 + 1) % #auroraColors + 1
+
+        local color1 = auroraColors[colorIndex1]
+        local color2 = auroraColors[colorIndex2]
+        local color3 = auroraColors[colorIndex3]
+
+        -- Update shader uniforms
+        ShaderManager.setAuroraColors(color1, color2, color3)
+        ShaderManager.setAuroraResolution(width, height)
+
+        -- Draw title text with aurora shader applied directly to the letters
+        love.graphics.setShader(auroraShader)
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.print(titleText, titleX, titleY)
+        love.graphics.setShader() -- Reset shader
+    else
+        -- Fallback if shader not available
+        love.graphics.setColor(0.5, 0.8, 1.0, 1)
+        love.graphics.print(titleText, titleX, titleY)
     end
 
-    -- Draw 'New Game' button
-    local buttonFont = Theme.getFontBold(22)
+    -- Draw 'New Game' button with subtle styling
+    local buttonFont = Theme.getFontBold(24)
     love.graphics.setFont(buttonFont)
     buttonY = height * 0.55
     buttonX = width/2 - buttonWidth/2
     -- Check hover
     local mx, my = love.mouse.getPosition()
     buttonHovered = mx >= buttonX and mx <= buttonX + buttonWidth and my >= buttonY and my <= buttonY + buttonHeight
-    -- Minimal button: flat color, small corner radius, no shadow
-    -- Monochrome button: use theme background and border colors
-    local bgColor = buttonHovered and Theme.colors.bgLight or Theme.colors.bgMedium
-    local borderColor = buttonHovered and Theme.colors.borderLight or Theme.colors.borderMedium
-    local cornerRadius = 0
-    -- Draw button background
-    love.graphics.setColor(bgColor)
+    
+    -- Subtle button styling
+    local cornerRadius = 8
+    local hoverScale = buttonHovered and 1.05 or 1.0
+    local hoverAlpha = buttonHovered and 0.9 or 0.6
+    
+    -- Draw subtle glow effect behind button
+    if buttonHovered then
+        love.graphics.setColor(1, 1, 1, 0.1)
+        love.graphics.rectangle('fill', buttonX - 4, buttonY - 4, buttonWidth + 8, buttonHeight + 8, cornerRadius + 2, cornerRadius + 2)
+    end
+    
+    -- Draw button background with subtle gradient effect
+    local bgAlpha = hoverAlpha * 0.3
+    love.graphics.setColor(1, 1, 1, bgAlpha)
     love.graphics.rectangle('fill', buttonX, buttonY, buttonWidth, buttonHeight, cornerRadius, cornerRadius)
-    -- Draw button border
-    love.graphics.setColor(borderColor)
-    love.graphics.setLineWidth(2)
+    
+    -- Draw subtle border
+    local borderAlpha = hoverAlpha * 0.8
+    love.graphics.setColor(1, 1, 1, borderAlpha)
+    love.graphics.setLineWidth(1.5)
     love.graphics.rectangle('line', buttonX, buttonY, buttonWidth, buttonHeight, cornerRadius, cornerRadius)
-    -- Draw button text
-    love.graphics.setColor(Theme.colors.textPrimary)
+    
+    -- Draw button text with subtle glow
+    local textAlpha = hoverAlpha
+    love.graphics.setColor(1, 1, 1, textAlpha)
     love.graphics.printf(buttonText, buttonX, buttonY + (buttonHeight - buttonFont:getHeight())/2, buttonWidth, "center")
 end
 

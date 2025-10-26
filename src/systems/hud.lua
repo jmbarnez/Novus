@@ -5,9 +5,9 @@
 local HUDStats = require('src.systems.hud.stats')
 local HUDTargeting = require('src.systems.hud.targeting')
 local HUDSlots = require('src.systems.hud.slots')
-local Minimap = require('src.systems.minimap')
+local Minimap = require('src.systems.hud.minimap')
 local Tooltips = require('src.ui.tooltips')
-local TargetHUD = require('src.systems.target_hud')
+local TargetHUD = require('src.systems.hud.target_hud')
 local ConstructionButton = require('src.ui.construction_button')
 local QuestOverlay = require('src.ui.quest_overlay')
 

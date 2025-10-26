@@ -10,6 +10,8 @@ local RenderEntities = require('src.systems.render.entities')
 local RenderTurrets = require('src.systems.render.turrets')
 local RenderEffects = require('src.systems.render.effects')
 local RenderCanvas = require('src.systems.render.canvas')
+local DisplayManager = require('src.display_manager')
+local Scaling = require('src.scaling')
 
 -- Lazy-load subsystems to avoid circular dependencies
 local ShieldImpactSystem
@@ -147,7 +149,7 @@ local RenderSystem = {
         RenderEffects.drawTargetingIndicator()
 
         -- Draw target HUD indicator circle (in world space)
-        local TargetHUD = require('src.systems.target_hud')
+        local TargetHUD = require('src.systems.hud.target_hud')
         TargetHUD.drawWorldIndicator()
         
         -- Draw world tooltips (warp gates, etc.)
@@ -166,6 +168,11 @@ local RenderSystem = {
 
         -- Reset camera transform before drawing screen-space UI
         CameraUtils.resetTransform()
+
+        -- Update canvas transform for HUD elements before drawing them
+        local windowW, windowH = DisplayManager.getWindowSize()
+        local scaleX, scaleY, offsetX, offsetY = DisplayManager.computeDrawParameters(canvasComp.width, canvasComp.height)
+        Scaling.setCanvasTransform(offsetX, offsetY, scaleX, scaleY)
 
         -- Reset graphics state before drawing UI
         love.graphics.setColor(1, 1, 1, 1)
@@ -206,7 +213,12 @@ local RenderSystem = {
         local ui = getUISystem()
         if ui and ui.draw then
             local screenWidth, screenHeight = Constants.getScreenWidth(), Constants.getScreenHeight()
-            ui.draw(screenWidth, screenHeight) -- Pass display resolution
+            -- Compute scaled UI mouse position once and pass it to UI draw to avoid per-window queries
+            local rawMx, rawMy = love.mouse.getPosition()
+            local uiMx, uiMy = Scaling.toUI(rawMx, rawMy)
+            -- Store cached UI mouse coords for draw-time access (so individual windows can avoid querying mouse)
+            Scaling._lastMouseUI = {uiMx, uiMy}
+            ui.draw(screenWidth, screenHeight, uiMx, uiMy) -- Pass display resolution and cached mouse
         end
         Profiler.stop("ui_windows")
 
