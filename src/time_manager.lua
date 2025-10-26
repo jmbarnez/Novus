@@ -90,17 +90,36 @@ end
 -- Set target FPS (nil for unlimited)
 function TimeManager.setTargetFps(fps)
     TimeManager.config.targetFps = fps
-    
+
+    -- Update the window flags safely. Some environments (including automated
+    -- tests) won't have the Love window API available, so guard our calls.
+    if not (love and love.window and love.window.getMode) then
+        return
+    end
+
+    local width, height, flags = love.window.getMode()
+    flags = flags or {}
+
     if fps then
-        -- Enable vsync if target is 60 or set frame limit
+        -- Enable vsync when targeting 60 FPS, otherwise rely on manual frame
+        -- limiting by disabling vsync.
         if fps == 60 then
-            love.window.setVSync(1)
+            flags.vsync = 1
         else
-            love.window.setVSync(0)
+            flags.vsync = 0
         end
     else
-        -- Unlimited FPS
-        love.window.setVSync(0)
+        -- Unlimited FPS – explicitly disable vsync so the renderer can run as
+        -- fast as the system allows.
+        flags.vsync = 0
+    end
+
+    -- Prefer updateMode (available since LÖVE 0.10) to preserve the window
+    -- position. Fall back to setMode for older versions.
+    if love.window.updateMode then
+        love.window.updateMode(width, height, flags)
+    else
+        love.window.setMode(width, height, flags)
     end
 end
 
