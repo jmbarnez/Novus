@@ -2,30 +2,35 @@
 -- Pause Menu Overlay
 -- Provides an escape menu with resume, save, settings, and exit options.
 
+local WindowBase = require('src.ui.window_base')
 local Theme = require('src.ui.theme')
 local Scaling = require('src.scaling')
 local Notifications = require('src.ui.notifications')
 
-local PauseMenu = {
-    _isOpen = false,
-    _alpha = 0,
-    _animSpeed = 6,
-    _hoverIndex = nil,
-    _selectedIndex = nil,
-    _buttons = nil,
-    _callbacks = {},
-    _panel = {
-        width = 420,
-        paddingX = 40,
-        paddingY = 36,
-        headerHeight = 64,
-        buttonHeight = 60,
-        buttonSpacing = 16,
-    },
-    _saveSlot = 'slot1',
-    _titleFont = nil,
-    _buttonFont = nil,
+local PauseMenu = WindowBase:new({
+    width = 420,
+    height = 360,
+    isOpen = false,
+})
+
+PauseMenu._alpha = 0
+PauseMenu._animSpeed = 6
+PauseMenu._hoverIndex = nil
+PauseMenu._selectedIndex = nil
+PauseMenu._buttons = nil
+PauseMenu._callbacks = {}
+PauseMenu._panel = {
+    width = 420,
+    paddingX = 40,
+    paddingY = 28,
+    headerHeight = 48,
+    buttonHeight = 60,
+    buttonSpacing = 16,
 }
+PauseMenu._saveSlot = 'slot1'
+PauseMenu._titleFont = nil
+PauseMenu._buttonFont = nil
+PauseMenu._layout = nil
 
 local function clamp(value, min, max)
     if value < min then return min end
@@ -38,19 +43,24 @@ function PauseMenu:setCallbacks(callbacks)
 end
 
 function PauseMenu:getOpen()
-    return self._isOpen
+    return self.isOpen
 end
 
 function PauseMenu:setOpen(state)
     state = not not state
-    if self._isOpen == state then
+    if self.isOpen == state then
         return
     end
 
-    self._isOpen = state
     if state then
         self:_ensureButtons()
         self:_refreshFonts()
+        self:_updateLayout()
+    end
+
+    WindowBase.setOpen(self, state)
+
+    if state then
         self:_updateLayout()
         self._selectedIndex = self._selectedIndex or 1
         -- When the game loop is paused, UISystem.update won't advance the fade animation,
@@ -67,7 +77,7 @@ function PauseMenu:setOpen(state)
 end
 
 function PauseMenu:toggle()
-    self:setOpen(not self._isOpen)
+    self:setOpen(not self.isOpen)
 end
 
 function PauseMenu:setSaveSlot(slotName)
@@ -134,23 +144,24 @@ function PauseMenu:_updateLayout()
     local screenW = Scaling.getCurrentWidth()
     local screenH = Scaling.getCurrentHeight()
     local panel = self._panel
-
-    local panelWidth = clamp(panel.width, 320, math.max(320, screenW - 120))
     local buttonCount = #self._buttons
-    local totalButtonHeight = buttonCount * panel.buttonHeight + (buttonCount - 1) * panel.buttonSpacing
-    local panelHeight = panel.paddingY * 2 + panel.headerHeight + totalButtonHeight
+    local totalButtonHeight = buttonCount * panel.buttonHeight + math.max(0, buttonCount - 1) * panel.buttonSpacing
+    local topBarH = Theme.window.topBarHeight or 0
+    local bottomBarH = Theme.window.bottomBarHeight or 0
+    local contentHeight = panel.paddingY * 2 + panel.headerHeight + totalButtonHeight
 
-    local x = math.floor((screenW - panelWidth) * 0.5)
-    local y = math.floor((screenH - panelHeight) * 0.5)
+    local width = clamp(panel.width, 320, math.max(320, screenW - 120))
+    local height = topBarH + contentHeight + bottomBarH
 
-    self._panel.computedX = x
-    self._panel.computedY = y
-    self._panel.computedWidth = panelWidth
-    self._panel.computedHeight = panelHeight
+    self.width = width
+    self.height = height
 
-    local buttonX = x + panel.paddingX
-    local buttonWidth = panelWidth - panel.paddingX * 2
-    local buttonY = y + panel.paddingY + panel.headerHeight
+    local posX = self.position and self.position.x or math.floor((screenW - width) * 0.5)
+    local posY = self.position and self.position.y or math.floor((screenH - height) * 0.5)
+
+    local buttonX = posX + panel.paddingX
+    local buttonWidth = width - panel.paddingX * 2
+    local buttonY = posY + topBarH + panel.paddingY + panel.headerHeight
 
     for index, button in ipairs(self._buttons) do
         button.x = buttonX
@@ -158,6 +169,13 @@ function PauseMenu:_updateLayout()
         button.width = buttonWidth
         button.height = panel.buttonHeight
     end
+
+    self._layout = {
+        panelX = posX,
+        panelY = posY,
+        panelWidth = width,
+        titleY = posY + topBarH + panel.paddingY,
+    }
 end
 
 function PauseMenu:_notify(text, duration)
@@ -189,13 +207,15 @@ function PauseMenu:_handleSave()
 end
 
 function PauseMenu:update(dt)
-    local target = self._isOpen and 1 or 0
+    WindowBase.update(self, dt)
+
+    local target = self.isOpen and 1 or 0
     if self._alpha == target then
         return
     end
 
     local delta = dt * self._animSpeed
-    if self._isOpen then
+    if self.isOpen then
         self._alpha = math.min(1, self._alpha + delta)
     else
         self._alpha = math.max(0, self._alpha - delta)
@@ -203,6 +223,7 @@ function PauseMenu:update(dt)
 end
 
 function PauseMenu:onResize()
+    WindowBase.onResize(self)
     if self._buttons then
         self:_refreshFonts()
         self:_updateLayout()
@@ -214,10 +235,20 @@ local function isPointInside(button, x, y)
            y >= button.y and y <= button.y + button.height
 end
 
-function PauseMenu:mousepressed(x, y, button)
-    if not self._isOpen then
+function PauseMenu:_isInsidePanel(x, y)
+    if not self.position then
         return false
     end
+    return x >= self.position.x and x <= self.position.x + (self.width or 0) and
+           y >= self.position.y and y <= self.position.y + (self.height or 0)
+end
+
+function PauseMenu:mousepressed(x, y, button)
+    if not self.isOpen then
+        return false
+    end
+
+    self:_updateLayout()
 
     self._hoverIndex = nil
     if button == 1 and self._buttons then
@@ -230,20 +261,24 @@ function PauseMenu:mousepressed(x, y, button)
         end
     end
 
-    return true -- Consume all clicks while open
+    return self:_isInsidePanel(x, y)
 end
 
-function PauseMenu:mousereleased(_, _, _)
-    if not self._isOpen then
+function PauseMenu:mousereleased(x, y, button)
+    if not self.isOpen then
         return false
     end
-    return true
+
+    self:_updateLayout()
+    return self:_isInsidePanel(x, y)
 end
 
 function PauseMenu:mousemoved(x, y, _, _)
-    if not self._isOpen or not self._buttons then
+    if not self.isOpen or not self._buttons then
         return
     end
+
+    self:_updateLayout()
 
     local hovered = nil
     for index, entry in ipairs(self._buttons) do
@@ -260,14 +295,21 @@ function PauseMenu:mousemoved(x, y, _, _)
 end
 
 function PauseMenu:wheelmoved(_, _)
-    if not self._isOpen then
+    if not self.isOpen then
         return false
     end
-    return true
+    self:_updateLayout()
+    local mx, my
+    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+        mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+    else
+        mx, my = Scaling.toUI(love.mouse.getPosition())
+    end
+    return self:_isInsidePanel(mx or 0, my or 0)
 end
 
 function PauseMenu:keypressed(key)
-    if not self._isOpen then
+    if not self.isOpen then
         return false
     end
 
@@ -311,7 +353,7 @@ function PauseMenu:_activate(index)
 end
 
 function PauseMenu:draw()
-    if (not self._isOpen) and self._alpha <= 0 then
+    if (not self.isOpen) and self._alpha <= 0 then
         return
     end
 
@@ -322,33 +364,25 @@ function PauseMenu:draw()
         return
     end
 
-    local panel = self._panel
-    local x = panel.computedX or 0
-    local y = panel.computedY or 0
-    local w = panel.computedWidth or panel.width
-    local h = panel.computedHeight or (panel.width * 0.8)
+    local overlayColor = Theme.colors.overlay
+    love.graphics.push('all')
+    love.graphics.setColor(overlayColor[1], overlayColor[2], overlayColor[3], alpha * (overlayColor[4] or 1))
+    love.graphics.rectangle('fill', 0, 0, Scaling.getCurrentWidth(), Scaling.getCurrentHeight())
+    love.graphics.pop()
+
+    if not self.position then
+        return
+    end
+
+    WindowBase.draw(self)
 
     love.graphics.push('all')
 
-    -- Dim background
-    love.graphics.setColor(Theme.colors.overlay[1], Theme.colors.overlay[2], Theme.colors.overlay[3], alpha * Theme.colors.overlay[4])
-    love.graphics.rectangle('fill', 0, 0, Scaling.getCurrentWidth(), Scaling.getCurrentHeight())
-
-    -- Panel background (boxy style)
-    love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], clamp(alpha * 0.95, 0, 1))
-    love.graphics.rectangle('fill', x, y, w, h)
-
-    -- Panel border (boxy style)
-    love.graphics.setColor(Theme.colors.borderDark)
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle('line', x, y, w, h)
-
-    -- Title
     love.graphics.setFont(self._titleFont)
     love.graphics.setColor(Theme.colors.textAccent)
-    love.graphics.printf('Paused', x, y + 12, w, 'center')
+    local layout = self._layout or {}
+    love.graphics.printf('Paused', self.position.x, (layout.titleY or (self.position.y + Theme.window.topBarHeight + 12)), self.width, 'center')
 
-    -- Buttons
     love.graphics.setFont(self._buttonFont)
     for index, entry in ipairs(self._buttons or {}) do
         local isHovered = (self._hoverIndex == index) or (self._selectedIndex == index and not self._hoverIndex)

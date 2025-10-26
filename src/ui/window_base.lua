@@ -178,72 +178,40 @@ function WindowBase:draw(viewportWidth, viewportHeight, uiMx, uiMy)
     local y = self.position.y
     local w = self.width
     local h = self.height
-    local topBarH = Theme.window.topBarHeight
-    local bottomBarH = Theme.window.bottomBarHeight
+    local topBarH = Theme.window.topBarHeight or 0
+    local bottomBarH = Theme.window.bottomBarHeight or 0
     local radius = Theme.window.cornerRadius or 0
-    local padding = Theme.window.framePadding or 6
     local alpha = self.animAlpha or 1
 
     local function setColor(color, multiplier)
         love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha * (multiplier or 1))
     end
 
-    -- Clean boxy frame
-    Theme.draw3DBorder(x, y, w, h, Theme.window.borderThickness, {
-        alpha = alpha,
-        cornerRadius = radius,
-    })
+    -- Panel background matching the pause menu styling
+    setColor(Theme.colors.bgDark, 0.95)
+    love.graphics.rectangle('fill', x, y, w, h, radius, radius)
 
-    -- Soft interior glow to keep the sci-fi look consistent with the pause menu
-    if w > padding * 2 and h > padding * 2 then
-        setColor(Theme.colors.highlightBright, 0.6)
-        love.graphics.rectangle(
-            'line',
-            x + padding,
-            y + padding,
-            w - padding * 2,
-            h - padding * 2,
-            math.max(0, radius - padding),
-            math.max(0, radius - padding)
-        )
-    end
-
-    -- Top bar background & accent line
-    if topBarH and topBarH > 0 then
-        local barHeight = math.max(0, topBarH - 4)
+    -- Header strip (mirrors pause menu header treatment)
+    if topBarH > 0 then
         setColor(Theme.colors.bgMedium, 0.95)
-        love.graphics.rectangle('fill', x + 4, y + 4, w - 8, barHeight, math.max(0, radius - 4), math.max(0, radius - 4))
-
-        if w > 24 then
-            setColor(Theme.colors.borderNeon, 0.65)
-            love.graphics.rectangle('fill', x + 12, y + topBarH - 2, w - 24, 2, 1, 1)
-        end
-
-        if w > 8 then
-            setColor(Theme.colors.highlightBright, 1.1)
-            love.graphics.rectangle('fill', x + 4, y + 4, w - 8, 2, math.max(0, radius - 4), math.max(0, radius - 4))
-        end
+        love.graphics.rectangle('fill', x, y, w, topBarH, radius, radius)
+        setColor(Theme.colors.borderLight, 0.7)
+        love.graphics.rectangle('fill', x, y + topBarH - 2, w, 2)
     end
 
-    -- Bottom bar background & accent line
-    if bottomBarH and bottomBarH > 0 then
-        local barHeight = math.max(0, bottomBarH - 4)
-        setColor(Theme.colors.bgMedium, 0.9)
-        love.graphics.rectangle(
-            'fill',
-            x + 4,
-            y + h - bottomBarH,
-            w - 8,
-            barHeight,
-            math.max(0, radius - 4),
-            math.max(0, radius - 4)
-        )
-
-        if w > 24 then
-            setColor(Theme.colors.borderNeon, 0.35)
-            love.graphics.rectangle('fill', x + 12, y + h - bottomBarH + 2, w - 24, 2, 1, 1)
-        end
+    -- Footer strip for action rows / status text
+    if bottomBarH > 0 then
+        setColor(Theme.colors.bgMedium, 0.85)
+        love.graphics.rectangle('fill', x, y + h - bottomBarH, w, bottomBarH, radius, radius)
+        setColor(Theme.colors.borderLight, 0.5)
+        love.graphics.rectangle('fill', x, y + h - bottomBarH, w, 2)
     end
+
+    -- Primary border drawn last so it sits above header/footer fills
+    setColor(Theme.colors.borderDark)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle('line', x, y, w, h, radius, radius)
+    love.graphics.setLineWidth(1)
 
     love.graphics.pop()
 end
