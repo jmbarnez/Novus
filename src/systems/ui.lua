@@ -193,7 +193,7 @@ function UISystem.draw(viewportWidth, viewportHeight)
         settings_window = SettingsWindow
     }
 
-    -- Draw windows in focus order (least focused first, most focused last)
+    -- Draw windows in focus order (least focused first, most focused last) - only if open
     for _, windowName in ipairs(windowOrder) do
         local window = windows[windowName]
         if window and window:getOpen() then
@@ -201,12 +201,12 @@ function UISystem.draw(viewportWidth, viewportHeight)
         end
     end
 
-    -- Draw any windows not yet in the order (newly opened windows)
+    -- Draw any windows not yet in the order (newly opened windows) - only if open
     for windowName, window in pairs(windows) do
         if not window:getOpen() then
             goto skip_window
         end
-        
+
         local inOrder = false
         for _, orderedName in ipairs(windowOrder) do
             if orderedName == windowName then
@@ -217,7 +217,7 @@ function UISystem.draw(viewportWidth, viewportHeight)
         if not inOrder then
             window:draw(viewportWidth, viewportHeight)
         end
-        
+
         ::skip_window::
     end
     
@@ -297,7 +297,7 @@ function UISystem.mousepressed(x, y, button)
         DeathOverlay.mousepressed(x, y, button)
         return true
     end
-    -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale)
+    -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale) - ONCE
     local mx, my = Scaling.toUI(x, y)
     -- Check construction button (screen-space, not UI-space)
     if ConstructionButton.checkPressed(x, y, button) then
@@ -356,7 +356,6 @@ function UISystem.mousepressed(x, y, button)
 
     -- Also pass to settings window if it's open
     if SettingsWindow and SettingsWindow.isOpen and SettingsWindow.mousepressed then
-        local mx, my = Scaling.toUI(x, y)
         if mx >= SettingsWindow.position.x and mx <= SettingsWindow.position.x + SettingsWindow.width and
            my >= SettingsWindow.position.y and my <= SettingsWindow.position.y + SettingsWindow.height then
             SettingsWindow:mousepressed(mx, my, button)
@@ -377,10 +376,10 @@ end
 
 -- Mouse released handler
 function UISystem.mousereleased(x, y, button)
-    -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale)
+    -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale) - ONCE
     local mx, my = Scaling.toUI(x, y)
 
-    -- Forward to windows in focus order (most focused first)
+    -- Forward to windows in focus order (most focused first) - only if open
     local windows = {
         map_window = MapWindow,
         ship_window = ShipWindow
@@ -389,12 +388,12 @@ function UISystem.mousereleased(x, y, button)
     for i = #windowOrder, 1, -1 do
         local windowName = windowOrder[i]
         local window = windows[windowName]
-        if window then
+        if window and window:getOpen() and window.mousereleased then
             window:mousereleased(mx, my, button)
         end
     end
 
-    -- Forward to any windows not in the order
+    -- Forward to any windows not in the order - only if open
     for windowName, window in pairs(windows) do
         local inOrder = false
         for _, orderedName in ipairs(windowOrder) do
@@ -403,19 +402,17 @@ function UISystem.mousereleased(x, y, button)
                 break
             end
         end
-        if not inOrder then
+        if not inOrder and window:getOpen() and window.mousereleased then
             window:mousereleased(mx, my, button)
         end
     end
 
-    if SettingsWindow and SettingsWindow.isOpen and SettingsWindow.mousereleased then
-        local mx, my = Scaling.toUI(x, y)
+    if SettingsWindow and SettingsWindow:getOpen() and SettingsWindow.mousereleased then
         SettingsWindow:mousereleased(mx, my, button)
     end
-    
-    -- Forward to quest window
-    if QuestWindow and QuestWindow.isOpen and QuestWindow.mousereleased then
-        local mx, my = Scaling.toUI(x, y)
+
+    -- Forward to quest window - only if open
+    if QuestWindow and QuestWindow:getOpen() and QuestWindow.mousereleased then
         QuestWindow:mousereleased(mx, my, button)
     end
 
@@ -427,10 +424,10 @@ end
 
 -- Mouse moved handler
 function UISystem.mousemoved(x, y, dx, dy, isTouch)
-    -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale)
+    -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale) - ONCE
     local mx, my = Scaling.toUI(x, y)
 
-    -- Forward to windows in focus order (most focused first)
+    -- Forward to windows in focus order (most focused first) - only if open
     local windows = {
         map_window = MapWindow,
         ship_window = ShipWindow,
@@ -440,12 +437,12 @@ function UISystem.mousemoved(x, y, dx, dy, isTouch)
     for i = #windowOrder, 1, -1 do
         local windowName = windowOrder[i]
         local window = windows[windowName]
-        if window then
+        if window and window:getOpen() and window.mousemoved then
             window:mousemoved(mx, my, dx, dy)
         end
     end
 
-    -- Forward to any windows not in the order
+    -- Forward to any windows not in the order - only if open
     for windowName, window in pairs(windows) do
         local inOrder = false
         for _, orderedName in ipairs(windowOrder) do
@@ -454,19 +451,17 @@ function UISystem.mousemoved(x, y, dx, dy, isTouch)
                 break
             end
         end
-        if not inOrder then
+        if not inOrder and window:getOpen() and window.mousemoved then
             window:mousemoved(mx, my, dx, dy)
         end
     end
 
-    if SettingsWindow and SettingsWindow.isOpen and SettingsWindow.mousemoved then
-        local mx, my = Scaling.toUI(x, y)
+    if SettingsWindow and SettingsWindow:getOpen() and SettingsWindow.mousemoved then
         SettingsWindow:mousemoved(mx, my, dx, dy)
     end
-    
-    -- Forward to quest window
-    if QuestWindow and QuestWindow.isOpen and QuestWindow.mousemoved then
-        local mx, my = Scaling.toUI(x, y)
+
+    -- Forward to quest window - only if open
+    if QuestWindow and QuestWindow:getOpen() and QuestWindow.mousemoved then
         QuestWindow:mousemoved(mx, my, dx, dy)
     end
 end
@@ -479,8 +474,8 @@ function UISystem.wheelmoved(x, y)
             return true -- Consumed by settings window
         end
     end
-    
-    -- Forward to other windows
+
+    -- Forward to other windows - only if open
     local windows = {
         map_window = MapWindow,
         ship_window = ShipWindow
@@ -489,13 +484,13 @@ function UISystem.wheelmoved(x, y)
     for i = #windowOrder, 1, -1 do
         local windowName = windowOrder[i]
         local window = windows[windowName]
-        if window and window.wheelmoved then
+        if window and window:getOpen() and window.wheelmoved then
             if window:wheelmoved(x, y) then
                 return true -- Consumed by window
             end
         end
     end
-    
+
     return false -- Not consumed
 end
 

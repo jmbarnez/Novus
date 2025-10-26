@@ -9,7 +9,7 @@ local BasicCannon = {
     name = "basic_cannon",
     displayName = "Basic Cannon",
     BALL_SPEED = 200,
-    BALL_RADIUS = 8,
+    BALL_RADIUS = 4,
     BALL_COLOR = {1, 0.9, 0.2, 1},
     BALL_LIFETIME = 6, -- Seconds before projectile shatters
     COOLDOWN = 2, -- Time between shots in seconds
@@ -59,9 +59,6 @@ function BasicCannon.fire(ownerId, startX, startY, endX, endY)
     ECS.addComponent(ballId, "ShatterEffect", {
         numPieces = 8,
         color = BasicCannon.BALL_COLOR
-    })
-    ECS.addComponent(ballId, "CannonballBorder", {
-        borderColor = {0, 0, 0, 1} -- Black border
     })
     ECS.addComponent(ballId, "ProjectileLifetime", {
         age = 0,

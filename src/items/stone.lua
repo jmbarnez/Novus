@@ -8,6 +8,7 @@ return {
     description = "A chunk of common asteroid stone. Basic building material.",
     stackable = true,
     value = 1,
+    volume = 0.001, -- 1 liter per unit
     
     -- Visual/Design properties
     design = {

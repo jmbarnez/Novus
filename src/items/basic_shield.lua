@@ -8,6 +8,7 @@ return {
     stackable = false,
     value = 60,
     type = "defensive",
+    volume = 0.08, -- 0.08 cubic meters for basic shield module
     design = {
         shape = "custom",
         size = 16,

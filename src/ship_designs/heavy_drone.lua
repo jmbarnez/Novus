@@ -100,7 +100,7 @@ return {
     turretSlots = 2,
     defaultTurret = "",
     defensiveSlots = 1,
-    cargoCapacity = 50,
+    cargoCapacity = 8.0, -- Large heavy drone: 8.0 cubic meters
 
     -- Abilities
     hasTrail = true

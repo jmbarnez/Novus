@@ -8,6 +8,7 @@ return {
     description = "Raw iron ore from asteroids. Valuable resource for crafting.",
     stackable = true,
     value = 5,
+    volume = 0.002, -- 2 liters per unit, more dense than stone
     
     -- Visual/Design properties
     design = {

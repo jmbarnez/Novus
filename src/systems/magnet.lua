@@ -58,9 +58,16 @@ function MagnetSystem.update(dt)
                             local itemType = item.id or "stone"
                             local stack = ECS.getComponent(itemId, "Stack")
                             local quantity = (stack and stack.quantity) or 1
-                            cargo.items[itemType] = (cargo.items[itemType] or 0) + quantity
-                            collectedByType[itemType] = (collectedByType[itemType] or 0) + quantity
-                            ECS.destroyEntity(itemId)
+
+                            -- Try to add item to cargo with capacity checking
+                            local added = cargo:addItem(itemType, quantity)
+                            if added then
+                                collectedByType[itemType] = (collectedByType[itemType] or 0) + quantity
+                                ECS.destroyEntity(itemId)
+                            else
+                                -- Item couldn't be added due to capacity - show notification
+                                Notifications.addNotification("Cargo full! Cannot collect " .. itemType, "warning")
+                            end
                         end
                     end
                 end

@@ -68,8 +68,13 @@ return {
     -- Defensive slots: Number of shield/defense hardpoints
     defensiveSlots = 1,
     
-    -- Cargo capacity: Max items this ship can hold
-    cargoCapacity = 10,
+    -- Cargo capacity: Max volume this ship can hold in cubic meters (m3)
+    -- Volume scale examples:
+    --   Small materials: stone/scrap = 0.001 m3, iron = 0.002 m3, crystal = 0.003 m3
+    --   Equipment: basic generator = 0.1 m3, shield = 0.08 m3, weapons = 0.15-0.5 m3
+    --   Small drone capacity: 2.5 m3 (holds ~2500 stone, or mix of equipment)
+    --   Heavy drone capacity: 8.0 m3 (holds much more equipment and materials)
+    cargoCapacity = 2.5, -- Standard small drone: 2.5 cubic meters
 
     -- === ABILITIES ===
     -- Has trail: Whether this ship shows engine trail particles

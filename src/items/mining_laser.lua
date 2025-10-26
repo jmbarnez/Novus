@@ -8,6 +8,7 @@ return {
     stackable = false,
     value = 100,
     type = "turret",
+    volume = 0.15, -- 0.15 cubic meters for mining laser
     module = require("src.turret_modules.mining_laser"),
     update = function(self, dt)
         -- Turret item update logic if needed

@@ -229,8 +229,10 @@ local function drawDecorativeParts(parts)
         if part.x or part.y then
             love.graphics.translate(part.x or 0, part.y or 0)
         end
-        if part.rot or part.angle then
-            love.graphics.rotate(part.rot or part.angle)
+        local t = love.timer.getTime()
+        local r = (part.rot or part.angle or 0) + ((part.spinSpeed or 0) * t)
+        if r ~= 0 then
+            love.graphics.rotate(r)
         end
         love.graphics.setColor((part.color or {1,1,1,1}))
         if part.type == "circle" then
@@ -242,6 +244,36 @@ local function drawDecorativeParts(parts)
         elseif part.type == "rect" then
             local w, h = part.width or 20, part.height or 12
             love.graphics.rectangle("fill", -(w/2), -(h/2), w, h)
+        elseif part.type == "line" then
+            local lw = part.width or 2
+            love.graphics.setLineWidth(lw)
+            love.graphics.line(part.x1 or 0, part.y1 or 0, part.x2 or 0, part.y2 or 0)
+            love.graphics.setLineWidth(1)
+        elseif part.type == "polygon" then
+            if part.vertices and #part.vertices >= 3 then
+                local verts = {}
+                for i, v in ipairs(part.vertices) do
+                    if type(v) == "table" then
+                        table.insert(verts, v.x or 0)
+                        table.insert(verts, v.y or 0)
+                    else
+                        table.insert(verts, v)
+                    end
+                end
+                if #verts >= 6 then
+                    love.graphics.polygon("fill", verts)
+                end
+            end
+        elseif part.type == "arc" then
+            local lw = part.width or 2
+            love.graphics.setLineWidth(lw)
+            local sa = part.startAngle or 0
+            local ea = part.endAngle or math.pi * 2
+            love.graphics.arc("line", 0, 0, part.radius or 20, sa, ea)
+            love.graphics.setLineWidth(1)
+        elseif part.type == "glow" then
+            local rad = part.radius or 14
+            love.graphics.circle("fill", 0, 0, rad)
         end
         love.graphics.pop()
     end

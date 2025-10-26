@@ -168,8 +168,8 @@ function Dialogs.handleConfirmDialogClick(x, y, button)
             local cargoEntities = ECS.getEntitiesWith({"Player", "Cargo"})
             if #cargoEntities > 0 then
                 local cargo = ECS.getComponent(cargoEntities[1], "Cargo")
-                if cargo and cargo.items[Dialogs.confirmDialog.itemId] then
-                    cargo.items[Dialogs.confirmDialog.itemId] = nil
+                if cargo then
+                    cargo:removeItem(Dialogs.confirmDialog.itemId, 1)
                     -- ...existing code...
                 end
             end

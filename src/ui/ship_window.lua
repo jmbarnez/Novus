@@ -53,10 +53,11 @@ local ShipWindow = WindowBase:new{
 }
 
 -- Initialize tab management fields
-ShipWindow.activeTab = "loadout" -- "loadout", "skills"
-ShipWindow.tabs = {"loadout", "skills"}
+ShipWindow.activeTab = "loadout" -- "loadout", "cargo", "skills"
+ShipWindow.tabs = {"loadout", "cargo", "skills"}
 ShipWindow.tabNames = {
-    loadout = "Loadout & Cargo",
+    loadout = "Loadout",
+    cargo = "Cargo",
     skills = "Skills"
 }
 ShipWindow.tabButtons = {}
@@ -65,6 +66,7 @@ ShipWindow.tabButtons = {}
 ShipWindow.draggedItem = nil
 ShipWindow.hoveredItemSlot = nil
 ShipWindow.hoveredEquipmentSlot = nil
+ShipWindow.contextMenu = nil  -- {itemId, itemDef, x, y, options}
 
 -- Public interface for toggling
 function ShipWindow:toggle()
@@ -102,6 +104,8 @@ function ShipWindow:draw(viewportWidth, viewportHeight)
     -- Draw content based on active tab by delegating to respective window objects
     if self.activeTab == "loadout" then
         self:drawLoadoutContent(x, y, alpha)
+    elseif self.activeTab == "cargo" then
+        self:drawCargoContent(x, y, alpha)
     elseif self.activeTab == "skills" then
         self:drawSkillsContent(x, y, alpha)
     end
@@ -176,13 +180,8 @@ function ShipWindow:drawBottomBar(windowX, windowY, alpha)
     local cargo = ECS.getComponent(droneId, "Cargo")
 
     -- Calculate cargo usage
-    local itemCount = 0
+    local currentVolume = cargo and cargo.currentVolume or 0
     local maxCapacity = cargo and cargo.capacity or 0
-    if cargo then
-        for _, v in pairs(cargo.items) do
-            itemCount = itemCount + v
-        end
-    end
 
     love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
     local fontHeight = love.graphics.getFont():getHeight()
@@ -194,7 +193,7 @@ function ShipWindow:drawBottomBar(windowX, windowY, alpha)
     love.graphics.print(creditsText, x + padding, textY)
 
     -- Draw right side: Cargo capacity
-    local cargoText = string.format("Cargo: %d/%d", itemCount, maxCapacity)
+    local cargoText = string.format("Cargo: %.2f/%.2f m³", currentVolume, maxCapacity)
     love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
     love.graphics.printf(cargoText, x + padding, textY, w - padding * 2, "right")
 end
@@ -227,14 +226,8 @@ function ShipWindow:drawLoadoutContent(windowX, windowY, alpha)
     local polygonShape = ECS.getComponent(droneId, "PolygonShape")
     local position = ECS.getComponent(droneId, "Position")
 
-    -- Split the view: 30% stats+equipment, 70% cargo
-    local leftPanelWidth = math.floor(contentWidth * 0.30)
-    local cargoWidth = contentWidth - leftPanelWidth - 10
-    local dividerX = contentX + leftPanelWidth + 5
-
-    -- Draw vertical divider
-    love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha * 0.3)
-    love.graphics.rectangle("fill", dividerX - 1, contentY, 2, contentHeight)
+    -- Use the full content area for stats + equipment (no right-side cargo in this tab)
+    local leftPanelWidth = contentWidth
 
     -- LEFT PANEL: Ship Stats and Equipment
     local slotSize = Theme.spacing.slotSize
@@ -352,13 +345,7 @@ function ShipWindow:drawLoadoutContent(windowX, windowY, alpha)
     love.graphics.printf("GENERATOR", contentX + 10, generatorY, leftPanelWidth - 20, "left")
     self:drawEquipmentSlot("Generator Module", generatorSlots and generatorSlots.slots[1], contentX + (leftPanelWidth - slotSize) / 2, generatorY + 12, slotSize, alpha, droneId)
 
-    -- RIGHT PANEL: Cargo
-    local cargoX = dividerX + 5
-
-    -- Draw cargo grid (full height, no header)
-    if cargo then
-        self:drawCargoGrid(cargo.items, cargoX, contentY, cargoWidth, contentHeight, alpha)
-    end
+    -- (Cargo is intentionally not drawn here; use the Cargo tab for full cargo view)
 
     -- Draw dragged item at mouse position
     if self.draggedItem and self.draggedItem.itemDef then
@@ -401,22 +388,38 @@ function ShipWindow:drawCargoGrid(cargoItems, x, y, width, height, alpha)
 
             -- Removed clipping: allow drawing all items, even if they overflow
 
-            -- Draw slot background
-            love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.8)
-            love.graphics.rectangle("fill", slotX, slotY, slotSize, slotSize, 4, 4)
-            
             -- Check if hovering over slot
             local isHoveringSlot = mx >= slotX and mx <= slotX + slotSize and my >= slotY and my <= slotY + slotSize
-            
+
             if isHoveringSlot then
                 self.hoveredItemSlot = {itemId = itemId, itemDef = itemDef, count = count, mouseX = mx, mouseY = my, slotIndex = i}
+            end
+
+            -- Draw slot background with subtle compatibility indicator
+            local compatibleSlots = self:getCompatibleSlots(itemId)
+            if #compatibleSlots > 0 then
+                -- Subtle green tint for compatible items
+                love.graphics.setColor(0.1, 0.25, 0.1, alpha * 0.4)
+                love.graphics.rectangle("fill", slotX - 1, slotY - 1, slotSize + 2, slotSize + 2, 5, 5)
+                love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.8)
+            else
+                love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.8)
+            end
+            love.graphics.rectangle("fill", slotX, slotY, slotSize, slotSize, 4, 4)
+
+            -- Hover highlight (shows over the subtle tint)
+            if isHoveringSlot then
                 -- Highlight always gray
                 love.graphics.setColor(Theme.colors.bgLight[1], Theme.colors.bgLight[2], Theme.colors.bgLight[3], 0.32 * alpha)
                 love.graphics.rectangle("fill", slotX, slotY, slotSize, slotSize, 4, 4)
             end
-            
-            -- Draw slot border (invisible)
-            love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], 0)
+
+            -- Draw slot border with subtle green for compatible items
+            if #compatibleSlots > 0 then
+                love.graphics.setColor(0.15, 0.35, 0.15, alpha * 0.6)
+            else
+                love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha * 0.3)
+            end
             love.graphics.rectangle("line", slotX, slotY, slotSize, slotSize, 4, 4)
 
             -- Draw item icon
@@ -442,8 +445,175 @@ function ShipWindow:drawCargoGrid(cargoItems, x, y, width, height, alpha)
                 love.graphics.printf(tostring(count), slotX, slotY + slotSize - 16, slotSize, "center")
             end
 
+            -- Draw item name centered at bottom of the slot
+            love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+            love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+            local label = (itemDef and itemDef.name) or tostring(itemId)
+            love.graphics.printf(label, slotX, slotY + slotSize + 4, slotSize, "center")
+
             i = i + 1
         end
+    end
+end
+
+
+-- Check if item can be equipped in a specific slot type
+function ShipWindow:canEquipInSlot(itemId, slotType)
+    local ItemDefs = require('src.items.item_loader')
+    local itemDef = ItemDefs[itemId]
+    if not itemDef then return false end
+
+    if slotType == "Turret Module" then
+        return itemDef.type == "turret"
+    elseif slotType == "Defensive Module" then
+        return string.match(itemId, "shield") or itemDef.type == "shield"
+    elseif slotType == "Generator Module" then
+        return itemDef.type == "generator"
+    end
+
+    return false
+end
+
+-- Get compatible equipment slots for an item
+function ShipWindow:getCompatibleSlots(itemId)
+    local compatibleSlots = {}
+
+    if self:canEquipInSlot(itemId, "Turret Module") then
+        table.insert(compatibleSlots, "Turret Module")
+    end
+    if self:canEquipInSlot(itemId, "Defensive Module") then
+        table.insert(compatibleSlots, "Defensive Module")
+    end
+    if self:canEquipInSlot(itemId, "Generator Module") then
+        table.insert(compatibleSlots, "Generator Module")
+    end
+
+    return compatibleSlots
+end
+
+-- New: drawCargoContent uses the full content area for cargo listing
+function ShipWindow:drawCargoContent(windowX, windowY, alpha)
+    local contentX = windowX + 10
+    local contentY = windowY + Theme.window.topBarHeight + TAB_HEIGHT + 10
+    local contentWidth = self.width - 20
+    local contentHeight = self.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - TAB_HEIGHT - 20
+
+    -- Get player and cargo
+    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+    if #pilotEntities == 0 then return end
+    local pilotId = pilotEntities[1]
+    local input = ECS.getComponent(pilotId, "InputControlled")
+    if not input or not input.targetEntity then return end
+    local droneId = input.targetEntity
+    local cargo = ECS.getComponent(droneId, "Cargo")
+    if not cargo then return end
+
+    -- Draw a full-area cargo grid
+    self.hoveredItemSlot = nil
+    self:drawCargoGrid(cargo.items, contentX, contentY, contentWidth, contentHeight, alpha)
+
+    -- Draw context menu if active
+    if self.contextMenu then
+        self:drawContextMenu(self.contextMenu.x, self.contextMenu.y, alpha)
+    end
+end
+
+-- Open context menu for cargo items
+function ShipWindow:openContextMenu(itemId, itemDef, x, y)
+    local compatibleSlots = self:getCompatibleSlots(itemId)
+    local options = {}
+
+    -- Add equip options for each compatible slot
+    for _, slotType in ipairs(compatibleSlots) do
+        table.insert(options, {
+            text = "Equip to " .. slotType,
+            action = "equip",
+            slotType = slotType
+        })
+    end
+
+    -- Add cancel option
+    table.insert(options, {
+        text = "Cancel",
+        action = "cancel"
+    })
+
+    self.contextMenu = {
+        itemId = itemId,
+        itemDef = itemDef,
+        x = x,
+        y = y,
+        options = options,
+        hoveredOption = nil
+    }
+end
+
+-- Handle context menu option clicks
+function ShipWindow:handleContextMenuClick(optionIndex)
+    if not self.contextMenu or not self.contextMenu.options[optionIndex] then return end
+
+    local option = self.contextMenu.options[optionIndex]
+    if option.action == "equip" and option.slotType then
+        self:equipModule(self.contextMenu.itemId)
+    end
+
+    self.contextMenu = nil
+end
+
+-- Draw context menu for cargo items
+function ShipWindow:drawContextMenu(x, y, alpha)
+    local menuWidth = 200
+    local menuHeight = 40 + (#self.contextMenu.options * 25)
+    local itemDef = self.contextMenu.itemDef
+
+    -- Background
+    love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.95)
+    love.graphics.rectangle("fill", x, y, menuWidth, menuHeight, 5, 5)
+
+    -- Border
+    love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha)
+    love.graphics.rectangle("line", x, y, menuWidth, menuHeight, 5, 5)
+
+    -- Item name header
+    love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
+    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+    local itemName = itemDef and itemDef.name or self.contextMenu.itemId
+    love.graphics.printf(itemName, x + 8, y + 8, menuWidth - 16, "left")
+
+    -- Compatibility indicator
+    local compatibleSlots = self:getCompatibleSlots(self.contextMenu.itemId)
+    if #compatibleSlots > 0 then
+        love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
+        love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
+        local compatText = "Compatible: " .. table.concat(compatibleSlots, ", ")
+        love.graphics.printf(compatText, x + 8, y + 25, menuWidth - 16, "left")
+    else
+        love.graphics.setColor(Theme.colors.textSecondary[1] * 0.5, Theme.colors.textSecondary[2] * 0.5, Theme.colors.textSecondary[3] * 0.5, alpha)
+        love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
+        love.graphics.printf("No compatible slots", x + 8, y + 25, menuWidth - 16, "left")
+    end
+
+    -- Menu options
+    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+    for i, option in ipairs(self.contextMenu.options) do
+        local optionY = y + 40 + (i-1) * 25
+        local isHovered = self.contextMenu.hoveredOption == i
+
+        -- Option background
+        if isHovered then
+            love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], Theme.colors.bgMedium[3], alpha * 0.8)
+            love.graphics.rectangle("fill", x + 5, optionY - 2, menuWidth - 10, 22, 3, 3)
+        end
+
+        -- Option text with color coding
+        if option.action == "equip" then
+            love.graphics.setColor(0.15, 0.4, 0.15, alpha)  -- Subtle green for equip options
+        elseif option.action == "cancel" then
+            love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
+        else
+            love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+        end
+        love.graphics.printf(option.text, x + 8, optionY + 2, menuWidth - 16, "left")
     end
 end
 
@@ -552,8 +722,8 @@ function ShipWindow:unequipModule(slotType, itemId)
             if playerTurret then
                 playerTurret.moduleName = nil
             end
-            -- Add to cargo
-            cargo.items[itemId] = (cargo.items[itemId] or 0) + 1
+            -- Add to cargo with capacity checking
+            cargo:addItem(itemId, 1)
         end
     elseif slotType == "Defensive Module" then
         local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
@@ -567,8 +737,8 @@ function ShipWindow:unequipModule(slotType, itemId)
             if itemDef and itemDef.module and itemDef.module.unequip then
                 itemDef.module.unequip(droneId)
             end
-            -- Add to cargo
-            cargo.items[itemId] = (cargo.items[itemId] or 0) + 1
+            -- Add to cargo with capacity checking
+            cargo:addItem(itemId, 1)
         end
     elseif slotType == "Generator Module" then
         local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
@@ -582,8 +752,8 @@ function ShipWindow:unequipModule(slotType, itemId)
             if itemDef and itemDef.module and itemDef.module.unequip then
                 itemDef.module.unequip(droneId)
             end
-            -- Add to cargo
-            cargo.items[itemId] = (cargo.items[itemId] or 0) + 1
+            -- Add to cargo with capacity checking
+            cargo:addItem(itemId, 1)
         end
     end
 end
@@ -623,7 +793,7 @@ function ShipWindow:equipModule(itemId)
             -- If there's an old module, unequip it first
             local oldModuleId = turretSlots.slots[1]
             if oldModuleId then
-                cargo.items[oldModuleId] = (cargo.items[oldModuleId] or 0) + 1
+                cargo:addItem(oldModuleId, 1)
             end
 
             -- Equip the new module
@@ -638,11 +808,8 @@ function ShipWindow:equipModule(itemId)
                 playerTurret.moduleName = nil
             end
 
-            -- Remove from cargo
-            cargo.items[itemId] = cargo.items[itemId] - 1
-            if cargo.items[itemId] <= 0 then
-                cargo.items[itemId] = nil
-            end
+            -- Remove from cargo with volume checking
+            cargo:removeItem(itemId, 1)
         end
     elseif string.match(itemId, "shield") then
         local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
@@ -651,7 +818,7 @@ function ShipWindow:equipModule(itemId)
             -- If there's an old module, unequip it first
             local oldModuleId = defensiveSlots.slots[1]
             if oldModuleId then
-                cargo.items[oldModuleId] = (cargo.items[oldModuleId] or 0) + 1
+                cargo:addItem(oldModuleId, 1)
                 -- Unequip the old module
                 local oldItemDef = ItemDefs[oldModuleId]
                 if oldItemDef and oldItemDef.module and oldItemDef.module.unequip then
@@ -665,11 +832,8 @@ function ShipWindow:equipModule(itemId)
                 itemDef.module.equip(droneId)
             end
 
-            -- Remove from cargo
-            cargo.items[itemId] = cargo.items[itemId] - 1
-            if cargo.items[itemId] <= 0 then
-                cargo.items[itemId] = nil
-            end
+            -- Remove from cargo with volume checking
+            cargo:removeItem(itemId, 1)
         end
     elseif itemDef.type == "generator" then
         local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
@@ -678,7 +842,7 @@ function ShipWindow:equipModule(itemId)
             -- If there's an old module, unequip it first
             local oldModuleId = generatorSlots.slots[1]
             if oldModuleId then
-                cargo.items[oldModuleId] = (cargo.items[oldModuleId] or 0) + 1
+                cargo:addItem(oldModuleId, 1)
                 -- Unequip the old module
                 local oldItemDef = ItemDefs[oldModuleId]
                 if oldItemDef and oldItemDef.module and oldItemDef.module.unequip then
@@ -692,11 +856,8 @@ function ShipWindow:equipModule(itemId)
                 itemDef.module.equip(droneId)
             end
 
-            -- Remove from cargo
-            cargo.items[itemId] = cargo.items[itemId] - 1
-            if cargo.items[itemId] <= 0 then
-                cargo.items[itemId] = nil
-            end
+            -- Remove from cargo with volume checking
+            cargo:removeItem(itemId, 1)
         end
     end
 end
@@ -714,6 +875,15 @@ function ShipWindow:mousepressed(x, y, button)
                 self.activeTab = tabButton.tabKey
                 return -- Don't process as regular click
             end
+        end
+    end
+
+    -- Close context menu if right-clicking outside of it
+    if button == 2 and self.contextMenu then
+        local mx, my = Scaling.toUI(x, y)
+        if not (mx >= self.contextMenu.x and mx <= self.contextMenu.x + 200 and
+                my >= self.contextMenu.y and my <= self.contextMenu.y + 40 + (#self.contextMenu.options * 25)) then
+            self.contextMenu = nil
         end
     end
 
@@ -747,6 +917,11 @@ function ShipWindow:mousepressed(x, y, button)
         elseif button == 2 and self.hoveredEquipmentSlot then
             self:unequipModule(self.hoveredEquipmentSlot.slotName, self.hoveredEquipmentSlot.itemId)
         end
+    elseif self.activeTab == "cargo" then
+        -- Right click: open context menu for cargo items (only if no existing context menu)
+        if button == 2 and self.hoveredItemSlot and not self.contextMenu then
+            self:openContextMenu(self.hoveredItemSlot.itemId, self.hoveredItemSlot.itemDef, x, y)
+        end
     elseif self.activeTab == "skills" then
         -- Skills tab doesn't have interactive elements currently
     end
@@ -758,6 +933,22 @@ end
 function ShipWindow:mousereleased(x, y, button)
     if button == 1 then
         self.isDragging = false
+    end
+
+    -- Handle context menu clicks
+    if self.contextMenu and button == 1 then
+        local mx, my = Scaling.toUI(x, y)
+        if mx >= self.contextMenu.x and mx <= self.contextMenu.x + 200 and
+           my >= self.contextMenu.y and my <= self.contextMenu.y + 40 + (#self.contextMenu.options * 25) then
+            -- Find which option was clicked
+            local optionIndex = math.floor((my - self.contextMenu.y - 40) / 25) + 1
+            if optionIndex >= 1 and optionIndex <= #self.contextMenu.options then
+                self:handleContextMenuClick(optionIndex)
+                return
+            end
+        end
+        -- Click outside menu - close it
+        self.contextMenu = nil
     end
 
     -- Handle drag-and-drop release in loadout tab
@@ -859,7 +1050,36 @@ end
 
 ---@diagnostic disable-next-line: duplicate-set-field
 function ShipWindow:mousemoved(x, y, dx, dy)
+    -- Handle context menu hover detection
+    if self.contextMenu then
+        local mx, my = Scaling.toUI(x, y)
+        if mx >= self.contextMenu.x and mx <= self.contextMenu.x + 200 and
+           my >= self.contextMenu.y and my <= self.contextMenu.y + 40 + (#self.contextMenu.options * 25) then
+            -- Find which option is hovered
+            local optionIndex = math.floor((my - self.contextMenu.y - 40) / 25) + 1
+            if optionIndex >= 1 and optionIndex <= #self.contextMenu.options then
+                self.contextMenu.hoveredOption = optionIndex
+            else
+                self.contextMenu.hoveredOption = nil
+            end
+        else
+            self.contextMenu.hoveredOption = nil
+        end
+    end
+
     WindowBase.mousemoved(self, x, y, dx, dy)
 end
+
+---@diagnostic disable-next-line: duplicate-set-field
+function ShipWindow:keypressed(key)
+    -- Close context menu on escape
+    if key == "escape" and self.contextMenu then
+        self.contextMenu = nil
+        return
+    end
+
+    WindowBase.keypressed(self, key)
+end
+
 
 return ShipWindow

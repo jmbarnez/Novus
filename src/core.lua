@@ -32,7 +32,7 @@ end
 
 -- Main game render loop
 function Core.draw()
-    love.graphics.clear(0.01, 0.01, 0.02)
+    love.graphics.clear(0, 0, 0)
 
     ECS.draw() -- Draw all world and UI systems
 end

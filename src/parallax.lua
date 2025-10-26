@@ -17,6 +17,8 @@ function Parallax.new(layers, worldSize)
             extern vec2 resolution;
             extern number time;
             extern vec2 cameraOffset;
+            extern float cloudScale;
+            extern float nebulaDim;
             
             // Simplex-like noise approximation
             vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -64,7 +66,7 @@ function Parallax.new(layers, worldSize)
                 vec2 worldPos = (pc - resolution * 0.5) * 0.8 + cameraOffset * 0.02;
                 
                 // Multiple noise layers for realistic nebula
-                float scale = 0.0008;
+                float scale = 0.0008 * (cloudScale > 0.0 ? cloudScale : 1.0);
                 float n1 = fbm(worldPos * scale);
                 float n2 = fbm(worldPos * scale * 1.8 + vec2(100.0, 50.0));
                 float n3 = fbm(worldPos * scale * 3.2 + vec2(200.0, 150.0));
@@ -91,10 +93,11 @@ function Parallax.new(layers, worldSize)
                 vec3 nebulaColor = mix(color1, color2, colorMix);
                 nebulaColor = mix(nebulaColor, color3, n3 * 0.5 + 0.5);
                 
-                // Final nebula with soft glow (further reduced alpha and dimmer color)
-                float alpha = density * 0.035; // was 0.08, now dimmer
-                float nebulaDim = 0.55; // reduce color intensity
-                return vec4(nebulaColor * nebulaDim, alpha);
+                // Final nebula with stronger visibility (scaled by nebulaDim)
+                float alpha = density * 0.12 * nebulaDim; // stronger base alpha
+                // Boost color by nebulaDim for richer tones
+                vec3 finalColor = nebulaColor * (0.8 + 1.0 * nebulaDim);
+                return vec4(finalColor, alpha);
             }
         ]]
         local ok, shader = pcall(love.graphics.newShader, nebulaShaderCode)
@@ -107,6 +110,8 @@ function Parallax.new(layers, worldSize)
             shader:send('resolution', {winW, winH})
             shader:send('time', 0)
             shader:send('cameraOffset', {0, 0})
+            shader:send('cloudScale', 1.0)
+            shader:send('nebulaDim', 0.55)
         end
     end
     
@@ -227,11 +232,14 @@ function Parallax.new(layers, worldSize)
         if not isStatic then
             local numClouds = love.math.random(2, 4)
             for c = 1, numClouds do
+                -- Choose random parallax factor per cloud so clouds land on different layers
+                local cloudScale = love.math.random(40, 90) / 100 -- 0.4 .. 0.9
+                local cloudOpacity = love.math.random(20, 50) / 100 -- 0.2 .. 0.5
                 table.insert(parallax.layers[i].nebulaClouds, {
                     x = love.math.random(-parallax.worldSize/2, parallax.worldSize/2),
                     y = love.math.random(-parallax.worldSize/2, parallax.worldSize/2),
-                    scale = love.math.random(30, 60) / 100, -- 0.3 to 0.6
-                    opacity = love.math.random(25, 45) / 100, -- 0.25 to 0.45
+                    scale = cloudScale,
+                    opacity = cloudOpacity,
                 })
             end
         end
@@ -310,13 +318,45 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
     -- Safety checks
     if not parallax or not parallax.layers then return end
 
+    -- Draw black background first
+    love.graphics.setColor(0, 0, 0, 1)
+    love.graphics.rectangle('fill', 0, 0, screenWidth, screenHeight)
+
     -- Ensure no shader affects parallax rendering
     love.graphics.setShader()
 
-    -- No nebula or background: only draw stars
+    -- Draw nebula clouds and stars
     
     for _, layer in ipairs(parallax.layers) do
         if not layer or not layer.stars then goto continue end
+
+        -- Draw nebula clouds for this layer (if shader available)
+        local pf = layer.parallaxFactor or 1.0
+        local isStatic = (pf == 0)
+        if parallax.nebula.shaderEnabled and layer.nebulaClouds and #layer.nebulaClouds > 0 then
+            local shader = parallax.nebula.shader
+            -- Send common uniforms
+            shader:send('resolution', {screenWidth, screenHeight})
+            shader:send('time', love.timer.getTime())
+            love.graphics.setShader(shader)
+            for _, cloud in ipairs(layer.nebulaClouds) do
+                -- Compute camera offset including cloud world position and parallax
+                local camX = cameraX or 0
+                local camY = cameraY or 0
+                local offsetX = camX * pf + (cloud.x or 0)
+                local offsetY = camY * pf + (cloud.y or 0)
+                shader:send('cameraOffset', {offsetX, offsetY})
+                -- Send per-cloud scale and dim to shader
+                shader:send('cloudScale', cloud.scale or 1.0)
+                shader:send('nebulaDim', (cloud.opacity or 0.35) * (layer.brightness or 1.0))
+
+                -- Draw full-screen quad (shader uses pixel coords) with neutral color
+                love.graphics.setColor(1, 1, 1, 1)
+                love.graphics.draw(parallax.nebula.dummyCanvas, 0, 0, 0, screenWidth, screenHeight)
+            end
+            love.graphics.setShader()
+            love.graphics.setColor(1, 1, 1, 1)
+        end
 
         -- Draw stars with per-layer parallax while ensuring full-screen coverage.
         -- For world-space layers we compute a world->screen scale so stars span the viewport,

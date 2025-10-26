@@ -18,6 +18,16 @@ local auroraColors = {
     {0.7, 0.4, 0.9}, -- violet
 }
 
+-- Nebula colors for background shader
+local nebulaColors = {
+    {0.3, 0.1, 0.4}, -- deep purple
+    {0.1, 0.2, 0.5}, -- deep blue
+    {0.2, 0.1, 0.3}, -- dark violet
+    {0.1, 0.3, 0.2}, -- dark teal
+    {0.4, 0.1, 0.2}, -- deep red
+    {0.2, 0.2, 0.1}, -- dark olive
+}
+
 -- Comet parameters
 local cometCount = 4
 local comets = {}
@@ -192,6 +202,32 @@ function start_screen.draw()
         local y = height * (i / gradientSteps)
         love.graphics.setColor(0.1, 0.2, 0.4, alpha)
         love.graphics.rectangle('fill', 0, y, width, height / gradientSteps)
+    end
+    
+    -- Draw nebula cloud background
+    local nebulaShader = ShaderManager.getNebulaShader()
+    if nebulaShader then
+        local t = love.timer.getTime()
+        
+        -- Cycle through nebula colors slowly
+        local colorIndex1 = math.floor(t * 0.05) % #nebulaColors + 1
+        local colorIndex2 = (colorIndex1) % #nebulaColors + 1
+        local colorIndex3 = (colorIndex2 + 1) % #nebulaColors + 1
+        
+        local color1 = nebulaColors[colorIndex1]
+        local color2 = nebulaColors[colorIndex2]
+        local color3 = nebulaColors[colorIndex3]
+        
+        -- Update shader uniforms and strengthen nebula visibility on start screen
+        ShaderManager.setNebulaColors(color1, color2, color3)
+        ShaderManager.setNebulaResolution(width, height)
+        ShaderManager.setNebulaIntensity(0.6) -- Stronger intensity for start screen
+        
+        -- Draw nebula background
+        love.graphics.setShader(nebulaShader)
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.rectangle('fill', 0, 0, width, height)
+        love.graphics.setShader() -- Reset shader
     end
     -- Draw twinkling stars
     local t = love.timer.getTime()

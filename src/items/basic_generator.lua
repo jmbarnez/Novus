@@ -10,6 +10,7 @@ return {
     type = "generator",
     stackable = false,
     value = 15,
+    volume = 0.1, -- 0.1 cubic meters for basic generator
     
     -- Visual/Design properties
     design = {

@@ -8,6 +8,7 @@ local MissileLauncherItem = {
     stackable = false,
     value = 200,
     type = "turret",
+    volume = 0.5, -- 0.5 cubic meters for missile launcher (bulky due to missiles)
     module = require("src.turret_modules.missile_launcher"), -- Links to the missile_launcher.lua module
     update = function(self, dt)
         -- Turret item update logic if needed

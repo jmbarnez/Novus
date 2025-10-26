@@ -198,7 +198,7 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
     end
     
     -- All ships get cargo and wreckage components
-    ECS.addComponent(shipId, "Cargo", Components.Cargo({}, design.cargoCapacity or 50))
+    ECS.addComponent(shipId, "Cargo", Components.Cargo({}, design.cargoCapacity or 3.0))
     ECS.addComponent(shipId, "Wreckage", Components.Wreckage(designId))
     
     -- Controller setup

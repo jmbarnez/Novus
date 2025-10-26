@@ -8,6 +8,7 @@ return {
     stackable = false,
     value = 80,
     type = "turret",
+    volume = 0.3, -- 0.3 cubic meters for basic cannon
     module = require("src.turret_modules.basic_cannon"),
     update = function(self, dt)
         -- Turret item update logic if needed

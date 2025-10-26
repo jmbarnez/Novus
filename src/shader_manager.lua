@@ -6,6 +6,7 @@ local ShaderManager = {}
 
 local celShader = nil
 local auroraShader = nil
+local nebulaShader = nil
 -- Cel-shading is now permanently enabled - no toggle functionality
 
 -- Initialize shaders
@@ -114,6 +115,24 @@ function ShaderManager.init()
             end
         end
     end
+    
+    -- Load nebula shader
+    print("=== Loading nebula shader ===")
+    local nebulaShaderCode = love.filesystem.read("src/shaders/nebula.frag")
+    if nebulaShaderCode then
+        local success, result = pcall(function()
+            return love.graphics.newShader(nebulaShaderCode)
+        end)
+        if success and result then
+            nebulaShader = result
+            print("SUCCESS: Nebula shader loaded!")
+        else
+            print("FAILED to create nebula shader!")
+            print("Error:", result)
+        end
+    else
+        print("FAILED: Could not read nebula shader file")
+    end
 end
 
 -- Set cel-shading properties
@@ -163,6 +182,9 @@ function ShaderManager.updateTime()
     if auroraShader then
         auroraShader:send("time", love.timer.getTime())
     end
+    if nebulaShader then
+        nebulaShader:send("time", love.timer.getTime())
+    end
 end
 
 -- Set aurora shader colors
@@ -185,6 +207,42 @@ end
 function ShaderManager.setAuroraTextBounds(x, y, width, height)
     if auroraShader then
         auroraShader:send("textBounds", {x, y, width, height})
+    end
+end
+
+-- Get nebula shader
+function ShaderManager.getNebulaShader()
+    return nebulaShader
+end
+
+-- Set nebula shader colors
+function ShaderManager.setNebulaColors(color1, color2, color3)
+    if nebulaShader then
+        nebulaShader:send("nebulaColor1", color1)
+        nebulaShader:send("nebulaColor2", color2)
+        nebulaShader:send("nebulaColor3", color3)
+    end
+end
+
+-- Set nebula shader resolution
+function ShaderManager.setNebulaResolution(width, height)
+    if nebulaShader then
+        nebulaShader:send("resolution", {width, height})
+    end
+end
+
+-- Set nebula shader intensity
+function ShaderManager.setNebulaIntensity(intensity)
+    if nebulaShader then
+        nebulaShader:send("nebulaIntensity", intensity)
+        -- Try to send nebulaDim if the shader defines it; fail safely if not present
+        local ok, err = pcall(function()
+            nebulaShader:send("nebulaDim", intensity)
+        end)
+        if not ok then
+            -- Shader doesn't define nebulaDim; log for debugging but continue
+            print("Warning: nebula shader does not accept 'nebulaDim' uniform:", err)
+        end
     end
 end
 

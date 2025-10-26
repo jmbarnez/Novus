@@ -33,7 +33,7 @@ return {
     turretSlots = 1,
     defaultTurret = "basic_cannon", -- Optional, turret module ID
   -- Turret cooldowns are defined ONLY by turret modules (e.g., `src/turret_modules/basic_cannon.lua`) using the `COOLDOWN` field. Never define cooldowns in ship designs.
-    cargoCapacity = 10, -- Only for player drones
+    cargoCapacity = 2.5, -- Cargo capacity in cubic meters m3 (all ships have cargo)
     
     -- Abilities (optional)
     hasTrail = true, -- Engine trail effect

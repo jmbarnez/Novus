@@ -8,6 +8,7 @@ return {
     stackable = false,
     value = 120,
     type = "turret",
+    volume = 0.15, -- 0.15 cubic meters for salvage laser
     module = require("src.turret_modules.salvage_laser"),
     update = function(self, dt)
         -- Turret item update logic if needed
