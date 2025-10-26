@@ -27,6 +27,30 @@ end
 
 print('Hotkey set/get tests passed')
 
+print('Testing formatKey with nil input...')
+local ok, formatted = pcall(HotkeyConfig.formatKey, nil)
+if not ok then
+    error('formatKey should handle nil input without error')
+end
+if formatted ~= 'Unbound' then
+    error(string.format('formatKey(nil) returned %s, expected %s', tostring(formatted), 'Unbound'))
+end
+
+print('Testing display text when key is unbound...')
+HotkeyConfig.current[action] = ''
+local displayText = HotkeyConfig.getDisplayText(action)
+if not displayText:match('Unbound') then
+    error(string.format('Display text for unbound key did not include "Unbound": %s', displayText))
+end
+
+local targetOrig = HotkeyConfig.getHotkey('target_enemy')
+HotkeyConfig.current['target_enemy'] = ''
+local targetDisplay = HotkeyConfig.getDisplayText('target_enemy')
+if targetDisplay:match('Unbound%+Click') then
+    error(string.format('Display text for unbound target_enemy should not include +Click: %s', targetDisplay))
+end
+HotkeyConfig.setHotkey('target_enemy', targetOrig)
+
 -- Restore original
 HotkeyConfig.setHotkey(action, orig)
 print('Restored original key:', orig)
