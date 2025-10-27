@@ -199,9 +199,9 @@ function InputSystem.update(dt)
             
             -- Apply beam effects every frame (damage, debris, beam positioning) and handle heat for laser turrets
             -- Only apply beam if turret heat hasn't reached MAX_HEAT (for laser turrets only)
-            local isLaserTurret = turretModule and (turretModule.name == "mining_laser" or turretModule.name == "combat_laser" or turretModule.name == "salvage_laser")
+            local usesHeat = turretModule and turretModule.CONTINUOUS and turretModule.HEAT_RATE
             local canFire = true
-            if isLaserTurret then
+            if usesHeat then
                 if turret and turret.heat then
                     canFire = turret.heat.current < (turretModule.MAX_HEAT or 10)
                 end
@@ -240,8 +240,14 @@ function InputSystem.update(dt)
                     if laserBeam then
                         laserBeam.start = {x = laserStartX, y = laserStartY}
                         -- Use collision point if hit, otherwise use mouse position
-                        if beamResult and beamResult.hit and beamResult.intersection then
-                            laserBeam.endPos = {x = beamResult.intersection.x, y = beamResult.intersection.y}
+                        if beamResult then
+                            if beamResult.hit and beamResult.intersection then
+                                laserBeam.endPos = {x = beamResult.intersection.x, y = beamResult.intersection.y}
+                            elseif beamResult.endPos then
+                                laserBeam.endPos = {x = beamResult.endPos.x, y = beamResult.endPos.y}
+                            else
+                                laserBeam.endPos = {x = mouseX, y = mouseY}
+                            end
                         else
                             laserBeam.endPos = {x = mouseX, y = mouseY}
                         end

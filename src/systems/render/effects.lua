@@ -4,24 +4,47 @@ local ECS = require('src.ecs')
 
 local RenderEffects = {}
 
+local unpack = table.unpack or unpack
+
+local function drawBeamPath(points, color)
+    if not points or #points < 2 then
+        return
+    end
+    local coords = {}
+    for _, pt in ipairs(points) do
+        coords[#coords + 1] = pt.x
+        coords[#coords + 1] = pt.y
+    end
+
+    love.graphics.setColor(color[1], color[2], color[3], 0.4)
+    love.graphics.setLineWidth(3)
+    love.graphics.line(unpack(coords))
+
+    love.graphics.setColor(color[1], color[2], color[3], 1.0)
+    love.graphics.setLineWidth(2)
+    love.graphics.line(unpack(coords))
+end
+
 function RenderEffects.drawLasers()
     local laserEntities = ECS.getEntitiesWith({"LaserBeam"})
     for _, entityId in ipairs(laserEntities) do
         local laser = ECS.getComponent(entityId, "LaserBeam")
         if laser then
             local color = laser.color or {1, 1, 0, 1}
+            if laser.segments and #laser.segments >= 2 then
+                drawBeamPath(laser.segments, color)
+            else
+                drawBeamPath({laser.start, laser.endPos}, color)
+            end
 
-            -- Bright, vibrant glow effect
-            love.graphics.setColor(color[1], color[2], color[3], 0.4)
-            love.graphics.setLineWidth(3)
-            love.graphics.line(laser.start.x, laser.start.y, laser.endPos.x, laser.endPos.y)
+            if laser.chainSegments and #laser.chainSegments >= 2 then
+                local chainColor = laser.chainColor or color
+                drawBeamPath(laser.chainSegments, chainColor)
+            end
 
-            -- Thin, bright core
-            love.graphics.setColor(color[1], color[2], color[3], 1.0)
-            love.graphics.setLineWidth(2)
-            love.graphics.line(laser.start.x, laser.start.y, laser.endPos.x, laser.endPos.y)
-
+            -- Reset line width for other renderers
             love.graphics.setLineWidth(1)
+            love.graphics.setColor(1, 1, 1, 1)
         end
     end
 end
@@ -323,4 +346,3 @@ function RenderEffects.drawWarpGates()
 end
 
 return RenderEffects
-

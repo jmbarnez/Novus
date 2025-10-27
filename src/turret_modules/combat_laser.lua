@@ -185,7 +185,80 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
         local baseDamage = CombatLaser.DPS * dt
         local finalDamage = baseDamage * distanceMultiplier * heatMultiplier
 
-        -- Try to damage ships (Hull component) first
+        -- Check for mirror first: if entity has Ability component with mirror type, reflect the laser
+        local abilityComp = ECS.getComponent(hitEntityId, "Ability")
+        local isMirror = abilityComp and abilityComp.abilityType == "mirror"
+        if isMirror then
+            -- Compute incoming vector
+            local inVecX = closestIntersection.x - offsetStartX
+            local inVecY = closestIntersection.y - offsetStartY
+            local inLen = math.sqrt(inVecX*inVecX + inVecY*inVecY)
+            if inLen > 0 then inVecX, inVecY = inVecX / inLen, inVecY / inLen end
+
+            -- Mirror normal approximated by mirror's dir (mirror faces dir)
+            local dir = abilityComp and abilityComp.dir or {x = 0, y = 1}
+            local nx, ny = dir.x or 0, dir.y or 1
+            -- Reflect vector: r = v - 2*(v·n)*n
+            local dot = inVecX * nx + inVecY * ny
+            local rx = inVecX - 2 * dot * nx
+            local ry = inVecY - 2 * dot * ny
+
+            -- Fire a reflected beam from the intersection point in reflected direction for the remaining distance
+            local reflectEndX = closestIntersection.x + rx * 800
+            local reflectEndY = closestIntersection.y + ry * 800
+
+            -- Attempt to apply damage along reflected path (single bounce)
+            local reflectResult
+            -- Reuse line-of-sight collision code: find first hit along reflected ray
+            local entityEntities = ECS.getEntitiesWith({"Position", "PolygonShape", "Collidable"})
+            local closestDistSq2 = math.huge
+            local closestIntersection2 = nil
+            local hitEntityId2 = nil
+            for _, entityId2 in ipairs(entityEntities) do
+                if entityId2 == ownerId or entityId2 == hitEntityId then goto skip_reflect end
+                local inter2 = CollisionSystem.linePolygonIntersect(closestIntersection.x + rx*1, closestIntersection.y + ry*1, reflectEndX, reflectEndY, entityId2)
+                if inter2 then
+                    local distSq2 = (inter2.x - closestIntersection.x)^2 + (inter2.y - closestIntersection.y)^2
+                    if distSq2 < closestDistSq2 then
+                        closestDistSq2 = distSq2
+                        closestIntersection2 = inter2
+                        hitEntityId2 = entityId2
+                    end
+                end
+                ::skip_reflect::
+            end
+
+            if closestIntersection2 and hitEntityId2 then
+                local hull2 = ECS.getComponent(hitEntityId2, "Hull")
+                if hull2 then
+                    local shield2 = ECS.getComponent(hitEntityId2, "Shield")
+                    local damage2 = finalDamage * 0.8 -- some loss on reflection
+                    if shield2 and shield2.current > 0 then
+                        EntityHelpers.createShieldImpact(closestIntersection2.x, closestIntersection2.y, hitEntityId2)
+                        local remaining2 = shield2.current - damage2
+                        shield2.current = math.max(0, remaining2)
+                        damage2 = math.max(0, -remaining2)
+                        shield2.regenTimer = shield2.regenDelay or 0
+                    end
+                    if damage2 > 0 then
+                        local applied = math.min(damage2, hull2.current)
+                        hull2.current = hull2.current - applied
+                        if hull2.current <= 0 then SkillXP.awardXp("combat") end
+                    end
+                else
+                    DebrisSystem.createDebris(closestIntersection2.x, closestIntersection2.y, 1, CombatLaser.design.color)
+                end
+            else
+                -- missed, spawn debris at reflection endpoint
+                DebrisSystem.createDebris(closestIntersection.x + rx*30, closestIntersection.y + ry*30, 1, CombatLaser.design.color)
+            end
+
+            -- Visual impact on mirror
+            DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, {1,1,0.6,1})
+            return {hit = true, intersection = closestIntersection}
+        end
+
+        -- Try to damage ships (Hull component) first (default behavior)
         local hull = ECS.getComponent(hitEntityId, "Hull")
         if hull then
             -- Apply damage to Shield first, then Hull

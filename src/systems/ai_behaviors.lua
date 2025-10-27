@@ -98,26 +98,26 @@ local function fireAtTarget(eid, turret, pos, playerPos, dt)
     if not (turret and turret.moduleName and playerPos) then
         return
     end
-    
+
     local turretSys = getTurretSystem()
     if not (turretSys and turretSys.fireTurret) then
         return
     end
-    
+
     local dx = playerPos.x - pos.x
     local dy = playerPos.y - pos.y
     local dist = math.sqrt(dx*dx + dy*dy)
-    
+
     local turretModule = TurretRegistry.getModule(turret.moduleName)
     if turretModule and turretModule.ZERO_DAMAGE_RANGE then
         if dist > turretModule.ZERO_DAMAGE_RANGE then
             return
         end
     end
-    
+
     AiTurretHelper.aimTurretAtTarget(eid, turret, pos, playerPos)
     turretSys.fireTurret(eid, playerPos.x, playerPos.y, dt)
-    
+
     if turretModule and turretModule.CONTINUOUS and turretModule.applyBeam then
         AiTurretHelper.fireLaserAtTarget(eid, turret, turretModule, playerPos, dt)
     end

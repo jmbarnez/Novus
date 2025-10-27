@@ -33,7 +33,10 @@ function GameInit.initPools()
                 start = {x = 0, y = 0},
                 endPos = {x = 0, y = 0},
                 color = {1, 1, 1, 1},
-                ownerId = nil
+                ownerId = nil,
+                segments = nil,
+                chainSegments = nil,
+                chainColor = nil
             })
             return laserEntity
         end,
@@ -50,6 +53,9 @@ function GameInit.initPools()
                 laserComp.endPos = {x = 0, y = 0}
                 laserComp.ownerId = nil
                 laserComp.color = {1, 1, 1, 1}
+                laserComp.segments = nil
+                laserComp.chainSegments = nil
+                laserComp.chainColor = nil
             end
         end,
         64  -- maxSize: pool up to 64 laser beam entities
@@ -121,6 +127,9 @@ function GameInit.registerSystems()
     ECS.registerSystem("WorldTooltipsSystem", Systems.WorldTooltipsSystem)
     ECS.registerSystem("QuestSystem", require('src.systems.quest_system'))
     ECS.registerSystem("WreckageSystem", Systems.WreckageSystem)
+    -- Ability system handles temporary ability entities (mirrors, shields, etc.)
+    local AbilitySystem = require('src.systems.mirror')
+    ECS.registerSystem("AbilitySystem", AbilitySystem)
     -- NebulaCloudSystem is called explicitly from RenderSystem
 end
 
@@ -185,6 +194,7 @@ function GameInit.setupPlayerShip(pilotId)
     local basicCannonId = "basic_cannon_turret"
     local combatLaserId = "combat_laser_turret"
     local salvageLaserId = "salvage_laser_turret"
+    local arcCoilId = "arc_coil_turret"
     local missileLauncherId = "missile_launcher_turret"
     
     -- Load turret modules (including basic cannon)
@@ -237,6 +247,7 @@ function GameInit.setupPlayerShip(pilotId)
         shipCargo:addItem(salvageLaserId, 1)
         shipCargo:addItem(missileLauncherId, 1)
         shipCargo:addItem("basic_shield_module", 1)  -- Add starting defensive module
+        shipCargo:addItem("mirror_shield_module", 1)  -- Add mirror defensive module to starter cargo
         shipCargo:addItem("basic_generator", 1)  -- Add starting generator module
     end
 

@@ -289,6 +289,20 @@ function WorldLoader.spawnEnemies(config)
 
                 if success then
                     shipId = ShipLoader.createShip(enemyType, x, y, "ai")
+                    -- Set turret weapon after creation
+                    if shipId then
+                        local turret = ECS.getComponent(shipId, "Turret")
+                        local weapon = "basic_cannon"
+                    if turret then
+                        local weaponConf = config.weapons and config.weapons[enemyType]
+                        if type(weaponConf) == "table" then
+                            weapon = weaponConf[math.random(1, #weaponConf)] or "basic_cannon"
+                        elseif type(weaponConf) == "string" then
+                            weapon = weaponConf
+                        end
+                        turret.moduleName = weapon
+                    end
+                    end
                 end
             end
 
@@ -337,6 +351,7 @@ function WorldLoader.spawnEnemy(enemyType, config)
         -- Set up turret weapon (random choice if weapons table is a list)
         local turret = ECS.getComponent(shipId, "Turret")
         local weapon = "basic_cannon"
+
         if turret then
             local weaponConf = config.weapons and config.weapons[enemyType]
             if type(weaponConf) == "table" then

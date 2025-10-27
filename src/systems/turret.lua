@@ -23,46 +23,34 @@ function TurretSystem.fireTurret(entityId, targetX, targetY, dt)
 
     -- Do nothing if no module is fitted
     if not turret.moduleName or turret.moduleName == "" or turret.moduleName == "default" then
-        -- Turret fire blocked: no module installed
         return
     end
 
     local module = TurretRegistry.getModule(turret.moduleName)
     -- If module is continuous (laser), bypass simple cooldown and call fire every frame.
     if module and module.CONTINUOUS then
-        -- Check if it's a laser turret
-        local isLaserTurret = turret.moduleName == "mining_laser" or turret.moduleName == "combat_laser" or turret.moduleName == "salvage_laser"
-        
-        if isLaserTurret then
-            -- Laser turrets use Heat (stored in turret component)
-            if turret.heat and turret.heat.current >= (module.MAX_HEAT or 10) then
-                -- At max heat - don't fire
-                if module and module.stopFiring then
-                    module.stopFiring(turret)
-                elseif turret.laserEntity then
-                    ECS.destroyEntity(turret.laserEntity)
-                    turret.laserEntity = nil
-                end
-                return
+        local usesHeat = module.HEAT_RATE ~= nil
+
+        if usesHeat and turret.heat and turret.heat.current >= (module.MAX_HEAT or 10) then
+            if module and module.stopFiring then
+                module.stopFiring(turret)
+            elseif turret.laserEntity then
+                ECS.destroyEntity(turret.laserEntity)
+                turret.laserEntity = nil
             end
-            
-            -- Check energy consumption for laser weapons
+            return
+        end
+
+        -- Handle energy consumption for continuous weapons
+        local energyPerSecond = module.ENERGY_PER_SECOND
+        local EnergySystem = require('src.systems.energy')
+        if not energyPerSecond and EnergySystem and EnergySystem.CONSUMPTION then
+            energyPerSecond = EnergySystem.CONSUMPTION[turret.moduleName]
+        end
+        if energyPerSecond and dt and dt > 0 then
             local energy = ECS.getComponent(entityId, "Energy")
-            local EnergySystem = require('src.systems.energy')
-            local energyCost = 0
-            
-            if turret.moduleName == "mining_laser" then
-                energyCost = EnergySystem.CONSUMPTION.mining_laser * dt
-            elseif turret.moduleName == "combat_laser" then
-                energyCost = EnergySystem.CONSUMPTION.combat_laser * dt
-            elseif turret.moduleName == "salvage_laser" then
-                energyCost = EnergySystem.CONSUMPTION.salvage_laser * dt
-            end
-            
-            -- Consume energy if firing
-            if energy and energyCost > 0 then
-                if not EnergySystem.consume(energy, energyCost) then
-                    -- Not enough energy - stop firing
+            if energy then
+                if not EnergySystem.consume(energy, energyPerSecond * dt) then
                     if module and module.stopFiring then
                         module.stopFiring(turret)
                     elseif turret.laserEntity then
@@ -73,11 +61,10 @@ function TurretSystem.fireTurret(entityId, targetX, targetY, dt)
                 end
             end
         end
-        
+
         if module and module.fire then
             module.fire(entityId, position.x, position.y, targetX, targetY, turret)
-            -- accumulate heat using dt if supplied (laser turrets only)
-            if isLaserTurret and dt and dt > 0 then
+            if usesHeat and dt and dt > 0 then
                 if turret.heat then
                     local heatRate = module.HEAT_RATE or 1.0
                     turret.heat.current = math.min((turret.heat.current or 0) + heatRate * dt, module.MAX_HEAT or 10)
@@ -91,6 +78,7 @@ function TurretSystem.fireTurret(entityId, targetX, targetY, dt)
     -- Non-continuous projectiles use module-defined cooldown
     local moduleCooldown = TurretRange.getFireCooldown(turret.moduleName)
     local currentTime = love.timer.getTime()
+
     if currentTime - turret.lastFireTime >= moduleCooldown then
         if module and module.fire then
             module.fire(entityId, position.x, position.y, targetX, targetY)
@@ -107,10 +95,9 @@ function TurretSystem.update(dt)
         if not t then goto cont end
         local module = TurretRegistry.getModule(t.moduleName)
         
-        -- Only laser turrets should use Heat component, but be safe
-        local isLaserTurret = t.moduleName == "mining_laser" or t.moduleName == "combat_laser" or t.moduleName == "salvage_laser"
+        local usesHeat = module and module.CONTINUOUS and module.HEAT_RATE
         
-        if module and module.CONTINUOUS and isLaserTurret and t.heat then
+        if module and module.CONTINUOUS and usesHeat and t.heat then
             -- Check if at max heat (cooldown mode)
             local maxHeat = module.MAX_HEAT or 10
             local isInCooldown = t.heat.current >= maxHeat

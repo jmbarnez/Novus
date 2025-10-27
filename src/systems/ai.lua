@@ -57,7 +57,7 @@ local function updateAIState(ai, pos, playerPos, turret, design, dt)
     if ai.type == "mining" then
         return
     end
-    
+
     -- Update aggressive timer
     if ai.aggressiveTimer > 0 then
         ai.aggressiveTimer = ai.aggressiveTimer - dt
@@ -66,22 +66,22 @@ local function updateAIState(ai, pos, playerPos, turret, design, dt)
             ai.lastAttacker = nil
         end
     end
-    
+
     -- If in aggressive state, stay aggressive regardless of detection range
     if ai.aggressiveTimer > 0 then
         ai.state = "aggressive"
         return
     end
-    
+
     if not playerPos then
         ai.state = "patrol"
         return
     end
-    
+
     local dsq = distSq(pos.x, pos.y, playerPos.x, playerPos.y)
     local dist = math.sqrt(dsq)
     local detectionRadiusSq = ai.detectionRadius * ai.detectionRadius
-    
+
     if dsq < detectionRadiusSq then
         -- Player detected
         if design and design.name == "Red Scout" and turret and turret.moduleName then

@@ -68,12 +68,13 @@ function BasicCannon.fire(ownerId, startX, startY, endX, endY)
     -- Barrel extends from ship center by approximately the ship's radius
     local ownerCollidable = ECS.getComponent(ownerId, "Collidable")
     local barrelLength = ownerCollidable and (ownerCollidable.radius + BasicCannon.BALL_RADIUS + 5) or 20
-    
+
     local spawnX = startX + dirX * barrelLength
     local spawnY = startY + dirY * barrelLength
 
     -- Create projectile entity
     local ballId = ECS.createEntity()
+
     ECS.addComponent(ballId, "Position", Components.Position(spawnX, spawnY))
     ECS.addComponent(ballId, "Velocity", Components.Velocity(dirX * BasicCannon.BALL_SPEED, dirY * BasicCannon.BALL_SPEED))
     ECS.addComponent(ballId, "Renderable", Components.Renderable("circle", nil, nil, BasicCannon.BALL_RADIUS, BasicCannon.BALL_COLOR))

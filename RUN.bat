@@ -75,21 +75,74 @@ echo.
 echo [*] Launching NOVUS in developer mode...
 echo.
 
-REM Run the game
-%LOVE_EXE% . %*
+REM Create timestamp for this session
+for /f "tokens=2 delims==" %%a in ('wmic OS Get localdatetime /value') do set "dt=%%a"
+set "timestamp=%dt:~0,4%-%dt:~4,2%-%dt:~6,2%_%dt:~8,2%-%dt:~10,2%-%dt:~12,2%"
 
-REM Check if the game exited with an error
-if %ERRORLEVEL% NEQ 0 (
+REM Log file path
+set LOG_FILE=run_log.txt
+
+REM Display session start info
+echo.
+echo ========================================
+echo Session started: %timestamp%
+echo Project directory: %cd%
+echo LÖVE executable: %LOVE_EXE%
+echo ========================================
+echo.
+echo [*] Output will be logged to: %LOG_FILE%
+echo.
+
+REM Log session start info
+echo. >> run_log.txt
+echo ======================================== >> run_log.txt
+echo Session started: %timestamp% >> run_log.txt
+echo Project directory: %cd% >> run_log.txt
+echo LÖVE executable: %LOVE_EXE% >> run_log.txt
+echo ======================================== >> run_log.txt
+echo. >> run_log.txt
+echo [*] Output will be logged to: %LOG_FILE% >> run_log.txt
+echo. >> run_log.txt
+
+REM Run the game and capture output to temp file, then display and log
+echo Running: %LOVE_EXE% . %*
+%LOVE_EXE% . %* > temp_game_output.txt 2>&1
+set EXIT_CODE=%ERRORLEVEL%
+echo Game exit code: %EXIT_CODE%
+
+REM Check if temp file exists and show its contents
+if exist temp_game_output.txt (
+    echo Temp file exists, contents:
+    type temp_game_output.txt
     echo.
-    echo [!] Game exited with error code: %ERRORLEVEL%
+    echo Appending to log...
+    type temp_game_output.txt >> run_log.txt
+    del temp_game_output.txt
+) else (
+    echo ERROR: temp_game_output.txt was not created!
+)
+
+REM Log and display session end
+(
+echo.
+echo ----------------------------------------
+if %EXIT_CODE% NEQ 0 (
+    echo [!] Game exited with error code: %EXIT_CODE%
+) else (
+    echo [+] Game exited normally
+)
+echo Session ended: %timestamp%
+echo ========================================
+) | powershell -NoProfile -Command "$input | Tee-Object -FilePath '%LOG_FILE%' -Append"
+
+REM Pause on error for debugging
+if %EXIT_CODE% NEQ 0 (
     echo.
+    echo [*] Output logged to: %LOG_FILE%
     echo This might indicate:
     echo   - A Lua syntax error in the code
     echo   - Missing assets or files
     echo   - LÖVE version compatibility issue
     echo.
     pause
-) else (
-    echo.
-    echo [+] Game exited normally
 )

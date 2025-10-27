@@ -145,7 +145,25 @@ Components.LaserBeam = function(data)
     return {
         start = data.start or {x = 0, y = 0},
         endPos = data.endPos or {x = 0, y = 0},
-        ownerId = data.ownerId or 0
+        ownerId = data.ownerId or 0,
+        color = data.color or {1, 1, 1, 1},
+        segments = data.segments,
+        chainSegments = data.chainSegments,
+        chainColor = data.chainColor
+    }
+end
+
+-- Ability component - Generic component for temporary abilities/entities spawned by player/enemy
+-- @field abilityType string: Type of ability ("mirror", "shield", etc.)
+-- @field ownerId number: Entity ID of the owner who created this ability
+-- @field dir table: Direction vector {x, y} the ability faces (for reflection, targeting, etc.)
+-- @field data table: Optional type-specific data
+Components.Ability = function(abilityType, ownerId, dir, data)
+    return {
+        abilityType = abilityType or "unknown",
+        ownerId = ownerId or 0,
+        dir = dir or {x = 1, y = 0},
+        data = data or {}
     }
 end
 

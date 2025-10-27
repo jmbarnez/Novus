@@ -41,9 +41,9 @@ return {
         types = {
             ["red_scout"] = 10,
         },
-        -- Weapon assignments pool (both weapons valid for red_scout)
+        -- Weapon assignments - only basic_cannon for combat enemies
         weapons = {
-            ["red_scout"] = {"basic_cannon", "mining_laser"}
+            ["red_scout"] = "basic_cannon"
         },
         -- AI behavior settings
         aiType = "combat",
