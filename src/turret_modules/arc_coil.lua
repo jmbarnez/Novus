@@ -210,8 +210,9 @@ function ArcCoil.fire(ownerId, startX, startY, endX, endY, turretComp)
         local dy = endY - startY
         local dist = math.sqrt(dx * dx + dy * dy)
         if dist > 0 then
-            offsetStartX = startX + (dx / dist) * (ownerCollidable.radius + 5)
-            offsetStartY = startY + (dy / dist) * (ownerCollidable.radius + 5)
+            -- Use a smaller offset to start closer to the ship's edge
+            offsetStartX = startX + (dx / dist) * (ownerCollidable.radius + 2)
+            offsetStartY = startY + (dy / dist) * (ownerCollidable.radius + 2)
         end
     end
     endX, endY = clampToRange(offsetStartX, offsetStartY, endX, endY, ArcCoil.RANGE)
@@ -253,18 +254,10 @@ end
 function ArcCoil.applyBeam(ownerId, startX, startY, targetX, targetY, dt, turretComp)
     LaserAudio.start(turretComp)
 
+    -- startX, startY already comes from input.lua as the offset muzzle position
+    -- No need to offset again here
     local offsetStartX = startX
     local offsetStartY = startY
-    local ownerCollidable = ECS.getComponent(ownerId, "Collidable")
-    if ownerCollidable then
-        local dx = targetX - startX
-        local dy = targetY - startY
-        local dist = math.sqrt(dx * dx + dy * dy)
-        if dist > 0 then
-            offsetStartX = startX + (dx / dist) * (ownerCollidable.radius + 5)
-            offsetStartY = startY + (dy / dist) * (ownerCollidable.radius + 5)
-        end
-    end
 
     targetX, targetY = clampToRange(offsetStartX, offsetStartY, targetX, targetY, ArcCoil.RANGE)
     local beamEnd = {x = targetX, y = targetY}
