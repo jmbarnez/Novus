@@ -7,6 +7,7 @@ local ItemDefs = require('src.items.item_loader')
 local HotkeyConfig = require('src.hotkey_config')
 local TurretRange = require('src.systems.turret_range')
 local BatchRenderer = require('src.ui.batch_renderer')
+local Theme = require('src.ui.theme')
 
 local HUDHotbar = {}
 
@@ -29,6 +30,7 @@ local BASE_SLOT_HEIGHT = 54 -- allow room for hotkey label
 local BASE_SLOT_SPACING = 8
 
 local hotbarCanvas, canvasW, canvasH, lastFrameTick = nil, nil, nil, nil
+local hotkeyFont = nil
 
 local function getHotkeyLabel(action)
     local key = HotkeyConfig.getHotkey(action)
@@ -186,6 +188,12 @@ local function drawModuleIcon(entry, slotX, slotY, slotWidth, slotHeight, scaleU
     love.graphics.pop()
 end
 
+local function ensureFont()
+    if not hotkeyFont then
+        hotkeyFont = Theme.getFont(Theme.fonts.tiny)
+    end
+end
+
 local function ensureCanvas(width, height)
     if canvasW == width and canvasH == height and hotbarCanvas then
         return
@@ -214,6 +222,7 @@ function HUDHotbar.drawHotbar(viewportWidth, viewportHeight, hudSystem)
     local canvasHeight = math.ceil(slotHeight)
 
     ensureCanvas(canvasWidth, canvasHeight)
+    ensureFont()
 
     local drawX = (Scaling.getCurrentWidth() - canvasWidth) / 2
     local drawY = Scaling.getCurrentHeight() - canvasHeight - 20
@@ -303,6 +312,7 @@ function HUDHotbar.drawHotbar(viewportWidth, viewportHeight, hudSystem)
                 love.graphics.rectangle("line", slotX, slotY, slotWidth, slotHeight, 0, 0)
 
                 love.graphics.setColor(1, 1, 1, 0.9)
+                love.graphics.setFont(hotkeyFont)
                 local labelY = slotY + slotHeight - (12 * scaleY)
                 love.graphics.printf(hotkeyLabel, slotX, labelY, slotWidth, "center")
             end
