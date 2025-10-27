@@ -1,4 +1,3 @@
----@diagnostic disable: undefined-global
 -- HoverSound helper: plays UI hover and click SFX when interacting with buttons
 
 local SoundSystem = require('src.systems.sound')

@@ -195,7 +195,7 @@ function UISystem.draw(viewportWidth, viewportHeight, uiMx, uiMy)
     -- HUD elements are rendered by the HUD system inside RenderSystem
     
     -- Draw notifications (in screen space)
-    Notifications.draw(0, 0, 1)
+    Notifications.draw()
     
     -- Draw skill notifications (in screen space)
     -- SkillNotifications.draw() -- REMOVE THIS

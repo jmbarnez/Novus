@@ -1,4 +1,3 @@
-
 local ECS = require('src.ecs')
 local Components = require('src.components')
 

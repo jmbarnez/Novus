@@ -9,10 +9,12 @@ local TurretRegistry = {
 -- Load all turret modules from a directory
 function TurretRegistry.loadModules(path)
     local files = love.filesystem.getDirectoryItems(path)
+    -- Convert path from filesystem format (slashes) to require format (dots)
+    local requirePath = path:gsub("/", ".")
     for _, file in ipairs(files) do
         if file:match("%.lua$") then
             local moduleName = file:match("(.+)%.lua$")
-            local fullPath = path .. "." .. moduleName
+            local fullPath = requirePath .. "." .. moduleName
             local module = require(fullPath)
             TurretRegistry.modules[moduleName] = module
         end

@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 local Components = {}
 
 -- Quest component - Represents a single quest

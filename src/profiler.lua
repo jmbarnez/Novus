@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Simple profiler to identify performance bottlenecks
 local Profiler = {}
 

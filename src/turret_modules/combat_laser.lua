@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Combat Laser Turret Module
 -- Fires a continuous blue laser beam for combat damage
 

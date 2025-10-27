@@ -4,7 +4,8 @@ A space exploration game built with Love2D. Pilot your ship through the cosmos, 
 
 ## 📋 Requirements
 
-- [Love2D 11.3+](https://love2d.org/)
+- [Love2D 11.3+](https://love2d.org/) (includes LuaJIT 2.1)
+- **Lua Compatibility:** Lua 5.1-compatible syntax required (no Lua 5.2+ features)
 
 ## 🚀 How to Play
 

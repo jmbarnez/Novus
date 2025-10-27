@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Time Manager
 -- Handles fixed timestep for game logic updates
 -- Decouples rendering from game logic for deterministic updates

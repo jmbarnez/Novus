@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Laser Turret Module
 -- This module defines the behavior of a standard laser turret.
 

@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Constants - A central place for all game configuration values
 
 local Constants = {}

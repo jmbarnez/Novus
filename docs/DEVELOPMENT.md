@@ -6,6 +6,7 @@
 
 ## Table of Contents
 
+- [Technical Requirements](#technical-requirements)
 - [Core Principles](#core-principles)
 - [Organization Guidelines](#organization-guidelines)
 - [Code Organization Patterns](#code-organization-patterns)
@@ -13,6 +14,36 @@
 - [Quality Focus](#quality-focus)
 - [Modern Documentation Standards](#modern-documentation-standards)
 - [Success Criteria](#success-criteria)
+
+## Technical Requirements
+
+### Lua Runtime Compatibility
+
+**Target Runtime:** LuaJIT 2.1 (Lua 5.1-compatible)
+
+This project targets LuaJIT 2.1 with Lua 5.1 compatibility. All code must avoid Lua 5.2+ specific features to ensure compatibility with LuaJIT.
+
+#### Important Compatibility Notes
+
+- **Use Lua 5.1 syntax and features only**
+- **Avoid Lua 5.2+ features** including but not limited to:
+  - Binary operators (`&`, `|`, `~`, `>>`, `<<`)
+  - Continuations
+  - Goto statements
+  - Ephemeron tables
+  - New metamethods (`__pairs`, `__ipairs`)
+- **Test with LuaJIT 2.1** before submitting contributions
+- **Reference:** LuaJIT 2.1 is the default Lua runtime in Love2D 11.3+
+
+#### Why This Matters
+
+Love2D uses LuaJIT 2.1 which is Lua 5.1-compatible. Using Lua 5.2+ features will cause runtime errors or inconsistent behavior. Contributors must ensure their code works with Lua 5.1 syntax and APIs.
+
+### Development Environment
+
+- **Love2D:** 11.3+ (includes LuaJIT 2.1)
+- **Lua Version:** 5.1-compatible syntax required
+- **Platform:** Windows, Linux, macOS
 
 ## Core Principles
 

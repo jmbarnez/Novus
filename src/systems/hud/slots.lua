@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- HUD Slots Module - Turret slot rendering
 
 local ECS = require('src.ecs')

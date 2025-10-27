@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Render Entities Module - Handles basic entity rendering (polygons, circles, rectangles)
 
 local ECS = require('src.ecs')

@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Basic Cannon Turret Module
 -- Fires a yellow ball projectile that shatters on impact
 

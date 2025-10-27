@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Asteroid Hotspots System
 -- Manages temporary weak points on asteroids that give mining bonuses
 

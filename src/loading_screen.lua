@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- src/loading_screen.lua
 -- Simple loading screen module
 

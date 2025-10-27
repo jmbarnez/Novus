@@ -1,4 +1,3 @@
----@diagnostic disable: undefined-global
 -- AI Behavior Modules - Reusable, composable behavior implementations
 -- Each behavior module handles one specific AI behavior (patrol, chase, orbit)
 -- This makes it easy to add new behaviors without modifying core system

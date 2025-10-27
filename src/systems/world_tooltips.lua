@@ -1,4 +1,3 @@
----@diagnostic disable: undefined-global
 -- World Tooltips System
 -- Handles world-space tooltips and interactive elements (different from UI item tooltips)
 -- Used for warp gates, world objects, and other entities that need tooltips in world coordinates

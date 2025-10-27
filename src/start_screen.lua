@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- src/start_screen.lua
 -- Start screen module
 

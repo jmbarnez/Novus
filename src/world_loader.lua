@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- World/Sector Loader
 -- Loads world definitions from worlds/ directory and provides factory functions
 
@@ -28,23 +29,50 @@ end
 -- Load all world definitions from a directory
 function WorldLoader.loadAllWorlds(directory)
     directory = directory or "src.worlds"
-    
-    -- Known worlds to load
+
+    local modulePrefix = directory:gsub("/", ".")
+    local fsPath = directory:gsub("%.", "/")
+    local loadedCount = 0
+
+    local lfs = love and love.filesystem
+    if lfs and lfs.getDirectoryItems then
+        local entries = lfs.getDirectoryItems(fsPath)
+        table.sort(entries)
+
+        for _, entry in ipairs(entries) do
+            if entry:sub(-4) == ".lua" then
+                local info = lfs.getInfo(fsPath .. "/" .. entry, "file")
+                if info and info.type == "file" then
+                    local worldId = entry:sub(1, -5)
+                    if worldId ~= "init" and worldId ~= "" then
+                        local filepath = modulePrefix .. "." .. worldId
+                        if WorldLoader.loadWorld(worldId, filepath) then
+                            loadedCount = loadedCount + 1
+                        end
+                    end
+                end
+            end
+        end
+
+        return loadedCount
+    end
+
+    -- Fallback to known worlds when love.filesystem is unavailable
     local knownWorlds = {
         "default_sector",
         "asteroid_field",
         "mining_zone",
         "combat_sector"
     }
-    
-    local loadedCount = 0
+
     for _, worldId in ipairs(knownWorlds) do
-        local filepath = directory .. "." .. worldId
+        local filepath = modulePrefix .. "." .. worldId
         if WorldLoader.loadWorld(worldId, filepath) then
             loadedCount = loadedCount + 1
         end
     end
 
+    return loadedCount
 end
 
 -- Get a world definition by ID

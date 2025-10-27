@@ -1,4 +1,3 @@
----@diagnostic disable: undefined-global
 -- Trail System - Manages particle trails for visual effects
 -- Creates and updates trail particles behind moving entities
 

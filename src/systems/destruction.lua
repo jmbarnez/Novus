@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 -- Destruction System - Handles entity destruction and death effects
 
 local ECS = require('src.ecs')

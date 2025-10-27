@@ -30,5 +30,6 @@ Systems.WreckageSystem = require('src.systems.wreckage')
 Systems.ShieldImpactSystem = require('src.systems.shield_impact')
 Systems.EnergySystem = require('src.systems.energy')
 Systems.WorldTooltipsSystem = require('src.systems.world_tooltips')
+Systems.ItemCleanupSystem = require('src.systems.item_cleanup')
 
 return Systems

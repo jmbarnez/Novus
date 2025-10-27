@@ -366,7 +366,7 @@ function PauseMenu:draw()
 
     local overlayColor = Theme.colors.overlay
     love.graphics.push('all')
-    love.graphics.setColor(overlayColor[1], overlayColor[2], overlayColor[3], alpha * (overlayColor[4] or 1))
+    love.graphics.setColor(overlayColor[1] or 0, overlayColor[2] or 0, overlayColor[3] or 0, alpha * (overlayColor[4] or 1))
     love.graphics.rectangle('fill', 0, 0, Scaling.getCurrentWidth(), Scaling.getCurrentHeight())
     love.graphics.pop()
 

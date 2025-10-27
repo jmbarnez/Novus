@@ -159,4 +159,12 @@ Components.Level = function(level)
     }
 end
 
+-- ItemCleanup component - Tracks when an item was marked for cleanup
+-- @field farAwayTimestamp number: Time when item was first detected as far from player
+Components.ItemCleanup = function(farAwayTimestamp)
+    return {
+        farAwayTimestamp = farAwayTimestamp or 0
+    }
+end
+
 return Components

@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global
 local Theme = require('src.ui.theme')
 local Scaling = require('src.scaling')
 local BatchRenderer = require('src.ui.batch_renderer')
