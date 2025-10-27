@@ -365,17 +365,28 @@ function WorldLoader.spawnEnemy(enemyType, config)
             turret.moduleName = weapon
         end
 
-        -- Automatically set AI type based on weapon (mining lasers = mining AI)
+        -- Set AI type explicitly from world config (weapon type doesn't determine AI type)
         local ai = ECS.getComponent(shipId, "AI")
         if ai then
+            -- Old mining-specific weapons get forced to mining AI
             local isMiningWeapon = (weapon == "mining_laser" or weapon == "salvage_laser")
-            -- Note: continuous_beam is versatile and AI type will be determined by world config
             if isMiningWeapon then
                 ai.type = "mining"
                 ai.state = "mining"
             else
+                -- For all other weapons (including continuous_beam), use world config AI type
                 ai.type = config.aiType or "combat"
                 ai.state = config.aiState or "patrol"
+            end
+            
+            -- Set detection range based on AI type from design
+            local design = ShipLoader.getDesign(enemyType)
+            if design then
+                if ai.type == "mining" and design.miningDetectionRange then
+                    ai.detectionRadius = design.miningDetectionRange
+                elseif ai.type == "combat" and design.combatDetectionRange then
+                    ai.detectionRadius = design.combatDetectionRange
+                end
             end
         end
 

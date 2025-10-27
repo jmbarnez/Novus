@@ -243,11 +243,12 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
                 table.insert(relativePatrolPoints, {x = x + point.x, y = y + point.y})
             end
 
-            -- Determine AI type based on turret module
+            -- Set default AI type (can be overridden by spawner)
+            -- Note: continuous_beam is versatile and requires explicit AI type setting
             local aiType = "combat"
             local t = ECS.getComponent(shipId, "Turret")
             if t and t.moduleName then
-                -- Note: continuous_beam is versatile and AI type should be set explicitly by spawner
+                -- Legacy mining weapons: set to mining by default
                 if t.moduleName == "mining_laser" or t.moduleName == "salvage_laser" then
                     aiType = "mining"
                 end

@@ -44,7 +44,12 @@ function EnemyMiningSystem.update(dt)
         
         -- Process only mining AI entities
         if ai and ai.type == "mining" then
-            -- ALWAYS force mining state
+            -- Skip mining logic if this miner is in aggressive/combat mode
+            if ai.aggressiveTimer and ai.aggressiveTimer > 0 then
+                goto continue
+            end
+            
+            -- ALWAYS force mining state (only when not aggressive)
             ai.state = "mining"
             
             local pos = ECS.getComponent(minerId, "Position")

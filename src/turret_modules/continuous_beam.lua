@@ -244,10 +244,17 @@ function ContinuousBeam.applyBeam(ownerId, startX, startY, endX, endY, dt, turre
                             shield2.current = math.max(0, remaining2)
                             damage2 = math.max(0, -remaining2)
                             shield2.regenTimer = shield2.regenDelay or 0
+                            
+                            -- Notify AI system of damage
+                            EntityHelpers.notifyAIDamage(hitEntityId2, ownerId)
                         end
                         if damage2 > 0 then
                             local applied = math.min(damage2, hull2.current)
                             hull2.current = hull2.current - applied
+                            
+                            -- Notify AI system of damage for aggressive reaction
+                            EntityHelpers.notifyAIDamage(hitEntityId2, ownerId)
+                            
                             if hull2.current <= 0 then SkillXP.awardXp("combat") end
                         end
                     else
@@ -275,11 +282,17 @@ function ContinuousBeam.applyBeam(ownerId, startX, startY, endX, endY, dt, turre
                 shield.current = math.max(0, remaining)
                 damage = math.max(0, -remaining)
                 shield.regenTimer = shield.regenDelay or 0
+                
+                -- Notify AI system of damage even if only shield hit
+                EntityHelpers.notifyAIDamage(hitEntityId, ownerId)
             end
 
             if damage > 0 then
                 local damageApplied = math.min(damage, hull.current)
                 hull.current = hull.current - damageApplied
+
+                -- Notify AI system of damage for aggressive reaction
+                EntityHelpers.notifyAIDamage(hitEntityId, ownerId)
 
                 -- Only grant XP if ship is destroyed this frame
                 if hull.current <= 0 then

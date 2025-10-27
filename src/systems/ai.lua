@@ -37,15 +37,15 @@ function AISystem.triggerAggressiveReaction(victimId, attackerId)
     local ai = ECS.getComponent(victimId, "AI")
     if not ai then return end
     
-    -- NEVER trigger aggressive state for mining AI - they should only mine asteroids
-    if ai.type == "mining" then
-        return
-    end
-    
-    -- Set aggressive state
+    -- Set aggressive state for any AI when attacked
     ai.aggressiveTimer = ai.aggressiveDuration or 5.0
     ai.lastAttacker = attackerId
     ai.state = "aggressive"
+    
+    -- For mining AI, switch to combat mode when attacked
+    if ai.type == "mining" then
+        ai._wasMining = true  -- Track original mining state for potential return
+    end
 end
 
 -- ============================================================================
@@ -53,22 +53,31 @@ end
 -- ============================================================================
 
 local function updateAIState(ai, pos, playerPos, turret, design, dt)
-    -- NEVER allow mining AI to enter combat states
-    if ai.type == "mining" then
+    -- If mining AI has been attacked, allow it to enter combat states
+    local isMiningBeingAttacked = ai.type == "mining" and ai.aggressiveTimer and ai.aggressiveTimer > 0
+    
+    -- NEVER allow mining AI to enter combat states UNLESS they're being attacked
+    if ai.type == "mining" and not isMiningBeingAttacked then
         return
     end
 
     -- Update aggressive timer
-    if ai.aggressiveTimer > 0 then
+    if ai.aggressiveTimer and ai.aggressiveTimer > 0 then
         ai.aggressiveTimer = ai.aggressiveTimer - dt
         if ai.aggressiveTimer <= 0 then
             ai.aggressiveTimer = 0
             ai.lastAttacker = nil
+            
+            -- Return mining AI to mining state when aggressive timer expires
+            if ai.type == "mining" and ai._wasMining then
+                ai.state = "mining"
+                return
+            end
         end
     end
 
     -- If in aggressive state, stay aggressive regardless of detection range
-    if ai.aggressiveTimer > 0 then
+    if ai.aggressiveTimer and ai.aggressiveTimer > 0 then
         ai.state = "aggressive"
         return
     end
@@ -183,12 +192,14 @@ function AISystem.update(dt)
         
         if not (ai and pos and vel) then goto continue end
 
-        -- Skip mining AI if handled by separate system
-        -- CRITICAL: Never allow mining AI to switch to combat modes
+        -- Skip mining AI if handled by separate system UNLESS it's in aggressive state
         if ai.type == "mining" then
-            -- Ensure mining AI stays in mining state (defensive check)
-            ai.state = "mining"
-            goto continue
+            -- If mining AI is being attacked, let it continue to combat logic
+            if not (ai.aggressiveTimer and ai.aggressiveTimer > 0) then
+                -- Ensure mining AI stays in mining state when not aggressive
+                ai.state = "mining"
+                goto continue
+            end
         end
         
         -- Get ship design
