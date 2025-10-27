@@ -14,9 +14,9 @@ local QuestOverlay = {
 local QUEST_PADDING = Theme.spacing.padding
 local FRAME_PADDING = QUEST_PADDING * 1.5
 local PANEL_SIDE_PADDING = QUEST_PADDING * 1.5
-local ROW_HEIGHT = QUEST_PADDING * 6
+local ROW_HEIGHT = QUEST_PADDING * 8
 local DIVIDER_HEIGHT = QUEST_PADDING * 0.75
-local EXTRA_SPACING = QUEST_PADDING * 5
+local EXTRA_SPACING = QUEST_PADDING * 6
 
 local cachedQuests = {}
 local cachedVersion = -1
@@ -72,20 +72,7 @@ end
 
 local function drawQuest(quest, x, y, w, h, fonts, alpha)
     local titleColor = quest.isMainStory and Theme.colors.buttonYes or Theme.colors.textAccent
-    local labelColor = Theme.colors.textMuted
     local currentY = y
-
-    if quest.isMainStory then
-        BatchRenderer.queueText(
-            "MAIN OBJECTIVE",
-            x,
-            currentY,
-            fonts.small,
-            titleColor[1], titleColor[2], titleColor[3],
-            alpha
-        )
-        currentY = currentY + fonts.small:getHeight() + QUEST_PADDING * 0.3
-    end
 
     BatchRenderer.queueText(
         quest.title or "Quest",
@@ -97,35 +84,9 @@ local function drawQuest(quest, x, y, w, h, fonts, alpha)
     )
     currentY = currentY + fonts.title:getHeight() + QUEST_PADDING * 0.4
 
-    local objective = quest.requirements and quest.requirements.objective
-    if objective then
-        BatchRenderer.queueText(
-            objective,
-            x,
-            currentY,
-            fonts.small,
-            labelColor[1], labelColor[2], labelColor[3],
-            alpha
-        )
-        currentY = currentY + fonts.small:getHeight() + QUEST_PADDING * 0.4
-    end
-
     local fraction, progressLabel = computeProgress(quest)
-    local barHeight = QUEST_PADDING
+    local barHeight = QUEST_PADDING * 1.5
     local barY = y + h - barHeight - QUEST_PADDING * 0.5
-
-    if quest.reward then
-        local rewardBaseline = fraction and (barY - fonts.tiny:getHeight() - QUEST_PADDING * 0.4)
-            or (y + h - fonts.tiny:getHeight() - QUEST_PADDING * 0.5)
-        BatchRenderer.queueText(
-            string.format("Reward: %d credits", quest.reward),
-            x,
-            rewardBaseline,
-            fonts.tiny,
-            labelColor[1], labelColor[2], labelColor[3],
-            alpha
-        )
-    end
 
     if fraction then
         local bg = Theme.colors.bgMedium
@@ -194,29 +155,7 @@ function QuestOverlay.draw()
 
     local overlayX, overlayY, overlayWidth, overlayHeight = calculateFrame(#quests)
     local alpha = 0.9
-    local bgColor = Theme.colors.bgDark
     local borderColor = Theme.colors.borderDark
-
-    BatchRenderer.queueRect(
-        overlayX,
-        overlayY,
-        overlayWidth,
-        overlayHeight,
-        bgColor[1], bgColor[2], bgColor[3],
-        alpha,
-        2
-    )
-
-    BatchRenderer.queueRectLine(
-        overlayX,
-        overlayY,
-        overlayWidth,
-        overlayHeight,
-        borderColor[1], borderColor[2], borderColor[3],
-        alpha,
-        1,
-        2
-    )
 
     local fonts = {
         title = Theme.getFont(Theme.fonts.normal),

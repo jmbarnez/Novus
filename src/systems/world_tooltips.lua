@@ -6,6 +6,7 @@ local ECS = require('src.ecs')
 local Theme = require('src.ui.theme')
 local Scaling = require('src.scaling')
 local BatchRenderer = require('src.ui.batch_renderer')
+local QuestSystem = require('src.systems.quest_system')
 
 local WorldTooltips = {
     name = "WorldTooltipsSystem",
@@ -207,6 +208,7 @@ function WorldTooltips.handleKeyPress(key)
 
                     if removed then
                         gate.active = true
+                        QuestSystem.onWarpGateRepaired(entId)
                         -- Update tooltip immediately
                         WorldTooltips.registerTooltip(entId, {
                             title = "Warp Gate Active",
@@ -453,6 +455,7 @@ function WorldTooltips.handleClick(mx, my, button)
                             end
                             if removed then
                                 gate.active = true
+                                QuestSystem.onWarpGateRepaired(entId)
                                 WorldTooltips.registerTooltip(entId, {
                                     title = "Warp Gate Active",
                                     hasResources = false,
@@ -482,4 +485,3 @@ function WorldTooltips.handleClick(mx, my, button)
 end
 
 return WorldTooltips
-
