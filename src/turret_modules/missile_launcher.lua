@@ -74,9 +74,9 @@ function MissileLauncher.fire(ownerId, startX, startY, endX, endY)
     -- Create missile shape (elongated with pointed nose and fins)
     local missileLength = MissileLauncher.MISSILE_RADIUS * 3  -- Missile is 3 times longer than radius
     local missileWidth = MissileLauncher.MISSILE_RADIUS * 0.6  -- Slightly narrower than the collision radius
-    -- Vertices rotated 90 degrees counterclockwise so nose points up (positive Y)
-    local missileVertices = {
-        {x = 0, y = -missileLength},        -- Nose tip (up)
+    -- Define missile shape facing +X so rotation can line up with velocity
+    local missileBaseVertices = {
+        {x = 0, y = -missileLength},        -- Nose tip (up in base space)
         {x = missileWidth * 0.5, y = -missileLength * 0.7},  -- Nose shoulder right
         {x = missileWidth * 0.5, y = missileLength * 0.3},   -- Body right
         {x = missileWidth * 0.8, y = missileLength * 0.8},   -- Fin right
@@ -85,6 +85,11 @@ function MissileLauncher.fire(ownerId, startX, startY, endX, endY)
         {x = -missileWidth * 0.5, y = missileLength * 0.3},  -- Body left
         {x = -missileWidth * 0.5, y = -missileLength * 0.7}  -- Nose shoulder left
     }
+    local missileVertices = {}
+    for _, vertex in ipairs(missileBaseVertices) do
+        -- Rotate 90 degrees counterclockwise so nose points forward along +X at zero rotation
+        table.insert(missileVertices, {x = -vertex.y, y = vertex.x})
+    end
 
     -- Calculate initial rotation to face the direction of travel
     local initialRotation = math.atan2(dirY, dirX)

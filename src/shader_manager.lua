@@ -4,6 +4,18 @@
 
 local ShaderManager = {}
 
+ShaderManager.loggingEnabled = false
+
+local function log(...)
+    if ShaderManager.loggingEnabled then
+        print(...)
+    end
+end
+
+function ShaderManager.setLoggingEnabled(enabled)
+    ShaderManager.loggingEnabled = not not enabled
+end
+
 local celShader = nil
 local auroraShader = nil
 local nebulaShader = nil
@@ -11,7 +23,7 @@ local nebulaShader = nil
 
 -- Initialize shaders
 function ShaderManager.init()
-    print("=== ShaderManager.init() called ===")
+    log("=== ShaderManager.init() called ===")
     
     -- Load cel shader
     local celShaderCode = love.filesystem.read("src/shaders/cel_shader.frag")
@@ -22,7 +34,7 @@ function ShaderManager.init()
                 plasmaIntensity = 0.6,    -- Reduced for subtle effect (0.5-2.0)
                 glowThreshold = 0.5       -- Only bright colors glow (0.0-1.0)
             })
-            print("Cel shader loaded successfully")
+            log("Cel shader loaded successfully")
         else
             print("Failed to create cel shader")
         end
@@ -31,7 +43,7 @@ function ShaderManager.init()
     end
 
     -- Load aurora shader
-    print("=== Loading aurora shader ===")
+    log("=== Loading aurora shader ===")
     
     -- Try creating a shader from inline code first
     local inlineShaderCode = [[
@@ -72,12 +84,12 @@ function ShaderManager.init()
         }
     ]]
     
-    print("Testing inline shader...")
+    log("Testing inline shader...")
     local success, result = pcall(function()
         return love.graphics.newShader(inlineShaderCode)
     end)
     if success and result then
-        print("SUCCESS: Inline shader loaded!")
+        log("SUCCESS: Inline shader loaded!")
         auroraShader = result
     else
         print("FAILED: Inline shader failed!")
@@ -89,17 +101,17 @@ function ShaderManager.init()
         local auroraVertCode = love.filesystem.read("src/shaders/aurora.vert")
         local auroraFragCode = love.filesystem.read("src/shaders/aurora.frag")
         
-        print("Aurora vertex code length:", auroraVertCode and #auroraVertCode or "nil")
-        print("Aurora fragment code length:", auroraFragCode and #auroraFragCode or "nil")
+        log("Aurora vertex code length:", auroraVertCode and #auroraVertCode or "nil")
+        log("Aurora fragment code length:", auroraFragCode and #auroraFragCode or "nil")
         
         if auroraVertCode and auroraFragCode then
-            print("Creating complex aurora shader...")
+            log("Creating complex aurora shader...")
             local success, result = pcall(function()
                 return love.graphics.newShader(auroraFragCode, auroraVertCode)
             end)
             if success and result then
                 auroraShader = result
-                print("SUCCESS: Complex aurora shader loaded!")
+                log("SUCCESS: Complex aurora shader loaded!")
             else
                 print("FAILED to create complex aurora shader!")
                 print("Error:", result)
@@ -117,7 +129,7 @@ function ShaderManager.init()
     end
     
     -- Load nebula shader
-    print("=== Loading nebula shader ===")
+    log("=== Loading nebula shader ===")
     local nebulaShaderCode = love.filesystem.read("src/shaders/nebula.frag")
     if nebulaShaderCode then
         local success, result = pcall(function()
@@ -125,7 +137,7 @@ function ShaderManager.init()
         end)
         if success and result then
             nebulaShader = result
-            print("SUCCESS: Nebula shader loaded!")
+            log("SUCCESS: Nebula shader loaded!")
         else
             print("FAILED to create nebula shader!")
             print("Error:", result)
@@ -241,10 +253,9 @@ function ShaderManager.setNebulaIntensity(intensity)
         end)
         if not ok then
             -- Shader doesn't define nebulaDim; log for debugging but continue
-            print("Warning: nebula shader does not accept 'nebulaDim' uniform:", err)
+            log("Warning: nebula shader does not accept 'nebulaDim' uniform:", err)
         end
     end
 end
 
 return ShaderManager
-

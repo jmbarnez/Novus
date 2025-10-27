@@ -83,6 +83,7 @@ end
 function SettingsWindow:saveSettingsSnapshot()
     local SoundSystem = require('src.systems.sound')
     self.savedSettings = {
+        vsync = DisplayManager.isVsyncEnabled(),
         fps = TimeManager.getTargetFps(),
         resolution = DisplayManager.getRenderResolution(),
         hotkeys = {},
@@ -183,7 +184,7 @@ function SettingsWindow:updateScroll(deltaY)
     end
     
     -- Update all content positions
-    self:updateDropdownPositions()
+    self:updatePanelPositions()
 end
 
 -- Draw scroll bar
@@ -349,11 +350,12 @@ function SettingsWindow:initializeHotkeyButtons()
     local hotkeyLabelHeight = Theme.spacing.padding * 2  -- Scaled label height
     local hotkeyButtonsHeight = #hotkeys * (buttonHeight + buttonSpacing) + hotkeyLabelHeight
 
-    -- Layout: FPS + Mode + Resolution + Audio + Hotkeys + bottom padding
+    -- Layout: VSync + FPS + Resolution + Audio + Hotkeys + bottom padding
+    local vsyncHeight = Theme.spacing.padding * 10  -- Scaled VSync section height
     local fpsHeight = Theme.spacing.padding * 10  -- Scaled FPS section height
     local resHeight = Theme.spacing.padding * 10  -- Scaled resolution section height
     local audioHeight = Theme.spacing.padding * 30  -- Scaled audio section height
-    local hotkeyStartY = fpsHeight + resHeight + audioHeight  -- Start position for hotkey buttons
+    local hotkeyStartY = vsyncHeight + fpsHeight + resHeight + audioHeight  -- Start position for hotkey buttons
     local bottomPadding = Theme.spacing.padding * 3.33  -- Scaled bottom padding
 
     -- Add extra bottom padding to ensure the scrollable content extends far enough
@@ -499,12 +501,13 @@ function SettingsWindow:draw()
     local baseLabelY = y + labelOffset - scrollY
 
     -- Draw labels aligned with controls
-    love.graphics.print("FPS Limit:", labelX, baseLabelY)
-    love.graphics.print("Resolution:", labelX, baseLabelY + sectionSpacing)
-    love.graphics.print("Master Volume:", labelX, baseLabelY + sectionSpacing * 2)
-    love.graphics.print("Music Volume:", labelX, baseLabelY + sectionSpacing * 3)
-    love.graphics.print("SFX Volume:", labelX, baseLabelY + sectionSpacing * 4)
-    love.graphics.print("Hotkeys:", labelX, baseLabelY + sectionSpacing * 5)
+    love.graphics.print("VSync:", labelX, baseLabelY)
+    love.graphics.print("FPS Limit:", labelX, baseLabelY + sectionSpacing)
+    love.graphics.print("Resolution:", labelX, baseLabelY + sectionSpacing * 2)
+    love.graphics.print("Master Volume:", labelX, baseLabelY + sectionSpacing * 3)
+    love.graphics.print("Music Volume:", labelX, baseLabelY + sectionSpacing * 4)
+    love.graphics.print("SFX Volume:", labelX, baseLabelY + sectionSpacing * 5)
+    love.graphics.print("Hotkeys:", labelX, baseLabelY + sectionSpacing * 6)
     
     -- Draw panels (inside scissor region)
     if self.displayPanel then

@@ -29,6 +29,7 @@ DisplayManager._worldCanvasH = 0
 DisplayManager._postCanvas = nil
 DisplayManager._postCanvasW = 0
 DisplayManager._postCanvasH = 0
+DisplayManager.vsyncEnabled = true
 
 local function copyFlags(flags)
     local newFlags = {}
@@ -41,6 +42,13 @@ end
 
 local function hasWindowApi()
     return love and love.window and love.window.getMode and love.window.setMode
+end
+
+local function normalizeVsyncFlag(value)
+    if type(value) == "number" then
+        return value ~= 0
+    end
+    return not not value
 end
 
 local function detectDesktopResolution()
@@ -68,6 +76,7 @@ function DisplayManager.init()
     if hasWindowApi() then
         local _, _, flags = love.window.getMode()
         if flags then
+            DisplayManager.vsyncEnabled = normalizeVsyncFlag(flags.vsync)
             if flags.fullscreen then
                 DisplayManager.windowMode = "fullscreen"
             elseif flags.borderless then
@@ -83,7 +92,8 @@ function DisplayManager.init()
         local w, h, f = love.window.getMode()
         local fs = f and f.fullscreen or false
         local br = f and f.borderless or false
-        print(string.format("[DisplayManager] init mode: %s (fullscreen=%s, borderless=%s) size=%dx%d", DisplayManager.windowMode, tostring(fs), tostring(br), w or 0, h or 0))
+        local vs = f and normalizeVsyncFlag(f.vsync) or DisplayManager.vsyncEnabled
+        print(string.format("[DisplayManager] init mode: %s (fullscreen=%s, borderless=%s, vsync=%s) size=%dx%d", DisplayManager.windowMode, tostring(fs), tostring(br), tostring(vs), w or 0, h or 0))
     end
 
     -- At startup we respect the current Love window flags (which are set from conf.lua).
@@ -241,17 +251,23 @@ end
 
 local function applyMode(width, height, flags)
     if not hasWindowApi() then return end
+    flags = flags or {}
     local currentW, currentH = love.window.getMode()
-    if width ~= currentW or height ~= currentH then
+    local sizeChanged = (width ~= currentW) or (height ~= currentH)
+
+    if love.window.updateMode then
+        love.window.updateMode(width, height, flags)
+    else
         love.window.setMode(width, height, flags)
-        -- Manually center the window after resizing (if possible)
-        if love.window.setPosition and love.window.getDesktopDimensions then
-            local desktopW, desktopH = love.window.getDesktopDimensions()
-            local posX = math.floor((desktopW - width) / 2)
-            local posY = math.floor((desktopH - height) / 2)
-            love.window.setPosition(posX, posY)
-        end
     end
+
+    if sizeChanged and love.window.setPosition and love.window.getDesktopDimensions then
+        local desktopW, desktopH = love.window.getDesktopDimensions()
+        local posX = math.floor((desktopW - width) / 2)
+        local posY = math.floor((desktopH - height) / 2)
+        love.window.setPosition(posX, posY)
+    end
+
     DisplayManager.windowMode = "windowed"
     DisplayManager.updateWindowSize()
     detectDesktopResolution()
@@ -269,13 +285,35 @@ function DisplayManager.applyWindowMode(_, options)
     flags.resizable = false
     flags.centered = true
     flags.highdpi = flags.highdpi ~= false
-    flags.vsync = flags.vsync or 1
+    flags.vsync = DisplayManager.vsyncEnabled and 1 or 0
     flags.msaa = flags.msaa or 0
     applyMode(width, height, flags)
 end
 
 function DisplayManager.setWindowResolution(width, height)
     DisplayManager.applyWindowMode("windowed", { width = width, height = height })
+end
+
+function DisplayManager.refreshWindowFlags()
+    if not hasWindowApi() then return end
+    local width, height, flags = love.window.getMode()
+    flags = copyFlags(flags)
+    flags.vsync = DisplayManager.vsyncEnabled and 1 or 0
+    applyMode(width, height, flags)
+end
+
+function DisplayManager.setVsyncEnabled(enabled)
+    local newValue = not not enabled
+    if DisplayManager.vsyncEnabled == newValue then
+        return false
+    end
+    DisplayManager.vsyncEnabled = newValue
+    DisplayManager.refreshWindowFlags()
+    return true
+end
+
+function DisplayManager.isVsyncEnabled()
+    return DisplayManager.vsyncEnabled
 end
 
 function DisplayManager.shutdown()

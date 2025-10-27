@@ -50,6 +50,9 @@ Components.Cargo = function(items, capacity)
 
             self.items[itemId] = (self.items[itemId] or 0) + quantity
             self.currentVolume = self.currentVolume + (itemDef.volume * quantity)
+            if self.currentVolume > self.capacity then
+                self.currentVolume = self.capacity
+            end
             return true
         end,
 
@@ -68,6 +71,9 @@ Components.Cargo = function(items, capacity)
 
             self.items[itemId] = self.items[itemId] - quantity
             self.currentVolume = self.currentVolume - (itemDef.volume * quantity)
+            if self.currentVolume < 0 then
+                self.currentVolume = 0
+            end
 
             if self.items[itemId] <= 0 then
                 self.items[itemId] = nil
@@ -78,7 +84,11 @@ Components.Cargo = function(items, capacity)
 
         -- Get remaining volume capacity
         getRemainingVolume = function(self)
-            return self.capacity - self.currentVolume
+            local remaining = self.capacity - self.currentVolume
+            if remaining < 0 then
+                return 0
+            end
+            return remaining
         end,
 
         -- Get total item count (for UI compatibility)

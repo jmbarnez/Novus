@@ -15,6 +15,7 @@ local DisplaySettingsPanel = {}
 
 function DisplaySettingsPanel:new()
     local panel = {
+        vsyncDropdown = nil,
         fpsDropdown = nil,
         modeDropdown = nil,
         resDropdown = nil,
@@ -25,6 +26,8 @@ function DisplaySettingsPanel:new()
         -- FPS Configuration
         fpsOptions = {30, 60, 90, 120, 144, 240, nil},
         fpsLabels = {"30", "60", "90", "120", "144", "240", "Unlimited"},
+        vsyncOptions = {true, false},
+        vsyncLabels = {"On", "Off"},
         
     -- Window modes (restricted to Windowed only)
     modes = { 'Windowed' },
@@ -51,6 +54,20 @@ function DisplaySettingsPanel:initialize(position, width, onSettingsChange)
     
     local x, y = position.x, position.y
     
+    -- VSync Dropdown
+    self.vsyncDropdown = Dropdown:new(
+        self.vsyncLabels,
+        DisplayManager.isVsyncEnabled() and 1 or 2,
+        x, y,
+        width,
+        function(idx)
+            DisplayManager.setVsyncEnabled(self.vsyncOptions[idx])
+            if self.onSettingsChange then
+                self.onSettingsChange()
+            end
+        end
+    )
+
     -- FPS Dropdown
     self.fpsDropdown = Dropdown:new(self.fpsLabels, self:currentFpsIndex(), x, y, width, function(idx, val)
         TimeManager.setTargetFps(self.fpsOptions[idx])
@@ -97,14 +114,19 @@ function DisplaySettingsPanel:updatePositions(position, contentScrollY)
     local sectionSpacing = Theme.spacing.padding * 12  -- Match settings window spacing
     local controlVerticalOffset = Theme.spacing.padding * 2  -- Offset controls below labels
 
+    if self.vsyncDropdown then
+        self.vsyncDropdown.x = x
+        self.vsyncDropdown.y = y + controlVerticalOffset
+    end
+
     if self.fpsDropdown then
         self.fpsDropdown.x = x
-        self.fpsDropdown.y = y + controlVerticalOffset
+        self.fpsDropdown.y = y + sectionSpacing + controlVerticalOffset
     end
 
     if self.resDropdown then
         self.resDropdown.x = x
-        self.resDropdown.y = y + sectionSpacing + controlVerticalOffset  -- Align with resolution label
+        self.resDropdown.y = y + sectionSpacing * 2 + controlVerticalOffset  -- Align with resolution label
     end
 end
 
@@ -151,6 +173,9 @@ end
 
 -- Draw display dropdowns
 function DisplaySettingsPanel:draw(alpha)
+    if self.vsyncDropdown then
+        self.vsyncDropdown:drawClosed(alpha)
+    end
     -- Draw closed dropdown buttons first
     if self.fpsDropdown then
         self.fpsDropdown:drawClosed(alpha)
@@ -162,6 +187,9 @@ end
 
 -- Draw open dropdown menus (should be called after scissor is disabled)
 function DisplaySettingsPanel:drawOpen(alpha)
+    if self.vsyncDropdown and self.vsyncDropdown.isOpen then
+        self.vsyncDropdown:drawOpen(alpha)
+    end
     if self.fpsDropdown and self.fpsDropdown.isOpen then
         self.fpsDropdown:drawOpen(alpha)
     end
@@ -172,6 +200,9 @@ end
 
 -- Handle mouse press on dropdowns
 function DisplaySettingsPanel:mousepressed(mx, my)
+    if self.vsyncDropdown and self.vsyncDropdown:mousepressed(mx, my) then 
+        return true
+    end
     if self.fpsDropdown and self.fpsDropdown:mousepressed(mx, my) then 
         return true
     end
@@ -186,13 +217,21 @@ function DisplaySettingsPanel:getSettings()
     return {
         fps = TimeManager.getTargetFps(),
         windowMode = self:currentModeIndex(),
-        resolution = DisplayManager.getRenderResolution()
+        resolution = DisplayManager.getRenderResolution(),
+        vsync = DisplayManager.isVsyncEnabled()
     }
 end
 
 -- Restore display settings
 function DisplaySettingsPanel:restoreSettings(settings)
     if not settings then return end
+
+    if settings.vsync ~= nil then
+        DisplayManager.setVsyncEnabled(settings.vsync)
+        if self.vsyncDropdown then
+            self.vsyncDropdown:setSelected(settings.vsync and 1 or 2)
+        end
+    end
     
     if settings.fps then
         TimeManager.setTargetFps(settings.fps)

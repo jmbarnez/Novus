@@ -16,6 +16,8 @@ desktop.ini
 # Logs and temp
 *.log
 *.tmp
+debug_output.txt
+test_output.txt
 
 # Backup files
 *~

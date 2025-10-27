@@ -91,17 +91,17 @@ function AudioSettingsPanel:updatePositions(position, contentScrollY)
 
     if self.masterVolumeSlider then
         self.masterVolumeSlider.x = x
-        self.masterVolumeSlider.y = y + sectionSpacing * 2 + controlVerticalOffset  -- Align with Master Volume label
+        self.masterVolumeSlider.y = y + sectionSpacing * 3 + controlVerticalOffset  -- Align with Master Volume label
     end
 
     if self.musicVolumeSlider then
         self.musicVolumeSlider.x = x
-        self.musicVolumeSlider.y = y + sectionSpacing * 3 + controlVerticalOffset  -- Align with Music Volume label
+        self.musicVolumeSlider.y = y + sectionSpacing * 4 + controlVerticalOffset  -- Align with Music Volume label
     end
 
     if self.sfxVolumeSlider then
         self.sfxVolumeSlider.x = x
-        self.sfxVolumeSlider.y = y + sectionSpacing * 4 + controlVerticalOffset  -- Align with SFX Volume label
+        self.sfxVolumeSlider.y = y + sectionSpacing * 5 + controlVerticalOffset  -- Align with SFX Volume label
     end
 end
 

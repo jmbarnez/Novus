@@ -85,6 +85,8 @@ function love.load()
 end
 
 function love.update(dt)
+    TimeManager.markFrameStart()
+
     if gameState == "start" then
         if StartScreen.update then StartScreen.update(dt) end
     elseif gameState == "loading" then
@@ -125,15 +127,7 @@ function love.draw()
         DeathOverlay.draw()
         Profiler.stop("draw_total")
         Profiler.frame()
-        -- FPS cap enforcement (software sleep)
-        local fps = TimeManager.getTargetFps and TimeManager.getTargetFps() or nil
-        if fps and fps > 0 then
-            local frame_time = 1 / fps
-            local used_time = love.timer.getDelta()
-            if used_time < frame_time then
-                love.timer.sleep(frame_time - used_time)
-            end
-        end
+        TimeManager.sleepIfNeeded()
     end
 end
 

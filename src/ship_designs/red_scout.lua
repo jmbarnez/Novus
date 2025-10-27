@@ -63,7 +63,7 @@ return {
     turretSlots = 1,
     defaultTurret = "",  -- No default; turret will be set dynamically by spawning logic
     defensiveSlots = 1,
-    cargoCapacity = 2.5, -- Small scout ship: 2.5 cubic meters
+    cargoCapacity = 2.0, -- Small scout ship: 2 m³ cargo capacity
     
     -- Abilities
     hasTrail = true,
