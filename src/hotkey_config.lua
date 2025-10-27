@@ -34,7 +34,17 @@ HotkeyConfig.defaults = {
     -- skills_window and ship_window removed (no longer used)
     toggle_hud = "f5",
     map_window = "m",
-    settings_window = "escape"
+    settings_window = "escape",
+    hotbar_slot_1 = "q",
+    hotbar_slot_2 = "e",
+    hotbar_slot_3 = "r",
+    hotbar_slot_4 = "v",
+    hotbar_slot_5 = "lshift",
+    hotbar_slot_6 = "1",
+    hotbar_slot_7 = "2",
+    hotbar_slot_8 = "3",
+    hotbar_slot_9 = "4",
+    hotbar_slot_10 = "5"
 }
 
 -- Current hotkey mappings (loaded from defaults)
@@ -51,7 +61,17 @@ HotkeyConfig.descriptions = {
     -- skills_window and ship_window removed (no longer used)
     toggle_hud = "Toggle HUD",
     map_window = "Map Window",
-    settings_window = "Settings Window"
+    settings_window = "Settings Window",
+    hotbar_slot_1 = "Hotbar Slot 1",
+    hotbar_slot_2 = "Hotbar Slot 2",
+    hotbar_slot_3 = "Hotbar Slot 3",
+    hotbar_slot_4 = "Hotbar Slot 4",
+    hotbar_slot_5 = "Hotbar Slot 5",
+    hotbar_slot_6 = "Hotbar Slot 6",
+    hotbar_slot_7 = "Hotbar Slot 7",
+    hotbar_slot_8 = "Hotbar Slot 8",
+    hotbar_slot_9 = "Hotbar Slot 9",
+    hotbar_slot_10 = "Hotbar Slot 10"
 }
 
 -- Initialize hotkey configuration

@@ -4,7 +4,7 @@
 
 local HUDStats = require('src.systems.hud.stats')
 local HUDTargeting = require('src.systems.hud.targeting')
-local HUDSlots = require('src.systems.hud.slots')
+local HUDHotbar = require('src.systems.hud.hotbar')
 local Minimap = require('src.systems.hud.minimap')
 local Tooltips = require('src.ui.tooltips')
 local TargetHUD = require('src.systems.hud.target_hud')
@@ -15,7 +15,7 @@ local QuestOverlay = require('src.ui.quest_overlay')
 local HUDSystem = {
     name = "HUDSystem",
     visible = true,
-    hoveredTurretSlot = nil
+    hoveredHotbarSlot = nil
 }
 
 function HUDSystem.toggle()
@@ -39,7 +39,7 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     -- Draw HUD elements directly to screen (no canvas, no shader effects)
     HUDStats.drawHullShieldBar(viewportWidth, viewportHeight)
     HUDStats.drawEnergyBar(viewportWidth, viewportHeight)
-    HUDSlots.drawTurretSlots(viewportWidth, viewportHeight, HUDSystem)
+    HUDHotbar.drawHotbar(viewportWidth, viewportHeight, HUDSystem)
     if Minimap and Minimap.draw then Minimap.draw() end
     HUDStats.drawSpeedText(viewportWidth, viewportHeight)
     HUDStats.drawFpsCounter(viewportWidth, viewportHeight)
@@ -58,7 +58,7 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     TargetHUD.drawPopup()
     
     -- Tooltip popup
-    local slot = HUDSystem.hoveredTurretSlot
+    local slot = HUDSystem.hoveredHotbarSlot
     if slot and type(slot) == "table" and slot.itemId and slot.itemDef and slot.mouseX and slot.mouseY then
         Tooltips.drawItemTooltip(
             slot.itemId,

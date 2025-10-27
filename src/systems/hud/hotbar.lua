@@ -1,322 +1,349 @@
 ---@diagnostic disable: undefined-global
--- HUD Slots Module - Turret slot rendering
+-- HUD Hotbar Module - renders equipped modules with associated hotkeys
 
 local ECS = require('src.ecs')
 local Scaling = require('src.scaling')
-local TurretSystem = require('src.systems.turret')
-local TurretRange = require('src.systems.turret_range')
 local ItemDefs = require('src.items.item_loader')
-local PlasmaTheme = require('src.ui.plasma_theme')
+local HotkeyConfig = require('src.hotkey_config')
+local TurretRange = require('src.systems.turret_range')
 local BatchRenderer = require('src.ui.batch_renderer')
 
-local HUDSlots = {}
+local HUDHotbar = {}
 
--- Canvas caching for turret slots
-local turretSlotsCanvas, turretSlotsCanvasW, turretSlotsCanvasH, lastTurretSlotsFrame = nil, nil, nil, nil
+local MAX_SLOTS = 10
+local SLOT_ACTIONS = {
+    "hotbar_slot_1",
+    "hotbar_slot_2",
+    "hotbar_slot_3",
+    "hotbar_slot_4",
+    "hotbar_slot_5",
+    "hotbar_slot_6",
+    "hotbar_slot_7",
+    "hotbar_slot_8",
+    "hotbar_slot_9",
+    "hotbar_slot_10"
+}
 
-function HUDSlots.drawTurretSlots(viewportWidth, viewportHeight, hudSystem)
-    local frameSkip = math.floor(love.timer.getTime() * 30)
-    local updateNow = (not lastTurretSlotsFrame) or (frameSkip % 2 == 0)
+local BASE_SLOT_WIDTH = 48
+local BASE_SLOT_HEIGHT = 54 -- allow room for hotkey label
+local BASE_SLOT_SPACING = 8
+
+local hotbarCanvas, canvasW, canvasH, lastFrameTick = nil, nil, nil, nil
+
+local function getHotkeyLabel(action)
+    local key = HotkeyConfig.getHotkey(action)
+    if not key or key == "" then
+        return "-"
+    end
+    return HotkeyConfig.formatKey(key)
+end
+
+local function collectEquippedModules(droneId)
+    local entries = {}
+
+    local function push(itemId, sourceType)
+        if not itemId then
+            return
+        end
+        local itemDef = ItemDefs[itemId]
+        if not itemDef then
+            return
+        end
+        entries[#entries + 1] = {
+            itemId = itemId,
+            itemDef = itemDef,
+            sourceType = sourceType
+        }
+    end
+
+    local turretSlots = ECS.getComponent(droneId, "TurretSlots")
+    if turretSlots and turretSlots.slots then
+        for slotIndex = 1, (turretSlots.maxSlots or #turretSlots.slots) do
+            push(turretSlots.slots[slotIndex], "turret")
+        end
+    end
+
+    local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
+    if defensiveSlots and defensiveSlots.slots then
+        for slotIndex = 1, (defensiveSlots.maxSlots or #defensiveSlots.slots) do
+            push(defensiveSlots.slots[slotIndex], "defensive")
+        end
+    end
+
+    local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
+    if generatorSlots and generatorSlots.slots then
+        for slotIndex = 1, (generatorSlots.maxSlots or #generatorSlots.slots) do
+            push(generatorSlots.slots[slotIndex], "generator")
+        end
+    end
+
+    return entries
+end
+
+local function calculateSlotStatus(entry, turretComp)
+    local progress = 0
+    local color = {0.2, 0.8, 1.0, 1.0}
+    local isOverheated = false
+    local isBlinking = false
+
+    if not entry or not entry.itemDef then
+        return progress, color, isOverheated, isBlinking
+    end
+
+    if entry.sourceType ~= "turret" then
+        progress = 1.0
+        color = {0.1, 1.0, 0.2, 1.0}
+        return progress, color, isOverheated, isBlinking
+    end
+
+    local module = entry.itemDef.module
+    if not module then
+        progress = 1.0
+        color = {0.1, 1.0, 0.2, 1.0}
+        return progress, color, isOverheated, isBlinking
+    end
+
+    local isActiveTurret = turretComp and turretComp.moduleName == module.name
+
+    if module.CONTINUOUS then
+        if turretComp and turretComp.heat and isActiveTurret then
+            local heat = turretComp.heat
+            local maxHeat = module.MAX_HEAT or 10
+            if heat.current >= maxHeat then
+                isOverheated = true
+                local cooldownDuration = module.COOLDOWN_TIME or 2.0
+                local cooldownTimer = heat.cooldownTimer or 0
+                progress = math.min(1.0, cooldownTimer / cooldownDuration)
+                color = {1.0, 0.2, 0.1, 1.0}
+                local blinkRate = 1.0
+                isBlinking = math.floor(love.timer.getTime() * blinkRate) % 2 == 0
+            else
+                progress = heat.current / maxHeat
+                color = {1.0, 0.7, 0.1, 1.0}
+            end
+        else
+            progress = 1.0
+            color = {0.1, 1.0, 0.2, 1.0}
+        end
+        return progress, color, isOverheated, isBlinking
+    end
+
+    if not turretComp or not isActiveTurret then
+        progress = 1.0
+        color = {0.1, 1.0, 0.2, 1.0}
+        return progress, color, isOverheated, isBlinking
+    end
+
+    local cooldownName = module.name or entry.itemId
+    local cooldown = TurretRange.getFireCooldown(cooldownName)
+    local currentTime = love.timer.getTime()
+    local timeSinceLastFire = currentTime - (turretComp.lastFireTime or 0)
+    if timeSinceLastFire < cooldown then
+        progress = timeSinceLastFire / cooldown
+        color = {0.1, 0.6, 1.0, 1.0}
+    else
+        progress = 1.0
+        color = {0.1, 1.0, 0.2, 1.0}
+    end
+
+    return progress, color, isOverheated, isBlinking
+end
+
+local function drawModuleIcon(entry, slotX, slotY, slotWidth, slotHeight, scaleU)
+    if not entry or not entry.itemDef then
+        return
+    end
+
+    local padding = 6 * scaleU
+    local availableWidth = slotWidth - padding * 2
+    local availableHeight = slotHeight - padding * 2
+    local iconSize = math.min(availableWidth, availableHeight) * 0.8
+    local iconX = slotX + padding + (availableWidth - iconSize) / 2
+    local iconY = slotY + padding + (availableHeight - iconSize) / 2
+
+    local drawFn = nil
+    local drawContext = nil
+    local designSize = nil
+
+    if entry.itemDef.draw then
+        drawFn = entry.itemDef.draw
+        drawContext = entry.itemDef
+        designSize = entry.itemDef.design and entry.itemDef.design.size
+    elseif entry.itemDef.module and entry.itemDef.module.draw then
+        drawFn = entry.itemDef.module.draw
+        drawContext = entry.itemDef.module
+        designSize = entry.itemDef.module.design and entry.itemDef.module.design.size
+    end
+
+    if not drawFn or not designSize or designSize == 0 then
+        return
+    end
+
+    love.graphics.push()
+    love.graphics.translate(iconX + iconSize / 2, iconY + iconSize / 2)
+    love.graphics.scale(iconSize / designSize, iconSize / designSize)
+    drawFn(drawContext, 0, 0)
+    love.graphics.pop()
+end
+
+local function ensureCanvas(width, height)
+    if canvasW == width and canvasH == height and hotbarCanvas then
+        return
+    end
+
+    if hotbarCanvas then
+        hotbarCanvas:release()
+    end
+
+    hotbarCanvas = love.graphics.newCanvas(width, height)
+    canvasW, canvasH = width, height
+end
+
+function HUDHotbar.drawHotbar(viewportWidth, viewportHeight, hudSystem)
+    local frameTick = math.floor(love.timer.getTime() * 30)
+    local shouldUpdate = (not lastFrameTick) or (frameTick % 2 == 0)
 
     local scaleX = Scaling.canvasScaleX or 1
     local scaleY = Scaling.canvasScaleY or 1
     local scaleU = math.min(scaleX, scaleY)
 
-    local canvasW = math.ceil(180 * scaleX)
-    local canvasH = math.ceil(64 * scaleY)
+    local slotWidth = BASE_SLOT_WIDTH * scaleX
+    local slotHeight = BASE_SLOT_HEIGHT * scaleY
+    local slotSpacing = BASE_SLOT_SPACING * scaleX
+    local canvasWidth = math.ceil(slotWidth * MAX_SLOTS + slotSpacing * (MAX_SLOTS - 1))
+    local canvasHeight = math.ceil(slotHeight)
 
-    if turretSlotsCanvasW ~= canvasW or turretSlotsCanvasH ~= canvasH then
-        if turretSlotsCanvas then
-            turretSlotsCanvas:release()
+    ensureCanvas(canvasWidth, canvasHeight)
+
+    local drawX = (Scaling.getCurrentWidth() - canvasWidth) / 2
+    local drawY = Scaling.getCurrentHeight() - canvasHeight - 20
+
+    local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+    local entries = {}
+    local turretComp = nil
+
+    if #playerEntities > 0 then
+        local pilotId = playerEntities[1]
+        local input = ECS.getComponent(pilotId, "InputControlled")
+        if input and input.targetEntity then
+            local droneId = input.targetEntity
+            entries = collectEquippedModules(droneId)
+            turretComp = ECS.getComponent(droneId, "Turret")
         end
-        turretSlotsCanvas = nil
     end
 
-    turretSlotsCanvasW, turretSlotsCanvasH = canvasW, canvasH
-
-    -- Calculate canvas position (needed for hover detection)
-    local drawX = (Scaling.getCurrentWidth() - turretSlotsCanvasW) / 2
-    local drawY = Scaling.getCurrentHeight() - turretSlotsCanvasH - 20
-
-    if not turretSlotsCanvas then
-        turretSlotsCanvas = love.graphics.newCanvas(canvasW, canvasH)
-    end
-
-    if updateNow then
-        turretSlotsCanvas:renderTo(function()
+    if shouldUpdate and hotbarCanvas then
+        hotbarCanvas:renderTo(function()
             love.graphics.clear(0, 0, 0, 0)
 
-            local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-            if #playerEntities == 0 then return end
-            local pilotId = playerEntities[1]
-            local input = ECS.getComponent(pilotId, "InputControlled")
-            if not input or not input.targetEntity then return end
+            for slotIndex = 1, MAX_SLOTS do
+                local slotX = (slotIndex - 1) * (slotWidth + slotSpacing)
+                local slotY = 0
+                local entry = entries[slotIndex]
+                local action = SLOT_ACTIONS[slotIndex]
+                local hotkeyLabel = getHotkeyLabel(action)
 
-            local droneId = input.targetEntity
-            local turretSlots = ECS.getComponent(droneId, "TurretSlots")
-            if not turretSlots then return end
+                love.graphics.setColor(0.05, 0.05, 0.08, 0.95)
+                love.graphics.rectangle("fill", slotX, slotY, slotWidth, slotHeight, 0, 0)
 
-            local slotWidth = 48 * scaleX
-            local slotHeight = 48 * scaleY
-            local slotSpacing = 8 * scaleX
-            local startX = 0
-            local startY = 0
+                local progress, barColor, isOverheated, isBlinking = calculateSlotStatus(entry, turretComp)
 
-            local turret = ECS.getComponent(droneId, "Turret")
-
-            for slotIndex = 1, 3 do
-                local slotX = startX + (slotIndex - 1) * (slotWidth + slotSpacing)
-                local slotY = startY
-
-                -- Plasma theme background (neutral dark background)
-                local bgColor = {0.05, 0.05, 0.08, 0.95}
-                love.graphics.setColor(bgColor)
-                -- No rounded corners: set corner radius to 0
-                local cornerRadius = 0
-                love.graphics.rectangle("fill", slotX, slotY, slotWidth, slotHeight, cornerRadius, cornerRadius)
-
-                -- Calculate heat/cooldown state for progress bar
-                local progress = 0
-                local barColor = {0.2, 0.8, 1.0, 1.0} -- Default cyan
-                local isOverheated = false
-                local isBlinking = false
-
-                if turretSlots.slots[slotIndex] then
-                    local itemId = turretSlots.slots[slotIndex]
-                    local itemDef = ItemDefs[itemId]
-
-                    if itemDef and itemDef.module then
-                        local module = itemDef.module
-                        local turretComp = turret
-
-                        -- Safety check for module draw function
-                        if module and module.draw and module.design and module.design.size then
-
-                            -- Calculate heat/cooldown state
-                            if module.CONTINUOUS then
-                                -- Continuous weapons (lasers) - use heat system
-                                if turretComp and turretComp.heat then
-                                    local heat = turretComp.heat
-                                    local maxHeat = module.MAX_HEAT or 10
-
-                                    if heat.current >= maxHeat then
-                                        -- In cooldown state (overheated)
-                                        isOverheated = true
-                                        local cooldownProgress = heat.cooldownTimer or 0
-                                        local cooldownDuration = 2.0 -- 2 second cooldown
-                                        progress = cooldownProgress / cooldownDuration
-                                        barColor = {1.0, 0.2, 0.1, 1.0} -- Red for overheat
-
-                                        -- Add blinking effect (once per second)
-                                        local blinkRate = 1.0 -- 1 second interval
-                                        local currentTime = love.timer.getTime()
-                                        isBlinking = math.floor(currentTime * blinkRate) % 2 == 0
-                                    else
-                                        -- Normal heat
-                                        progress = heat.current / maxHeat
-                                        local heatRatio = progress
-                                        barColor = {
-                                            1.0, -- Red component
-                                            0.7, -- Green component (less than red for orange)
-                                            0.1, -- Blue component
-                                            1.0
-                                        }
-                                    end
-                                end
-                            else
-                                -- Discrete weapons (projectiles) - use cooldown timer
-                                if turretComp then
-                                    local cooldown = TurretRange.getFireCooldown(module.name or itemId:gsub("_turret", ""))
-                                    local currentTime = love.timer.getTime()
-                                    local timeSinceLastFire = currentTime - (turretComp.lastFireTime or 0)
-
-                                    if timeSinceLastFire < cooldown then
-                                        progress = timeSinceLastFire / cooldown
-                                        barColor = {0.1, 0.6, 1.0, 1.0} -- Blue for cooldown
-                                    else
-                                        progress = 1.0 -- Ready to fire
-                                        barColor = {0.1, 1.0, 0.2, 1.0} -- Green when ready
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-
-                -- Draw progress overlay using the entire slot area (fills proportionally)
-                -- Only show progress bar when NOT overheated (during cooldown, only show red blinking)
                 if progress > 0 and not isOverheated then
-                    -- Inner padding so slot border is still visible
                     local pad = 2 * scaleX
                     local innerX = slotX + pad
                     local innerY = slotY + pad
                     local innerW = slotWidth - pad * 2
-                    local innerH = slotHeight - pad * 2
+                    local innerH = slotHeight - pad * 2 - (12 * scaleY)
 
-                    -- Inner background
                     love.graphics.setColor(0.05, 0.05, 0.05, 0.9)
-                    love.graphics.rectangle("fill", innerX, innerY, innerW, innerH, cornerRadius, cornerRadius)
+                    love.graphics.rectangle("fill", innerX, innerY, innerW, innerH, 0, 0)
 
-                    -- Fill the inner area proportionally (bottom-up)
-                    local fillH = math.max(2, (innerH - 2) * progress)
+                    local fillH = math.max(2, (innerH - 2) * math.min(progress, 1.0))
                     local fillX = innerX + 1
                     local fillY = innerY + (innerH - fillH) - 1
 
                     love.graphics.setColor(barColor)
                     love.graphics.rectangle("fill", fillX, fillY, innerW - 2, fillH, 0, 0)
 
-                    -- Inner border
                     love.graphics.setColor(0.15, 0.15, 0.15, 1.0)
                     love.graphics.setLineWidth(1)
-                    love.graphics.rectangle("line", innerX, innerY, innerW, innerH, cornerRadius, cornerRadius)
+                    love.graphics.rectangle("line", innerX, innerY, innerW, innerH, 0, 0)
                     love.graphics.setLineWidth(1)
                 end
 
-                -- Overheat cooldown: solid red bar that empties from top to bottom
                 if isOverheated then
                     local pad = 2 * scaleX
                     local innerX = slotX + pad
                     local innerY = slotY + pad
                     local innerW = slotWidth - pad * 2
-                    local innerH = slotHeight - pad * 2
+                    local innerH = slotHeight - pad * 2 - (12 * scaleY)
 
-                    -- Draw inner background
                     love.graphics.setColor(0.05, 0.05, 0.05, 0.9)
-                    love.graphics.rectangle("fill", innerX, innerY, innerW, innerH, cornerRadius, cornerRadius)
+                    love.graphics.rectangle("fill", innerX, innerY, innerW, innerH, 0, 0)
 
-                    -- Draw red fill representing remaining cooldown (empties top -> bottom)
-                    local rem = math.max(0, 1 - (progress or 0))
-                    local fillH = math.max(2, (innerH - 2) * rem)
+                    local remaining = math.max(0, 1 - math.min(progress, 1.0))
+                    local fillH = math.max(2, (innerH - 2) * remaining)
                     local fillX = innerX + 1
-                    -- Anchor fill to bottom so it empties top-down
                     local fillY = innerY + (innerH - fillH) - 1
 
-                    love.graphics.setColor(1.0, 0.2, 0.1, 1.0) -- Solid red
+                    local alpha = isBlinking and 0.7 or 1.0
+                    love.graphics.setColor(1.0, 0.2, 0.1, alpha)
                     love.graphics.rectangle("fill", fillX, fillY, innerW - 2, fillH, 0, 0)
 
-                    -- Inner border
                     love.graphics.setColor(0.15, 0.15, 0.15, 1.0)
                     love.graphics.setLineWidth(1)
-                    love.graphics.rectangle("line", innerX, innerY, innerW, innerH, cornerRadius, cornerRadius)
+                    love.graphics.rectangle("line", innerX, innerY, innerW, innerH, 0, 0)
                     love.graphics.setLineWidth(1)
                 end
 
-                -- Plasma theme borders with thick black outlines
-                -- Use thin white border for all slots
-                local borderColor = {1.0, 1.0, 1.0, 1.0}
-                love.graphics.setColor(borderColor)
+                drawModuleIcon(entry, slotX, slotY, slotWidth, slotHeight - (12 * scaleY), scaleU)
+
+                love.graphics.setColor(1, 1, 1, 0.8)
                 love.graphics.setLineWidth(1)
                 love.graphics.rectangle("line", slotX, slotY, slotWidth, slotHeight, 0, 0)
 
-                if turretSlots.slots[slotIndex] then
-                    local itemId = turretSlots.slots[slotIndex]
-                    local itemDef = ItemDefs[itemId]
-
-                    if itemDef and itemDef.module then
-                        local module = itemDef.module
-                        local turretComp = turret
-
-                        -- Safety check for module draw function
-                        if module and module.draw and module.design and module.design.size then
-
-                            -- Draw turret icon (centered and scaled to fit slot with padding)
-                            love.graphics.push()
-
-                            -- Calculate icon size (80% of available space with padding)
-                            local padding = 6 * scaleU
-                            local availableWidth = slotWidth - padding * 2
-                            local availableHeight = slotHeight - padding * 2
-                            local iconSize = math.min(availableWidth, availableHeight) * 0.8
-
-                            -- Calculate icon position (centered in slot)
-                            local iconX = slotX + padding + (availableWidth - iconSize) / 2
-                            local iconY = slotY + padding + (availableHeight - iconSize) / 2
-
-                            -- Translate to icon center and scale
-                            love.graphics.translate(iconX + iconSize / 2, iconY + iconSize / 2)
-                            love.graphics.scale(iconSize / module.design.size, iconSize / module.design.size)
-
-                            -- Draw the icon
-                            module.draw(module, 0, 0)
-                            love.graphics.pop()
-                        end
-                    end
-
-                else
-                    -- No central circle design for empty slots
-                end
+                love.graphics.setColor(1, 1, 1, 0.9)
+                local labelY = slotY + slotHeight - (12 * scaleY)
+                love.graphics.printf(hotkeyLabel, slotX, labelY, slotWidth, "center")
             end
         end)
-        lastTurretSlotsFrame = frameSkip
+        lastFrameTick = frameTick
     end
 
     if hudSystem then
-        hudSystem.hoveredTurretSlot = nil
+        hudSystem.hoveredHotbarSlot = nil
     end
 
-    -- Queue the canvas for rendering
-    -- Queue turret slots as overlay so they render above world-space HUD bars
-    BatchRenderer.queueCanvas(turretSlotsCanvas, drawX, drawY, 1, 1, 1, 1, "overlay")
+    if hotbarCanvas then
+        BatchRenderer.queueCanvas(hotbarCanvas, drawX, drawY, 1, 1, 1, 1, "overlay")
+    end
 
-    -- Handle mouse hover detection and effects every frame
     local mouseX, mouseY = love.mouse.getPosition()
-
-    local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-    if #playerEntities > 0 then
-        local pilotId = playerEntities[1]
-        local input = ECS.getComponent(pilotId, "InputControlled")
-        if input and input.targetEntity then
-            local droneId = input.targetEntity
-            local turretSlots = ECS.getComponent(droneId, "TurretSlots")
-            if turretSlots then
-                local slotWidth = 48 * scaleX
-                local slotHeight = 48 * scaleY
-                local slotSpacing = 8 * scaleX
-
-                for slotIndex = 1, 3 do
-                    local slotX = (slotIndex - 1) * (slotWidth + slotSpacing)
-                    local slotY = 0
-
-                    -- Convert canvas coordinates to screen coordinates for hover detection
-                    local screenSlotX = drawX + slotX
-                    local screenSlotY = drawY + slotY
-
-                    if mouseX >= screenSlotX and mouseX < screenSlotX + slotWidth and
-                       mouseY >= screenSlotY and mouseY < screenSlotY + slotHeight and
-                       turretSlots.slots[slotIndex] then
-
-                        local itemId = turretSlots.slots[slotIndex]
-                        local itemDef = ItemDefs[itemId]
-
-                        if itemDef then
-                            -- Set hover data for tooltip
-                            if hudSystem then
-                                hudSystem.hoveredTurretSlot = {
-                                    itemId = itemId,
-                                    itemDef = itemDef,
-                                    mouseX = mouseX,
-                                    mouseY = mouseY
-                                }
-                            end
-
-                            -- Draw hover effect on top of canvas
-                            -- No rounded corners for hover effect
-                            local cornerRadius = 0
-                            love.graphics.setColor(1.0, 1.0, 1.0, 0.4)
-                            love.graphics.rectangle("fill", screenSlotX, screenSlotY, slotWidth, slotHeight, cornerRadius, cornerRadius)
-
-                            love.graphics.setColor(1.0, 1.0, 1.0, 0.8)
-                            love.graphics.setLineWidth(2)
-                            love.graphics.rectangle("line", screenSlotX, screenSlotY, slotWidth, slotHeight, cornerRadius, cornerRadius)
-                            love.graphics.setLineWidth(1)
-
-                            break -- Only one hover at a time
-                        end
-                    end
-                end
+    for slotIndex = 1, MAX_SLOTS do
+        local slotX = drawX + (slotIndex - 1) * (slotWidth + slotSpacing)
+        local slotY = drawY
+        local entry = entries[slotIndex]
+        if entry and mouseX >= slotX and mouseX < slotX + slotWidth and mouseY >= slotY and mouseY < slotY + slotHeight then
+            if hudSystem then
+                hudSystem.hoveredHotbarSlot = {
+                    itemId = entry.itemId,
+                    itemDef = entry.itemDef,
+                    count = 1,
+                    mouseX = mouseX,
+                    mouseY = mouseY
+                }
             end
+
+            love.graphics.setColor(1.0, 1.0, 1.0, 0.4)
+            love.graphics.rectangle("fill", slotX, slotY, slotWidth, slotHeight, 0, 0)
+
+            love.graphics.setColor(1.0, 1.0, 1.0, 0.8)
+            love.graphics.setLineWidth(2)
+            love.graphics.rectangle("line", slotX, slotY, slotWidth, slotHeight, 0, 0)
+            love.graphics.setLineWidth(1)
+            break
         end
     end
 end
 
-return HUDSlots
+return HUDHotbar
