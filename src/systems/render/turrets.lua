@@ -51,6 +51,7 @@ local function drawTurret(entityId, x, y, color, turretRotation, baseRadius)
 end
 
 local RenderTurrets = {}
+local DEBUG_TURRET_AIM = false
 
 function RenderTurrets.drawPlayerTurret(entityId, position, polygonShape, renderable)
     local mouseScreenX, mouseScreenY = love.mouse.getPosition()
@@ -59,10 +60,9 @@ function RenderTurrets.drawPlayerTurret(entityId, position, polygonShape, render
     local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
     
     if cameraComp and cameraPos then
-        local uiX, uiY = Scaling.toUI(mouseScreenX, mouseScreenY)
-        local camZoom = cameraComp.zoom or 1
-        local mouseX = uiX / camZoom + cameraPos.x
-        local mouseY = uiY / camZoom + cameraPos.y
+        -- Use helper to convert screen mouse coords to world coords (camera-aware)
+        local mouseX, mouseY = Scaling.toWorld(mouseScreenX, mouseScreenY, cameraComp, cameraPos)
+        -- atan2 handles full 360 degrees; use (dy, dx) order for proper angle calculation
         local aimAngle = math.atan2(mouseY - position.y, mouseX - position.x)
         local toffX = polygonShape.turretOffsetX or polygonShape.cockpitOffsetX or 0
         local toffY = polygonShape.turretOffsetY or polygonShape.cockpitOffsetY or 0
@@ -70,8 +70,23 @@ function RenderTurrets.drawPlayerTurret(entityId, position, polygonShape, render
         local sin = math.sin(polygonShape.rotation)
         local turretWorldX = position.x + (toffX * cos - toffY * sin)
         local turretWorldY = position.y + (toffX * sin + toffY * cos)
-    local baseRadius = estimateBaseRadius(entityId, polygonShape, renderable)
-    drawTurret(entityId, turretWorldX, turretWorldY, renderable.color, aimAngle, baseRadius)
+        local baseRadius = estimateBaseRadius(entityId, polygonShape, renderable)
+        drawTurret(entityId, turretWorldX, turretWorldY, renderable.color, aimAngle, baseRadius)
+        -- Debug drawing commented out - turret now works correctly in all 360 degrees
+        -- if DEBUG_TURRET_AIM then
+        --     -- Draw debug line from turret to mouse and print computed values
+        --     love.graphics.push()
+        --     love.graphics.setColor(1, 0, 0, 0.9)
+        --     love.graphics.setLineWidth(2)
+        --     love.graphics.line(turretWorldX, turretWorldY, mouseX, mouseY)
+        --     love.graphics.setLineWidth(1)
+        --     love.graphics.setColor(1, 1, 1, 1)
+        --     local dx = mouseX - position.x
+        --     local dy = mouseY - position.y
+        --     local info = string.format("aim=%.3f\ndx=%.1f dy=%.1f", aimAngle or 0, dx or 0, dy or 0)
+        --     love.graphics.print(info, turretWorldX + 8, turretWorldY - 16)
+        --     love.graphics.pop()
+        -- end
     else
         local toffX = polygonShape.turretOffsetX or polygonShape.cockpitOffsetX or 0
         local toffY = polygonShape.turretOffsetY or polygonShape.cockpitOffsetY or 0
@@ -89,6 +104,7 @@ function RenderTurrets.drawEnemyTurret(entityId, position, polygonShape, rendera
     local turretAimAngle = enemyRotation
     local turretComp = ECS.getComponent(entityId, "Turret")
     if turretComp and turretComp.aimX and turretComp.aimY then
+        -- Ensure (dy, dx) order for atan2
         turretAimAngle = math.atan2(turretComp.aimY - position.y, turretComp.aimX - position.x)
     end
     

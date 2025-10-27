@@ -84,7 +84,7 @@ local TrailSystem = {
                         local emitY = position.y
 
                         -- Calculate angle of movement
-                        local angle = math.atan(velocity.vy, velocity.vx)
+                        local angle = math.atan2(velocity.vy, velocity.vx)
 
                         -- Add some random spread
                         local spread = (math.random() - 0.5) * emitter.spreadAngle

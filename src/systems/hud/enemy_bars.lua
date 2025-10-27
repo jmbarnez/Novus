@@ -103,8 +103,8 @@ function EnemyBars.draw(viewportWidth, viewportHeight)
             local textX = levelBoxX + (levelBoxSize - textWidth) / 2
             local textY = levelBoxY + (levelBoxSize - textHeight) / 2
 
-            -- White text for contrast against red background
-            BatchRenderer.queueText(levelText, textX, textY, levelFont, 1, 1, 1, 1)
+            -- Black text for contrast against colored background
+            BatchRenderer.queueText(levelText, textX, textY, levelFont, 0, 0, 0, 1)
 
             -- Background
             BatchRenderer.queueRect(barX, barY, barWidth, barHeight, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 2)

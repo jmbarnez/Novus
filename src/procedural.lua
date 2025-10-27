@@ -238,7 +238,7 @@ Procedural.registerTemplate("warp_gate", function(spawnData)
     local active = (spawnData.warpGateData and spawnData.warpGateData.active) or spawnData.active or false
     return {
         Position = Components.Position(x, y),
-        Renderable = Components.Renderable("circle", nil, nil, 80, active and {0.2, 0.5, 1, 0.28} or {0.88,0.18,0.18,0.28}),
+        -- Removed basic circle renderable - detailed rendering handled by RenderEffects.drawWarpGates()
         Collidable = Components.Collidable(80),
         WarpGate = Components.WarpGate({active=active, destination = spawnData.destination}),
     }

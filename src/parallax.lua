@@ -76,14 +76,9 @@ local nebulaShaderCode = [[
                 verticalGradient = smoothstep(0.2, 0.8, verticalGradient);
                 density *= verticalGradient;
 
-                // Color variations (blue to cyan-green nebula)
-                vec3 color1 = vec3(0.1, 0.3, 0.95);  // Deep blue
-                vec3 color2 = vec3(0.08, 0.85, 0.6); // Cyan-green
-                vec3 color3 = vec3(0.3, 0.6, 1.0);   // Light blue
-
-                float colorMix = snoise(worldPos * scale * 0.5) * 0.5 + 0.5;
-                vec3 nebulaColor = mix(color1, color2, colorMix);
-                nebulaColor = mix(nebulaColor, color3, n3 * 0.5 + 0.5);
+                // Pink nebula color only
+                vec3 pink = vec3(1.0, 0.3, 0.7); // RGB for pink
+                vec3 nebulaColor = pink;
 
                 // Final nebula with stronger visibility (scaled by nebulaDim)
                 float alpha = density * 0.12 * nebulaDim; // stronger base alpha
@@ -128,7 +123,7 @@ function Parallax.new(layers, worldSize)
         nebula = {},
         worldSize = worldSize or 10000,
         -- Allow caller to opt-out of nebula rendering (default: enabled)
-        nebulaEnabled = false
+        nebulaEnabled = true
     }
     
     setupNebulaResources(parallax)

@@ -79,7 +79,7 @@ local function applySteeringAwareThrust(eid, desiredDirX, desiredDirY, thrustMag
     
     -- Apply rotational steering if the entity can rotate
     if polygonShape and angularVel and rotMass then
-    local desiredAngle = math.atan(finalDirY, finalDirX)
+    local desiredAngle = math.atan2(finalDirY, finalDirX)
         local currentAngle = polygonShape.rotation or 0
         
         -- Normalize angles to [-pi, pi]

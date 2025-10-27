@@ -74,22 +74,23 @@ function MissileLauncher.fire(ownerId, startX, startY, endX, endY)
     -- Create missile shape (elongated with pointed nose and fins)
     local missileLength = MissileLauncher.MISSILE_RADIUS * 3  -- Missile is 3 times longer than radius
     local missileWidth = MissileLauncher.MISSILE_RADIUS * 0.6  -- Slightly narrower than the collision radius
+    -- Vertices rotated 90 degrees counterclockwise so nose points up (positive Y)
     local missileVertices = {
-        {x = missileLength, y = 0},        -- Nose tip
-        {x = missileLength * 0.7, y = missileWidth * 0.5},  -- Nose shoulder
-        {x = -missileLength * 0.3, y = missileWidth * 0.5}, -- Body top
-        {x = -missileLength * 0.8, y = missileWidth * 0.8}, -- Fin top
-        {x = -missileLength, y = 0},       -- Tail center
-        {x = -missileLength * 0.8, y = -missileWidth * 0.8}, -- Fin bottom
-        {x = -missileLength * 0.3, y = -missileWidth * 0.5}, -- Body bottom
-        {x = missileLength * 0.7, y = -missileWidth * 0.5}   -- Nose shoulder bottom
+        {x = 0, y = -missileLength},        -- Nose tip (up)
+        {x = missileWidth * 0.5, y = -missileLength * 0.7},  -- Nose shoulder right
+        {x = missileWidth * 0.5, y = missileLength * 0.3},   -- Body right
+        {x = missileWidth * 0.8, y = missileLength * 0.8},   -- Fin right
+        {x = 0, y = missileLength},         -- Tail center (down)
+        {x = -missileWidth * 0.8, y = missileLength * 0.8},  -- Fin left
+        {x = -missileWidth * 0.5, y = missileLength * 0.3},  -- Body left
+        {x = -missileWidth * 0.5, y = -missileLength * 0.7}  -- Nose shoulder left
     }
 
     -- Calculate initial rotation to face the direction of travel
     local initialRotation = math.atan2(dirY, dirX)
 
     ECS.addComponent(missileId, "PolygonShape", Components.PolygonShape(missileVertices, initialRotation))
-    ECS.addComponent(missileId, "Renderable", Components.Renderable("polygon", nil, nil, MissileLauncher.MISSILE_RADIUS, MissileLauncher.MISSILE_COLOR))
+    ECS.addComponent(missileId, "Renderable", Components.Renderable("polygon", nil, initialRotation, MissileLauncher.MISSILE_RADIUS, MissileLauncher.MISSILE_COLOR))
     ECS.addComponent(missileId, "Collidable", Components.Collidable(MissileLauncher.MISSILE_RADIUS))
     -- Give missile physics with low friction for sustained flight
     ECS.addComponent(missileId, "Physics", Components.Physics(1.0, 1.5, 1.0)) -- no friction, light mass, rotation damping
@@ -213,6 +214,7 @@ function MissileLauncher.updateHoming(missileId, dt)
     if speed > 0 then
         local currentDirX = velocity.vx / speed
         local currentDirY = velocity.vy / speed
+        -- Use math.atan2(y, x) for proper 360-degree angle calculation
         polygonShape.rotation = math.atan2(currentDirY, currentDirX)
     end
     

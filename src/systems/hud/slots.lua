@@ -70,7 +70,8 @@ function HUDSlots.drawTurretSlots(viewportWidth, viewportHeight, hudSystem)
                 -- Plasma theme background (neutral dark background)
                 local bgColor = {0.05, 0.05, 0.08, 0.95}
                 love.graphics.setColor(bgColor)
-                local cornerRadius = 4 * scaleU
+                -- No rounded corners: set corner radius to 0
+                local cornerRadius = 0
                 love.graphics.rectangle("fill", slotX, slotY, slotWidth, slotHeight, cornerRadius, cornerRadius)
 
                 -- Calculate heat/cooldown state for progress bar
@@ -161,7 +162,7 @@ function HUDSlots.drawTurretSlots(viewportWidth, viewportHeight, hudSystem)
                     local fillY = innerY + (innerH - fillH) - 1
 
                     love.graphics.setColor(barColor)
-                    love.graphics.rectangle("fill", fillX, fillY, innerW - 2, fillH, math.max(1, cornerRadius / 2), math.max(1, cornerRadius / 2))
+                    love.graphics.rectangle("fill", fillX, fillY, innerW - 2, fillH, 0, 0)
 
                     -- Inner border
                     love.graphics.setColor(0.15, 0.15, 0.15, 1.0)
@@ -190,7 +191,7 @@ function HUDSlots.drawTurretSlots(viewportWidth, viewportHeight, hudSystem)
                     local fillY = innerY + (innerH - fillH) - 1
 
                     love.graphics.setColor(1.0, 0.2, 0.1, 1.0) -- Solid red
-                    love.graphics.rectangle("fill", fillX, fillY, innerW - 2, fillH, math.max(1, cornerRadius / 2), math.max(1, cornerRadius / 2))
+                    love.graphics.rectangle("fill", fillX, fillY, innerW - 2, fillH, 0, 0)
 
                     -- Inner border
                     love.graphics.setColor(0.15, 0.15, 0.15, 1.0)
@@ -200,14 +201,11 @@ function HUDSlots.drawTurretSlots(viewportWidth, viewportHeight, hudSystem)
                 end
 
                 -- Plasma theme borders with thick black outlines
-                local borderColor = {0.2, 0.4, 0.6, 0.8}  -- Default plasma blue
-                if turretSlots.slots[slotIndex] then
-                    borderColor = {0.2, 0.8, 1.0, 1.0}  -- Bright cyan when occupied
-                end
+                -- Use thin white border for all slots
+                local borderColor = {1.0, 1.0, 1.0, 1.0}
                 love.graphics.setColor(borderColor)
-                love.graphics.setLineWidth(PlasmaTheme.colors.outlineThick * scaleU)
-                love.graphics.rectangle("line", slotX, slotY, slotWidth, slotHeight, cornerRadius, cornerRadius)
                 love.graphics.setLineWidth(1)
+                love.graphics.rectangle("line", slotX, slotY, slotWidth, slotHeight, 0, 0)
 
                 if turretSlots.slots[slotIndex] then
                     local itemId = turretSlots.slots[slotIndex]
@@ -244,12 +242,7 @@ function HUDSlots.drawTurretSlots(viewportWidth, viewportHeight, hudSystem)
                     end
 
                 else
-                    -- Plasma energy glow for empty slots
-                    love.graphics.setColor(0.1, 0.3, 0.5, 0.6)
-                    love.graphics.circle("line", slotX + slotWidth / 2, slotY + slotHeight / 2, math.min(slotWidth, slotHeight) / 4)
-                    -- Add inner energy pulse
-                    love.graphics.setColor(0.2, 0.4, 0.7, 0.3)
-                    love.graphics.circle("fill", slotX + slotWidth / 2, slotY + slotHeight / 2, math.min(slotWidth, slotHeight) / 6)
+                    -- No central circle design for empty slots
                 end
             end
         end)
@@ -306,7 +299,8 @@ function HUDSlots.drawTurretSlots(viewportWidth, viewportHeight, hudSystem)
                             end
 
                             -- Draw hover effect on top of canvas
-                            local cornerRadius = 4 * math.min(scaleX, scaleY)
+                            -- No rounded corners for hover effect
+                            local cornerRadius = 0
                             love.graphics.setColor(1.0, 1.0, 1.0, 0.4)
                             love.graphics.rectangle("fill", screenSlotX, screenSlotY, slotWidth, slotHeight, cornerRadius, cornerRadius)
 

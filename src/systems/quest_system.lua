@@ -13,50 +13,43 @@ local QuestSystem = {
 local questTemplates = {
     mining = {
         {
-            name = "Mine Iron",
-            description = "Collect %d iron ore.",
-            baseReward = 100,
-            rewardPerUnit = 20,
-            requirement = function() return math.random(3, 8) end
-        },
+            name = "Mine Asteroids",
+            description = "Mine %d asteroid%s for ore.",
+            baseReward = 80,
+            rewardPerUnit = 25,
+            requirement = function() return math.random(2, 5) end
+        }
+    },
+    salvaging = {
         {
-            name = "Mine Stone",
-            description = "Collect %d stone.",
-            baseReward = 50,
-            rewardPerUnit = 10,
-            requirement = function() return math.random(5, 12) end
+            name = "Salvage Wrecks",
+            description = "Salvage %d ship wreck%s in the sector.",
+            baseReward = 100,
+            rewardPerUnit = 30,
+            requirement = function() return math.random(1, 3) end
         }
     },
     combat = {
         {
-            name = "Destroy Enemy Ships",
-            description = "Defeat %d enemy ship%s.",
-            baseReward = 200,
-            rewardPerUnit = 100,
-            requirement = function() return math.random(2, 5) end
-        }
-    },
-    exploration = {
-        {
-            name = "Explore",
-            description = "Visit %d different location%s.",
-            baseReward = 150,
-            rewardPerUnit = 50,
-            requirement = function() return math.random(1, 3) end
+            name = "Destroy Red Scouts",
+            description = "Destroy %d Red Scout%s.",
+            baseReward = 120,
+            rewardPerUnit = 40,
+            requirement = function() return math.random(1, 4) end
         }
     }
 }
 
 -- Generate a random quest from templates
 local function generateQuest()
-    local questTypes = {"mining", "combat", "exploration"}
+    local questTypes = {"mining", "salvaging", "combat"}
     local questType = questTypes[math.random(#questTypes)]
     local templates = questTemplates[questType]
     local template = templates[math.random(#templates)]
-    
+
     local requirement = template.requirement()
     local reward = template.baseReward + (template.rewardPerUnit * requirement)
-    
+
     -- Format description with singular/plural
     local description = template.description
     if template.requirement then
@@ -66,9 +59,9 @@ local function generateQuest()
             description = description:gsub("%%d", tostring(requirement)):gsub("%%s", "s")
         end
     end
-    
+
     local questId = "quest_" .. questType .. "_" .. math.random(1000, 9999)
-    
+
     return Components.Quest(
         questId,
         template.name,

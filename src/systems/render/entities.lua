@@ -424,7 +424,14 @@ function RenderEntities.drawItems(cullingCameraPos, cullingCamera)
                             love.graphics.print("?", markX - 16, markY - 16)
                         end
                     else
-                        drawPolygon(position.x, position.y, polygonShape, renderable.color, renderable.texture, entityId)
+                        -- Generic polygon: apply entity rotation before drawing so standalone
+                        -- polygon entities (like missiles) face their `polygonShape.rotation`.
+                        local entRot = polygonShape.rotation or 0
+                        love.graphics.push()
+                        love.graphics.translate(position.x, position.y)
+                        love.graphics.rotate(entRot)
+                        drawPolygon(0, 0, polygonShape, renderable.color, renderable.texture, entityId)
+                        love.graphics.pop()
                     end
                 end
             end
