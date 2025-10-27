@@ -110,10 +110,11 @@ function GameInit.registerSystems()
     ECS.registerSystem("HUDSystem", Systems.HUDSystem)
     ECS.registerSystem("TrailSystem", Systems.TrailSystem)
     ECS.registerSystem("CombatAlertSystem", require('src.systems.combat_alert'))
-    ECS.registerSystem("AISystem", Systems.AISystem)
+    ECS.registerSystem("BehaviorTreeSystem", require('src.systems.behavior_tree_system'))
+    ECS.registerSystem("AttackOrderSystem", require('src.systems.attack_order_system'))
     ECS.registerSystem("CollisionSystem", Systems.CollisionSystem)
     ECS.registerSystem("MagnetSystem", Systems.MagnetSystem)
-    ECS.registerSystem("EnemyMiningSystem", require('src.systems.enemy_mining'))
+    -- EnemyMiningSystem removed - mining logic now integrated into behavior tree
     ECS.registerSystem("DestructionSystem", Systems.DestructionSystem)
     ECS.registerSystem("DebrisSystem", Systems.DebrisSystem)
     ECS.registerSystem("TurretSystem", Systems.TurretSystem)
@@ -297,63 +298,29 @@ function GameInit.spawnEnemies()
         return x, y
     end
     
-    -- Get cluster data to spawn enemies in them
-    local clusters = AsteroidClusters.getClusters()
-    for clusterId, cluster in pairs(clusters) do
-        -- 50% chance (configurable) to spawn an enemy group at this cluster
-        local spawnChance = Constants.cluster_enemy_spawn_chance or 0.5
-        if math.random() < spawnChance then
-            local radius = cluster.radius or Constants.asteroid_cluster_radius
-
-            -- Spawn miners (miners are red_scouts with continuous beam)
-            local minerCount = math.random(Constants.cluster_miner_count_min or 1, Constants.cluster_miner_count_max or 2)
-            for i = 1, minerCount do
-                local x, y = spawnEnemyInCluster(cluster.centerX, cluster.centerY, radius)
-                local shipId = ShipLoader.createShip("red_scout", x, y, "ai")
-                if shipId then
-                    local turret = ECS.getComponent(shipId, "Turret")
-                    if turret then
-                        turret.moduleName = "continuous_beam"
-                    end
-                    local ai = ECS.getComponent(shipId, "AI")
-                    local design = ShipLoader.getDesign("red_scout")
-                    if ai and design then
-                        ai.type = "mining"
-                        ai.state = "mining"
-                        if design.miningDetectionRange then
-                            ai.detectionRadius = design.miningDetectionRange
-                        end
-                    end
-                    local level = math.random(1, 3)
-                    ECS.addComponent(shipId, "Level", {level = level})
-                end
+    -- Simplified: spawn 20 red_scouts with combat AI and cannon modules
+    local ShipLoader = require('src.ship_loader')
+    local ECS = require('src.ecs')
+    local Components = require('src.components')
+    local combatTree = require('src.ai.trees').combat
+    for i = 1, 20 do
+        -- Random position in a circle around (0,0)
+        local angle = math.random() * 2 * math.pi
+        local distance = 600 + math.random() * 400
+        local x = math.cos(angle) * distance
+        local y = math.sin(angle) * distance
+        local shipId = ShipLoader.createShip("red_scout", x, y, "ai")
+        if shipId then
+            local turret = ECS.getComponent(shipId, "Turret")
+            if turret then
+                turret.moduleName = "basic_cannon"
             end
-
-            -- Spawn combat red_scouts
-            local combatCount = math.random(Constants.cluster_combat_count_min or 3, Constants.cluster_combat_count_max or 5)
-            for i = 1, combatCount do
-                local x, y = spawnEnemyInCluster(cluster.centerX, cluster.centerY, radius)
-                local shipId = ShipLoader.createShip("red_scout", x, y, "ai")
-                if shipId then
-                    -- Choose combat weapons for these scouts
-                    local weaponChoice = math.random() < 0.5 and "basic_cannon" or "continuous_beam"
-                    local turret = ECS.getComponent(shipId, "Turret")
-                    if turret then
-                        turret.moduleName = weaponChoice
-                    end
-                    local ai = ECS.getComponent(shipId, "AI")
-                    local design = ShipLoader.getDesign("red_scout")
-                    if ai and design then
-                        ai.type = "combat"
-                        ai.state = "patrol"
-                        if design.combatDetectionRange then
-                            ai.detectionRadius = design.combatDetectionRange
-                        end
-                    end
-                    local level = math.random(1, 3)
-                    ECS.addComponent(shipId, "Level", {level = level})
-                end
+            local ai = ECS.getComponent(shipId, "AI")
+            if ai then
+                ai.type = "combat"
+                ai.state = "patrol"
             end
+            ECS.addComponent(shipId, "BehaviorTree", { root = combatTree })
         end
     end
 end

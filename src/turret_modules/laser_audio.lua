@@ -57,7 +57,7 @@ local function cloneOpts(opts, defaultVolume)
     return copy
 end
 
-function LaserAudio.start(turretComp, opts)
+function LaserAudio.start(turretComp, opts, position)
     if not turretComp then
         return nil
     end
@@ -78,6 +78,21 @@ function LaserAudio.start(turretComp, opts)
     end
 
     local playOpts = cloneOpts(opts, LaserAudio.defaultVolume)
+
+    -- Add position and listener for distance attenuation
+    if position then
+        playOpts.position = position
+        -- Get listener position (camera/player position)
+        local listenerX, listenerY = 0, 0
+        local ECS = require('src.ecs')
+        local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+        if #cameraEntities > 0 then
+            local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
+            listenerX, listenerY = cameraPos.x + 400, cameraPos.y + 300  -- Approximate screen center
+        end
+        playOpts.listener = {x = listenerX, y = listenerY}
+    end
+
     local instance = SoundSystem.play(LaserAudio.soundName, playOpts)
 
     if instance then

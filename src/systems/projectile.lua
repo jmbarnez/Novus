@@ -3,7 +3,6 @@
 local ECS = require('src.ecs')
 local Components = require('src.components')
 local EntityHelpers = require('src.entity_helpers')
-local AISystem = require('src.systems.ai')
 local CollisionUtils = require('src.collision_utils')
 
 local ProjectileSystem = {
@@ -202,11 +201,9 @@ function ProjectileSystem.update(dt)
                         hull.current = math.max(0, hull.current - damage)
                     end
                     
-                    -- Notify AI system of damage for aggro
-                    if AISystem and AISystem.notifyAIDamage then
-                        local shooter = projectile.ownerId
-                        AISystem.notifyAIDamage(enemyId, damage, shooter)
-                    end
+                    -- Notify AI of damage so behavior trees can react (aggression)
+                    local shooter = projectile.ownerId
+                    EntityHelpers.notifyAIDamage(enemyId, shooter)
                     
                     -- Destroy missile on impact
                     if projectile.isMissile then

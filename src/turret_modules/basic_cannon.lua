@@ -93,7 +93,18 @@ function BasicCannon.fire(ownerId, startX, startY, endX, endY)
 
     ensureSoundLoaded()
     if SoundSystem and SoundSystem.play then
-        SoundSystem.play(cannonSoundName, {volume = 75})
+        -- Get listener position (camera/player position)
+        local listenerX, listenerY = 0, 0
+        local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+        if #cameraEntities > 0 then
+            local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
+            listenerX, listenerY = cameraPos.x + 400, cameraPos.y + 300  -- Approximate screen center
+        end
+        SoundSystem.play(cannonSoundName, {
+            volume = 75,
+            position = {x = spawnX, y = spawnY},
+            listener = {x = listenerX, y = listenerY}
+        })
     end
 end
 

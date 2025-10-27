@@ -555,4 +555,13 @@ function ECS.deserialize(state)
     systemOrder = nil
 end
 
+-- Register AI blackboard components (MiningTarget, CombatTarget, AttackOrder)
+do
+    local aiBlackboard = require('src.components.ai_blackboard')
+    -- These are simple data components, no custom serialization needed for now
+    ECS.registerComponentSerializer('MiningTarget', {})
+    ECS.registerComponentSerializer('CombatTarget', {})
+    ECS.registerComponentSerializer('AttackOrder', {})
+end
+
 return ECS

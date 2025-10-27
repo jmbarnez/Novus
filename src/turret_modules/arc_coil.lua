@@ -247,17 +247,17 @@ function ArcCoil.fire(ownerId, startX, startY, endX, endY, turretComp)
         laserComp.chainColor = nil
     end
 
-    LaserAudio.start(turretComp)
+    LaserAudio.start(turretComp, nil, {x = offsetStartX, y = offsetStartY})
 end
 
 -- Apply beam logic each frame
 function ArcCoil.applyBeam(ownerId, startX, startY, targetX, targetY, dt, turretComp)
-    LaserAudio.start(turretComp)
-
     -- startX, startY already comes from input.lua as the offset muzzle position
     -- No need to offset again here
     local offsetStartX = startX
     local offsetStartY = startY
+
+    LaserAudio.start(turretComp, nil, {x = offsetStartX, y = offsetStartY})
 
     targetX, targetY = clampToRange(offsetStartX, offsetStartY, targetX, targetY, ArcCoil.RANGE)
     local beamEnd = {x = targetX, y = targetY}

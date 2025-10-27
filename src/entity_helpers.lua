@@ -154,20 +154,7 @@ end
 -- @param sourceId number|nil: Entity responsible for the damage (projectile, ship, etc.)
 function EntityHelpers.notifyAIDamage(victimId, sourceId)
     if not victimId then return end
-
-    if not CachedAISystem then
-        local ok, module = pcall(require, 'src.systems.ai')
-        if ok then
-            CachedAISystem = module
-        else
-            return
-        end
-    end
-
-    if not CachedAISystem or not CachedAISystem.triggerAggressiveReaction then
-        return
-    end
-
+    -- Determine attacker entity (resolve from projectile owner if necessary)
     local attackerId = sourceId
     if sourceId then
         local projectile = ECS.getComponent(sourceId, "Projectile")
@@ -181,7 +168,17 @@ function EntityHelpers.notifyAIDamage(victimId, sourceId)
         end
     end
 
-    CachedAISystem.triggerAggressiveReaction(victimId, attackerId)
+    -- Directly update the AI component on the victim to trigger aggressive reaction.
+    local ai = ECS.getComponent(victimId, "AI")
+    if not ai then return end
+
+    ai.aggressiveTimer = ai.aggressiveDuration or 5.0
+    ai.lastAttacker = attackerId
+    ai.state = "aggressive"
+    -- If this was a mining AI, remember its previous mining state so it can return later
+    if ai.type == "mining" then
+        ai._wasMining = true
+    end
 end
 
 -- Create a shield impact visual effect

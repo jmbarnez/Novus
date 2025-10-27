@@ -37,17 +37,23 @@ return {
     
     -- Enemy configuration
     enemies = {
-        -- Enemy type definitions: {enemyType = count}
-        types = {
-            ["red_scout"] = 10,
-        },
-        -- Weapon assignments - only basic_cannon for combat enemies
-        weapons = {
-            ["red_scout"] = "basic_cannon"
-        },
-        -- AI behavior settings
-        aiType = "combat",
-        aiState = "patrol",
+        -- Enemy groups with different AI types
+        groups = {
+            {
+                -- Combat red scouts
+                types = { ["red_scout"] = 10 },
+                weapons = { ["red_scout"] = "basic_cannon" },
+                aiType = "combat",
+                aiState = "patrol",
+            },
+            {
+                -- Mining red scouts
+                types = { ["red_scout"] = 10 },
+                weapons = { ["red_scout"] = "continuous_beam" },
+                aiType = "mining",
+                aiState = "mining",
+            }
+        }
     },
     
     -- Visual theme

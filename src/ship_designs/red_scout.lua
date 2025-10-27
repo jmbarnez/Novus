@@ -52,10 +52,10 @@ return {
     shield = nil,
     
     -- Physics (same as starter drone)
-    friction = 0.9999, -- Space has no air resistance, nearly 1.0 for realistic coasting
-    mass = 20, -- Reduced for better acceleration (asteroids are 200-1800)
+    friction = 0.99, -- Space has no air resistance, nearly 1.0 for realistic coasting
+    mass = 50, -- Reduced for better acceleration (asteroids are 200-1800)
     angularDamping = 0.95, -- Ships damp rotation faster (more control)
-    thrustForce = 2000, -- Greatly increased thrust for high acceleration
+    thrustForce = 6000, -- High thrust for responsive movement and high max speed
     
     -- Equipment
     turretSlots = 1,

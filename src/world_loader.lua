@@ -269,8 +269,12 @@ function WorldLoader.spawnEnemies(config)
         table.insert(clusterList, c)
     end
 
-    for enemyType, count in pairs(config.types or {}) do
-        for i = 1, count do
+    -- Support both old single-group format and new multi-group format
+    local enemyGroups = config.groups or {config}
+
+    for _, groupConfig in ipairs(enemyGroups) do
+        for enemyType, count in pairs(groupConfig.types or {}) do
+            for i = 1, count do
             local shipId = nil
             local enemyRadius = 25
             local minDistance = 200
@@ -295,22 +299,53 @@ function WorldLoader.spawnEnemies(config)
                     if shipId then
                         local turret = ECS.getComponent(shipId, "Turret")
                         local weapon = "basic_cannon"
-                    if turret then
-                        local weaponConf = config.weapons and config.weapons[enemyType]
-                        if type(weaponConf) == "table" then
-                            weapon = weaponConf[math.random(1, #weaponConf)] or "basic_cannon"
-                        elseif type(weaponConf) == "string" then
-                            weapon = weaponConf
+                        if turret then
+                            local weaponConf = groupConfig.weapons and groupConfig.weapons[enemyType]
+                            if type(weaponConf) == "table" then
+                                weapon = weaponConf[math.random(1, #weaponConf)] or "basic_cannon"
+                            elseif type(weaponConf) == "string" then
+                                weapon = weaponConf
+                            end
+                            turret.moduleName = weapon
+                            -- Ensure AI type/state and behavior tree are set according to group config
+                            local ai = ECS.getComponent(shipId, "AI")
+                            if ai then
+                                -- Determine mining weapon special-case (legacy)
+                                local isMiningWeapon = (weapon == "mining_laser" or weapon == "salvage_laser")
+                                if isMiningWeapon then
+                                    ai.type = "mining"
+                                    ai.state = "mining"
+                                else
+                                    ai.type = groupConfig.aiType or ai.type or "combat"
+                                    ai.state = groupConfig.aiState or ai.state or "patrol"
+                                end
+
+                                -- Set detection range based on AI type from design
+                                local design = ShipLoader.getDesign(enemyType)
+                                if design then
+                                    if ai.type == "mining" and design.miningDetectionRange then
+                                        ai.detectionRadius = design.miningDetectionRange
+                                    elseif ai.type == "combat" and design.combatDetectionRange then
+                                        ai.detectionRadius = design.combatDetectionRange
+                                    end
+                                end
+                            end
+
+                            -- Attach the appropriate behavior tree component
+                            local trees = require('src.ai.trees')
+                            if groupConfig.aiType == "mining" then
+                                ECS.addComponent(shipId, "BehaviorTree", { root = trees.mining })
+                            elseif groupConfig.aiType == "combat" then
+                                ECS.addComponent(shipId, "BehaviorTree", { root = trees.combat })
+                            end
                         end
-                        turret.moduleName = weapon
-                    end
                     end
                 end
             end
 
             -- Fallback to world-wide spawn if cluster spawn failed
             if not shipId then
-                shipId = WorldLoader.spawnEnemy(enemyType, config)
+                shipId = WorldLoader.spawnEnemy(enemyType, groupConfig)
             end
 
             if shipId then
@@ -318,6 +353,7 @@ function WorldLoader.spawnEnemies(config)
             end
         end
     end
+end
 end
 
 -- Spawn a single enemy
@@ -388,6 +424,14 @@ function WorldLoader.spawnEnemy(enemyType, config)
                     ai.detectionRadius = design.combatDetectionRange
                 end
             end
+        end
+
+        -- Add BehaviorTree component based on group config AI type
+        local trees = require('src.ai.trees')
+        if config.aiType == "mining" then
+            ECS.addComponent(shipId, "BehaviorTree", { root = trees.mining })
+        elseif config.aiType == "combat" then
+            ECS.addComponent(shipId, "BehaviorTree", { root = trees.combat })
         end
 
         -- Ensure Wreckage sourceShip is assigned (enables design lookup in AI)

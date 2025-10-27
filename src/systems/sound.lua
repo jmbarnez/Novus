@@ -59,14 +59,14 @@ function SoundSystem.getVolume(volumeType)
     return SoundSystem.volumes[volumeType] or 100
 end
 
--- Play a named sound. opts: {volume, pitch, loop}
+-- Play a named sound. opts: {volume, pitch, loop, position={x,y}, listener={x,y}}
 function SoundSystem.play(name, opts)
     local src = SoundSystem.sounds[name]
     if not src then
         return nil
     end
     local clone = src:clone()
-    
+
     -- Apply volume scaling based on master and sfx volumes
     local finalVolume = (SoundSystem.volumes.master / 100) * (SoundSystem.volumes.sfx / 100)
     if opts and opts.volume then
@@ -82,8 +82,42 @@ function SoundSystem.play(name, opts)
             end
         end
     end
+
+    -- Apply distance-based attenuation if position and listener provided
+    if opts and opts.position and opts.listener then
+        local dx = opts.position.x - opts.listener.x
+        local dy = opts.position.y - opts.listener.y
+        local distance = math.sqrt(dx * dx + dy * dy)
+
+        -- Use a smoother attenuation curve (inverse-square-like with soft clamp)
+        -- This reduces extremely distant sounds more aggressively while keeping
+        -- nearby sounds relatively unaffected.
+        local referenceDistance = 100    -- within this distance, sound is at full volume
+        local maxDistance = 2000        -- beyond this, sounds are effectively inaudible
+
+        if distance <= referenceDistance then
+            -- no attenuation for very close sounds
+            attenuation = 1
+        elseif distance >= maxDistance then
+            attenuation = 0
+        else
+            -- normalized distance in (0,1)
+            local nd = (distance - referenceDistance) / (maxDistance - referenceDistance)
+            -- inverse-square-ish falloff: (1 - nd)^2 for a steeper drop-off
+            attenuation = (1 - nd) * (1 - nd)
+        end
+
+        finalVolume = finalVolume * attenuation
+    end
+
+    -- Early-out: skip playing if final volume is effectively silent
+    -- Acceptable audible threshold (game uses 0.001 as near-silent)
+    if finalVolume <= 0.001 then
+        return nil
+    end
+
     clone:setVolume(finalVolume)
-    
+
     if opts and opts.pitch then clone:setPitch(opts.pitch) end
     if opts and opts.loop then clone:setLooping(true) end
     clone:play()

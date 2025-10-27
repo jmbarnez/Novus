@@ -28,6 +28,7 @@ local SLOT_ACTIONS = {
 local BASE_SLOT_WIDTH = 48
 local BASE_SLOT_HEIGHT = 54 -- allow room for hotkey label
 local BASE_SLOT_SPACING = 8
+local HOTBAR_BOTTOM_MARGIN = 20
 
 local hotbarCanvas, canvasW, canvasH, lastFrameTick = nil, nil, nil, nil
 local hotkeyFont = nil
@@ -294,10 +295,7 @@ local function invalidateCanvas()
     lastFrameTick = nil
 end
 
-function HUDHotbar.drawHotbar(viewportWidth, viewportHeight, hudSystem)
-    local frameTick = math.floor(love.timer.getTime() * 30)
-    local shouldUpdate = (not lastFrameTick) or (frameTick % 2 == 0)
-
+local function computeMetrics()
     local scaleX = Scaling.canvasScaleX or 1
     local scaleY = Scaling.canvasScaleY or 1
     local scaleU = math.min(scaleX, scaleY)
@@ -307,12 +305,40 @@ function HUDHotbar.drawHotbar(viewportWidth, viewportHeight, hudSystem)
     local slotSpacing = BASE_SLOT_SPACING * scaleX
     local canvasWidth = math.ceil(slotWidth * MAX_SLOTS + slotSpacing * (MAX_SLOTS - 1))
     local canvasHeight = math.ceil(slotHeight)
+    local drawX = (Scaling.getCurrentWidth() - canvasWidth) / 2
+    local drawY = Scaling.getCurrentHeight() - canvasHeight - HOTBAR_BOTTOM_MARGIN
 
-    ensureCanvas(canvasWidth, canvasHeight)
+    return {
+        x = drawX,
+        y = drawY,
+        width = canvasWidth,
+        height = canvasHeight,
+        slotWidth = slotWidth,
+        slotHeight = slotHeight,
+        slotSpacing = slotSpacing,
+        scaleX = scaleX,
+        scaleY = scaleY,
+        scaleU = scaleU
+    }
+end
+
+function HUDHotbar.drawHotbar(viewportWidth, viewportHeight, hudSystem)
+    local frameTick = math.floor(love.timer.getTime() * 30)
+    local shouldUpdate = (not lastFrameTick) or (frameTick % 2 == 0)
+
+    local metrics = computeMetrics()
+    local scaleX = metrics.scaleX
+    local scaleY = metrics.scaleY
+    local scaleU = metrics.scaleU
+    local slotWidth = metrics.slotWidth
+    local slotHeight = metrics.slotHeight
+    local slotSpacing = metrics.slotSpacing
+
+    ensureCanvas(metrics.width, metrics.height)
     ensureFont()
 
-    local drawX = (Scaling.getCurrentWidth() - canvasWidth) / 2
-    local drawY = Scaling.getCurrentHeight() - canvasHeight - 20
+    local drawX = metrics.x
+    local drawY = metrics.y
 
     local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
     local orderedEntries = {}
@@ -570,6 +596,10 @@ end
 
 HUDHotbar.MAX_SLOTS = MAX_SLOTS
 HUDHotbar.actions = SLOT_ACTIONS
+
+function HUDHotbar.getHotbarMetrics()
+    return computeMetrics()
+end
 
 function HUDHotbar.getEntriesForDrone(droneId)
     if not droneId then

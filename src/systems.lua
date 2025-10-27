@@ -14,7 +14,6 @@ Systems.CameraSystem = require('src.systems.camera')
 Systems.UISystem = require('src.systems.ui')
 Systems.HUDSystem = require('src.systems.hud')
 Systems.TrailSystem = require('src.systems.trail')
-Systems.AISystem = require('src.systems.ai')
 Systems.CollisionSystem = require('src.systems.collision').CollisionSystem
 Systems.MagnetSystem = require('src.systems.magnet')
 Systems.DestructionSystem = require('src.systems.destruction')

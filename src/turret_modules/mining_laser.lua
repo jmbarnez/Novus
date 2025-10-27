@@ -107,7 +107,7 @@ function MiningLaser.fire(ownerId, startX, startY, endX, endY, turretComp)
         laserComp.ownerId = ownerId
     end
 
-    LaserAudio.start(turretComp)
+    LaserAudio.start(turretComp, nil, {x = offsetStartX, y = offsetStartY})
 end
 
 -- Called every frame while the laser is firing
@@ -116,8 +116,6 @@ end
 -- dt: delta time
 -- turretComp: turret component with heat information
 function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretComp)
-    LaserAudio.start(turretComp)
-
     -- Offset start position to barrel end to match where laser visually originates
     local offsetStartX = startX
     local offsetStartY = startY
@@ -131,6 +129,8 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
             offsetStartY = startY + (dy / dist) * (ownerCollidable.radius + 5)
         end
     end
+
+    LaserAudio.start(turretComp, nil, {x = offsetStartX, y = offsetStartY})
 
     local closestIntersection = nil
     local closestDistSq = math.huge

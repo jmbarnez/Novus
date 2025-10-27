@@ -83,6 +83,18 @@ local PhysicsSystem = {
                 velocity.vy = velocity.vy * physics.friction
             end
 
+            -- Clamp velocity to a per-entity max speed (if specified on Physics component)
+            if physics and physics.maxSpeed then
+                local maxSpeed = physics.maxSpeed
+                local speedSq = velocity.vx * velocity.vx + velocity.vy * velocity.vy
+                if speedSq > maxSpeed * maxSpeed then
+                    local speed = math.sqrt(speedSq)
+                    local scale = maxSpeed / speed
+                    velocity.vx = velocity.vx * scale
+                    velocity.vy = velocity.vy * scale
+                end
+            end
+
             -- Update position based on velocity
             position.x = position.x + velocity.vx * dt
             position.y = position.y + velocity.vy * dt

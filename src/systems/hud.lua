@@ -5,6 +5,7 @@
 local HUDStats = require('src.systems.hud.stats')
 local HUDTargeting = require('src.systems.hud.targeting')
 local HUDHotbar = require('src.systems.hud.hotbar')
+local StatusEffectsHUD = require('src.systems.hud.status_effects')
 local Minimap = require('src.systems.hud.minimap')
 local Tooltips = require('src.ui.tooltips')
 local TargetHUD = require('src.systems.hud.target_hud')
@@ -37,8 +38,8 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
     -- Note: Enemy health bars are now drawn earlier in RenderSystem to ensure they render behind UI windows
     
     -- Draw HUD elements directly to screen (no canvas, no shader effects)
-    HUDStats.drawHullShieldBar(viewportWidth, viewportHeight)
-    HUDStats.drawEnergyBar(viewportWidth, viewportHeight)
+    HUDStats.drawPlayerVitals(viewportWidth, viewportHeight)
+    StatusEffectsHUD.drawStatusEffects(viewportWidth, viewportHeight)
     HUDHotbar.drawHotbar(viewportWidth, viewportHeight, HUDSystem)
     if Minimap and Minimap.draw then Minimap.draw() end
     HUDStats.drawSpeedText(viewportWidth, viewportHeight)

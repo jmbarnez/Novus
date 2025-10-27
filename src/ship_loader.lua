@@ -73,6 +73,9 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
     if design.thrustForce then
         physicsComp.thrustForce = design.thrustForce
     end
+    -- Provide a per-entity max speed to prevent runaway velocities.
+    -- Priority: explicit design.maxSpeed -> derived from patrolSpeed -> sensible default.
+    physicsComp.maxSpeed = design.maxSpeed or ((design.patrolSpeed and design.patrolSpeed * 3) or 300)
     ECS.addComponent(shipId, "Physics", physicsComp)
     
     -- Determine color based on design or controller type
