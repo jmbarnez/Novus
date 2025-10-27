@@ -8,6 +8,7 @@ local EntityHelpers = require('src.entity_helpers')
 local TurretSystem = require('src.systems.turret')
 local TurretRegistry = require('src.turret_registry')
 local HotkeyConfig = require('src.hotkey_config')
+local HUDHotbar = require('src.systems.hud.hotbar')
 
 -- Lazy-load UISystem to avoid circular dependencies
 local UISystem
@@ -25,6 +26,125 @@ local InputSystem = {
     name = "InputSystem",
     priority = 1
 }
+
+local function getControlledEntity()
+    local controllers = ECS.getEntitiesWith({"InputControlled"})
+    if #controllers == 0 then
+        return nil
+    end
+
+    local controllerId = controllers[1]
+    local inputComp = ECS.getComponent(controllerId, "InputControlled")
+    if inputComp and inputComp.targetEntity then
+        return inputComp.targetEntity
+    end
+
+    return controllerId
+end
+
+local function ensureTurretModuleRegistered(module, moduleName)
+    if not module then
+        return
+    end
+    local name = moduleName or module.name
+    if not name then
+        return
+    end
+    if not TurretRegistry.hasModule(name) then
+        TurretRegistry.modules[name] = module
+    end
+end
+
+local function tryActivateHotbarSlot(slotIndex)
+    if not slotIndex then
+        return false
+    end
+
+    local controlledEntity = getControlledEntity()
+    if not controlledEntity then
+        return false
+    end
+
+    local entries = HUDHotbar.getEntriesForDrone(controlledEntity)
+    local entry = entries[slotIndex]
+    if not entry or not entry.itemDef then
+        return false
+    end
+
+    local module = entry.itemDef.module
+    if not module and entry.sourceType == "turret" then
+        local fallbackName = entry.itemId and entry.itemId:gsub("_turret$", "")
+        if fallbackName then
+            module = TurretRegistry.getModule(fallbackName)
+        end
+    end
+    local handled = false
+
+    if entry.sourceType == "turret" then
+        local turret = ECS.getComponent(controlledEntity, "Turret")
+        if turret then
+            local moduleName = nil
+            if module and module.name then
+                moduleName = module.name
+            else
+                moduleName = entry.itemId and entry.itemId:gsub("_turret$", "")
+            end
+
+            ensureTurretModuleRegistered(module, moduleName)
+
+            if moduleName then
+                turret.moduleName = moduleName
+                turret.lastFireTime = turret.lastFireTime or -999
+                handled = true
+            end
+        end
+    end
+
+    if module then
+        if module.activate then
+            local result = module.activate(controlledEntity, entry.itemId)
+            if result ~= false then
+                handled = true
+            end
+        elseif module.use then
+            module.use(controlledEntity, entry.itemId)
+            handled = true
+        elseif module.trigger then
+            module.trigger(controlledEntity, entry.itemId)
+            handled = true
+        end
+    end
+
+    return handled
+end
+
+local function resolveHotbarSlotForKey(key)
+    if not key or key == "" then
+        return nil
+    end
+    if type(key) ~= "string" then
+        return nil
+    end
+    local lowerKey = key:lower()
+    for index, action in ipairs(HUDHotbar.actions or {}) do
+        local binding = HotkeyConfig.getHotkey(action)
+        if type(binding) == "string" and binding ~= "" and binding:lower() == lowerKey then
+            return index
+        end
+    end
+    return nil
+end
+
+local function mouseButtonToKey(button)
+    if button == 1 then
+        return "mouse1"
+    elseif button == 2 then
+        return "mouse2"
+    elseif button == 3 then
+        return "mouse3"
+    end
+    return nil
+end
 
 function InputSystem.update(dt)
     -- Handle targeting progress
@@ -280,6 +400,10 @@ function InputSystem.update(dt)
 end
 
 function InputSystem.keypressed(key)
+    local slotIndex = resolveHotbarSlotForKey(key)
+    if slotIndex then
+        tryActivateHotbarSlot(slotIndex)
+    end
     -- Tab key handling will be done in core.lua to avoid circular dependency
 end
 
@@ -297,6 +421,14 @@ function InputSystem.mousepressed(x, y, button, istouch, presses)
     if button == 1 and WorldTooltips and WorldTooltips.handleClick then
         if WorldTooltips.handleClick(x, y, button) then
             return
+        end
+    end
+
+    local mouseKey = mouseButtonToKey(button)
+    if mouseKey then
+        local slotIndex = resolveHotbarSlotForKey(mouseKey)
+        if slotIndex then
+            tryActivateHotbarSlot(slotIndex)
         end
     end
 

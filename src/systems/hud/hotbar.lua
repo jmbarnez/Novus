@@ -31,6 +31,12 @@ local BASE_SLOT_SPACING = 8
 
 local hotbarCanvas, canvasW, canvasH, lastFrameTick = nil, nil, nil, nil
 local hotkeyFont = nil
+local layoutByDrone = {}
+local slotRects = {}
+local currentEntries = {}
+local currentDroneId = nil
+local currentLayout = nil
+local dragState = nil
 
 local function getHotkeyLabel(action)
     local key = HotkeyConfig.getHotkey(action)
@@ -40,10 +46,18 @@ local function getHotkeyLabel(action)
     return HotkeyConfig.formatKey(key)
 end
 
+local function getEntryKey(entry)
+    local itemId = entry.itemId or ""
+    local moduleName = (entry.itemDef and entry.itemDef.module and entry.itemDef.module.name) or ""
+    local sourceType = entry.sourceType or "unknown"
+    local sourceSlot = entry.sourceSlot or 0
+    return string.format("%s:%s:%s:%s", sourceType, tostring(sourceSlot), moduleName, itemId)
+end
+
 local function collectEquippedModules(droneId)
     local entries = {}
 
-    local function push(itemId, sourceType)
+    local function push(itemId, sourceType, sourceSlot)
         if not itemId then
             return
         end
@@ -51,35 +65,94 @@ local function collectEquippedModules(droneId)
         if not itemDef then
             return
         end
-        entries[#entries + 1] = {
+        local entry = {
             itemId = itemId,
             itemDef = itemDef,
-            sourceType = sourceType
+            sourceType = sourceType,
+            sourceSlot = sourceSlot
         }
+        entry.key = getEntryKey(entry)
+        entries[#entries + 1] = entry
     end
 
     local turretSlots = ECS.getComponent(droneId, "TurretSlots")
     if turretSlots and turretSlots.slots then
         for slotIndex = 1, (turretSlots.maxSlots or #turretSlots.slots) do
-            push(turretSlots.slots[slotIndex], "turret")
+            push(turretSlots.slots[slotIndex], "turret", slotIndex)
         end
     end
 
     local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
     if defensiveSlots and defensiveSlots.slots then
         for slotIndex = 1, (defensiveSlots.maxSlots or #defensiveSlots.slots) do
-            push(defensiveSlots.slots[slotIndex], "defensive")
+            push(defensiveSlots.slots[slotIndex], "defensive", slotIndex)
         end
     end
 
     local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
     if generatorSlots and generatorSlots.slots then
         for slotIndex = 1, (generatorSlots.maxSlots or #generatorSlots.slots) do
-            push(generatorSlots.slots[slotIndex], "generator")
+            push(generatorSlots.slots[slotIndex], "generator", slotIndex)
         end
     end
 
     return entries
+end
+
+local function applyLayout(droneId, rawEntries)
+    local layout = layoutByDrone[droneId]
+    if not layout then
+        layout = {}
+        layoutByDrone[droneId] = layout
+    end
+
+    local keyToEntry = {}
+    for _, entry in ipairs(rawEntries) do
+        keyToEntry[entry.key] = entry
+    end
+
+    for slot = 1, MAX_SLOTS do
+        local key = layout[slot]
+        if key and not keyToEntry[key] then
+            layout[slot] = nil
+        end
+    end
+
+    for _, entry in ipairs(rawEntries) do
+        local key = entry.key
+        local found = false
+        for slot = 1, MAX_SLOTS do
+            if layout[slot] == key then
+                found = true
+                break
+            end
+        end
+        if not found then
+            local placed = false
+            for slot = 1, MAX_SLOTS do
+                if layout[slot] == nil then
+                    layout[slot] = key
+                    placed = true
+                    break
+                end
+            end
+            if not placed and #layout < MAX_SLOTS then
+                layout[#layout + 1] = key
+            end
+        end
+    end
+
+    while #layout > MAX_SLOTS do
+        layout[#layout] = nil
+    end
+
+    local ordered = {}
+    for slot = 1, MAX_SLOTS do
+        local key = layout[slot]
+        ordered[slot] = key and keyToEntry[key] or nil
+    end
+
+    return ordered, layout, keyToEntry
 end
 
 local function calculateSlotStatus(entry, turretComp)
@@ -244,6 +317,8 @@ function HUDHotbar.drawHotbar(viewportWidth, viewportHeight, hudSystem)
     if shouldUpdate and hotbarCanvas then
         hotbarCanvas:renderTo(function()
             love.graphics.clear(0, 0, 0, 0)
+            local previousFont = love.graphics.getFont()
+            love.graphics.setFont(hotkeyFont)
 
             for slotIndex = 1, MAX_SLOTS do
                 local slotX = (slotIndex - 1) * (slotWidth + slotSpacing)
@@ -312,10 +387,10 @@ function HUDHotbar.drawHotbar(viewportWidth, viewportHeight, hudSystem)
                 love.graphics.rectangle("line", slotX, slotY, slotWidth, slotHeight, 0, 0)
 
                 love.graphics.setColor(1, 1, 1, 0.9)
-                love.graphics.setFont(hotkeyFont)
                 local labelY = slotY + slotHeight - (12 * scaleY)
                 love.graphics.printf(hotkeyLabel, slotX, labelY, slotWidth, "center")
             end
+            love.graphics.setFont(previousFont)
         end)
         lastFrameTick = frameTick
     end
@@ -354,6 +429,16 @@ function HUDHotbar.drawHotbar(viewportWidth, viewportHeight, hudSystem)
             break
         end
     end
+end
+
+HUDHotbar.MAX_SLOTS = MAX_SLOTS
+HUDHotbar.actions = SLOT_ACTIONS
+
+function HUDHotbar.getEntriesForDrone(droneId)
+    if not droneId then
+        return {}
+    end
+    return collectEquippedModules(droneId)
 end
 
 return HUDHotbar

@@ -35,11 +35,11 @@ HotkeyConfig.defaults = {
     toggle_hud = "f5",
     map_window = "m",
     settings_window = "escape",
-    hotbar_slot_1 = "q",
-    hotbar_slot_2 = "e",
-    hotbar_slot_3 = "r",
-    hotbar_slot_4 = "v",
-    hotbar_slot_5 = "lshift",
+    hotbar_slot_1 = "mouse1",
+    hotbar_slot_2 = "mouse2",
+    hotbar_slot_3 = "q",
+    hotbar_slot_4 = "e",
+    hotbar_slot_5 = "r",
     hotbar_slot_6 = "1",
     hotbar_slot_7 = "2",
     hotbar_slot_8 = "3",
@@ -161,7 +161,10 @@ function HotkeyConfig.formatKey(key)
         ["up"] = "↑",
         ["down"] = "↓", 
         ["left"] = "←",
-        ["right"] = "→"
+        ["right"] = "→",
+        ["mouse1"] = "LMB",
+        ["mouse2"] = "RMB",
+        ["mouse3"] = "MMB"
     }
     
     return keyMap[key] or string.upper(key)
