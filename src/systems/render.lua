@@ -144,7 +144,6 @@ local RenderSystem = {
 
         -- Draw effects
         RenderEffects.drawLasers()
-        RenderEffects.drawHotspots()
         RenderEffects.drawMagneticField()
         RenderEffects.drawTargetingIndicator()
 

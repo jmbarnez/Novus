@@ -102,41 +102,6 @@ function RenderEffects.drawMagneticField()
     end
 end
 
-function RenderEffects.drawHotspots()
-    local hotspotEntities = ECS.getEntitiesWith({"Hotspot", "Position"})
-    for _, hotspotId in ipairs(hotspotEntities) do
-        local hotspot = ECS.getComponent(hotspotId, "Hotspot")
-        local position = ECS.getComponent(hotspotId, "Position")
-        
-        if hotspot and position then
-            local time = hotspot.timeSinceSpawn
-            local pulse = 0.6 + 0.4 * math.sin(time * 3)
-            
-            local alphaMultiplier = 1.0
-            if hotspot.timeRemaining < 3 then
-                alphaMultiplier = hotspot.timeRemaining / 3
-            end
-            
-            love.graphics.setColor(1, 0.5, 0.2, pulse * alphaMultiplier * 0.8)
-            love.graphics.setLineWidth(2)
-            love.graphics.circle("line", position.x, position.y, 12)
-            
-            love.graphics.setColor(1, 0.7, 0.3, pulse * alphaMultiplier * 0.6)
-            love.graphics.setLineWidth(1.5)
-            love.graphics.circle("line", position.x, position.y, 9)
-            
-            love.graphics.setColor(1, 1, 0.8, pulse * alphaMultiplier)
-            love.graphics.circle("fill", position.x, position.y, 5)
-            
-            love.graphics.setColor(1, 0.4, 0.1, pulse * alphaMultiplier * 0.5)
-            love.graphics.setLineWidth(3)
-            love.graphics.circle("line", position.x, position.y, 14)
-            
-            love.graphics.setLineWidth(1)
-        end
-    end
-end
-
 function RenderEffects.drawTargetingIndicator()
     local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
     if #controllers > 0 then

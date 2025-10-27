@@ -577,6 +577,9 @@ function HUDHotbar.getEntriesForDrone(droneId)
     end
     local rawEntries = collectEquippedModules(droneId)
     local ordered = applyLayout(droneId, rawEntries)
+    if currentDroneId == droneId then
+        currentEntries = ordered
+    end
     return ordered
 end
 

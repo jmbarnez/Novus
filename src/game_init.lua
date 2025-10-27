@@ -122,7 +122,6 @@ function GameInit.registerSystems()
     ECS.registerSystem("ShieldImpactSystem", Systems.ShieldImpactSystem)
     ECS.registerSystem("AsteroidClustersSystem", AsteroidClusters)
     -- CrystalFormationSystem removed
-    ECS.registerSystem("AsteroidHotspotSystem", Systems.AsteroidHotspotSystem)
     ECS.registerSystem("EnergySystem", Systems.EnergySystem)
     ECS.registerSystem("WorldTooltipsSystem", Systems.WorldTooltipsSystem)
     ECS.registerSystem("QuestSystem", require('src.systems.quest_system'))

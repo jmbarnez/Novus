@@ -180,30 +180,9 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
                     heatMultiplier = 1.0 + (heatProgress * 1.0)  -- Up to 2x damage
                 end
 
-                -- Check for hotspot bonus: if asteroid has a hotspot and hit is near it
-                local hotspotMultiplier = 1.0
-                local hotspotEntities = ECS.getEntitiesWith({"Hotspot", "Attached", "Position"})
-                for _, hotspotId in ipairs(hotspotEntities) do
-                    local attached = ECS.getComponent(hotspotId, "Attached")
-                    if attached and attached.parentId == hitAsteroidId then
-                        local hotspotPos = ECS.getComponent(hotspotId, "Position")
-                        local hotspot = ECS.getComponent(hotspotId, "Hotspot")
-                        if hotspotPos and hotspot then
-                            -- Check if hit point is within hotspot radius (15 units)
-                            local dx = closestIntersection.x - hotspotPos.x
-                            local dy = closestIntersection.y - hotspotPos.y
-                            local distSq = dx * dx + dy * dy
-                            if distSq < 15 * 15 then
-                                hotspotMultiplier = hotspot.dpsMultiplier
-                                break
-                            end
-                        end
-                    end
-                end
-
                 -- Calculate final damage
                 local baseDamage = MiningLaser.DPS * dt
-                local finalDamage = baseDamage * distanceMultiplier * heatMultiplier * hotspotMultiplier
+                local finalDamage = baseDamage * distanceMultiplier * heatMultiplier
                 local damageApplied = math.min(finalDamage, durability.current)
                 durability.current = durability.current - damageApplied
 
@@ -212,10 +191,6 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
                 if ownerEntity and ownerEntity.pilotId then
                     ECS.addComponent(hitAsteroidId, "LastDamager", Components.LastDamager(ownerEntity.pilotId, "mining_laser"))
                 end
-                
-                -- Mark asteroid as being mined (for hotspot spawning)
-                local currentTime = love.timer.getTime()
-                ECS.addComponent(hitAsteroidId, "BeingMined", Components.BeingMined(currentTime))
                 
                 -- Enhanced visual feedback: More particles as asteroid gets damaged
                 local asteroidHealthPercent = durability.current / durability.max

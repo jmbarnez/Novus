@@ -55,26 +55,6 @@ Components.CrystalFormation = function(size, shardCount, color)
     }
 end
 
--- Hotspot component - marks a temporary weak point on an asteroid
--- @field timeRemaining number: seconds until hotspot expires
--- @field dpsMultiplier number: damage multiplier when mining this hotspot
--- @field timeSinceSpawn number: time since hotspot was created (for animation)
-Components.Hotspot = function(timeRemaining, dpsMultiplier)
-    return {
-        timeRemaining = timeRemaining or 10,
-        dpsMultiplier = dpsMultiplier or 2.0,
-        timeSinceSpawn = 0
-    }
-end
-
--- BeingMined component - marks an asteroid that is currently being mined
--- @field lastHitTime number: time when asteroid was last hit by mining laser
-Components.BeingMined = function(lastHitTime)
-    return {
-        lastHitTime = lastHitTime or 0
-    }
-end
-
 -- Wreckage component - Marks entity as salvageable wreckage from destroyed ships
 -- @field sourceShip string: Type or name of the source ship
 Components.Wreckage = function(sourceShip)
