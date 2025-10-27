@@ -17,16 +17,7 @@ local MINIMAP_WORLD_RADIUS = 800
 local minimapX, minimapY = 0, 0
 local minimapRadius = BASE_MINIMAP_RADIUS
 
-local function projectToMinimap(worldX, worldY, playerX, playerY, scale)
-    local dx, dy = worldX - playerX, worldY - playerY
-    if dx * dx + dy * dy > MINIMAP_WORLD_RADIUS * MINIMAP_WORLD_RADIUS then
-        return nil, nil
-    end
-
-    return minimapX + dx * scale, minimapY + dy * scale
-end
-
-function HUDMinimap.draw()
+local function computeLayout()
     local scaleX = Scaling.canvasScaleX or 1
     local scaleY = Scaling.canvasScaleY or 1
     local scaleU = math.min(scaleX, scaleY)
@@ -39,6 +30,21 @@ function HUDMinimap.draw()
     local screenRight = Scaling.getCurrentWidth()
     minimapX = screenRight - marginX - minimapRadius
     minimapY = marginY + minimapRadius
+
+    return minimapX, minimapY, minimapRadius
+end
+
+local function projectToMinimap(worldX, worldY, playerX, playerY, scale)
+    local dx, dy = worldX - playerX, worldY - playerY
+    if dx * dx + dy * dy > MINIMAP_WORLD_RADIUS * MINIMAP_WORLD_RADIUS then
+        return nil, nil
+    end
+
+    return minimapX + dx * scale, minimapY + dy * scale
+end
+
+function HUDMinimap.draw()
+    computeLayout()
 
     -- Draw minimap background
     BatchRenderer.queueCircle(minimapX, minimapY, minimapRadius, 0, 0, 0, 0.75)
@@ -100,6 +106,10 @@ function HUDMinimap.isPointOver(sx, sy)
     local dx = uiX - minimapX
     local dy = uiY - minimapY
     return dx * dx + dy * dy <= minimapRadius * minimapRadius
+end
+
+function HUDMinimap.getLayout()
+    return computeLayout()
 end
 
 return HUDMinimap

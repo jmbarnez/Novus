@@ -40,6 +40,94 @@ local questTemplates = {
     }
 }
 
+local questStateVersion = 0
+
+local function bumpQuestVersion()
+    questStateVersion = questStateVersion + 1
+end
+
+local mainQuest
+
+local function ensureMainQuest()
+    if mainQuest then
+        return mainQuest
+    end
+
+    mainQuest = Components.Quest(
+        "main_repair_warpgate",
+        "Restore the Warpgate",
+        "The sector's primary warpgate is offline. Gather the necessary resources and bring it back online to reopen long-range travel.",
+        "story",
+        10000,
+        {
+            count = 1,
+            current = 0,
+            objective = "Repair the central warpgate."
+        }
+    )
+    mainQuest.accepted = true
+    mainQuest.isMainStory = true
+    mainQuest.acceptedTime = love.timer.getTime()
+
+    bumpQuestVersion()
+    return mainQuest
+end
+
+local function grantMainQuestReward()
+    local quest = ensureMainQuest()
+    if quest.rewardGranted then
+        return
+    end
+
+    local players = ECS.getEntitiesWith({"Player", "Wallet"})
+    if #players > 0 then
+        local wallet = ECS.getComponent(players[1], "Wallet")
+        if wallet then
+            wallet.credits = wallet.credits + quest.reward
+        end
+    end
+
+    quest.rewardGranted = true
+
+    local Notifications = require('src.ui.notifications')
+    if Notifications and Notifications.add then
+        Notifications.add({
+            type = 'quest',
+            text = string.format("Main quest complete! +%d credits", quest.reward),
+            timer = 5.0
+        })
+    end
+end
+
+local function completeMainQuest()
+    local quest = ensureMainQuest()
+    if quest.completed then
+        return
+    end
+
+    quest.requirements.current = quest.requirements.count
+    quest.completed = true
+    quest.completedTime = love.timer.getTime()
+
+    grantMainQuestReward()
+    bumpQuestVersion()
+end
+
+local function checkMainQuestProgress()
+    local quest = ensureMainQuest()
+    if not quest.accepted or quest.completed then
+        return
+    end
+
+    local gateId = quest.requirements.gateId
+    if gateId then
+        local gate = ECS.getComponent(gateId, "WarpGate")
+        if gate and gate.active then
+            completeMainQuest()
+        end
+    end
+end
+
 -- Generate a random quest from templates
 local function generateQuest()
     local questTypes = {"mining", "salvaging", "combat"}
@@ -83,10 +171,12 @@ local function generateQuestsForStation(stationId)
     end
     
     questBoard.lastGenerationTime = love.timer.getTime()
+    bumpQuestVersion()
 end
 
 -- Initialize quest board for a station if it doesn't have one
 function QuestSystem.initQuestBoard(stationId)
+    ensureMainQuest()
     local questBoard = ECS.getComponent(stationId, "QuestBoard")
     if not questBoard then
         ECS.addComponent(stationId, "QuestBoard", Components.QuestBoard(stationId))
@@ -122,6 +212,8 @@ function QuestSystem.update(dt)
             end
         end
     end
+
+    checkMainQuestProgress()
 end
 
 -- Get quests for a station
@@ -142,6 +234,7 @@ function QuestSystem.acceptQuest(stationId, questId)
         if quest.id == questId then
             quest.accepted = true
             quest.acceptedTime = love.timer.getTime()
+            bumpQuestVersion()
             return true
         end
     end
@@ -152,6 +245,7 @@ end
 -- Update quest progress for mining
 function QuestSystem.updateMiningProgress()
     local stations = ECS.getEntitiesWith({"Station", "QuestBoard"})
+    local progressUpdated = false
     
     for _, stationId in ipairs(stations) do
         local questBoard = ECS.getComponent(stationId, "QuestBoard")
@@ -160,6 +254,7 @@ function QuestSystem.updateMiningProgress()
                 if quest.accepted and not quest.completed and quest.type == "mining" then
                     if quest.requirements and quest.requirements.current then
                         quest.requirements.current = quest.requirements.current + 1
+                        progressUpdated = true
                         
                         -- Check completion
                         if quest.requirements.current >= quest.requirements.count then
@@ -170,11 +265,16 @@ function QuestSystem.updateMiningProgress()
             end
         end
     end
+
+    if progressUpdated then
+        bumpQuestVersion()
+    end
 end
 
 -- Update quest progress for combat
 function QuestSystem.updateCombatProgress()
     local stations = ECS.getEntitiesWith({"Station", "QuestBoard"})
+    local progressUpdated = false
     
     for _, stationId in ipairs(stations) do
         local questBoard = ECS.getComponent(stationId, "QuestBoard")
@@ -183,6 +283,7 @@ function QuestSystem.updateCombatProgress()
                 if quest.accepted and not quest.completed and quest.type == "combat" then
                     if quest.requirements and quest.requirements.current then
                         quest.requirements.current = quest.requirements.current + 1
+                        progressUpdated = true
                         
                         -- Check completion
                         if quest.requirements.current >= quest.requirements.count then
@@ -193,11 +294,45 @@ function QuestSystem.updateCombatProgress()
             end
         end
     end
+
+    if progressUpdated then
+        bumpQuestVersion()
+    end
+end
+
+-- Update quest progress for salvaging
+function QuestSystem.updateSalvagingProgress()
+    local stations = ECS.getEntitiesWith({"Station", "QuestBoard"})
+    local progressUpdated = false
+
+    for _, stationId in ipairs(stations) do
+        local questBoard = ECS.getComponent(stationId, "QuestBoard")
+        if questBoard then
+            for _, quest in ipairs(questBoard.quests) do
+                if quest.accepted and not quest.completed and quest.type == "salvaging" then
+                    if quest.requirements and quest.requirements.current then
+                        quest.requirements.current = quest.requirements.current + 1
+                        progressUpdated = true
+
+                        -- Check completion
+                        if quest.requirements.current >= quest.requirements.count then
+                            quest.completed = true
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if progressUpdated then
+        bumpQuestVersion()
+    end
 end
 
 -- Update quest progress for exploration
 function QuestSystem.updateExplorationProgress()
     local stations = ECS.getEntitiesWith({"Station", "QuestBoard"})
+    local progressUpdated = false
     
     for _, stationId in ipairs(stations) do
         local questBoard = ECS.getComponent(stationId, "QuestBoard")
@@ -206,6 +341,7 @@ function QuestSystem.updateExplorationProgress()
                 if quest.accepted and not quest.completed and quest.type == "exploration" then
                     if quest.requirements and quest.requirements.current then
                         quest.requirements.current = quest.requirements.current + 1
+                        progressUpdated = true
                         
                         -- Check completion
                         if quest.requirements.current >= quest.requirements.count then
@@ -215,6 +351,10 @@ function QuestSystem.updateExplorationProgress()
                 end
             end
         end
+    end
+
+    if progressUpdated then
+        bumpQuestVersion()
     end
 end
 
@@ -239,6 +379,7 @@ function QuestSystem.turnInQuest(stationId, questId)
                             break
                         end
                     end
+                    bumpQuestVersion()
                     
                     return true
                 end
@@ -247,6 +388,59 @@ function QuestSystem.turnInQuest(stationId, questId)
     end
     
     return false
+end
+
+function QuestSystem.getActiveQuests()
+    local active = {}
+    local quest = ensureMainQuest()
+    if quest.accepted and not quest.completed then
+        table.insert(active, quest)
+    end
+
+    local stations = ECS.getEntitiesWith({"Station", "QuestBoard"})
+    for _, stationId in ipairs(stations) do
+        local questBoard = ECS.getComponent(stationId, "QuestBoard")
+        if questBoard then
+            for _, boardQuest in ipairs(questBoard.quests) do
+                if boardQuest.accepted and not boardQuest.completed then
+                    table.insert(active, boardQuest)
+                end
+            end
+        end
+    end
+
+    return active
+end
+
+function QuestSystem.getMainQuest()
+    return ensureMainQuest()
+end
+
+function QuestSystem.registerMainQuestTarget(gateId)
+    local quest = ensureMainQuest()
+    if quest.requirements.gateId ~= gateId then
+        quest.requirements.gateId = gateId
+        bumpQuestVersion()
+    end
+end
+
+function QuestSystem.onWarpGateRepaired(gateId)
+    local quest = ensureMainQuest()
+    if not quest.requirements.gateId then
+        quest.requirements.gateId = gateId
+    end
+
+    if quest.completed then
+        return
+    end
+
+    if quest.requirements.gateId == gateId then
+        completeMainQuest()
+    end
+end
+
+function QuestSystem.getQuestStateVersion()
+    return questStateVersion
 end
 
 return QuestSystem

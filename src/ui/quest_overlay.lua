@@ -1,169 +1,258 @@
 ---@diagnostic disable: undefined-global
--- Quest Overlay - Super minimal quest display under minimap
--- Optimized with caching and batched rendering
+-- Quest Overlay - Minimal quest tracker positioned near the minimap
+-- Uses QuestSystem for data and HUD minimap layout for positioning
 
-local ECS = require('src.ecs')
 local Theme = require('src.ui.theme')
 local BatchRenderer = require('src.ui.batch_renderer')
-local Scaling = require('src.scaling')
+local QuestSystem = require('src.systems.quest_system')
+local HUDMinimap = require('src.systems.hud.minimap')
 
-local QuestOverlay = {}
+local QuestOverlay = {
+    isOpen = true
+}
 
-QuestOverlay.isOpen = true -- Always visible when there are accepted quests
+local QUEST_PADDING = Theme.spacing.padding
+local FRAME_PADDING = QUEST_PADDING * 1.5
+local PANEL_SIDE_PADDING = QUEST_PADDING * 1.5
+local ROW_HEIGHT = QUEST_PADDING * 6
+local DIVIDER_HEIGHT = QUEST_PADDING * 0.75
+local EXTRA_SPACING = QUEST_PADDING * 5
 
--- Cache for quest data to avoid querying every frame
 local cachedQuests = {}
-local cacheVersion = 0
-local lastUpdateFrame = 0
-local CACHE_UPDATE_INTERVAL = 30 -- Update cache every 30 frames (~0.5 seconds at 60fps)
+local cachedVersion = -1
 
--- Invalidate cache when quests change (call this from quest system when accepting/completing quests)
-function QuestOverlay.invalidateCache()
-    cacheVersion = cacheVersion + 1
+local function adoptQuestList(source)
+    cachedQuests = {}
+    for i = 1, #source do
+        cachedQuests[i] = source[i]
+    end
 end
 
--- Get all accepted quests (cached version)
-function QuestOverlay.getAcceptedQuests()
-    local currentFrame = love.timer.getTime() * 60 -- Approximate frame count
-    
-    -- Only update cache periodically
-    if currentFrame - lastUpdateFrame < CACHE_UPDATE_INTERVAL and #cachedQuests > 0 then
-        return cachedQuests
+function QuestOverlay.invalidateCache()
+    cachedVersion = -1
+end
+
+local function getQuests()
+    local version = QuestSystem.getQuestStateVersion()
+    if version ~= cachedVersion then
+        adoptQuestList(QuestSystem.getActiveQuests())
+        cachedVersion = QuestSystem.getQuestStateVersion()
     end
-    
-    lastUpdateFrame = currentFrame
-    cachedQuests = {}
-    
-    -- Find all stations with quest boards - no need for QuestSystem
-    local stations = ECS.getEntitiesWith({"Station", "QuestBoard"})
-    
-    for _, stationId in ipairs(stations) do
-        local questBoard = ECS.getComponent(stationId, "QuestBoard")
-        if questBoard then
-            for _, quest in ipairs(questBoard.quests) do
-                if quest.accepted and not quest.completed then
-                    table.insert(cachedQuests, quest)
-                end
-            end
-        end
-    end
-    
     return cachedQuests
 end
 
--- Draw the quest overlay
-function QuestOverlay.draw()
-    if not QuestOverlay.isOpen then return end
-    
-    local quests = QuestOverlay.getAcceptedQuests()
-    if #quests == 0 then return end
-    
-    local alpha = 0.85
-    local font = Theme.getFont(Theme.fonts.normal)
-    local smallFont = Theme.getFont(Theme.fonts.small)
-    
-    -- Position: below minimap (right side)
-    -- Get actual minimap position from HUDMinimap
-    local HUDMinimap = require('src.systems.hud.minimap')
-    local viewportWidth, viewportHeight = love.graphics.getDimensions()
+local function calculateFrame(questCount)
+    local minimapX, minimapY, minimapRadius = HUDMinimap.getLayout()
 
-    -- Calculate minimap position the same way as HUDMinimap.draw()
-    local scaleX = Scaling.canvasScaleX or 1
-    local scaleY = Scaling.canvasScaleY or 1
-    local scaleU = math.min(scaleX, scaleY)
-    local marginX = 20 * scaleX
-    local marginY = 20 * scaleY
-    local baseRadius = 80 * scaleU
-    local minimapRadius = math.max(48, baseRadius)
-    local screenRight = Scaling.getCurrentWidth()
-    local minimapX = screenRight - marginX - minimapRadius
-    local minimapY = marginY + minimapRadius
-    local minimapBottom = minimapY + minimapRadius
+    local overlayWidth = (minimapRadius * 2) + PANEL_SIDE_PADDING * 2
+    local overlayX = minimapX - minimapRadius - PANEL_SIDE_PADDING
+    local overlayY = minimapY + minimapRadius + EXTRA_SPACING
 
-    local overlayWidth = minimapRadius * 2 + 20
-    local overlayX = minimapX - minimapRadius - 10
-    local overlayY = minimapBottom + 15
-    
-    -- Calculate height based on number of quests
-    local questHeight = Theme.spacing.padding * 5.33  -- Scaled quest height
-    local dividerHeight = Theme.spacing.padding * 0.33  -- Scaled divider height
-    local totalHeight = (#quests * questHeight) + ((#quests - 1) * dividerHeight)
-    
-    -- Background (batched)
-    local bgColor = Theme.colors.bgDark
-    BatchRenderer.queueRect(overlayX, overlayY, overlayWidth, totalHeight, 
-        bgColor[1], bgColor[2], bgColor[3], alpha, 2)
-    
-    -- Border (batched)
-    local borderColor = Theme.colors.borderDark
-    BatchRenderer.queueRectLine(overlayX, overlayY, overlayWidth, totalHeight, 
-        borderColor[1], borderColor[2], borderColor[3], alpha, 1, 2)
-    
-    -- Draw each quest
-    for i, quest in ipairs(quests) do
-        local questY = overlayY + (i - 1) * (questHeight + dividerHeight)
-        
-        -- Draw quest
-        QuestOverlay.drawQuest(quest, overlayX + 4, questY, overlayWidth - 8, questHeight, alpha, font, smallFont)
-        
-        -- Draw divider (except after last quest)
-        if i < #quests then
-            BatchRenderer.queueRect(overlayX + 4, questY + questHeight, overlayWidth - 8, dividerHeight,
-                borderColor[1], borderColor[2], borderColor[3], alpha * 0.5, 0)
+    local listHeight = 0
+    if questCount > 0 then
+        listHeight = questCount * ROW_HEIGHT + math.max(0, questCount - 1) * DIVIDER_HEIGHT
+    end
+
+    local overlayHeight = listHeight + FRAME_PADDING * 2
+    return overlayX, overlayY, overlayWidth, overlayHeight
+end
+
+local function computeProgress(quest)
+    local req = quest.requirements
+    if not req or not req.count or req.count <= 0 then
+        return nil, nil
+    end
+
+    local current = math.max(0, math.min(req.count, req.current or 0))
+    local fraction = req.count > 0 and (current / req.count) or 0
+    local label = req.label or string.format("%d/%d", current, req.count)
+
+    return math.min(fraction, 1), label
+end
+
+local function drawQuest(quest, x, y, w, h, fonts, alpha)
+    local titleColor = quest.isMainStory and Theme.colors.buttonYes or Theme.colors.textAccent
+    local labelColor = Theme.colors.textMuted
+    local currentY = y
+
+    if quest.isMainStory then
+        BatchRenderer.queueText(
+            "MAIN OBJECTIVE",
+            x,
+            currentY,
+            fonts.small,
+            titleColor[1], titleColor[2], titleColor[3],
+            alpha
+        )
+        currentY = currentY + fonts.small:getHeight() + QUEST_PADDING * 0.3
+    end
+
+    BatchRenderer.queueText(
+        quest.title or "Quest",
+        x,
+        currentY,
+        fonts.title,
+        titleColor[1], titleColor[2], titleColor[3],
+        alpha
+    )
+    currentY = currentY + fonts.title:getHeight() + QUEST_PADDING * 0.4
+
+    local objective = quest.requirements and quest.requirements.objective
+    if objective then
+        BatchRenderer.queueText(
+            objective,
+            x,
+            currentY,
+            fonts.small,
+            labelColor[1], labelColor[2], labelColor[3],
+            alpha
+        )
+        currentY = currentY + fonts.small:getHeight() + QUEST_PADDING * 0.4
+    end
+
+    local fraction, progressLabel = computeProgress(quest)
+    local barHeight = QUEST_PADDING
+    local barY = y + h - barHeight - QUEST_PADDING * 0.5
+
+    if quest.reward then
+        local rewardBaseline = fraction and (barY - fonts.tiny:getHeight() - QUEST_PADDING * 0.4)
+            or (y + h - fonts.tiny:getHeight() - QUEST_PADDING * 0.5)
+        BatchRenderer.queueText(
+            string.format("Reward: %d credits", quest.reward),
+            x,
+            rewardBaseline,
+            fonts.tiny,
+            labelColor[1], labelColor[2], labelColor[3],
+            alpha
+        )
+    end
+
+    if fraction then
+        local bg = Theme.colors.bgMedium
+        local fillColor = quest.isMainStory and Theme.colors.buttonYes or Theme.colors.textAccent
+        local border = Theme.colors.borderDark
+
+        BatchRenderer.queueRect(
+            x,
+            barY,
+            w,
+            barHeight,
+            bg[1], bg[2], bg[3],
+            alpha,
+            1
+        )
+
+        if fraction > 0 then
+            BatchRenderer.queueRect(
+                x,
+                barY,
+                w * fraction,
+                barHeight,
+                fillColor[1], fillColor[2], fillColor[3],
+                alpha,
+                1
+            )
         end
+
+        BatchRenderer.queueRectLine(
+            x,
+            barY,
+            w,
+            barHeight,
+            border[1], border[2], border[3],
+            alpha,
+            1,
+            1
+        )
+
+        local labelWidth = fonts.small:getWidth(progressLabel)
+        local labelHeight = fonts.small:getHeight()
+        local textX = x + (w - labelWidth) / 2
+        local textY = barY + (barHeight - labelHeight) / 2
+        BatchRenderer.queueText(
+            progressLabel,
+            textX,
+            textY,
+            fonts.small,
+            Theme.colors.textPrimary[1],
+            Theme.colors.textPrimary[2],
+            Theme.colors.textPrimary[3],
+            alpha
+        )
     end
 end
 
--- Draw a single quest (minimal: title + progress bar) - batched rendering
-function QuestOverlay.drawQuest(quest, x, y, w, h, alpha, font, smallFont)
-    -- Quest title (batched text)
-    local textColor = Theme.colors.textAccent
-    BatchRenderer.queueText(quest.title, x, y + Theme.spacing.padding * 0.67, font,
-        textColor[1], textColor[2], textColor[3], alpha)
+function QuestOverlay.draw()
+    if not QuestOverlay.isOpen then
+        return
+    end
 
-    -- Progress bar
-    local barX = x
-    local barY = y + Theme.spacing.padding * 3
-    local barW = w
-    local barH = Theme.spacing.padding
-    
-    -- Progress background
-    local bgColor = Theme.colors.bgMedium
-    BatchRenderer.queueRect(barX, barY, barW, barH, 
-        bgColor[1], bgColor[2], bgColor[3], alpha, 1)
-    
-    -- Progress fill
-    local progress = 0
-    if quest.requirements and quest.requirements.count then
-        progress = quest.requirements.current / quest.requirements.count
+    local quests = getQuests()
+    if not quests or #quests == 0 then
+        return
     end
-    
-    local fillColor = Theme.colors.textAccent
-    if progress >= 1.0 then
-        fillColor = Theme.colors.buttonYes
-    end
-    
-    local fillWidth = barW * progress
-    if fillWidth > 0 then
-        BatchRenderer.queueRect(barX, barY, fillWidth, barH, 
-            fillColor[1], fillColor[2], fillColor[3], alpha, 1)
-    end
-    
-    -- Progress border
+
+    local overlayX, overlayY, overlayWidth, overlayHeight = calculateFrame(#quests)
+    local alpha = 0.9
+    local bgColor = Theme.colors.bgDark
     local borderColor = Theme.colors.borderDark
-    BatchRenderer.queueRectLine(barX, barY, barW, barH, 
-        borderColor[1], borderColor[2], borderColor[3], alpha, 1, 1)
-    
-    -- Progress text (centered)
-    if quest.requirements and quest.requirements.count then
-        local progressText = string.format("%d/%d", quest.requirements.current, quest.requirements.count)
-        local mutedColor = Theme.colors.textMuted
-        local textX = barX + (barW - smallFont:getWidth(progressText)) / 2
-        local textY = barY + (barH - smallFont:getHeight()) / 2
-        BatchRenderer.queueText(progressText, textX, textY, smallFont,
-            mutedColor[1], mutedColor[2], mutedColor[3], alpha)
+
+    BatchRenderer.queueRect(
+        overlayX,
+        overlayY,
+        overlayWidth,
+        overlayHeight,
+        bgColor[1], bgColor[2], bgColor[3],
+        alpha,
+        2
+    )
+
+    BatchRenderer.queueRectLine(
+        overlayX,
+        overlayY,
+        overlayWidth,
+        overlayHeight,
+        borderColor[1], borderColor[2], borderColor[3],
+        alpha,
+        1,
+        2
+    )
+
+    local fonts = {
+        title = Theme.getFont(Theme.fonts.normal),
+        small = Theme.getFont(Theme.fonts.small),
+        tiny = Theme.getFont(Theme.fonts.tiny)
+    }
+
+    local contentWidth = overlayWidth - PANEL_SIDE_PADDING * 2
+    local rowY = overlayY + FRAME_PADDING
+
+    for index, quest in ipairs(quests) do
+        drawQuest(
+            quest,
+            overlayX + PANEL_SIDE_PADDING,
+            rowY,
+            contentWidth,
+            ROW_HEIGHT,
+            fonts,
+            alpha
+        )
+
+        if index < #quests then
+            local dividerY = rowY + ROW_HEIGHT
+            BatchRenderer.queueRect(
+                overlayX + PANEL_SIDE_PADDING,
+                dividerY,
+                contentWidth,
+                DIVIDER_HEIGHT,
+                borderColor[1], borderColor[2], borderColor[3],
+                alpha * 0.45,
+                1
+            )
+        end
+
+        rowY = rowY + ROW_HEIGHT + DIVIDER_HEIGHT
     end
 end
 
 return QuestOverlay
-

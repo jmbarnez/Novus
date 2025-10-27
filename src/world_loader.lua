@@ -8,6 +8,7 @@ local Constants = require('src.constants')
 local Procedural = require('src.procedural')
 local ShipLoader = require('src.ship_loader')
 local AsteroidClusters = require('src.systems.asteroid_clusters')
+local QuestSystem = require('src.systems.quest_system')
 
 local WorldLoader = {
     worlds = {},
@@ -114,6 +115,7 @@ function WorldLoader.initWorld(worldId)
     for componentType, componentData in pairs(gateComponents) do
         ecs.addComponent(gateId, componentType, componentData)
     end
+    QuestSystem.registerMainQuestTarget(gateId)
     
     -- Spawn stations if specified in world
     if world.stations then
@@ -403,4 +405,3 @@ function WorldLoader.getCurrentWorld()
 end
 
 return WorldLoader
-
