@@ -163,20 +163,6 @@ function DestructionSystem.update(dt)
                 end
             end
             
-            -- Get components needed for determination checks
-            local asteroid = ECS.getComponent(entityId, "Asteroid")
-            local lastDamager = ECS.getComponent(entityId, "LastDamager")
-            
-            -- Check if asteroid was destroyed by enemy (not player)
-            local wasDestroyedByEnemy = false
-            if asteroid and lastDamager then
-                -- Check if the last damager was an AI-controlled entity (enemy)
-                local damagerEntity = ECS.getComponent(lastDamager.pilotId, "AI")
-                if damagerEntity then
-                    wasDestroyedByEnemy = true
-                end
-            end
-            
             -- Call DebrisSystem to create debris particles
             if pos then
                 DebrisSystem.createDebris(pos.x, pos.y, nil, color)
@@ -184,8 +170,9 @@ function DestructionSystem.update(dt)
                 if durability and durability.spawnBits then
                     DestructionSystem.spawnItems(pos.x, pos.y, durability.spawnBits)
                 end
-                -- Asteroid: drop items based on asteroid type (only if destroyed by player)
-                if asteroid and (not durability or not durability.spawnBits) and not wasDestroyedByEnemy then
+                -- Asteroid: drop items based on asteroid type
+                local asteroid = ECS.getComponent(entityId, "Asteroid")
+                if asteroid and (not durability or not durability.spawnBits) then
                     local collidable = ECS.getComponent(entityId, "Collidable")
                     local parentSize = collidable and collidable.radius or 20
                     
@@ -245,10 +232,22 @@ function DestructionSystem.update(dt)
             end
 
             -- Determine what type of entity this is for loot drops
+            local asteroid = ECS.getComponent(entityId, "Asteroid")
             local hull = ECS.getComponent(entityId, "Hull")
             local ai = ECS.getComponent(entityId, "AI")
             local wreckage = ECS.getComponent(entityId, "Wreckage")
             local lootDrop = ECS.getComponent(entityId, "LootDrop")
+            local lastDamager = ECS.getComponent(entityId, "LastDamager")
+
+            -- Check if asteroid was destroyed by enemy (not player)
+            local wasDestroyedByEnemy = false
+            if asteroid and lastDamager then
+                -- Check if the last damager was an AI-controlled entity (enemy)
+                local damagerEntity = ECS.getComponent(lastDamager.pilotId, "AI")
+                if damagerEntity then
+                    wasDestroyedByEnemy = true
+                end
+            end
             
             -- Check if enemy was destroyed by player
             local wasDestroyedByPlayer = false

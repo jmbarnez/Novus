@@ -92,6 +92,34 @@ function HUDMinimap.draw()
         end
     end
 
+    -- Stations
+    -- Use same green as map items for consistency
+    local stationColor = {0.2, 0.8, 0.2, 1}
+    for _, id in ipairs(ECS.getEntitiesWith({ 'Station', 'Position' })) do
+        local pos = ECS.getComponent(id, 'Position')
+        if pos then
+            local mx, my = projectToMinimap(pos.x, pos.y, playerX, playerY, scale)
+            if mx and my then
+                BatchRenderer.queueCircle(mx, my, math.max(4, 4 * scale), stationColor[1], stationColor[2], stationColor[3], stationColor[4])
+            end
+        end
+    end
+
+    -- Warp gates (pink) - skip if the entity is also a Station
+    local warpGateColor = {1, 0.2, 0.8, 1}
+    for _, id in ipairs(ECS.getEntitiesWith({ 'WarpGate', 'Position' })) do
+        -- Do not show stations on the minimap even if they have WarpGate component
+        if ECS.getComponent(id, 'Station') then goto continue_gate end
+        local pos = ECS.getComponent(id, 'Position')
+        if pos then
+            local mx, my = projectToMinimap(pos.x, pos.y, playerX, playerY, scale)
+            if mx and my then
+                BatchRenderer.queueCircle(mx, my, math.max(3, 2 * scale), warpGateColor[1], warpGateColor[2], warpGateColor[3], warpGateColor[4])
+            end
+        end
+        ::continue_gate::
+    end
+
     -- World boundary ring (clamped to minimap radius)
     local boundaryRadius = math.min(minimapRadius - 2, Constants.WORLD_RADIUS * scale)
     if boundaryRadius > 0 then

@@ -121,9 +121,9 @@ local function calculateHullShieldRatios(hull, shield)
 end
 
 local function queueSleekBackground(x, y, width, height, accentHeight)
-    BatchRenderer.queueRect(x, y, width, height, 0.03, 0.04, 0.08, 0.94, 0)
-    BatchRenderer.queueRect(x, y, width, accentHeight, 0.18, 0.35, 0.65, 0.35, 0)
-    BatchRenderer.queueRectLine(x, y, width, height, 0.12, 0.16, 0.28, 0.95, 2, 4)
+    BatchRenderer.queueRect(x, y, width, height, 0.02, 0.03, 0.06, 0.92, 0)
+    BatchRenderer.queueRect(x, y, width, accentHeight, 0.12, 0.35, 0.82, 0.4, 0)
+    BatchRenderer.queueRectLine(x, y, width, height, 0.15, 0.32, 0.72, 0.85, 1, 0)
 end
 
 function HUDStats.drawPlayerVitals(viewportWidth, viewportHeight)
@@ -143,11 +143,11 @@ function HUDStats.drawPlayerVitals(viewportWidth, viewportHeight)
 
     ensureVitalsFonts()
 
-    local padding = Scaling.scaleSize(18)
-    local panelWidth = Scaling.scaleSize(320)
-    local panelHeight = Scaling.scaleSize(120)
-    local levelBlockWidth = Scaling.scaleSize(72)
-    local accentMargin = Scaling.scaleSize(14)
+    local padding = Scaling.scaleSize(16)
+    local panelWidth = Scaling.scaleSize(260)
+    local panelHeight = Scaling.scaleSize(88)
+    local levelBlockWidth = Scaling.scaleSize(58)
+    local accentMargin = Scaling.scaleSize(10)
 
     local x = Scaling.scaleX(padding)
     local y = Scaling.scaleY(padding)
@@ -155,72 +155,71 @@ function HUDStats.drawPlayerVitals(viewportWidth, viewportHeight)
     local contentX = x + levelBlockWidth + accentMargin
     local contentWidth = panelWidth - levelBlockWidth - accentMargin * 2
 
-    queueSleekBackground(x, y, panelWidth, panelHeight, Scaling.scaleSize(6))
+    queueSleekBackground(x, y, panelWidth, panelHeight, Scaling.scaleSize(4))
 
     -- Level column with XP band
-    BatchRenderer.queueRect(x, y, levelBlockWidth, panelHeight, 0.08, 0.12, 0.24, 0.96, Scaling.scaleSize(10))
-    BatchRenderer.queueRect(x, y, levelBlockWidth, panelHeight * 0.42, 0.18, 0.32, 0.58, 0.35, Scaling.scaleSize(10))
-    BatchRenderer.queueRectLine(x, y, levelBlockWidth, panelHeight, 0.22, 0.55, 1.0, 0.9, 2, Scaling.scaleSize(10))
+    BatchRenderer.queueRect(x, y, levelBlockWidth, panelHeight, 0.02, 0.04, 0.08, 0.9, 0)
+    BatchRenderer.queueRect(x, y, levelBlockWidth, panelHeight * 0.4, 0.08, 0.28, 0.6, 0.4, 0)
+    BatchRenderer.queueRectLine(x, y, levelBlockWidth, panelHeight, 0.2, 0.75, 1.0, 0.9, 1, 0)
 
     local levelText = string.format("%02d", levelData.level or 1)
-    BatchRenderer.queueText(levelText, x, y + panelHeight * 0.38 - vitalsLevelFont:getHeight() / 2, vitalsLevelFont, 0.92, 0.97, 1.0, 0.96, "center", levelBlockWidth)
+    BatchRenderer.queueText(levelText, x, y + panelHeight * 0.34 - vitalsLevelFont:getHeight() / 2, vitalsLevelFont, 0.9, 0.96, 1.0, 0.94, "center", levelBlockWidth)
 
     local xpRatio = 0
     if levelData.requiredXp and levelData.requiredXp > 0 then
         xpRatio = math.max(0, math.min(1, (levelData.experience or 0) / levelData.requiredXp))
     end
-    local xpPad = Scaling.scaleSize(12)
+    local xpPad = Scaling.scaleSize(8)
     local xpWidth = levelBlockWidth - xpPad * 2
-    local xpHeight = Scaling.scaleSize(6)
+    local xpHeight = Scaling.scaleSize(4)
     local xpY = y + panelHeight - xpHeight - xpPad
-    BatchRenderer.queueRect(x + xpPad, xpY, xpWidth, xpHeight, 0.12, 0.18, 0.3, 0.75, Scaling.scaleSize(3))
+    BatchRenderer.queueRect(x + xpPad, xpY, xpWidth, xpHeight, 0.1, 0.18, 0.34, 0.7, 0)
     if xpRatio > 0 then
         local fillWidth = xpWidth * xpRatio
-        BatchRenderer.queueRect(x + xpPad, xpY, fillWidth, xpHeight, 0.32, 0.72, 1.0, 0.95, Scaling.scaleSize(3))
-        BatchRenderer.queueRect(x + xpPad, xpY, fillWidth, math.max(1, xpHeight * 0.45), 0.75, 0.92, 1.0, 0.6, Scaling.scaleSize(3))
+        BatchRenderer.queueRect(x + xpPad, xpY, fillWidth, xpHeight, 0.3, 0.8, 1.0, 0.9, 0)
+        BatchRenderer.queueRect(x + xpPad, xpY, fillWidth, math.max(1, xpHeight * 0.45), 0.65, 0.95, 1.0, 0.5, 0)
     end
 
     -- Combined hull/shield bar
     local hullRatio, shieldRatio = calculateHullShieldRatios(hull, shield)
-    local hybridHeight = Scaling.scaleSize(34)
-    local hybridY = y + Scaling.scaleSize(20)
+    local hybridHeight = Scaling.scaleSize(26)
+    local hybridY = y + Scaling.scaleSize(14)
 
-    BatchRenderer.queueRect(contentX, hybridY, contentWidth, hybridHeight, 0.06, 0.08, 0.14, 0.95, Scaling.scaleSize(12))
-    BatchRenderer.queueRect(contentX, hybridY - Scaling.scaleSize(3), contentWidth, Scaling.scaleSize(3), 0.35, 0.64, 1.0, 0.3, 0)
+    BatchRenderer.queueRect(contentX, hybridY, contentWidth, hybridHeight, 0.03, 0.035, 0.07, 0.95, 0)
+    BatchRenderer.queueRect(contentX, hybridY - Scaling.scaleSize(2), contentWidth, Scaling.scaleSize(2), 0.26, 0.66, 1.0, 0.28, 0)
 
     local hullWidth = math.max(0, (contentWidth - 4) * hullRatio)
     if hullWidth > 0 then
-        BatchRenderer.queueRect(contentX + 2, hybridY + 2, hullWidth, hybridHeight - 4, 0.98, 0.34, 0.62, 0.92, Scaling.scaleSize(10))
-        BatchRenderer.queueRect(contentX + 2, hybridY + 4, hullWidth, math.max(2, (hybridHeight - 4) * 0.35), 1.0, 0.58, 0.78, 0.55, Scaling.scaleSize(8))
+        BatchRenderer.queueRect(contentX + 2, hybridY + 2, hullWidth, hybridHeight - 4, 0.88, 0.2, 0.46, 0.88, 0)
+        BatchRenderer.queueRect(contentX + 2, hybridY + 2, hullWidth, math.max(2, (hybridHeight - 4) * 0.35), 1.0, 0.42, 0.64, 0.55, 0)
     end
 
     if shieldRatio > 0 then
         local shieldWidth = math.max(0, (contentWidth - 6) * shieldRatio)
         local shieldX = contentX + contentWidth - shieldWidth - 2
-        BatchRenderer.queueRect(shieldX, hybridY + 4, shieldWidth, hybridHeight - 8, 0.22, 0.78, 1.0, 0.75, Scaling.scaleSize(8))
-        BatchRenderer.queueRect(shieldX, hybridY + 4, shieldWidth, math.max(2, (hybridHeight - 8) * 0.4), 0.62, 0.92, 1.0, 0.55, Scaling.scaleSize(8))
+        BatchRenderer.queueRect(shieldX, hybridY + 4, shieldWidth, hybridHeight - 8, 0.12, 0.74, 1.0, 0.72, 0)
+        BatchRenderer.queueRect(shieldX, hybridY + 4, shieldWidth, math.max(2, (hybridHeight - 8) * 0.42), 0.54, 0.94, 1.0, 0.6, 0)
     end
-
-    BatchRenderer.queueRectLine(contentX, hybridY, contentWidth, hybridHeight, 0.15, 0.2, 0.34, 0.95, 2, Scaling.scaleSize(12))
+    BatchRenderer.queueRectLine(contentX, hybridY, contentWidth, hybridHeight, 0.2, 0.28, 0.5, 0.9, 2, 0)
 
     -- Energy bar
     if energy and energy.max and energy.max > 0 then
         local energyRatio = math.max(0, math.min(1, (energy.current or 0) / energy.max))
-        local energyHeight = Scaling.scaleSize(18)
-        local energyY = hybridY + hybridHeight + Scaling.scaleSize(18)
+        local energyHeight = Scaling.scaleSize(14)
+        local energyY = hybridY + hybridHeight + Scaling.scaleSize(12)
 
-        BatchRenderer.queueRect(contentX, energyY, contentWidth, energyHeight, 0.05, 0.06, 0.11, 0.92, Scaling.scaleSize(10))
-        BatchRenderer.queueRect(contentX, energyY - Scaling.scaleSize(3), contentWidth, Scaling.scaleSize(3), 1.0, 0.6, 0.28, 0.25, 0)
+        BatchRenderer.queueRect(contentX, energyY, contentWidth, energyHeight, 0.04, 0.05, 0.1, 0.95, 0)
+        BatchRenderer.queueRect(contentX, energyY - Scaling.scaleSize(2), contentWidth, Scaling.scaleSize(2), 1.0, 0.58, 0.22, 0.35, 0)
 
         local energyWidth = math.max(0, (contentWidth - 4) * energyRatio)
         if energyWidth > 0 then
-            BatchRenderer.queueRect(contentX + 2, energyY + 2, energyWidth, energyHeight - 4, 1.0, 0.88, 0.24, 0.95, Scaling.scaleSize(8))
-            BatchRenderer.queueRect(contentX + 2, energyY + 2, energyWidth, math.max(2, (energyHeight - 4) * 0.45), 1.0, 0.96, 0.55, 0.68, Scaling.scaleSize(8))
-            local sparkWidth = math.max(Scaling.scaleSize(6), energyWidth * 0.08)
-            BatchRenderer.queueRect(contentX + 2 + energyWidth - sparkWidth, energyY + 2, sparkWidth, energyHeight - 4, 1.0, 0.98, 0.6, 0.35, Scaling.scaleSize(8))
+            BatchRenderer.queueRect(contentX + 2, energyY + 2, energyWidth, energyHeight - 4, 1.0, 0.84, 0.18, 0.94, 0)
+            BatchRenderer.queueRect(contentX + 2, energyY + 2, energyWidth, math.max(2, (energyHeight - 4) * 0.4), 1.0, 0.92, 0.48, 0.65, 0)
+            local sparkWidth = math.max(Scaling.scaleSize(6), energyWidth * 0.1)
+            BatchRenderer.queueRect(contentX + 2 + energyWidth - sparkWidth, energyY + 2, sparkWidth, energyHeight - 4, 1.0, 0.98, 0.52, 0.4, 0)
         end
 
-        BatchRenderer.queueRectLine(contentX, energyY, contentWidth, energyHeight, 0.18, 0.2, 0.28, 0.95, 1.6, Scaling.scaleSize(10))
+        BatchRenderer.queueRectLine(contentX, energyY, contentWidth, energyHeight, 0.22, 0.24, 0.4, 0.9, 1.6, 0)
     end
 end
 
