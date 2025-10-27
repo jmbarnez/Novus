@@ -247,6 +247,7 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
             local aiType = "combat"
             local t = ECS.getComponent(shipId, "Turret")
             if t and t.moduleName then
+                -- Note: continuous_beam is versatile and AI type should be set explicitly by spawner
                 if t.moduleName == "mining_laser" or t.moduleName == "salvage_laser" then
                     aiType = "mining"
                 end

@@ -25,8 +25,8 @@ return {
             ["heavy_drone"] = 2
         },
         weapons = {
-            ["red_scout"] = "combat_laser",
-            ["heavy_drone"] = "combat_laser"
+            ["red_scout"] = "continuous_beam",
+            ["heavy_drone"] = "continuous_beam"
         },
         aiType = "combat",
         aiState = "patrol"

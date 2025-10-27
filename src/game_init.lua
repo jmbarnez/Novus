@@ -189,10 +189,8 @@ end
 -- Set up player ship with default equipment
 function GameInit.setupPlayerShip(pilotId)
     -- Give pilot (player) initial turret items in their ship's cargo
-    local miningLaserId = "mining_laser_turret"
+    local continuousBeamId = "continuous_beam_turret"
     local basicCannonId = "basic_cannon_turret"
-    local combatLaserId = "combat_laser_turret"
-    local salvageLaserId = "salvage_laser_turret"
     local arcCoilId = "arc_coil_turret"
     local missileLauncherId = "missile_launcher_turret"
     
@@ -229,11 +227,9 @@ function GameInit.setupPlayerShip(pilotId)
     -- Add initial items to ship's cargo
     local shipCargo = ECS.getComponent(droneId, "Cargo")
     if shipCargo then
-        shipCargo:addItem(miningLaserId, 1)
+        shipCargo:addItem(continuousBeamId, 1)  -- Unified laser that can do combat, mining, and salvaging
         shipCargo:addItem(basicCannonId, 1)
         shipCargo:addItem("railgun", 1) -- Add a railgun to starter cargo (powerful but slow)
-        shipCargo:addItem(combatLaserId, 1)
-        shipCargo:addItem(salvageLaserId, 1)
         shipCargo:addItem(missileLauncherId, 1)
         shipCargo:addItem(arcCoilId, 1)  -- Add arc coil to starter cargo
         shipCargo:addItem("basic_shield_module", 1)  -- Add starting defensive module
@@ -309,7 +305,7 @@ function GameInit.spawnEnemies()
         if math.random() < spawnChance then
             local radius = cluster.radius or Constants.asteroid_cluster_radius
 
-            -- Spawn miners (miners are red_scouts with mining laser)
+            -- Spawn miners (miners are red_scouts with continuous beam)
             local minerCount = math.random(Constants.cluster_miner_count_min or 1, Constants.cluster_miner_count_max or 2)
             for i = 1, minerCount do
                 local x, y = spawnEnemyInCluster(cluster.centerX, cluster.centerY, radius)
@@ -317,7 +313,7 @@ function GameInit.spawnEnemies()
                 if shipId then
                     local turret = ECS.getComponent(shipId, "Turret")
                     if turret then
-                        turret.moduleName = "mining_laser"
+                        turret.moduleName = "continuous_beam"
                     end
                     local ai = ECS.getComponent(shipId, "AI")
                     local design = ShipLoader.getDesign("red_scout")
@@ -340,7 +336,7 @@ function GameInit.spawnEnemies()
                 local shipId = ShipLoader.createShip("red_scout", x, y, "ai")
                 if shipId then
                     -- Choose combat weapons for these scouts
-                    local weaponChoice = math.random() < 0.5 and "basic_cannon" or "combat_laser"
+                    local weaponChoice = math.random() < 0.5 and "basic_cannon" or "continuous_beam"
                     local turret = ECS.getComponent(shipId, "Turret")
                     if turret then
                         turret.moduleName = weaponChoice

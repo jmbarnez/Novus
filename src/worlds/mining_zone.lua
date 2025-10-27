@@ -36,7 +36,7 @@ return {
             ["red_scout"] = 3
         },
         weapons = {
-            ["red_scout"] = "mining_laser"
+            ["red_scout"] = "continuous_beam"
         },
         aiType = "mining",
         aiState = "mining"

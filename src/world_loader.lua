@@ -369,6 +369,7 @@ function WorldLoader.spawnEnemy(enemyType, config)
         local ai = ECS.getComponent(shipId, "AI")
         if ai then
             local isMiningWeapon = (weapon == "mining_laser" or weapon == "salvage_laser")
+            -- Note: continuous_beam is versatile and AI type will be determined by world config
             if isMiningWeapon then
                 ai.type = "mining"
                 ai.state = "mining"
