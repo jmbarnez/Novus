@@ -223,18 +223,8 @@ function GameInit.setupPlayerShip(pilotId)
 
     local droneId = ShipLoader.createShip("starter_drone", px, py, "player", pilotId)
     
-    -- Apply ship-specific movement parameters if defined
-    local droneDesign = ShipLoader.getDesign("starter_drone")
-    local inputComp = ECS.getComponent(pilotId, "InputControlled")
-    if droneDesign and inputComp then
-        -- Prefer an explicit per-design maxSpeed when present (designer-controlled)
-        if droneDesign.maxSpeed then
-            inputComp.speed = droneDesign.maxSpeed
-        elseif droneDesign.thrustMultiplier then
-            -- Back-compat: support legacy thrustMultiplier which scaled the global max
-            inputComp.speed = Constants.player_max_speed * droneDesign.thrustMultiplier
-        end
-    end
+    -- Movement is now controlled by physics-based thrust (thrustForce in ship design)
+    -- No need to set input.speed as physics system handles velocity automatically
     
     -- Add initial items to ship's cargo
     local shipCargo = ECS.getComponent(droneId, "Cargo")

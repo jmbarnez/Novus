@@ -56,8 +56,6 @@ return {
     mass = 20, -- Reduced for better acceleration (asteroids are 200-1800)
     angularDamping = 0.95, -- Ships damp rotation faster (more control)
     thrustForce = 2000, -- Greatly increased thrust for high acceleration
-    -- Explicit max speed for UI/stats
-    maxSpeed = 250,
     
     -- Equipment
     turretSlots = 1,

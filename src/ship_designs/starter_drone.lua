@@ -116,9 +116,7 @@ return {
     friction = 0.99, -- Reduced friction for higher max speed while maintaining responsiveness
     mass = 50, -- Reduced for better acceleration (asteroids are 200-1800)
     angularDamping = 0.95, -- Ships damp rotation faster (more control)
-    -- Explicit max speed for UI/stats (preferred over global Constant divided by mass)
-    maxSpeed = 200,
-
+    
     thrustForce = 6000, -- High thrust for responsive movement and high max speed
     -- Equipment (modular utility setup)
     turretSlots = 1,
