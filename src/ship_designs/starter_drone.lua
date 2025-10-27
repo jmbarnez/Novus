@@ -125,7 +125,7 @@ return {
     defaultTurret = "",
     defensiveSlots = 1,
     generatorSlots = 1,
-    cargoCapacity = 2.5, -- Small utility drone: 2.5 cubic meters
+    cargoCapacity = 5, -- Small utility drone: 5 cubic meters
 
     -- Abilities (utility drone features)
     hasTrail = true

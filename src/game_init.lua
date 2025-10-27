@@ -246,6 +246,7 @@ function GameInit.setupPlayerShip(pilotId)
         shipCargo:addItem(combatLaserId, 1)
         shipCargo:addItem(salvageLaserId, 1)
         shipCargo:addItem(missileLauncherId, 1)
+        shipCargo:addItem(arcCoilId, 1)  -- Add arc coil to starter cargo
         shipCargo:addItem("basic_shield_module", 1)  -- Add starting defensive module
         shipCargo:addItem("mirror_shield_module", 1)  -- Add mirror defensive module to starter cargo
         shipCargo:addItem("basic_generator", 1)  -- Add starting generator module
