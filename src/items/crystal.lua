@@ -22,10 +22,6 @@ return {
     draw = function(self, x, y)
         local size = self.design.size
         
-        -- Outer glow
-        love.graphics.setColor(0.5, 0.3, 1, 0.6)
-        love.graphics.circle("fill", x, y, size)
-        
         -- Main crystal body
         love.graphics.setColor(0.7, 0.5, 1, 1)
         love.graphics.polygon("fill",
@@ -41,12 +37,6 @@ return {
             x - size*0.15, y,
             x + size*0.15, y
         )
-        
-        -- Sparkle effect
-        love.graphics.setColor(1, 1, 1, 0.9)
-        love.graphics.circle("fill", x - size*0.3, y - size*0.3, 2)
-        love.graphics.circle("fill", x + size*0.3, y - size*0.2, 1.5)
-        love.graphics.circle("fill", x - size*0.2, y + size*0.3, 1.5)
     end,
     
     -- Update method - called by item system (if needed)
