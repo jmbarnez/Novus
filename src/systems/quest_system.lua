@@ -35,7 +35,8 @@ local questTemplates = {
             description = "Destroy %d Red Scout%s.",
             baseReward = 120,
             rewardPerUnit = 40,
-            requirement = function() return math.random(1, 4) end
+            requirement = function() return math.random(1, 4) end,
+            enemyType = "red_scout"
         }
     }
 }
@@ -150,13 +151,19 @@ local function generateQuest()
 
     local questId = "quest_" .. questType .. "_" .. math.random(1000, 9999)
 
+    local requirements = {count = requirement, current = 0}
+    -- Add enemy type for combat quests
+    if questType == "combat" and template.enemyType then
+        requirements.enemyType = template.enemyType
+    end
+
     return Components.Quest(
         questId,
         template.name,
         description,
         questType,
         reward,
-        {count = requirement, current = 0}
+        requirements
     )
 end
 
@@ -272,7 +279,7 @@ function QuestSystem.updateMiningProgress()
 end
 
 -- Update quest progress for combat
-function QuestSystem.updateCombatProgress()
+function QuestSystem.updateCombatProgress(enemyType)
     local stations = ECS.getEntitiesWith({"Station", "QuestBoard"})
     local progressUpdated = false
     
@@ -281,13 +288,16 @@ function QuestSystem.updateCombatProgress()
         if questBoard then
             for _, quest in ipairs(questBoard.quests) do
                 if quest.accepted and not quest.completed and quest.type == "combat" then
-                    if quest.requirements and quest.requirements.current then
-                        quest.requirements.current = quest.requirements.current + 1
-                        progressUpdated = true
-                        
-                        -- Check completion
-                        if quest.requirements.current >= quest.requirements.count then
-                            quest.completed = true
+                    -- Only update quests that match the specific enemy type
+                    if not enemyType or not quest.requirements or quest.requirements.enemyType == enemyType then
+                        if quest.requirements and quest.requirements.current then
+                            quest.requirements.current = quest.requirements.current + 1
+                            progressUpdated = true
+                            
+                            -- Check completion
+                            if quest.requirements.current >= quest.requirements.count then
+                                quest.completed = true
+                            end
                         end
                     end
                 end

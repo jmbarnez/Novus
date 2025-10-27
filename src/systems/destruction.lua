@@ -270,7 +270,10 @@ function DestructionSystem.update(dt)
             
             -- Update combat quest progress if enemy was destroyed by player
             if ai and wasDestroyedByPlayer then
-                QuestUtils.updateCombatProgress()
+                -- Get the enemy type from the Wreckage component (which stores the ship design ID)
+                local wreckage = ECS.getComponent(entityId, "Wreckage")
+                local enemyType = wreckage and wreckage.sourceShip or nil
+                QuestUtils.updateCombatProgress(enemyType)
             end
 
             -- Spawn wreckage when ships are destroyed (AI-controlled or with Hull)

@@ -9,8 +9,8 @@ function QuestUtils.updateMiningProgress()
     QuestSystem.updateMiningProgress()
 end
 
-function QuestUtils.updateCombatProgress()
-    QuestSystem.updateCombatProgress()
+function QuestUtils.updateCombatProgress(enemyType)
+    QuestSystem.updateCombatProgress(enemyType)
 end
 
 function QuestUtils.updateSalvagingProgress()

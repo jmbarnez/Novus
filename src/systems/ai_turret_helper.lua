@@ -141,6 +141,20 @@ function AiTurretHelper.fireLaserAtTarget(eid, turret, turretModule, targetPos, 
         return false
     end
     
+    -- Check energy before firing (energy already consumed by TurretSystem.fireTurret)
+    -- Just verify that energy is available, don't consume again
+    local energyPerSecond = turretModule.ENERGY_PER_SECOND
+    local EnergySystem = require('src.systems.energy')
+    if not energyPerSecond and EnergySystem and EnergySystem.CONSUMPTION then
+        energyPerSecond = EnergySystem.CONSUMPTION[turret.moduleName]
+    end
+    if energyPerSecond and dt and dt > 0 then
+        local energy = ECS.getComponent(eid, "Energy")
+        if energy and energy.current < energyPerSecond * dt then
+            return false
+        end
+    end
+    
     -- Check if damage at this distance is meaningful
     if not AiTurretHelper.canFireAtDistance(turretModule, dist) then
         return false

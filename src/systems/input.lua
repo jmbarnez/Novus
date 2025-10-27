@@ -224,6 +224,16 @@ function InputSystem.update(dt)
                 thrust_x = thrust_x + thrustMagnitude
             end
 
+            -- Normalize diagonal movement so speed is consistent in all directions
+            if thrust_x ~= 0 or thrust_y ~= 0 then
+                local magnitude = math.sqrt(thrust_x * thrust_x + thrust_y * thrust_y)
+                if magnitude > 0 then
+                    -- Scale to maintain same thrust magnitude in all directions
+                    thrust_x = thrust_x * thrustMagnitude / magnitude
+                    thrust_y = thrust_y * thrustMagnitude / magnitude
+                end
+            end
+
             -- Apply thrust force (accumulated with other forces this frame)
             ForceUtils.applyForce(controlledEntity, thrust_x, thrust_y)
         end
@@ -343,6 +353,44 @@ function InputSystem.update(dt)
             if usesHeat then
                 if turret and turret.heat then
                     canFire = turret.heat.current < (turretModule.MAX_HEAT or 10)
+                end
+            end
+
+            -- Check energy before calling applyBeam (energy already consumed by TurretSystem.fireTurret)
+            -- Use hysteresis to avoid flicker: require larger buffer to start, smaller to continue; add short cooldown on depletion
+            if canFire then
+                local energyPerSecond = turretModule and turretModule.ENERGY_PER_SECOND
+                local EnergySystem = require('src.systems.energy')
+                if not energyPerSecond and EnergySystem and EnergySystem.CONSUMPTION then
+                    energyPerSecond = EnergySystem.CONSUMPTION[turret.moduleName]
+                end
+                if energyPerSecond and dt and dt > 0 then
+                    local energy = ECS.getComponent(turretOwner, "Energy")
+                    local energyNeeded = energyPerSecond * dt
+                    if energy then
+                        -- Initialize a short cooldown timer on the turret component to prevent immediate restart flicker
+                        if turret and turret.energyCooldownTimer == nil then
+                            turret.energyCooldownTimer = 0
+                        end
+                        local now = love.timer.getTime()
+                        if turret and now < (turret.energyCooldownTimer or 0) then
+                            canFire = false
+                        else
+                            local isCurrentlyFiring = turret and turret.laserEntity ~= nil
+                            if isCurrentlyFiring then
+                                -- To continue firing, require a small reserve (min of energyNeeded and a small absolute value)
+                                if energy.current < math.max(energyNeeded, 2.0) then
+                                    canFire = false
+                                    if turret then turret.energyCooldownTimer = now + 0.5 end
+                                end
+                            else
+                                -- To start firing, require a larger buffer to avoid flicker as energy regenerates
+                                if energy.current < energyNeeded * 3.0 then
+                                    canFire = false
+                                end
+                            end
+                        end
+                    end
                 end
             end
 
