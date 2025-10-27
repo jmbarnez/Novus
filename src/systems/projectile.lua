@@ -4,6 +4,7 @@ local ECS = require('src.ecs')
 local Components = require('src.components')
 local EntityHelpers = require('src.entity_helpers')
 local AISystem = require('src.systems.ai')
+local CollisionUtils = require('src.collision_utils')
 
 local ProjectileSystem = {
     name = "ProjectileSystem",
@@ -14,6 +15,7 @@ function ProjectileSystem.update(dt)
     local projectiles = ECS.getEntitiesWith({"Projectile", "Position", "Collidable"})
     local asteroids = ECS.getEntitiesWith({"Asteroid", "Position", "Collidable", "Durability"})
     local wreckages = ECS.getEntitiesWith({"Wreckage", "Position", "Collidable", "Durability"})
+    local stations = ECS.getEntitiesWith({"Station", "Position", "Collidable"}) -- Stations have Station component
     local enemies = ECS.getEntitiesWith({"Hull", "Position", "Collidable"}) -- Enemies have Hull component
 
     for _, projId in ipairs(projectiles) do
@@ -56,7 +58,12 @@ function ProjectileSystem.update(dt)
                     local projDur = ECS.getComponent(projId, "Durability")
                     if projDur then projDur.current = 0 end
                 end
-                break
+                -- Non-brittle, non-missile projectiles bounce (handled by physics system)
+                if projectile and not projectile.brittle and not projectile.isMissile then
+                    -- Let physics system handle the bounce - don't destroy
+                else
+                    break  -- Only break for brittle/missile projectiles
+                end
             end
             ::continue_asteroid::
         end
@@ -85,9 +92,75 @@ function ProjectileSystem.update(dt)
                     if projDur then projDur.current = 0 end
                 end
                 
-                break
+                -- Non-brittle, non-missile projectiles bounce (handled by physics system)
+                if projectile and not projectile.brittle and not projectile.isMissile then
+                    -- Let physics system handle the bounce - don't destroy
+                else
+                    break  -- Only break for brittle/missile projectiles
+                end
             end
             ::continue_wreckage::
+        end
+
+        -- Station collision: projectiles can't pass through stations
+        for _, stationId in ipairs(stations) do
+            local stationPos = ECS.getComponent(stationId, "Position")
+            local stationColl = ECS.getComponent(stationId, "Collidable")
+            if not (stationPos and stationColl) then goto continue_station end
+            
+            -- Check if station has polygon shape
+            local stationPoly = ECS.getComponent(stationId, "PolygonShape")
+            local collisionDetected = false
+            
+            if stationPoly then
+                -- Use polygon collision detection for accurate collision
+                local stationWorldPoly = CollisionUtils.transformPolygon(stationPos, stationPoly)
+                local projPolyShape = ECS.getComponent(projId, "PolygonShape")
+                
+                if projPolyShape then
+                    -- Projectile is also a polygon - check polygon vs polygon
+                    local projWorldPoly = CollisionUtils.transformPolygon(projPos, projPolyShape)
+                    if CollisionUtils.checkPolygonPolygonCollision(stationWorldPoly, projWorldPoly) then
+                        collisionDetected = true
+                    end
+                else
+                    -- Projectile is a circle - check polygon vs circle
+                    if CollisionUtils.checkPolygonCircleCollision(stationWorldPoly, projPos.x, projPos.y, projColl.radius) then
+                        collisionDetected = true
+                    end
+                end
+            else
+                -- Fallback to circle collision
+                local dx = stationPos.x - projPos.x
+                local dy = stationPos.y - projPos.y
+                local distSq = dx * dx + dy * dy
+                local radii = stationColl.radius + projColl.radius
+                if distSq < radii * radii then
+                    collisionDetected = true
+                end
+            end
+            
+            if collisionDetected then
+                if projectile and projectile.ownerId == stationId then goto continue_station end
+                
+                -- Projectiles can't pass through stations - destroy on impact
+                if projectile and projectile.brittle then
+                    local projDur = ECS.getComponent(projId, "Durability")
+                    if projDur then projDur.current = 0 end
+                end
+                if projectile and projectile.isMissile then
+                    local projDur = ECS.getComponent(projId, "Durability")
+                    if projDur then projDur.current = 0 end
+                end
+                
+                -- Non-brittle, non-missile projectiles bounce (handled by physics system)
+                if projectile and not projectile.brittle and not projectile.isMissile then
+                    -- Let physics system handle the bounce - don't destroy
+                else
+                    break  -- Only break for brittle/missile projectiles
+                end
+            end
+            ::continue_station::
         end
 
         -- Enemy damage: all projectiles except mining/salvage/combat lasers hit enemies
@@ -104,8 +177,11 @@ function ProjectileSystem.update(dt)
             local radii = enemyColl.radius + projColl.radius
             
             if distSq < radii * radii then
-                -- Only missiles and cannons hit enemies (not lasers - they're handled by their modules)
-                if projectile and (projectile.isMissile or projectile.brittle) then
+                -- All projectiles hit enemies (brittle shatter, missiles destroy, bouncy continue)
+                -- Only brittle/missile projectiles get destroyed after dealing damage
+                local shouldDestroy = projectile.isMissile or projectile.brittle
+                
+                if projectile then
                     local shield = ECS.getComponent(enemyId, "Shield")
                     local hull = ECS.getComponent(enemyId, "Hull")
                     local damage = projectile.damage or 10
@@ -143,8 +219,13 @@ function ProjectileSystem.update(dt)
                         local projDur = ECS.getComponent(projId, "Durability")
                         if projDur then projDur.current = 0 end
                     end
+                    
+                    -- Only break if projectile was destroyed (brittle or missile)
+                    if shouldDestroy then
+                        break
+                    end
+                    -- Otherwise let bouncy projectiles continue (physics handles the bounce)
                 end
-                break
             end
             ::continue_enemy::
         end

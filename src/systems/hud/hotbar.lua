@@ -1,5 +1,5 @@
 ---@diagnostic disable: undefined-global
--- HUD Hotbar Module - renders equipped modules with associated hotkeys
+-- HUD Hotbar Module - renders equipped modules with associated hotkeys and supports drag reordering
 
 local ECS = require('src.ecs')
 local Scaling = require('src.scaling')
@@ -31,11 +31,12 @@ local BASE_SLOT_SPACING = 8
 
 local hotbarCanvas, canvasW, canvasH, lastFrameTick = nil, nil, nil, nil
 local hotkeyFont = nil
+
 local layoutByDrone = {}
 local slotRects = {}
 local currentEntries = {}
-local currentDroneId = nil
 local currentLayout = nil
+local currentDroneId = nil
 local dragState = nil
 
 local function getHotkeyLabel(action)
@@ -152,7 +153,7 @@ local function applyLayout(droneId, rawEntries)
         ordered[slot] = key and keyToEntry[key] or nil
     end
 
-    return ordered, layout, keyToEntry
+    return ordered, layout
 end
 
 local function calculateSlotStatus(entry, turretComp)
@@ -280,6 +281,19 @@ local function ensureCanvas(width, height)
     canvasW, canvasH = width, height
 end
 
+local function getSlotAtPosition(x, y)
+    for index, rect in ipairs(slotRects) do
+        if rect and x >= rect.x and x <= rect.x + rect.w and y >= rect.y and y <= rect.y + rect.h then
+            return index
+        end
+    end
+    return nil
+end
+
+local function invalidateCanvas()
+    lastFrameTick = nil
+end
+
 function HUDHotbar.drawHotbar(viewportWidth, viewportHeight, hudSystem)
     local frameTick = math.floor(love.timer.getTime() * 30)
     local shouldUpdate = (not lastFrameTick) or (frameTick % 2 == 0)
@@ -301,17 +315,37 @@ function HUDHotbar.drawHotbar(viewportWidth, viewportHeight, hudSystem)
     local drawY = Scaling.getCurrentHeight() - canvasHeight - 20
 
     local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-    local entries = {}
+    local orderedEntries = {}
     local turretComp = nil
+    local layout = nil
+    local droneId = nil
 
     if #playerEntities > 0 then
         local pilotId = playerEntities[1]
         local input = ECS.getComponent(pilotId, "InputControlled")
         if input and input.targetEntity then
-            local droneId = input.targetEntity
-            entries = collectEquippedModules(droneId)
+            droneId = input.targetEntity
+            local rawEntries = collectEquippedModules(droneId)
+            orderedEntries, layout = applyLayout(droneId, rawEntries)
             turretComp = ECS.getComponent(droneId, "Turret")
         end
+    end
+
+    if not droneId then
+        orderedEntries = {}
+        layout = nil
+        currentDroneId = nil
+        dragState = nil
+    else
+        currentDroneId = droneId
+    end
+
+    currentEntries = orderedEntries
+    currentLayout = layout
+    slotRects = {}
+
+    if dragState and dragState.droneId ~= currentDroneId then
+        dragState = nil
     end
 
     if shouldUpdate and hotbarCanvas then
@@ -323,14 +357,18 @@ function HUDHotbar.drawHotbar(viewportWidth, viewportHeight, hudSystem)
             for slotIndex = 1, MAX_SLOTS do
                 local slotX = (slotIndex - 1) * (slotWidth + slotSpacing)
                 local slotY = 0
-                local entry = entries[slotIndex]
+                local statusEntry = orderedEntries[slotIndex]
+                local iconEntry = statusEntry
+                if dragState and dragState.droneId == currentDroneId and dragState.sourceSlot == slotIndex then
+                    iconEntry = nil
+                end
                 local action = SLOT_ACTIONS[slotIndex]
                 local hotkeyLabel = getHotkeyLabel(action)
 
                 love.graphics.setColor(0.05, 0.05, 0.08, 0.95)
                 love.graphics.rectangle("fill", slotX, slotY, slotWidth, slotHeight, 0, 0)
 
-                local progress, barColor, isOverheated, isBlinking = calculateSlotStatus(entry, turretComp)
+                local progress, barColor, isOverheated, isBlinking = calculateSlotStatus(statusEntry, turretComp)
 
                 if progress > 0 and not isOverheated then
                     local pad = 2 * scaleX
@@ -380,7 +418,9 @@ function HUDHotbar.drawHotbar(viewportWidth, viewportHeight, hudSystem)
                     love.graphics.setLineWidth(1)
                 end
 
-                drawModuleIcon(entry, slotX, slotY, slotWidth, slotHeight - (12 * scaleY), scaleU)
+                if iconEntry then
+                    drawModuleIcon(iconEntry, slotX, slotY, slotWidth, slotHeight - (12 * scaleY), scaleU)
+                end
 
                 love.graphics.setColor(1, 1, 1, 0.8)
                 love.graphics.setLineWidth(1)
@@ -407,8 +447,18 @@ function HUDHotbar.drawHotbar(viewportWidth, viewportHeight, hudSystem)
     for slotIndex = 1, MAX_SLOTS do
         local slotX = drawX + (slotIndex - 1) * (slotWidth + slotSpacing)
         local slotY = drawY
-        local entry = entries[slotIndex]
-        if entry and mouseX >= slotX and mouseX < slotX + slotWidth and mouseY >= slotY and mouseY < slotY + slotHeight then
+        slotRects[slotIndex] = {
+            x = slotX,
+            y = slotY,
+            w = slotWidth,
+            h = slotHeight
+        }
+    end
+
+    for slotIndex = 1, MAX_SLOTS do
+        local rect = slotRects[slotIndex]
+        local entry = orderedEntries[slotIndex]
+        if rect and entry and mouseX >= rect.x and mouseX < rect.x + rect.w and mouseY >= rect.y and mouseY < rect.y + rect.h then
             if hudSystem then
                 hudSystem.hoveredHotbarSlot = {
                     itemId = entry.itemId,
@@ -420,15 +470,102 @@ function HUDHotbar.drawHotbar(viewportWidth, viewportHeight, hudSystem)
             end
 
             love.graphics.setColor(1.0, 1.0, 1.0, 0.4)
-            love.graphics.rectangle("fill", slotX, slotY, slotWidth, slotHeight, 0, 0)
+            love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, 0, 0)
 
             love.graphics.setColor(1.0, 1.0, 1.0, 0.8)
             love.graphics.setLineWidth(2)
-            love.graphics.rectangle("line", slotX, slotY, slotWidth, slotHeight, 0, 0)
+            love.graphics.rectangle("line", rect.x, rect.y, rect.w, rect.h, 0, 0)
             love.graphics.setLineWidth(1)
+
             break
         end
     end
+
+    if dragState and dragState.entry and dragState.droneId == currentDroneId then
+        local targetSlot = dragState.targetSlot
+        if targetSlot and slotRects[targetSlot] then
+            local rect = slotRects[targetSlot]
+            love.graphics.setColor(1.0, 1.0, 1.0, 0.3)
+            love.graphics.setLineWidth(2)
+            love.graphics.rectangle("line", rect.x, rect.y, rect.w, rect.h, 0, 0)
+            love.graphics.setLineWidth(1)
+        end
+
+        local iconSlotHeight = slotHeight - (12 * scaleY)
+        local drawXPos = dragState.mouseX - dragState.offsetX
+        local drawYPos = dragState.mouseY - dragState.offsetY
+        love.graphics.setColor(1, 1, 1, 0.9)
+        drawModuleIcon(dragState.entry, drawXPos, drawYPos, slotWidth, iconSlotHeight, scaleU)
+    end
+end
+
+function HUDHotbar.mousepressed(x, y, button)
+    if button ~= 1 or not currentDroneId then
+        return false
+    end
+
+    local slotIndex = getSlotAtPosition(x, y)
+    local entry = slotIndex and currentEntries[slotIndex] or nil
+    if slotIndex and entry then
+        local rect = slotRects[slotIndex]
+        if not rect then
+            return false
+        end
+        dragState = {
+            droneId = currentDroneId,
+            sourceSlot = slotIndex,
+            key = currentLayout and currentLayout[slotIndex],
+            entry = entry,
+            offsetX = x - rect.x,
+            offsetY = y - rect.y,
+            mouseX = x,
+            mouseY = y,
+            targetSlot = slotIndex
+        }
+        return true
+    end
+
+    return false
+end
+
+function HUDHotbar.mousemoved(x, y, dx, dy, isTouch)
+    if dragState then
+        dragState.mouseX = x
+        dragState.mouseY = y
+        dragState.targetSlot = getSlotAtPosition(x, y)
+    end
+end
+
+function HUDHotbar.mousereleased(x, y, button)
+    if not dragState then
+        return false
+    end
+
+    local droneId = dragState.droneId
+    local sourceSlot = dragState.sourceSlot
+    local layout = droneId and layoutByDrone[droneId] or nil
+
+    local targetSlot = dragState.targetSlot or getSlotAtPosition(x, y)
+    local moved = false
+
+    if button == 1 and layout and sourceSlot and targetSlot and sourceSlot ~= targetSlot then
+        layout[sourceSlot], layout[targetSlot] = layout[targetSlot], layout[sourceSlot]
+        moved = true
+    end
+
+    dragState = nil
+
+    if droneId then
+        local rawEntries = collectEquippedModules(droneId)
+        local ordered, updatedLayout = applyLayout(droneId, rawEntries)
+        currentEntries = ordered
+        currentLayout = updatedLayout
+        if moved then
+            invalidateCanvas()
+        end
+    end
+
+    return true
 end
 
 HUDHotbar.MAX_SLOTS = MAX_SLOTS
@@ -438,7 +575,27 @@ function HUDHotbar.getEntriesForDrone(droneId)
     if not droneId then
         return {}
     end
-    return collectEquippedModules(droneId)
+    local rawEntries = collectEquippedModules(droneId)
+    local ordered = applyLayout(droneId, rawEntries)
+    return ordered
+end
+
+function HUDHotbar.getSlotForModule(droneId, moduleName)
+    if not droneId or not moduleName then
+        return nil
+    end
+    local entries = HUDHotbar.getEntriesForDrone(droneId)
+    for slot, entry in ipairs(entries) do
+        if entry and entry.itemDef and entry.itemDef.module and entry.itemDef.module.name == moduleName then
+            return slot
+        end
+    end
+    return nil
+end
+
+function HUDHotbar.getKeyForSlot(slotIndex)
+    local action = SLOT_ACTIONS[slotIndex]
+    return action and HotkeyConfig.getHotkey(action) or nil
 end
 
 return HUDHotbar

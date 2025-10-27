@@ -75,4 +75,33 @@ function HUDSystem.draw(viewportWidth, viewportHeight)
 
 end
 
+function HUDSystem.mousepressed(x, y, button)
+    if not HUDSystem.visible then
+        return false
+    end
+    if HUDHotbar.mousepressed and HUDHotbar.mousepressed(x, y, button) then
+        return true
+    end
+    return false
+end
+
+function HUDSystem.mousereleased(x, y, button)
+    if not HUDSystem.visible then
+        return false
+    end
+    if HUDHotbar.mousereleased and HUDHotbar.mousereleased(x, y, button) then
+        return true
+    end
+    return false
+end
+
+function HUDSystem.mousemoved(x, y, dx, dy, isTouch)
+    if not HUDSystem.visible then
+        return
+    end
+    if HUDHotbar.mousemoved then
+        HUDHotbar.mousemoved(x, y, dx, dy, isTouch)
+    end
+end
+
 return HUDSystem

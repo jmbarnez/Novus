@@ -4,9 +4,9 @@ local Components = require('src.components')
 local Railgun = {
 	name = "railgun",
 	displayName = "Railgun Turret",
-	SLUG_SPEED = 900,
-	SLUG_LENGTH = 56,
-	SLUG_THICKNESS = 2,
+	SLUG_SPEED = 2000,  -- Very fast but within CCD detection range
+	SLUG_LENGTH = 16,
+	SLUG_THICKNESS = 0.8,
 	-- Make slug bright white for visibility
 	SLUG_COLOR = {1, 1, 1, 1},
 	SLUG_LIFETIME = 8,
@@ -71,13 +71,19 @@ function Railgun.fire(ownerId, startX, startY, endX, endY)
 	local slugId = ECS.createEntity()
 	ECS.addComponent(slugId, "Position", Components.Position(spawnX, spawnY))
 	ECS.addComponent(slugId, "Velocity", Components.Velocity(dirX * Railgun.SLUG_SPEED, dirY * Railgun.SLUG_SPEED))
+	ECS.addComponent(slugId, "Physics", Components.Physics(1.0, 0.5, 0.99))  -- Required for physics collisions
 	ECS.addComponent(slugId, "PolygonShape", Components.PolygonShape(slugVertices, slugRotation))
-	-- Use polygon renderable with explicit white color and small thickness
+	-- Use polygon renderable with explicit white color - projectiles will get special rendering without thick outlines
 	ECS.addComponent(slugId, "Renderable", Components.Renderable("polygon", nil, nil, nil, Railgun.SLUG_COLOR))
-	-- Collidable radius is still small but sufficient for a narrow slug
-	ECS.addComponent(slugId, "Collidable", Components.Collidable(Railgun.SLUG_THICKNESS * 2))
-	ECS.addComponent(slugId, "Projectile", {ownerId = ownerId, damage = Railgun.DPS, brittle = false, isMissile = false, penetration = true})
+	-- Collidable radius is very small for the tiny railgun slug
+	ECS.addComponent(slugId, "Collidable", Components.Collidable(Railgun.SLUG_THICKNESS * 1.5))
+	ECS.addComponent(slugId, "Durability", Components.Durability(1, 1))  -- Required for brittle projectiles to be destroyed
+	ECS.addComponent(slugId, "Projectile", {ownerId = ownerId, damage = Railgun.DPS, brittle = true, isMissile = false})
 	ECS.addComponent(slugId, "ProjectileLifetime", {age = 0, maxAge = Railgun.SLUG_LIFETIME})
+	ECS.addComponent(slugId, "ShatterEffect", {
+		numPieces = 4,
+		color = Railgun.SLUG_COLOR
+	})
 	ECS.addComponent(slugId, "TrailEmitter", Components.TrailEmitter(
 		Railgun.TRAIL_EMIT_RATE,
 		Railgun.TRAIL_MAX_PARTICLES,

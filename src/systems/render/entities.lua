@@ -193,6 +193,9 @@ local function drawPolygon(x, y, polygonShape, color, texture, entityId)
         end
     end
 
+    -- Check if this is a projectile - projectiles should not have thick outlines
+    local projectile = entityId and ECS.getComponent(entityId, "Projectile")
+    
     -- Enhanced outline for asteroids
     if asteroid then
         -- Darker outline for asteroids
@@ -208,6 +211,12 @@ local function drawPolygon(x, y, polygonShape, color, texture, entityId)
         -- More damaged outline for wreckage
         love.graphics.setColor(0, 0, 0, colors.stripes[4])
         love.graphics.setLineWidth(2)
+        love.graphics.polygon("line", worldVertices)
+
+    elseif projectile then
+        -- Projectiles get a thin white outline for visibility
+        love.graphics.setColor(1, 1, 1, 0.6)
+        love.graphics.setLineWidth(0.5)
         love.graphics.polygon("line", worldVertices)
 
     else

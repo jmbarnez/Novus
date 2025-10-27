@@ -18,6 +18,7 @@ local PauseMenu = require('src.ui.pause_menu')
 local DeathOverlay = require('src.ui.death_overlay')
 local Dialogs = require('src.ui.dialogs')
 local ConstructionButton = require('src.ui.construction_button')
+local HUDSystem = require('src.systems.hud')
 -- QuestOverlay moved to HUD system for batched rendering
 -- Hotbar removed
 -- CargoWindow removed - now integrated into ShipWindow
@@ -354,6 +355,11 @@ function UISystem.mousepressed(x, y, button)
         return true
     end
 
+    if HUDSystem and HUDSystem.mousepressed and HUDSystem.mousepressed(x, y, button) then
+        UISystem.captureMouse()
+        return true
+    end
+
     -- Check focused window first (if it exists and is open)
     if focusedWindow and interactiveMap[focusedWindow] then
         local entry = interactiveMap[focusedWindow]
@@ -448,6 +454,12 @@ end
 
 -- Mouse released handler
 function UISystem.mousereleased(x, y, button)
+    if HUDSystem and HUDSystem.mousereleased and HUDSystem.mousereleased(x, y, button) then
+        if button == 1 then
+            UISystem.releaseMouse()
+        end
+        return true
+    end
     -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale) - ONCE
     local mx, my = Scaling.toUI(x, y)
 
@@ -510,6 +522,10 @@ end
 function UISystem.mousemoved(x, y, dx, dy, isTouch)
     -- Convert raw mouse coordinates to UI space (accounting for canvas offset and scale) - ONCE
     local mx, my = Scaling.toUI(x, y)
+
+    if HUDSystem and HUDSystem.mousemoved then
+        HUDSystem.mousemoved(x, y, dx, dy, isTouch)
+    end
 
     local pauseOpen = PauseMenu:getOpen()
     if pauseOpen then

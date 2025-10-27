@@ -297,11 +297,34 @@ function InputSystem.update(dt)
         end
         
         if not playerPos then return end
-        
-        if love.mouse.isDown(1) then -- Left mouse button held
+
+        local hotbarEntries = HUDHotbar.getEntriesForDrone(turretOwner)
+
+        local function normalizeBinding(binding)
+            if not binding or binding == "" then
+                return nil
+            end
+            return binding:lower()
+        end
+
+        local function bindingHeld(bindingLower)
+            if not bindingLower then
+                return false
+            end
+            if bindingLower == "mouse1" then
+                return love.mouse.isDown(1)
+            elseif bindingLower == "mouse2" then
+                return love.mouse.isDown(2)
+            elseif bindingLower == "mouse3" then
+                return love.mouse.isDown(3)
+            else
+                return love.keyboard.isDown(bindingLower)
+            end
+        end
+
+        local function fireActive()
             local mouseX, mouseY = love.mouse.getPosition()
-            
-            -- Convert screen coordinates to world coordinates using Scaling helper
+
             local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
             if #cameraEntities > 0 then
                 local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
@@ -309,16 +332,12 @@ function InputSystem.update(dt)
                 local Scaling = require('src.scaling')
                 mouseX, mouseY = Scaling.toWorld(mouseX, mouseY, cameraComp, cameraPos)
             else
-                -- Fallback: convert using global canvas transform if present
                 local Scaling = require('src.scaling')
                 mouseX, mouseY = Scaling.toUI(mouseX, mouseY)
             end
-            
-            -- Fire the turret (creates/updates laser beam on cooldown); pass dt for heat accumulation
+
             TurretSystem.fireTurret(turretOwner, mouseX, mouseY, dt)
-            
-            -- Apply beam effects every frame (damage, debris, beam positioning) and handle heat for laser turrets
-            -- Only apply beam if turret heat hasn't reached MAX_HEAT (for laser turrets only)
+
             local usesHeat = turretModule and turretModule.CONTINUOUS and turretModule.HEAT_RATE
             local canFire = true
             if usesHeat then
@@ -326,9 +345,8 @@ function InputSystem.update(dt)
                     canFire = turret.heat.current < (turretModule.MAX_HEAT or 10)
                 end
             end
-            
+
             if turretModule and turretModule.applyBeam and canFire then
-                -- Offset laser start position away from ship to avoid self-collision
                 local laserStartX = playerPos.x
                 local laserStartY = playerPos.y
                 local collider = ECS.getComponent(turretOwner, "Collidable")
@@ -343,23 +361,19 @@ function InputSystem.update(dt)
                 end
 
                 local beamResult = turretModule.applyBeam(turretOwner, laserStartX, laserStartY, mouseX, mouseY, dt, turret)
-                -- Handle heat accumulation for continuous weapons
                 local turretComp = ECS.getComponent(turretOwner, "Turret")
                 if turretComp and turretModule and turretModule.CONTINUOUS then
-                    -- Grow heat, and trigger overheat if exceeding MAX_HEAT
                     local heatRate = turretModule.HEAT_RATE or 1.0
                     turretComp.heat.current = math.min((turretComp.heat.current or 0) + heatRate * dt, turretModule.MAX_HEAT or 10)
                     if turretComp.heat.current >= (turretModule.MAX_HEAT or 10) then
                         turretComp.overheated = true
                     end
                 end
-                -- Also update the laser beam position on the entity
                 local laserEntityId = turretComp and turretComp.laserEntity
                 if laserEntityId and laserEntityId > 0 then
                     local laserBeam = ECS.getComponent(laserEntityId, "LaserBeam")
                     if laserBeam then
                         laserBeam.start = {x = laserStartX, y = laserStartY}
-                        -- Use collision point if hit, otherwise use mouse position
                         if beamResult then
                             if beamResult.hit and beamResult.intersection then
                                 laserBeam.endPos = {x = beamResult.intersection.x, y = beamResult.intersection.y}
@@ -371,11 +385,35 @@ function InputSystem.update(dt)
                         else
                             laserBeam.endPos = {x = mouseX, y = mouseY}
                         end
-                        -- ...existing code...
                     end
                 end
             end
-        else
+        end
+
+        local fired = false
+        for slotIndex, action in ipairs(HUDHotbar.actions or {}) do
+            local entry = hotbarEntries[slotIndex]
+            if entry and entry.sourceType == "turret" then
+                local slotModuleName
+                if entry.itemDef and entry.itemDef.module and entry.itemDef.module.name then
+                    slotModuleName = entry.itemDef.module.name
+                else
+                    slotModuleName = entry.itemId and entry.itemId:gsub("_turret$", "")
+                end
+
+                if slotModuleName == turret.moduleName then
+                    local binding = HotkeyConfig.getHotkey(action)
+                    local bindingLower = normalizeBinding(binding)
+                    if bindingHeld(bindingLower) then
+                        fireActive()
+                        fired = true
+                        break
+                    end
+                end
+            end
+        end
+
+        if not fired then
             -- Mouse released - destroy laser
             local turretModule = TurretRegistry.getModule(turret.moduleName)
             local turretComp = ECS.getComponent(turretOwner, "Turret")
