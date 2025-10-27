@@ -92,8 +92,9 @@ function SoundSystem.play(name, opts)
         -- Use a smoother attenuation curve (inverse-square-like with soft clamp)
         -- This reduces extremely distant sounds more aggressively while keeping
         -- nearby sounds relatively unaffected.
-        local referenceDistance = 100    -- within this distance, sound is at full volume
-        local maxDistance = 2000        -- beyond this, sounds are effectively inaudible
+        -- Use a steeper inverse-square falloff with a shorter audible range
+        local referenceDistance = 200    -- within this distance, sound is at full volume
+        local maxDistance = 1200         -- beyond this, sounds are effectively inaudible
 
         if distance <= referenceDistance then
             -- no attenuation for very close sounds
@@ -101,18 +102,17 @@ function SoundSystem.play(name, opts)
         elseif distance >= maxDistance then
             attenuation = 0
         else
-            -- normalized distance in (0,1)
-            local nd = (distance - referenceDistance) / (maxDistance - referenceDistance)
-            -- inverse-square-ish falloff: (1 - nd)^2 for a steeper drop-off
-            attenuation = (1 - nd) * (1 - nd)
+            -- inverse-square falloff while clamping to (0,1]
+            attenuation = (referenceDistance * referenceDistance) / (distance * distance)
+            if attenuation > 1 then attenuation = 1 end
         end
 
         finalVolume = finalVolume * attenuation
     end
 
     -- Early-out: skip playing if final volume is effectively silent
-    -- Acceptable audible threshold (game uses 0.001 as near-silent)
-    if finalVolume <= 0.001 then
+    -- Raise threshold slightly to avoid many near-silent simultaneous sources
+    if finalVolume <= 0.005 then
         return nil
     end
 

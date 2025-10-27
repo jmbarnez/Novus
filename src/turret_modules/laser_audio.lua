@@ -6,7 +6,8 @@ local SoundSystem = require('src.systems.sound')
 local LaserAudio = {
     soundName = "laserbeam",
     assetPath = "assets/sounds/laserbeam.ogg",
-    defaultVolume = 65,
+    -- Lower default volume to reduce distant laser loudness; callers may still override
+    defaultVolume = 40,
     _attemptedLoad = false,
 }
 
@@ -79,16 +80,41 @@ function LaserAudio.start(turretComp, opts, position)
 
     local playOpts = cloneOpts(opts, LaserAudio.defaultVolume)
 
-    -- Add position and listener for distance attenuation
+    -- Ensure we always provide a position for attenuation when possible.
+    -- Prefer explicit `position` arg, otherwise try turret's pooled laser entity position.
     if position then
         playOpts.position = position
-        -- Get listener position (camera/player position)
+    elseif turretComp and turretComp.laserEntity then
+        local ECS = require('src.ecs')
+        local posComp = ECS.getComponent(turretComp.laserEntity, "Position")
+        if posComp then
+            playOpts.position = {x = posComp.x, y = posComp.y}
+        end
+    end
+
+    -- Always compute a listener position (camera center) if one wasn't provided.
+    if not playOpts.listener then
         local listenerX, listenerY = 0, 0
         local ECS = require('src.ecs')
         local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
         if #cameraEntities > 0 then
+            local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
             local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
-            listenerX, listenerY = cameraPos.x + 400, cameraPos.y + 300  -- Approximate screen center
+            if cameraPos and cameraComp then
+                local cw = cameraComp.width or 800
+                local ch = cameraComp.height or 600
+                listenerX = cameraPos.x + (cw / 2)
+                listenerY = cameraPos.y + (ch / 2)
+            elseif cameraPos then
+                listenerX = cameraPos.x + 400
+                listenerY = cameraPos.y + 300
+            end
+        else
+            -- Fallback to screen center if available
+            if love and love.graphics and love.graphics.getWidth then
+                listenerX = love.graphics.getWidth() / 2
+                listenerY = love.graphics.getHeight() / 2
+            end
         end
         playOpts.listener = {x = listenerX, y = listenerY}
     end

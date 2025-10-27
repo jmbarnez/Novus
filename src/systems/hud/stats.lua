@@ -7,13 +7,12 @@ local Theme = require('src.ui.theme')
 local Scaling = require('src.scaling')
 local TimeManager = require('src.time_manager')
 local BatchRenderer = require('src.ui.batch_renderer')
+local LevelUtils = require('src.level_utils')
 
 local HUDStats = {}
 
 -- Text caching to avoid string formatting every frame
-local vitalsFontLarge = nil
-local vitalsFontSmall = nil
-local vitalsFontTiny = nil
+local vitalsLevelFont = nil
 local cachedFpsText = ""
 local cachedSpeedText = ""
 local lastFps = 0
@@ -23,14 +22,8 @@ local textCacheFrames = 0
 local TEXT_CACHE_INTERVAL = 5  -- Update text every N frames
 
 local function ensureVitalsFonts()
-    if not vitalsFontLarge then
-        vitalsFontLarge = Theme.getFont(Theme.fonts.title)
-    end
-    if not vitalsFontSmall then
-        vitalsFontSmall = Theme.getFont(Theme.fonts.normal)
-    end
-    if not vitalsFontTiny then
-        vitalsFontTiny = Theme.getFont(Theme.fonts.tiny)
+    if not vitalsLevelFont then
+        vitalsLevelFont = Theme.getFont(math.floor(Theme.fonts.title * 1.4))
     end
 end
 
@@ -134,7 +127,7 @@ local function queueSleekBackground(x, y, width, height, accentHeight)
 end
 
 function HUDStats.drawPlayerVitals(viewportWidth, viewportHeight)
-    local shipId, pilotId = getPlayerShip()
+    local shipId = getPlayerShip()
     if not shipId then
         return
     end
@@ -146,16 +139,15 @@ function HUDStats.drawPlayerVitals(viewportWidth, viewportHeight)
 
     local shield = ECS.getComponent(shipId, "Shield")
     local energy = ECS.getComponent(shipId, "Energy")
-    local levelComp = ECS.getComponent(shipId, "Level") or (pilotId and ECS.getComponent(pilotId, "Level"))
-    local level = (levelComp and levelComp.level) or 1
+    local levelData = LevelUtils.getPlayerLevelData() or { level = 1, experience = 0, requiredXp = 200 }
 
     ensureVitalsFonts()
 
-    local padding = Scaling.scaleSize(14)
-    local panelWidth = Scaling.scaleSize(280)
-    local panelHeight = Scaling.scaleSize(112)
-    local levelBlockWidth = Scaling.scaleSize(58)
-    local accentMargin = Scaling.scaleSize(12)
+    local padding = Scaling.scaleSize(18)
+    local panelWidth = Scaling.scaleSize(320)
+    local panelHeight = Scaling.scaleSize(120)
+    local levelBlockWidth = Scaling.scaleSize(72)
+    local accentMargin = Scaling.scaleSize(14)
 
     local x = Scaling.scaleX(padding)
     local y = Scaling.scaleY(padding)
@@ -165,66 +157,70 @@ function HUDStats.drawPlayerVitals(viewportWidth, viewportHeight)
 
     queueSleekBackground(x, y, panelWidth, panelHeight, Scaling.scaleSize(6))
 
-    -- Level badge block
-    BatchRenderer.queueRect(x, y, levelBlockWidth, panelHeight, 0.08, 0.12, 0.22, 0.95, 0)
-    BatchRenderer.queueRect(x + levelBlockWidth - Scaling.scaleSize(6), y, Scaling.scaleSize(6), panelHeight, 0.28, 0.7, 1.0, 0.9, 0)
-    BatchRenderer.queueRectLine(x, y, levelBlockWidth, panelHeight, 0.16, 0.22, 0.36, 0.9, 1.8, 0)
+    -- Level column with XP band
+    BatchRenderer.queueRect(x, y, levelBlockWidth, panelHeight, 0.08, 0.12, 0.24, 0.96, Scaling.scaleSize(10))
+    BatchRenderer.queueRect(x, y, levelBlockWidth, panelHeight * 0.42, 0.18, 0.32, 0.58, 0.35, Scaling.scaleSize(10))
+    BatchRenderer.queueRectLine(x, y, levelBlockWidth, panelHeight, 0.22, 0.55, 1.0, 0.9, 2, Scaling.scaleSize(10))
 
-    local levelLabelColor = Theme.colors.textSecondary or {0.7, 0.7, 0.8, 0.9}
-    local levelValueColor = Theme.colors.textPrimary or {1, 1, 1, 1}
-    BatchRenderer.queueText("LV", x, y + Scaling.scaleSize(10), vitalsFontTiny, levelLabelColor[1], levelLabelColor[2], levelLabelColor[3], levelLabelColor[4] or 1, "center", levelBlockWidth)
-    BatchRenderer.queueText(tostring(level), x, y + panelHeight * 0.32, vitalsFontLarge, levelValueColor[1], levelValueColor[2], levelValueColor[3], levelValueColor[4] or 1, "center", levelBlockWidth)
+    local levelText = string.format("%02d", levelData.level or 1)
+    BatchRenderer.queueText(levelText, x, y + panelHeight * 0.38 - vitalsLevelFont:getHeight() / 2, vitalsLevelFont, 0.92, 0.97, 1.0, 0.96, "center", levelBlockWidth)
+
+    local xpRatio = 0
+    if levelData.requiredXp and levelData.requiredXp > 0 then
+        xpRatio = math.max(0, math.min(1, (levelData.experience or 0) / levelData.requiredXp))
+    end
+    local xpPad = Scaling.scaleSize(12)
+    local xpWidth = levelBlockWidth - xpPad * 2
+    local xpHeight = Scaling.scaleSize(6)
+    local xpY = y + panelHeight - xpHeight - xpPad
+    BatchRenderer.queueRect(x + xpPad, xpY, xpWidth, xpHeight, 0.12, 0.18, 0.3, 0.75, Scaling.scaleSize(3))
+    if xpRatio > 0 then
+        local fillWidth = xpWidth * xpRatio
+        BatchRenderer.queueRect(x + xpPad, xpY, fillWidth, xpHeight, 0.32, 0.72, 1.0, 0.95, Scaling.scaleSize(3))
+        BatchRenderer.queueRect(x + xpPad, xpY, fillWidth, math.max(1, xpHeight * 0.45), 0.75, 0.92, 1.0, 0.6, Scaling.scaleSize(3))
+    end
 
     -- Combined hull/shield bar
     local hullRatio, shieldRatio = calculateHullShieldRatios(hull, shield)
-    local hullPct = math.floor(hullRatio * 100 + 0.5)
-    local shieldPct = math.floor(shieldRatio * 100 + 0.5)
+    local hybridHeight = Scaling.scaleSize(34)
+    local hybridY = y + Scaling.scaleSize(20)
 
-    local hybridHeight = Scaling.scaleSize(30)
-    local hybridY = y + Scaling.scaleSize(16)
-    BatchRenderer.queueText("HULL / SHIELD", contentX, hybridY - Scaling.scaleSize(12), vitalsFontTiny, levelLabelColor[1], levelLabelColor[2], levelLabelColor[3], 0.85, "left", contentWidth)
+    BatchRenderer.queueRect(contentX, hybridY, contentWidth, hybridHeight, 0.06, 0.08, 0.14, 0.95, Scaling.scaleSize(12))
+    BatchRenderer.queueRect(contentX, hybridY - Scaling.scaleSize(3), contentWidth, Scaling.scaleSize(3), 0.35, 0.64, 1.0, 0.3, 0)
 
-    BatchRenderer.queueRect(contentX, hybridY, contentWidth, hybridHeight, 0.06, 0.08, 0.14, 0.92, 0)
-    BatchRenderer.queueRect(contentX, hybridY, contentWidth, Scaling.scaleSize(2), 0.29, 0.6, 1.0, 0.4, 0)
-
-    local hullFillWidth = math.max(0, (contentWidth - 2) * hullRatio)
-    if hullFillWidth > 0 then
-        BatchRenderer.queueRect(contentX + 1, hybridY + 1, hullFillWidth, hybridHeight - 2, 0.95, 0.32, 0.48, 0.92, 0)
+    local hullWidth = math.max(0, (contentWidth - 4) * hullRatio)
+    if hullWidth > 0 then
+        BatchRenderer.queueRect(contentX + 2, hybridY + 2, hullWidth, hybridHeight - 4, 0.98, 0.34, 0.62, 0.92, Scaling.scaleSize(10))
+        BatchRenderer.queueRect(contentX + 2, hybridY + 4, hullWidth, math.max(2, (hybridHeight - 4) * 0.35), 1.0, 0.58, 0.78, 0.55, Scaling.scaleSize(8))
     end
 
     if shieldRatio > 0 then
-        local shieldWidth = math.max(0, (contentWidth - Scaling.scaleSize(6)) * shieldRatio)
-        local shieldX = contentX + contentWidth - shieldWidth - Scaling.scaleSize(3)
-        BatchRenderer.queueRect(shieldX, hybridY + Scaling.scaleSize(4), shieldWidth, hybridHeight - Scaling.scaleSize(8), 0.18, 0.75, 1.0, 0.7, 0)
-        BatchRenderer.queueRect(shieldX, hybridY + Scaling.scaleSize(4), shieldWidth, Scaling.scaleSize(3), 0.6, 0.9, 1.0, 0.6, 0)
+        local shieldWidth = math.max(0, (contentWidth - 6) * shieldRatio)
+        local shieldX = contentX + contentWidth - shieldWidth - 2
+        BatchRenderer.queueRect(shieldX, hybridY + 4, shieldWidth, hybridHeight - 8, 0.22, 0.78, 1.0, 0.75, Scaling.scaleSize(8))
+        BatchRenderer.queueRect(shieldX, hybridY + 4, shieldWidth, math.max(2, (hybridHeight - 8) * 0.4), 0.62, 0.92, 1.0, 0.55, Scaling.scaleSize(8))
     end
 
-    BatchRenderer.queueRectLine(contentX, hybridY, contentWidth, hybridHeight, 0.14, 0.2, 0.32, 0.95, 2, 4)
-
-    local statTextColor = Theme.colors.textPrimary or {1, 1, 1, 1}
-    local shieldTextColor = Theme.colors.textAccent or {0.5, 0.8, 1.0, 1}
-    local textYOffset = hybridY + (hybridHeight - vitalsFontSmall:getHeight()) / 2
-    BatchRenderer.queueText(string.format("%d%%", hullPct), contentX + Scaling.scaleSize(6), textYOffset, vitalsFontSmall, statTextColor[1], statTextColor[2], statTextColor[3], statTextColor[4] or 1, "left", contentWidth * 0.5)
-    BatchRenderer.queueText(string.format("%d%%", shieldPct), contentX, textYOffset, vitalsFontSmall, shieldTextColor[1], shieldTextColor[2], shieldTextColor[3], shieldTextColor[4] or 1, "right", contentWidth - Scaling.scaleSize(6))
+    BatchRenderer.queueRectLine(contentX, hybridY, contentWidth, hybridHeight, 0.15, 0.2, 0.34, 0.95, 2, Scaling.scaleSize(12))
 
     -- Energy bar
     if energy and energy.max and energy.max > 0 then
         local energyRatio = math.max(0, math.min(1, (energy.current or 0) / energy.max))
-        local energyPct = math.floor(energyRatio * 100 + 0.5)
+        local energyHeight = Scaling.scaleSize(18)
         local energyY = hybridY + hybridHeight + Scaling.scaleSize(18)
-        local energyHeight = Scaling.scaleSize(16)
 
-        BatchRenderer.queueText("ENERGY", contentX, energyY - Scaling.scaleSize(10), vitalsFontTiny, levelLabelColor[1], levelLabelColor[2], levelLabelColor[3], 0.85, "left", contentWidth)
-        BatchRenderer.queueRect(contentX, energyY, contentWidth, energyHeight, 0.05, 0.07, 0.12, 0.9, 0)
-        BatchRenderer.queueRect(contentX, energyY, contentWidth, Scaling.scaleSize(2), 0.25, 0.85, 0.9, 0.5, 0)
+        BatchRenderer.queueRect(contentX, energyY, contentWidth, energyHeight, 0.05, 0.06, 0.11, 0.92, Scaling.scaleSize(10))
+        BatchRenderer.queueRect(contentX, energyY - Scaling.scaleSize(3), contentWidth, Scaling.scaleSize(3), 1.0, 0.6, 0.28, 0.25, 0)
 
-        local fillWidth = math.max(0, (contentWidth - 2) * energyRatio)
-        if fillWidth > 0 then
-            BatchRenderer.queueRect(contentX + 1, energyY + 1, fillWidth, energyHeight - 2, 0.26, 0.85, 0.92, 0.92, 0)
+        local energyWidth = math.max(0, (contentWidth - 4) * energyRatio)
+        if energyWidth > 0 then
+            BatchRenderer.queueRect(contentX + 2, energyY + 2, energyWidth, energyHeight - 4, 1.0, 0.88, 0.24, 0.95, Scaling.scaleSize(8))
+            BatchRenderer.queueRect(contentX + 2, energyY + 2, energyWidth, math.max(2, (energyHeight - 4) * 0.45), 1.0, 0.96, 0.55, 0.68, Scaling.scaleSize(8))
+            local sparkWidth = math.max(Scaling.scaleSize(6), energyWidth * 0.08)
+            BatchRenderer.queueRect(contentX + 2 + energyWidth - sparkWidth, energyY + 2, sparkWidth, energyHeight - 4, 1.0, 0.98, 0.6, 0.35, Scaling.scaleSize(8))
         end
 
-        BatchRenderer.queueRectLine(contentX, energyY, contentWidth, energyHeight, 0.14, 0.2, 0.28, 0.95, 1.6, 4)
-        BatchRenderer.queueText(string.format("%d%%", energyPct), contentX, energyY + energyHeight - Scaling.scaleSize(2), vitalsFontTiny, shieldTextColor[1], shieldTextColor[2], shieldTextColor[3], 0.9, "right", contentWidth)
+        BatchRenderer.queueRectLine(contentX, energyY, contentWidth, energyHeight, 0.18, 0.2, 0.28, 0.95, 1.6, Scaling.scaleSize(10))
     end
 end
 

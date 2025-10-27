@@ -3,6 +3,7 @@
 -- Decouples skill management from UISystem
 
 local ECS = require('src.ecs')
+local LevelUtils = require('src.level_utils')
 
 local SkillUtils = {}
 
@@ -20,6 +21,10 @@ function SkillUtils.addSkillExperience(skillName, xpGain)
     local skill = skills.skills[skillName]
     skill.experience = skill.experience + xpGain
     skill.totalXp = skill.totalXp + xpGain
+
+    -- Global level progression mirrors skill gains (scaled down slightly)
+    local levelXp = math.max(1, math.floor(xpGain * 0.75))
+    LevelUtils.addExperience(levelXp)
     
     -- Check for level up
     local leveledUp = false

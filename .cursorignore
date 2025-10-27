@@ -1,0 +1,45 @@
+# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
+
+# Build output
+dist/
+
+# Log files
+*.log
+run_log.txt
+
+# Binary files
+*.dll
+*.so
+*.exe
+*.app
+
+# Love2D game files
+*.love
+
+# Temporary files
+*.tmp
+*.temp
+
+# Audio files
+*.mp3
+*.wav
+*.ogg
+*.flac
+
+# Font files
+*.ttf
+*.otf
+*.woff
+*.woff2
+
+# Image files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.ico
+
+# OS-specific files
+.DS_Store
+Thumbs.db
