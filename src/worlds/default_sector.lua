@@ -40,14 +40,14 @@ return {
         -- Enemy groups with different AI types
         groups = {
             {
-                -- Combat red scouts
+                -- Combat red scouts with cannons (half of enemies)
                 types = { ["red_scout"] = 10 },
-                weapons = { ["red_scout"] = "continuous_beam" },
+                weapons = { ["red_scout"] = "basic_cannon" },
                 aiType = "combat",
                 aiState = "patrol",
             },
             {
-                -- Mining red scouts
+                -- Mining red scouts with continuous beams (half of enemies)
                 types = { ["red_scout"] = 10 },
                 weapons = { ["red_scout"] = "continuous_beam" },
                 aiType = "mining",
