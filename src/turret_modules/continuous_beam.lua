@@ -165,6 +165,14 @@ function ContinuousBeam.applyBeam(ownerId, startX, startY, endX, endY, dt, turre
         local baseDamage = ContinuousBeam.DPS * dt
         local finalDamage = baseDamage * distanceMultiplier * heatMultiplier
         
+        -- Apply damage multiplier from owner ship
+        local damageMultiplier = 1.0
+        local ownerDamageMultiplier = ECS.getComponent(ownerId, "DamageMultiplier")
+        if ownerDamageMultiplier then
+            damageMultiplier = ownerDamageMultiplier.multiplier
+        end
+        finalDamage = finalDamage * damageMultiplier
+        
         -- Detect target type and apply appropriate damage
         local hull = ECS.getComponent(hitEntityId, "Hull")
         local asteroid = ECS.getComponent(hitEntityId, "Asteroid")

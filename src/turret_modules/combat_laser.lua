@@ -184,6 +184,14 @@ function CombatLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
         -- Calculate final damage
         local baseDamage = CombatLaser.DPS * dt
         local finalDamage = baseDamage * distanceMultiplier * heatMultiplier
+        
+        -- Apply damage multiplier from owner ship
+        local damageMultiplier = 1.0
+        local ownerDamageMultiplier = ECS.getComponent(ownerId, "DamageMultiplier")
+        if ownerDamageMultiplier then
+            damageMultiplier = ownerDamageMultiplier.multiplier
+        end
+        finalDamage = finalDamage * damageMultiplier
 
         -- Check for mirror first: if entity has Ability component with mirror type, reflect the laser
         local abilityComp = ECS.getComponent(hitEntityId, "Ability")

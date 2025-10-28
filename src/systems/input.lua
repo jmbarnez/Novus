@@ -405,8 +405,8 @@ function InputSystem.update(dt)
         end
 
         local function fireActive()
+            -- Get mouse position in world coordinates
             local mouseX, mouseY = love.mouse.getPosition()
-
             local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
             if #cameraEntities > 0 then
                 local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
@@ -417,8 +417,59 @@ function InputSystem.update(dt)
                 local Scaling = require('src.scaling')
                 mouseX, mouseY = Scaling.toUI(mouseX, mouseY)
             end
+            
+            -- Calculate turret aim direction using cone constraints
+            local turretAimX, turretAimY = mouseX, mouseY -- Default to cursor
+            
+            -- Get ship design for cone constraints
+            local wreckage = ECS.getComponent(turretOwner, "Wreckage")
+            local frontDirection = 0
+            local turretConeAngle = math.pi -- Default to 180 degrees (no constraint)
+            
+            if wreckage and wreckage.sourceShip then
+                local ShipLoader = require('src.ship_loader')
+                local shipDesign = ShipLoader.getDesign(wreckage.sourceShip)
+                if shipDesign then
+                    if shipDesign.frontDirection then
+                        frontDirection = shipDesign.frontDirection
+                    end
+                    if shipDesign.turretConeAngle then
+                        turretConeAngle = shipDesign.turretConeAngle
+                    end
+                end
+            end
+            
+            -- Calculate ship's front direction in world space
+            local polygonShape = ECS.getComponent(turretOwner, "PolygonShape")
+            local shipFrontAngle = (polygonShape and polygonShape.rotation or 0) + frontDirection
+            
+            -- Calculate desired aim angle (cursor direction)
+            local dx = mouseX - playerPos.x
+            local dy = mouseY - playerPos.y
+            local distance = math.sqrt(dx * dx + dy * dy)
+            
+            if distance > 5 then -- Only aim if cursor is far enough from ship
+                local desiredAngle = math.atan2(dy, dx)
+                
+                -- Constrain turret aim to cone around ship's front direction
+                local coneHalfAngle = turretConeAngle / 2
+                local angleDiff = desiredAngle - shipFrontAngle
+                
+                -- Normalize angle difference to [-π, π]
+                while angleDiff > math.pi do angleDiff = angleDiff - 2 * math.pi end
+                while angleDiff < -math.pi do angleDiff = angleDiff + 2 * math.pi end
+                
+                -- Clamp to cone boundaries
+                local constrainedAngleDiff = math.max(-coneHalfAngle, math.min(coneHalfAngle, angleDiff))
+                local aimAngle = shipFrontAngle + constrainedAngleDiff
+                
+                -- Calculate target position based on constrained angle
+                local aimDistance = 1000 -- Arbitrary distance for aiming
+                turretAimX = playerPos.x + math.cos(aimAngle) * aimDistance
+                turretAimY = playerPos.y + math.sin(aimAngle) * aimDistance
+            end
 
-            TurretSystem.fireTurret(turretOwner, mouseX, mouseY, dt)
+            TurretSystem.fireTurret(turretOwner, turretAimX, turretAimY, dt)
 
             local usesHeat = turretModule and turretModule.CONTINUOUS and turretModule.HEAT_RATE
             local canFire = true
@@ -467,26 +518,60 @@ function InputSystem.update(dt)
             end
 
             if turretModule and turretModule.applyBeam and canFire then
-                local laserStartX = playerPos.x
-                local laserStartY = playerPos.y
-                local collider = ECS.getComponent(turretOwner, "Collidable")
-                if collider then
-                    local dx = mouseX - playerPos.x
-                    local dy = mouseY - playerPos.y
-                    local dist = math.sqrt(dx * dx + dy * dy)
-                    if dist > 0 then
-                        -- Use the same muzzle distance calculation as AI turret helper
-                        local base = 12  -- Default ship radius (same as estimateBaseRadiusFromEntity)
-                        local overhang = 4
-                        local scaleMult = 1.0
-                        local muzzleDistance = math.max(10, math.floor(base * 0.9 * scaleMult) + overhang)
-                        local totalDistance = collider.radius + muzzleDistance
-                        laserStartX = playerPos.x + (dx / dist) * totalDistance
-                        laserStartY = playerPos.y + (dy / dist) * totalDistance
+                -- Calculate laser start position using the same method as turret rendering
+                local polygonShape = ECS.getComponent(turretOwner, "PolygonShape")
+                local renderable = ECS.getComponent(turretOwner, "Renderable")
+                
+                -- Calculate turret position (same as rendering)
+                local toffX = polygonShape and (polygonShape.turretOffsetX or polygonShape.cockpitOffsetX) or 0
+                local toffY = polygonShape and (polygonShape.turretOffsetY or polygonShape.cockpitOffsetY) or 0
+                local cos = math.cos(polygonShape and polygonShape.rotation or 0)
+                local sin = math.sin(polygonShape and polygonShape.rotation or 0)
+                local turretWorldX = playerPos.x + (toffX * cos - toffY * sin)
+                local turretWorldY = playerPos.y + (toffX * sin + toffY * cos)
+                
+                -- Calculate muzzle position using same method as drawTurret function
+                local baseRadius = 12 -- Default
+                local collidable = ECS.getComponent(turretOwner, "Collidable")
+                if collidable and collidable.radius then 
+                    baseRadius = collidable.radius 
+                end
+                
+                local config = ECS.getComponent(turretOwner, "TurretConfig") or {enabled = true, scale = 1.0, overhang = 4}
+                local overhang = config.overhang or 4
+                local scaleMult = config.scale or 1.0
+                local barrelLength = math.max(10, math.floor(baseRadius * 0.9 * scaleMult) + overhang)
+                
+                -- Calculate constrained aim angle (same as rendering)
+                local frontDirection = 0
+                local turretConeAngle = math.pi
+                if wreckage and wreckage.sourceShip then
+                    local ShipLoader = require('src.ship_loader')
+                    local shipDesign = ShipLoader.getDesign(wreckage.sourceShip)
+                    if shipDesign then
+                        if shipDesign.frontDirection then frontDirection = shipDesign.frontDirection end
+                        if shipDesign.turretConeAngle then turretConeAngle = shipDesign.turretConeAngle end
                     end
                 end
+                
+                local shipFrontAngle = (polygonShape and polygonShape.rotation or 0) + frontDirection
+                local dx = mouseX - playerPos.x
+                local dy = mouseY - playerPos.y
+                local distance = math.sqrt(dx * dx + dy * dy)
+                local desiredAngle = distance > 5 and math.atan2(dy, dx) or shipFrontAngle
+                
+                local coneHalfAngle = turretConeAngle / 2
+                local angleDiff = desiredAngle - shipFrontAngle
+                while angleDiff > math.pi do angleDiff = angleDiff - 2 * math.pi end
+                while angleDiff < -math.pi do angleDiff = angleDiff + 2 * math.pi end
+                local constrainedAngleDiff = math.max(-coneHalfAngle, math.min(coneHalfAngle, angleDiff))
+                local aimAngle = shipFrontAngle + constrainedAngleDiff
+                
+                -- Calculate muzzle position (same as drawTurret)
+                local laserStartX = turretWorldX + math.cos(aimAngle) * barrelLength
+                local laserStartY = turretWorldY + math.sin(aimAngle) * barrelLength
 
-                local beamResult = turretModule.applyBeam(turretOwner, laserStartX, laserStartY, mouseX, mouseY, dt, turret)
+                local beamResult = turretModule.applyBeam(turretOwner, laserStartX, laserStartY, turretAimX, turretAimY, dt, turret)
                 local turretComp = ECS.getComponent(turretOwner, "Turret")
                 if turretComp and turretModule and turretModule.CONTINUOUS then
                     local heatRate = turretModule.HEAT_RATE or 1.0
@@ -506,10 +591,10 @@ function InputSystem.update(dt)
                             elseif beamResult.endPos then
                                 laserBeam.endPos = {x = beamResult.endPos.x, y = beamResult.endPos.y}
                             else
-                                laserBeam.endPos = {x = mouseX, y = mouseY}
+                                laserBeam.endPos = {x = turretAimX, y = turretAimY}
                             end
                         else
-                            laserBeam.endPos = {x = mouseX, y = mouseY}
+                            laserBeam.endPos = {x = turretAimX, y = turretAimY}
                         end
                     end
                 end

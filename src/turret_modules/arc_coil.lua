@@ -276,6 +276,14 @@ function ArcCoil.applyBeam(ownerId, startX, startY, targetX, targetY, dt, turret
     end
 
     local baseDamage = ArcCoil.DPS * (dt or 0)
+    
+    -- Apply damage multiplier from owner ship
+    local damageMultiplier = 1.0
+    local ownerDamageMultiplier = ECS.getComponent(ownerId, "DamageMultiplier")
+    if ownerDamageMultiplier then
+        damageMultiplier = ownerDamageMultiplier.multiplier
+    end
+    baseDamage = baseDamage * damageMultiplier
     local debrisCreated = false
 
     -- Determine target type and apply appropriate damage (ships, asteroids, wreckage)

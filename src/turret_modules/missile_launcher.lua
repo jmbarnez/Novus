@@ -101,8 +101,15 @@ function MissileLauncher.fire(ownerId, startX, startY, endX, endY)
     ECS.addComponent(missileId, "Physics", Components.Physics(1.0, 1.5, 1.0)) -- no friction, light mass, rotation damping
     -- Missile durability - survives longer than basic projectiles
     ECS.addComponent(missileId, "Durability", Components.Durability(3, 3)) -- Takes 3 hits to destroy
+    -- Apply damage multiplier from owner ship
+    local damageMultiplier = 1.0
+    local ownerDamageMultiplier = ECS.getComponent(ownerId, "DamageMultiplier")
+    if ownerDamageMultiplier then
+        damageMultiplier = ownerDamageMultiplier.multiplier
+    end
+    
     -- Mark as projectile
-    ECS.addComponent(missileId, "Projectile", {ownerId = ownerId, damage = MissileLauncher.DPS, brittle = false, isMissile = true})
+    ECS.addComponent(missileId, "Projectile", {ownerId = ownerId, damage = MissileLauncher.DPS * damageMultiplier, brittle = false, isMissile = true})
     
     -- Add homing component if target locked - use the player's locked/targeting target
     local homingTarget = preferredTarget

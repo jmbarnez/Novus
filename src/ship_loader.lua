@@ -267,6 +267,11 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
         end
     end
     
+    -- Damage multiplier (if specified in design)
+    if design.damageMultiplier then
+        ECS.addComponent(shipId, "DamageMultiplier", Components.DamageMultiplier(design.damageMultiplier))
+    end
+    
     -- Created ship
     return shipId
 end

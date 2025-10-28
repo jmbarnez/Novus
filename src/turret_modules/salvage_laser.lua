@@ -182,6 +182,15 @@ function SalvageLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretC
                 -- Calculate final damage
                 local baseDamage = SalvageLaser.DPS * dt
                 local finalDamage = baseDamage * distanceMultiplier * heatMultiplier
+                
+                -- Apply damage multiplier from owner ship
+                local damageMultiplier = 1.0
+                local ownerDamageMultiplier = ECS.getComponent(ownerId, "DamageMultiplier")
+                if ownerDamageMultiplier then
+                    damageMultiplier = ownerDamageMultiplier.multiplier
+                end
+                finalDamage = finalDamage * damageMultiplier
+                
                 local damageApplied = math.min(finalDamage, durability.current)
                 durability.current = durability.current - damageApplied
                 -- Only grant XP if wreckage is destroyed this frame

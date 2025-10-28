@@ -1,24 +1,28 @@
 -- Red Scout Ship Design
 -- Fast, light attack ship used by enemy AI
--- Same base stats as Starter Drone
+-- Weird abstract design with circle collider
 
 return {
     name = "Red Scout",
-    description = "A small, fast attack ship with light armor",
+    description = "A small, fast attack ship with abstract design",
     
-    -- Visual design (equilateral triangle)
+    -- Visual design (weird abstract polygon - half size)
     polygon = {
-        -- Side length = 32, height = side * sqrt(3)/2
-        -- Centroid at origin: top vertex y = -2/3*height, base vertices y = 1/3*height
-        { x = 0,             y = -2 * (32 * math.sqrt(3) / 2) / 3 },
-        { x = 32 / 2,        y = (32 * math.sqrt(3) / 2) / 3 },
-        { x = -32 / 2,       y = (32 * math.sqrt(3) / 2) / 3 },
+        -- Abstract asymmetrical design with irregular angles
+        { x = 0,             y = -8 },      -- Top point
+        { x = 6,             y = -2 },     -- Upper right
+        { x = 8,             y = 4 },      -- Right bulge
+        { x = 4,             y = 8 },      -- Lower right
+        { x = -2,            y = 6 },      -- Bottom center-left
+        { x = -6,            y = 2 },      -- Lower left
+        { x = -8,            y = -4 },     -- Left bulge
+        { x = -4,            y = -6 },     -- Upper left
     cockpitOffsetX = 0,
-    cockpitOffsetY = -(32 * math.sqrt(3) / 2) * 0.2,
-    cockpitRadius = 8,
-    -- Position turret slightly forward toward the triangle tip
+    cockpitOffsetY = -3,
+    cockpitRadius = 4,
+    -- Position turret at the front
     turretOffsetX = 0,
-    turretOffsetY = -(32 * math.sqrt(3) / 2) * 0.25,
+    turretOffsetY = -6,
     -- rotation can be set per-design (in radians) to rotate the whole polygon
     rotation = 0,
     },
@@ -33,25 +37,26 @@ return {
     },
     texture = {
         stripes = {
-            {x1 = 0, y1 = -16, x2 = 0, y2 = 15, color = {1, 0.7, 0.2, 0.5}}, -- Center stripe
-            {x1 = 4.4, y1 = -11, x2 = 4.4, y2 = 9, color = {0.8, 0.2, 0.2, 0.4}}, -- Left stripe
-            {x1 = -4.4, y1 = -11, x2 = -4.4, y2 = 9, color = {0.8, 0.2, 0.2, 0.4}}, -- Right stripe
+            {x1 = 0, y1 = -8, x2 = 0, y2 = 7, color = {1, 0.7, 0.2, 0.5}}, -- Center stripe
+            {x1 = 2.2, y1 = -5, x2 = 2.2, y2 = 4, color = {0.8, 0.2, 0.2, 0.4}}, -- Right stripe
+            {x1 = -2.2, y1 = -5, x2 = -2.2, y2 = 4, color = {0.8, 0.2, 0.2, 0.4}}, -- Left stripe
         },
         cockpit = {
-            {x = 0, y = -14, r = 2.4, color = {0.15, 0.15, 0.22, 1}}, -- Cockpit dome
+            {x = 0, y = -3, r = 1.2, color = {0.15, 0.15, 0.22, 1}}, -- Cockpit dome
         },
         engineGlow = {
-            {x = 5.6, y = 14.4, r = 1.4, color = {0.7, 0.7, 1, 0.7}}, -- Left engine glow
-            {x = -5.6, y = 14.4, r = 1.4, color = {0.7, 0.7, 1, 0.7}}, -- Right engine glow
+            {x = 3, y = 6, r = 0.8, color = {0.7, 0.7, 1, 0.7}}, -- Right engine glow
+            {x = -3, y = 6, r = 0.8, color = {0.7, 0.7, 1, 0.7}}, -- Left engine glow
         }
     },
-    collisionRadius = 12,
+    collisionRadius = 6,
     frontDirection = -math.pi/2, -- Front faces "right" (90 degrees counter-clockwise from up)
     turretConeAngle = math.pi/2, -- Turret can aim within 90 degrees (±45 degrees from front)
     
     -- Stats (same as starter drone)
     hull = {current = 60, max = 60},
     shield = nil,
+    damageMultiplier = 0.2, -- Red scout deals 20% damage
     
     -- Physics (same as starter drone)
     friction = 0.99, -- Space has no air resistance, nearly 1.0 for realistic coasting

@@ -77,6 +77,14 @@ Components.LastDamager = function(pilotId, weaponType, timestamp)
     }
 end
 
+-- DamageMultiplier component - Modifies damage dealt by an entity
+-- @field multiplier number: Damage multiplier (e.g., 0.2 = 20% damage)
+Components.DamageMultiplier = function(multiplier)
+    return {
+        multiplier = multiplier or 1.0
+    }
+end
+
 -- HomingMissile component - Makes a projectile home in on a target
 -- @field targetId number: Entity ID of the target to home in on
 -- @field turnRate number: Maximum turning rate in radians per second

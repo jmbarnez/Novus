@@ -78,7 +78,14 @@ function Railgun.fire(ownerId, startX, startY, endX, endY)
 	-- Collidable radius is very small for the tiny railgun slug
 	ECS.addComponent(slugId, "Collidable", Components.Collidable(Railgun.SLUG_THICKNESS * 1.5))
 	ECS.addComponent(slugId, "Durability", Components.Durability(1, 1))  -- Required for brittle projectiles to be destroyed
-	ECS.addComponent(slugId, "Projectile", {ownerId = ownerId, damage = Railgun.DPS, brittle = true, isMissile = false})
+	-- Apply damage multiplier from owner ship
+	local damageMultiplier = 1.0
+	local ownerDamageMultiplier = ECS.getComponent(ownerId, "DamageMultiplier")
+	if ownerDamageMultiplier then
+		damageMultiplier = ownerDamageMultiplier.multiplier
+	end
+	
+	ECS.addComponent(slugId, "Projectile", {ownerId = ownerId, damage = Railgun.DPS * damageMultiplier, brittle = true, isMissile = false})
 	ECS.addComponent(slugId, "ProjectileLifetime", {age = 0, maxAge = Railgun.SLUG_LIFETIME})
 	ECS.addComponent(slugId, "ShatterEffect", {
 		numPieces = 4,
