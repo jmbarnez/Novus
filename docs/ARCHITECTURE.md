@@ -19,7 +19,7 @@
 
 ## Project Structure
 
-```
+```text
 test2/
 ├── conf.lua              # LÖVE configuration (must stay in root)
 ├── main.lua              # Love2D entry point (delegates to core)
@@ -42,11 +42,12 @@ test2/
 └── docs/                 # Documentation
     ├── ARCHITECTURE.md   # This file
     └── DEVELOPMENT.md    # Development guidelines
-```
+```text
 
 ## ECS Architecture
 
 ### Entity Component System (ECS)
+
 - **Entities**: Game objects identified by unique IDs
 - **Components**: Pure data structures attached to entities
 - **Systems**: Logic that operates on entities with specific components
@@ -54,18 +55,21 @@ test2/
 ### Core ECS Modules
 
 #### ECS Core (`ecs.lua`)
+
 - **Entity Management**: Creation, destruction, and component attachment
 - **Component Storage**: Efficient storage and retrieval by type
 - **System Registry**: Registration and execution of systems
 - **Query System**: Find entities with specific component combinations
 
 #### Core Game Logic (`core.lua`)
+
 - **Game Initialization**: Entity creation and system registration
 - **State Management**: Game state coordination
 - **Input Delegation**: Love2D input handling
 - **System Orchestration**: ECS system execution coordination
 
 #### Components (`components.lua`)
+
 - **Position**: 2D coordinates in world space
 - **Velocity**: Movement vector and speed
 - **Acceleration**: Force application
@@ -83,6 +87,7 @@ test2/
 - **UITag**: UI element marker component
 
 #### Systems (`systems/` directory)
+
 - **InputSystem**: Processes player input → acceleration
 - **PhysicsSystem**: Applies physics (velocity, position, limits)
 - **BoundarySystem**: Enforces world boundaries

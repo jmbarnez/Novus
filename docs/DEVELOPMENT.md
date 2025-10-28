@@ -21,11 +21,11 @@
 
 **Target Runtime:** LuaJIT 2.1 (Lua 5.1-compatible)
 
-This project targets LuaJIT 2.1 with Lua 5.1 compatibility. All code must avoid Lua 5.2+ specific features to ensure compatibility with LuaJIT.
+This project targets LuaJIT 2.1 with Lua 5.1 compatibility. All code should avoid Lua 5.2+ specific features to ensure compatibility with LuaJIT.
 
 #### Important Compatibility Notes
 
-- **Use Lua 5.1 syntax and features only**
+- **Use Lua 5.1 syntax and features by default**
 - **Avoid Lua 5.2+ features** including but not limited to:
   - Binary operators (`&`, `|`, `~`, `>>`, `<<`)
   - Continuations
@@ -37,17 +37,18 @@ This project targets LuaJIT 2.1 with Lua 5.1 compatibility. All code must avoid 
 
 #### Why This Matters
 
-Love2D uses LuaJIT 2.1 which is Lua 5.1-compatible. Using Lua 5.2+ features will cause runtime errors or inconsistent behavior. Contributors must ensure their code works with Lua 5.1 syntax and APIs.
+Love2D uses LuaJIT 2.1 which is Lua 5.1-compatible. Using Lua 5.2+ features can cause runtime errors or inconsistent behavior. Contributors should ensure their code works with Lua 5.1 syntax and APIs.
 
 ### Development Environment
 
 - **Love2D:** 11.3+ (includes LuaJIT 2.1)
-- **Lua Version:** 5.1-compatible syntax required
+- **Lua Version:** 5.1-compatible syntax preferred
 - **Platform:** Windows, Linux, macOS
 
 ## Core Principles
 
 ### Logical Organization First
+
 - **Focus on logical grouping of related functionality**
 - **Keep systems coherent and understandable**
 - **Split when it makes logical sense, not based on arbitrary limits**
@@ -59,11 +60,13 @@ Love2D uses LuaJIT 2.1 which is Lua 5.1-compatible. Using Lua 5.2+ features will
 - Use clear, actionable error messages and avoid silent failures. Document where graceful degradation is acceptable and when strict failure is required.
 
 ### Logging
+
 - Use logging to aid debugging and observability. Log important lifecycle events (initialization, major state changes) and error conditions with enough context to diagnose issues.
 - Prefer structured messages where possible and avoid excessive debug spam in hot code paths. Errors and warnings should be logged — do not rely on crashes to signal problems.
 - Example: `print("Camera initialized")` for lifecycle events; include entity IDs and relevant state in error logs.
 
 ### Testing
+
 Automated tests are encouraged for core logic and critical systems.
 
 - The repository contains a `tests/` directory with example/unit tests (for example: `tests/ecs_core_test.lua`, `tests/entity_pool_test.lua`). Use these as a starting point when adding tests.
@@ -74,28 +77,34 @@ Automated tests are encouraged for core logic and critical systems.
 If contributors prefer manual smoke testing for visual features (UI, rendering), document the steps needed to reproduce behavior in the change description.
 
 ### Lots of Comments
+
 - **Comment every function, every significant code block**
 - **Explain the why, not just the what**
 - **Document design decisions and trade-offs**
 - Comments should be comprehensive and educational
 
 ### Modular Design
+
 - **One clear responsibility per module**
 - **Logical separation of concerns**
 - **Each module should be independently understandable**
 - **Group related functions and data together**
 
 ### Logical Separation
+
 - **Physical separation**: Different concerns in different files
 - **Logical separation**: Clear boundaries between systems
 - **Import separation**: Explicit requires with full paths
 - **No cross-contamination**: Systems should not know about each other's internals
 
 ### Avoid hard-coded values
+
 - Prefer named constants or configuration for values that are likely to change or that affect gameplay balance. This makes tuning and localization easier.
 - Small, local constants used during early development are acceptable, but add a follow-up task to extract frequently-tuned values into `src/constants.lua` or a configuration layer.
 
 ## Organization Guidelines
+
+```text
 ├── conf.lua              # LÖVE config (framework requirement)
 ├── main.lua              # Love2D entry point
 │   ├── components.lua    # Component definitions
@@ -111,8 +120,9 @@ If contributors prefer manual smoke testing for visual features (UI, rendering),
 │       ├── trail.lua     # Trail system
 │       └── ui.lua        # UI system
 └── docs/                 # Documentation
-    ├── ARCHITECTURE.md   # System overview
-    └── DEVELOPMENT.md    # This guide
+  ├── ARCHITECTURE.md   # System overview
+  └── DEVELOPMENT.md    # This guide
+```
 ```
 
 ### When to Split Files

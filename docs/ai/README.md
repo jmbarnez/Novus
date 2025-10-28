@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AI system has been completely refactored into a **clean, modular, behavior-based architecture** with **zero legacy patterns**.
+The AI system has been refactored into a **clean, modular, behavior-based architecture**. Some legacy code may remain in parts of the project; see migration notes and the AI architecture docs for details.
 
 ## Quick Navigation
 
@@ -96,8 +96,8 @@ src/
 ✅ **Single unified component** - All AI state in one place  
 ✅ **One system** - No arbiter complexity  
 ✅ **Behavior registry** - Easy to extend  
-✅ **Zero legacy patterns** - Clean architecture  
-✅ **Fully backward compatible** - No breaking changes  
+✅ **Minimal legacy code in core behaviors** — see migration notes  
+✅ **Mostly backward compatible** — watch for noted exceptions in migration docs  
 
 ---
 

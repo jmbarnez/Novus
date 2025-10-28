@@ -8,6 +8,8 @@ local Quadtree = require('src.systems.quadtree')
 local CollisionUtils = require('src.collision_utils')
 local EntityHelpers = require('src.entity_helpers')
 
+local SHIELD_IMPACT_COOLDOWN = 0.2  -- Minimum time between shield impact effects (seconds)
+
 local CollisionSystem = {
     name = "CollisionSystem",
     priority = 4
@@ -192,7 +194,7 @@ local CollisionSystem = {
                     -- Transform polygons to world space for CollisionUtils
                     local playerWorldPoly = CollisionUtils.transformPolygon(playerPos, playerPolygon)
                     local entityWorldPoly = CollisionUtils.transformPolygon(entityPos, entityPolygon)
-                    
+
                     local isColliding = CollisionUtils.checkPolygonPolygonCollision(playerWorldPoly, entityWorldPoly)
                     if isColliding then
                         -- Calculate normal and depth manually for handleCollision
@@ -201,22 +203,119 @@ local CollisionSystem = {
                         local dist = math.sqrt(dx * dx + dy * dy)
                         local normal = dist > 0 and {x = dx / dist, y = dy / dist} or {x = 0, y = 1}
                         local depth = playerCollidable.radius + entityCollidable.radius - dist
+
+                        -- Check for shield collision effects
+                        local playerShield = ECS.getComponent(playerId, "Shield")
+                        local entityShield = ECS.getComponent(entityId, "Shield")
+                        local currentTime = love.timer.getTime()
+
+                        -- Create shield impact effects if either entity has an active shield
+                        if (playerShield and playerShield.current > 0) or (entityShield and entityShield.current > 0) then
+                            -- Calculate collision point (approximate as midpoint)
+                            local collisionX = (playerPos.x + entityPos.x) / 2
+                            local collisionY = (playerPos.y + entityPos.y) / 2
+
+                            -- Create impact effect for player if they have shield and cooldown has passed
+                            if playerShield and playerShield.current > 0 and (currentTime - (playerShield.lastImpactTime or 0)) >= SHIELD_IMPACT_COOLDOWN then
+                                EntityHelpers.createShieldImpact(collisionX, collisionY, playerId)
+                                playerShield.lastImpactTime = currentTime
+                            end
+
+                            -- Create impact effect for entity if it has shield and cooldown has passed
+                            if entityShield and entityShield.current > 0 and (currentTime - (entityShield.lastImpactTime or 0)) >= SHIELD_IMPACT_COOLDOWN then
+                                EntityHelpers.createShieldImpact(collisionX, collisionY, entityId)
+                                entityShield.lastImpactTime = currentTime
+                            end
+                        end
+
                         handleCollision(playerId, entityId, normal, depth)
                     end
                 elseif playerPolygon then
                     -- Player is polygon, entity is circle
                     local playerWorldPoly = CollisionUtils.transformPolygon(playerPos, playerPolygon)
                     if CollisionUtils.checkPolygonCircleCollision(playerWorldPoly, entityPos.x, entityPos.y, entityCollidable.radius) then
+                        -- Check for shield collision effects
+                        local playerShield = ECS.getComponent(playerId, "Shield")
+                        local entityShield = ECS.getComponent(entityId, "Shield")
+                        local currentTime = love.timer.getTime()
+
+                        -- Create shield impact effects if either entity has an active shield
+                        if (playerShield and playerShield.current > 0) or (entityShield and entityShield.current > 0) then
+                            -- Calculate collision point (approximate as entity position)
+                            local collisionX = entityPos.x
+                            local collisionY = entityPos.y
+
+                            -- Create impact effect for player if they have shield and cooldown has passed
+                            if playerShield and playerShield.current > 0 and (currentTime - (playerShield.lastImpactTime or 0)) >= SHIELD_IMPACT_COOLDOWN then
+                                EntityHelpers.createShieldImpact(collisionX, collisionY, playerId)
+                                playerShield.lastImpactTime = currentTime
+                            end
+
+                            -- Create impact effect for entity if it has shield and cooldown has passed
+                            if entityShield and entityShield.current > 0 and (currentTime - (entityShield.lastImpactTime or 0)) >= SHIELD_IMPACT_COOLDOWN then
+                                EntityHelpers.createShieldImpact(collisionX, collisionY, entityId)
+                                entityShield.lastImpactTime = currentTime
+                            end
+                        end
+
                         handleCollision(playerId, entityId)
                     end
                 elseif entityPolygon then
                     -- Player is circle, entity is polygon
                     local entityWorldPoly = CollisionUtils.transformPolygon(entityPos, entityPolygon)
                     if CollisionUtils.checkPolygonCircleCollision(entityWorldPoly, playerPos.x, playerPos.y, playerCollidable.radius) then
+                        -- Check for shield collision effects
+                        local playerShield = ECS.getComponent(playerId, "Shield")
+                        local entityShield = ECS.getComponent(entityId, "Shield")
+                        local currentTime = love.timer.getTime()
+
+                        -- Create shield impact effects if either entity has an active shield
+                        if (playerShield and playerShield.current > 0) or (entityShield and entityShield.current > 0) then
+                            -- Calculate collision point (approximate as player position)
+                            local collisionX = playerPos.x
+                            local collisionY = playerPos.y
+
+                            -- Create impact effect for player if they have shield and cooldown has passed
+                            if playerShield and playerShield.current > 0 and (currentTime - (playerShield.lastImpactTime or 0)) >= SHIELD_IMPACT_COOLDOWN then
+                                EntityHelpers.createShieldImpact(collisionX, collisionY, playerId)
+                                playerShield.lastImpactTime = currentTime
+                            end
+
+                            -- Create impact effect for entity if it has shield and cooldown has passed
+                            if entityShield and entityShield.current > 0 and (currentTime - (entityShield.lastImpactTime or 0)) >= SHIELD_IMPACT_COOLDOWN then
+                                EntityHelpers.createShieldImpact(collisionX, collisionY, entityId)
+                                entityShield.lastImpactTime = currentTime
+                            end
+                        end
+
                         handleCollision(playerId, entityId)
                     end
                 else
                     -- Both are circles (should not happen with asteroids or player now)
+                    -- Check for shield collision effects
+                    local playerShield = ECS.getComponent(playerId, "Shield")
+                    local entityShield = ECS.getComponent(entityId, "Shield")
+                    local currentTime = love.timer.getTime()
+
+                    -- Create shield impact effects if either entity has an active shield
+                    if (playerShield and playerShield.current > 0) or (entityShield and entityShield.current > 0) then
+                        -- Calculate collision point (approximate as midpoint)
+                        local collisionX = (playerPos.x + entityPos.x) / 2
+                        local collisionY = (playerPos.y + entityPos.y) / 2
+
+                        -- Create impact effect for player if they have shield and cooldown has passed
+                        if playerShield and playerShield.current > 0 and (currentTime - (playerShield.lastImpactTime or 0)) >= SHIELD_IMPACT_COOLDOWN then
+                            EntityHelpers.createShieldImpact(collisionX, collisionY, playerId)
+                            playerShield.lastImpactTime = currentTime
+                        end
+
+                        -- Create impact effect for entity if it has shield and cooldown has passed
+                        if entityShield and entityShield.current > 0 and (currentTime - (entityShield.lastImpactTime or 0)) >= SHIELD_IMPACT_COOLDOWN then
+                            EntityHelpers.createShieldImpact(collisionX, collisionY, entityId)
+                            entityShield.lastImpactTime = currentTime
+                        end
+                    end
+
                     handleCollision(playerId, entityId)
                 end
             end

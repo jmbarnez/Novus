@@ -590,6 +590,27 @@ local PhysicsCollisionSystem = {
                         
                     -- Resolve collision if detected
                     if colliding and vel1 and vel2 and phys1 and phys2 then
+                        -- Check for shield collision effects
+                        local shield1 = ECS.getComponent(entity1Id, "Shield")
+                        local shield2 = ECS.getComponent(entity2Id, "Shield")
+
+                        -- Create shield impact effects if either entity has an active shield
+                        if (shield1 and shield1.current > 0) or (shield2 and shield2.current > 0) then
+                            -- Calculate collision point (approximate as midpoint)
+                            local collisionX = (pos1.x + pos2.x) / 2
+                            local collisionY = (pos1.y + pos2.y) / 2
+
+                            -- Create impact effect for entity1 if it has shield
+                            if shield1 and shield1.current > 0 then
+                                EntityHelpers.createShieldImpact(collisionX, collisionY, entity1Id)
+                            end
+
+                            -- Create impact effect for entity2 if it has shield
+                            if shield2 and shield2.current > 0 then
+                                EntityHelpers.createShieldImpact(collisionX, collisionY, entity2Id)
+                            end
+                        end
+
                         -- Check if either entity is a projectile or laser
                         local proj1 = ECS.getComponent(entity1Id, "Projectile")
                         local proj2 = ECS.getComponent(entity2Id, "Projectile")

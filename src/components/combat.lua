@@ -16,13 +16,15 @@ end
 -- @field regen number: Shield regeneration rate (units per second)
 -- @field regenDelay number: Seconds to wait after taking damage before regen
 -- @field regenTimer number: Internal timer for managing regen delays
+-- @field lastImpactTime number: Timestamp of last shield impact (prevents spam)
 Components.Shield = function(current, max, regen, regenDelay)
     return {
         current = current or 0,
         max = max or 0,
         regen = regen or 0,
         regenDelay = regenDelay or 0,
-        regenTimer = 0
+        regenTimer = 0,
+        lastImpactTime = 0  -- Track when shield was last hit to prevent effect spam
     }
 end
 
