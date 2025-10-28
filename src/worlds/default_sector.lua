@@ -42,7 +42,7 @@ return {
             {
                 -- Combat red scouts
                 types = { ["red_scout"] = 10 },
-                weapons = { ["red_scout"] = "basic_cannon" },
+                weapons = { ["red_scout"] = "continuous_beam" },
                 aiType = "combat",
                 aiState = "patrol",
             },

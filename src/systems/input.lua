@@ -60,6 +60,16 @@ local function tryActivateHotbarSlot(slotIndex)
         return false
     end
 
+    -- Check if any UI windows are open - if so, block hotbar activation
+    local UISystem = require('src.systems.ui')
+    if UISystem.isCargoWindowOpen() or 
+       UISystem.isMapWindowOpen() or 
+       UISystem.isQuestWindowOpen() or 
+       UISystem.isSettingsWindowOpen() or 
+       UISystem.isPauseMenuOpen() then
+        return false
+    end
+
     local controlledEntity = getControlledEntity()
     if not controlledEntity then
         return false
@@ -403,8 +413,14 @@ function InputSystem.update(dt)
                     local dy = mouseY - playerPos.y
                     local dist = math.sqrt(dx * dx + dy * dy)
                     if dist > 0 then
-                        laserStartX = playerPos.x + (dx / dist) * (collider.radius + 5)
-                        laserStartY = playerPos.y + (dy / dist) * (collider.radius + 5)
+                        -- Use the same muzzle distance calculation as AI turret helper
+                        local base = 12  -- Default ship radius (same as estimateBaseRadiusFromEntity)
+                        local overhang = 4
+                        local scaleMult = 1.0
+                        local muzzleDistance = math.max(10, math.floor(base * 0.9 * scaleMult) + overhang)
+                        local totalDistance = collider.radius + muzzleDistance
+                        laserStartX = playerPos.x + (dx / dist) * totalDistance
+                        laserStartY = playerPos.y + (dy / dist) * totalDistance
                     end
                 end
 

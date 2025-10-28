@@ -89,14 +89,7 @@ local function clampToRange(startX, startY, targetX, targetY, range)
     return startX + dx * scale, startY + dy * scale
 end
 
-local function isValidDamageTarget(entityId, ownerId)
-    if entityId == ownerId then
-        return false
-    end
-    local hull = ECS.getComponent(entityId, "Hull")
-    local shield = ECS.getComponent(entityId, "Shield")
-    return (hull ~= nil and hull.current and hull.current > 0) or (shield ~= nil and shield.current and shield.current > 0)
-end
+-- Previously we filtered targets by Hull/Shield; change to allow any collidable entity to be hit.
 
 local function applyDamage(entityId, damageAmount)
     if damageAmount <= 0 then
@@ -135,7 +128,8 @@ local function findPrimaryHit(ownerId, startX, startY, endX, endY)
 
     local collidableEntities = ECS.getEntitiesWith({"Position", "PolygonShape", "Collidable"})
     for _, entityId in ipairs(collidableEntities) do
-        if entityId ~= ownerId and isValidDamageTarget(entityId, ownerId) then
+        -- Only skip ourselves; any other collidable entity is a valid target
+        if entityId ~= ownerId then
             local intersection = CollisionSystem.linePolygonIntersect(startX, startY, endX, endY, entityId)
             if intersection then
                 local distSq = (intersection.x - startX) * (intersection.x - startX) + (intersection.y - startY) * (intersection.y - startY)
@@ -158,6 +152,7 @@ local function findPrimaryHit(ownerId, startX, startY, endX, endY)
 end
 
 local function findChainTarget(primaryId, ownerId, radius)
+    -- Only search for enemy Hull targets for chaining
     local primaryPos = ECS.getComponent(primaryId, "Position")
     if not primaryPos then
         return nil
@@ -169,15 +164,18 @@ local function findChainTarget(primaryId, ownerId, radius)
 
     local hullTargets = ECS.getEntitiesWith({"Position", "Hull"})
     for _, candidateId in ipairs(hullTargets) do
-        if candidateId ~= primaryId and candidateId ~= ownerId and isValidDamageTarget(candidateId, ownerId) then
-            local candidatePos = ECS.getComponent(candidateId, "Position")
-            if candidatePos then
-                local dx = candidatePos.x - primaryPos.x
-                local dy = candidatePos.y - primaryPos.y
-                local distSq = dx * dx + dy * dy
-                if distSq <= radiusSq and distSq < bestDistSq then
-                    bestDistSq = distSq
-                    bestId = candidateId
+        if candidateId ~= primaryId and candidateId ~= ownerId then
+            local candidateHull = ECS.getComponent(candidateId, "Hull")
+            if candidateHull and candidateHull.current and candidateHull.current > 0 then
+                local candidatePos = ECS.getComponent(candidateId, "Position")
+                if candidatePos then
+                    local dx = candidatePos.x - primaryPos.x
+                    local dy = candidatePos.y - primaryPos.y
+                    local distSq = dx * dx + dy * dy
+                    if distSq <= radiusSq and distSq < bestDistSq then
+                        bestDistSq = distSq
+                        bestId = candidateId
+                    end
                 end
             end
         end
@@ -278,19 +276,136 @@ function ArcCoil.applyBeam(ownerId, startX, startY, targetX, targetY, dt, turret
     end
 
     local baseDamage = ArcCoil.DPS * (dt or 0)
-    local dealtPrimary = applyDamage(primaryHit.entityId, baseDamage)
-    if dealtPrimary then
-        DebrisSystem.createDebris(primaryHit.intersection.x, primaryHit.intersection.y, 1, {0.55, 0.8, 1.0, 1})
+    local debrisCreated = false
+
+    -- Determine target type and apply appropriate damage (ships, asteroids, wreckage)
+    local hitId = primaryHit.entityId
+    local hull = ECS.getComponent(hitId, "Hull")
+    local asteroid = ECS.getComponent(hitId, "Asteroid")
+    local wreckage = ECS.getComponent(hitId, "Wreckage")
+    local EntityHelpers = require('src.entity_helpers')
+
+    if hull then
+        -- Apply to shield first, then hull
+        local shield = ECS.getComponent(hitId, "Shield")
+        local damage = baseDamage
+        if shield and shield.current > 0 then
+            EntityHelpers.createShieldImpact(primaryHit.intersection.x, primaryHit.intersection.y, hitId)
+            local remaining = shield.current - damage
+            shield.current = math.max(0, remaining)
+            damage = math.max(0, -remaining)
+            shield.regenTimer = shield.regenDelay or 0
+            EntityHelpers.notifyAIDamage(hitId, ownerId)
+        end
+
+        if damage > 0 then
+            local applied = math.min(damage, hull.current)
+            hull.current = hull.current - applied
+            EntityHelpers.notifyAIDamage(hitId, ownerId)
+            if hull.current <= 0 then SkillXP.awardXp("combat") end
+            debrisCreated = true
+        end
+
+    elseif asteroid then
+        local durability = ECS.getComponent(hitId, "Durability")
+        if durability then
+            -- Asteroids take 1/10th damage from Arc Coil
+            local scaledDamage = baseDamage * 0.1
+            local damageApplied = math.min(scaledDamage, durability.current)
+            durability.current = durability.current - damageApplied
+
+            local ownerEntity = ECS.getComponent(ownerId, "ControlledBy")
+            if ownerEntity and ownerEntity.pilotId then
+                EntityHelpers.recordLastDamager(hitId, ownerEntity.pilotId, "arc_coil")
+            end
+
+            DebrisSystem.createDebris(primaryHit.intersection.x, primaryHit.intersection.y, 1, coilColor)
+            debrisCreated = true
+        end
+
+    elseif wreckage then
+        local durability = ECS.getComponent(hitId, "Durability")
+        if durability then
+            -- Wreckage takes 1/10th damage from Arc Coil
+            local scaledDamage = baseDamage * 0.1
+            local damageApplied = math.min(scaledDamage, durability.current)
+            durability.current = durability.current - damageApplied
+            if durability.current <= 0 then SkillXP.awardXp("salvaging") end
+            DebrisSystem.createDebris(primaryHit.intersection.x, primaryHit.intersection.y, 1, coilColor)
+            debrisCreated = true
+        end
     end
 
-    local chainTargetId = findChainTarget(primaryHit.entityId, ownerId, ArcCoil.JUMP_RADIUS)
+    if not debrisCreated then
+        DebrisSystem.createDebris(primaryHit.intersection.x, primaryHit.intersection.y, 1, coilColor)
+    end
+
+    -- Handle chain damage to another nearby collidable
+    -- Only attempt chaining if primary hit was an enemy (has Hull)
+    local chainTargetId = nil
+    local primaryHull = ECS.getComponent(primaryHit.entityId, "Hull")
+    if primaryHull then
+        chainTargetId = findChainTarget(primaryHit.entityId, ownerId, ArcCoil.JUMP_RADIUS)
+    end
     local chainImpactPos = nil
     if chainTargetId then
         local secondaryDamage = baseDamage * ArcCoil.JUMP_DAMAGE_MULTIPLIER
-        local chainPosition = ECS.getComponent(chainTargetId, "Position")
-        if applyDamage(chainTargetId, secondaryDamage) and chainPosition then
-            chainImpactPos = {x = chainPosition.x, y = chainPosition.y}
-            DebrisSystem.createDebris(chainPosition.x, chainPosition.y, 1, {0.55, 0.8, 1.0, 1})
+        local chainHull = ECS.getComponent(chainTargetId, "Hull")
+        local chainAsteroid = ECS.getComponent(chainTargetId, "Asteroid")
+        local chainWreck = ECS.getComponent(chainTargetId, "Wreckage")
+        local chainPosComp = ECS.getComponent(chainTargetId, "Position")
+
+        if chainHull then
+            local shield2 = ECS.getComponent(chainTargetId, "Shield")
+            local damage2 = secondaryDamage
+            if shield2 and shield2.current > 0 then
+                if chainPosComp then
+                    EntityHelpers.createShieldImpact(chainPosComp.x, chainPosComp.y, chainTargetId)
+                end
+                local remaining2 = shield2.current - damage2
+                shield2.current = math.max(0, remaining2)
+                damage2 = math.max(0, -remaining2)
+                shield2.regenTimer = shield2.regenDelay or 0
+                EntityHelpers.notifyAIDamage(chainTargetId, ownerId)
+            end
+            if damage2 > 0 then
+                local applied2 = math.min(damage2, chainHull.current)
+                chainHull.current = chainHull.current - applied2
+                EntityHelpers.notifyAIDamage(chainTargetId, ownerId)
+                if chainHull.current <= 0 then SkillXP.awardXp("combat") end
+            end
+            if chainPosComp then chainImpactPos = {x = chainPosComp.x, y = chainPosComp.y} end
+
+        elseif chainAsteroid then
+            local durability2 = ECS.getComponent(chainTargetId, "Durability")
+            if durability2 then
+                -- Chain hits do 1/10th damage to asteroids
+                local scaledSecondary = secondaryDamage * 0.1
+                local damageApplied2 = math.min(scaledSecondary, durability2.current)
+                durability2.current = durability2.current - damageApplied2
+                local ownerEntity = ECS.getComponent(ownerId, "ControlledBy")
+                if ownerEntity and ownerEntity.pilotId then
+                    EntityHelpers.recordLastDamager(chainTargetId, ownerEntity.pilotId, "arc_coil")
+                end
+                if chainPosComp then
+                    chainImpactPos = {x = chainPosComp.x, y = chainPosComp.y}
+                    DebrisSystem.createDebris(chainPosComp.x, chainPosComp.y, 1, coilColor)
+                end
+            end
+
+        elseif chainWreck then
+            local durability2 = ECS.getComponent(chainTargetId, "Durability")
+            if durability2 then
+                -- Chain hits do 1/10th damage to wreckage
+                local scaledSecondary = secondaryDamage * 0.1
+                local damageApplied2 = math.min(scaledSecondary, durability2.current)
+                durability2.current = durability2.current - damageApplied2
+                if durability2.current <= 0 then SkillXP.awardXp("salvaging") end
+                if chainPosComp then
+                    chainImpactPos = {x = chainPosComp.x, y = chainPosComp.y}
+                    DebrisSystem.createDebris(chainPosComp.x, chainPosComp.y, 1, coilColor)
+                end
+            end
         end
     end
 

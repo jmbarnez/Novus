@@ -298,7 +298,7 @@ function GameInit.spawnEnemies()
         return x, y
     end
     
-    -- Simplified: spawn 20 red_scouts with combat AI and cannon modules
+    -- Simplified: spawn 20 red_scouts with combat AI and continuous beam modules
     local ShipLoader = require('src.ship_loader')
     local ECS = require('src.ecs')
     local Components = require('src.components')
@@ -313,7 +313,7 @@ function GameInit.spawnEnemies()
         if shipId then
             local turret = ECS.getComponent(shipId, "Turret")
             if turret then
-                turret.moduleName = "basic_cannon"
+                turret.moduleName = "continuous_beam"
             end
             local ai = ECS.getComponent(shipId, "AI")
             if ai then

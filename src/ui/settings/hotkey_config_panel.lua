@@ -39,16 +39,40 @@ function HotkeyConfigPanel:initialize(position, width, contentScrollY)
     local controlVerticalOffset = Theme.spacing.padding * 2  -- Offset controls below labels
     local hotkeyStartY = sectionSpacing * 6 + controlVerticalOffset
     
+    -- Build buttons with section headers using HotkeyConfig.actionSections
+    local yOffset = hotkeyStartY
+    local lastSection = nil
     for i, hotkey in ipairs(hotkeys) do
+        local section = HotkeyConfig.actionSections[hotkey.action]
+        if not section then
+            section = "Other"
+        end
+
+        if section ~= lastSection then
+            local title = (HotkeyConfig.sectionTitles and HotkeyConfig.sectionTitles[section]) or section
+            table.insert(self.buttons, {
+                type = "section",
+                title = title,
+                x = position.x,
+                y = position.y + yOffset - contentScrollY,
+                width = self.width,
+                height = buttonHeight * 0.8
+            })
+            yOffset = yOffset + buttonHeight * 0.8 + buttonSpacing
+            lastSection = section
+        end
+
         table.insert(self.buttons, {
+            type = "button",
             action = hotkey.action,
             description = hotkey.description,
             key = hotkey.key,
             x = position.x,
-            y = position.y + hotkeyStartY + (i - 1) * (buttonHeight + buttonSpacing) - contentScrollY,
+            y = position.y + yOffset - contentScrollY,
             width = self.width,
             height = buttonHeight
         })
+        yOffset = yOffset + buttonHeight + buttonSpacing
     end
 end
 
@@ -65,10 +89,15 @@ function HotkeyConfigPanel:updatePositions(position, contentScrollY)
     -- Calculate start Y to align with hotkeys label (6 sections: VSync, FPS, Resolution, Master, Music, SFX)
     local hotkeyStartY = sectionSpacing * 6 + controlVerticalOffset
 
+    -- Recompute positions respecting per-button heights (section headers may differ)
+    local yOffset = hotkeyStartY
     for i, button in ipairs(self.buttons) do
         button.x = position.x
-        button.y = position.y + hotkeyStartY + (i - 1) * (buttonHeight + buttonSpacing) - contentScrollY
+        button.y = position.y + yOffset - contentScrollY
         button.width = self.width
+        -- advance yOffset by this button's height plus spacing
+        local h = button.height or buttonHeight
+        yOffset = yOffset + h + buttonSpacing
     end
 end
 
@@ -79,41 +108,49 @@ function HotkeyConfigPanel:draw(alpha)
     local mx, my = love.mouse.getPosition()
     
     for i, button in ipairs(self.buttons) do
-        local hovered = mx >= button.x and mx <= button.x + button.width and 
-                       my >= button.y and my <= button.y + button.height
-        local selected = self.selectedHotkey == button.action
-        
-        -- Button background
-        if selected or self.waitingForKey then
-            love.graphics.setColor(Theme.colors.buttonHover[1], Theme.colors.buttonHover[2], 
-                                 Theme.colors.buttonHover[3], alpha * 0.8)
-        elseif hovered then
-            love.graphics.setColor(Theme.colors.buttonHover[1], Theme.colors.buttonHover[2], 
-                                 Theme.colors.buttonHover[3], alpha * 0.4)
+        if button.type == "section" then
+            -- Draw section header (green)
+            local col = Theme.colors.buttonYes or Theme.colors.textSecondary
+            love.graphics.setColor(col[1], col[2], col[3], (col[4] or 1) * alpha)
+            love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+            love.graphics.printf(button.title, button.x + 8, button.y + 4, button.width - 16, "left")
         else
-            love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], 
-                                 Theme.colors.bgMedium[3], alpha * 0.6)
+            local hovered = mx >= button.x and mx <= button.x + button.width and 
+                           my >= button.y and my <= button.y + button.height
+            local selected = self.selectedHotkey == button.action
+            
+            -- Button background
+            if selected or self.waitingForKey then
+                love.graphics.setColor(Theme.colors.buttonHover[1], Theme.colors.buttonHover[2], 
+                                     Theme.colors.buttonHover[3], alpha * 0.8)
+            elseif hovered then
+                love.graphics.setColor(Theme.colors.buttonHover[1], Theme.colors.buttonHover[2], 
+                                     Theme.colors.buttonHover[3], alpha * 0.4)
+            else
+                love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], 
+                                     Theme.colors.bgMedium[3], alpha * 0.6)
+            end
+            
+            love.graphics.rectangle("fill", button.x, button.y, button.width, button.height, 4, 4)
+            
+            -- Button border
+            love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], 
+                                 Theme.colors.borderMedium[3], alpha)
+            love.graphics.setLineWidth(1)
+            love.graphics.rectangle("line", button.x, button.y, button.width, button.height, 4, 4)
+            
+            -- Button text
+            love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], 
+                                 Theme.colors.textPrimary[3], alpha)
+            love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+            
+            local displayText = HotkeyConfig.getDisplayText(button.action)
+            if self.waitingForKey and selected then
+                displayText = "Press any key..."
+            end
+            
+            love.graphics.printf(displayText, button.x + 8, button.y + 4, button.width - 16, "left")
         end
-        
-        love.graphics.rectangle("fill", button.x, button.y, button.width, button.height, 4, 4)
-        
-        -- Button border
-        love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], 
-                             Theme.colors.borderMedium[3], alpha)
-        love.graphics.setLineWidth(1)
-        love.graphics.rectangle("line", button.x, button.y, button.width, button.height, 4, 4)
-        
-        -- Button text
-        love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], 
-                             Theme.colors.textPrimary[3], alpha)
-        love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-        
-        local displayText = HotkeyConfig.getDisplayText(button.action)
-        if self.waitingForKey and selected then
-            displayText = "Press any key..."
-        end
-        
-        love.graphics.printf(displayText, button.x + 8, button.y + 4, button.width - 16, "left")
     end
 end
 
@@ -122,6 +159,10 @@ function HotkeyConfigPanel:handleClick(mx, my)
     if not self.buttons then return false end
     
     for i, button in ipairs(self.buttons) do
+        if button.type == "section" then
+            -- Section headers are not clickable
+            return false
+        end
         if mx >= button.x and mx <= button.x + button.width and
            my >= button.y and my <= button.y + button.height then
             

@@ -348,7 +348,20 @@ function SettingsWindow:initializeHotkeyButtons()
     local buttonHeight = Theme.spacing.padding * 3.33  -- Scaled button height
     local buttonSpacing = Theme.spacing.padding  -- Scaled spacing
     local hotkeyLabelHeight = Theme.spacing.padding * 2  -- Scaled label height
-    local hotkeyButtonsHeight = #hotkeys * (buttonHeight + buttonSpacing) + hotkeyLabelHeight
+
+    -- Calculate total hotkey buttons height including section headers
+    local sectionHeaderHeight = buttonHeight * 0.8
+    local yOffset = 0
+    local lastSection = nil
+    for i, hotkey in ipairs(hotkeys) do
+        local section = HotkeyConfig.actionSections[hotkey.action] or "Other"
+        if section ~= lastSection then
+            yOffset = yOffset + sectionHeaderHeight + buttonSpacing
+            lastSection = section
+        end
+        yOffset = yOffset + buttonHeight + buttonSpacing
+    end
+    local hotkeyButtonsHeight = yOffset + hotkeyLabelHeight
 
     -- Layout: VSync + FPS + Resolution + Audio + Hotkeys + bottom padding
     local vsyncHeight = Theme.spacing.padding * 10  -- Scaled VSync section height

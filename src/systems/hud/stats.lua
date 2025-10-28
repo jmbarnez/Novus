@@ -145,7 +145,8 @@ function HUDStats.drawPlayerVitals(viewportWidth, viewportHeight)
 
     local padding = Scaling.scaleSize(16)
     local panelWidth = Scaling.scaleSize(260)
-    local panelHeight = Scaling.scaleSize(88)
+    -- make the vitals panel slightly shorter vertically
+    local panelHeight = Scaling.scaleSize(72)
     local levelBlockWidth = Scaling.scaleSize(58)
     local accentMargin = Scaling.scaleSize(10)
 
@@ -163,7 +164,10 @@ function HUDStats.drawPlayerVitals(viewportWidth, viewportHeight)
     BatchRenderer.queueRectLine(x, y, levelBlockWidth, panelHeight, 0.2, 0.75, 1.0, 0.9, 1, 0)
 
     local levelText = string.format("%02d", levelData.level or 1)
-    BatchRenderer.queueText(levelText, x, y + panelHeight * 0.34 - vitalsLevelFont:getHeight() / 2, vitalsLevelFont, 0.9, 0.96, 1.0, 0.94, "center", levelBlockWidth)
+    -- guard against nil font and compute height safely for vertical centering
+    local fontHeight = (vitalsLevelFont and vitalsLevelFont.getHeight) and vitalsLevelFont:getHeight() or 0
+    local levelTextY = y + panelHeight * 0.34 - fontHeight / 2
+    BatchRenderer.queueText(levelText, x, levelTextY, vitalsLevelFont, 0.9, 0.96, 1.0, 0.94, "center", levelBlockWidth)
 
     local xpRatio = 0
     if levelData.requiredXp and levelData.requiredXp > 0 then
@@ -182,8 +186,9 @@ function HUDStats.drawPlayerVitals(viewportWidth, viewportHeight)
 
     -- Combined hull/shield bar
     local hullRatio, shieldRatio = calculateHullShieldRatios(hull, shield)
-    local hybridHeight = Scaling.scaleSize(26)
-    local hybridY = y + Scaling.scaleSize(14)
+    local hybridHeight = Scaling.scaleSize(24)
+    -- nudge the hybrid bars a bit up to fit the shorter panel
+    local hybridY = y + Scaling.scaleSize(12)
 
     BatchRenderer.queueRect(contentX, hybridY, contentWidth, hybridHeight, 0.03, 0.035, 0.07, 0.95, 0)
     BatchRenderer.queueRect(contentX, hybridY - Scaling.scaleSize(2), contentWidth, Scaling.scaleSize(2), 0.26, 0.66, 1.0, 0.28, 0)
@@ -205,8 +210,9 @@ function HUDStats.drawPlayerVitals(viewportWidth, viewportHeight)
     -- Energy bar
     if energy and energy.max and energy.max > 0 then
         local energyRatio = math.max(0, math.min(1, (energy.current or 0) / energy.max))
-        local energyHeight = Scaling.scaleSize(14)
-        local energyY = hybridY + hybridHeight + Scaling.scaleSize(12)
+        local energyHeight = Scaling.scaleSize(12)
+        -- reduce spacing between hybrid and energy bar to save vertical space
+        local energyY = hybridY + hybridHeight + Scaling.scaleSize(8)
 
         BatchRenderer.queueRect(contentX, energyY, contentWidth, energyHeight, 0.04, 0.05, 0.1, 0.95, 0)
         BatchRenderer.queueRect(contentX, energyY - Scaling.scaleSize(2), contentWidth, Scaling.scaleSize(2), 1.0, 0.58, 0.22, 0.35, 0)

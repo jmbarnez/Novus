@@ -69,18 +69,68 @@ function RenderEffects.drawDebris()
 end
 
 function RenderEffects.drawTrails()
+    local ShaderManager = require('src.shader_manager')
+    local trailShader = ShaderManager.getTrailShader()
     local trailEntities = ECS.getEntitiesWith({"TrailParticle"})
     for _, entityId in ipairs(trailEntities) do
         local particle = ECS.getComponent(entityId, "TrailParticle")
         if particle and particle.life and particle.maxLife and particle.color and particle.x and particle.y and particle.size then
             local alpha = particle.life / particle.maxLife
-            love.graphics.setColor(
-                particle.color[1] or 1,
-                particle.color[2] or 1,
-                particle.color[3] or 1,
-                (particle.color[4] or 1) * alpha
-            )
-            love.graphics.circle("fill", particle.x, particle.y, particle.size)
+
+            -- Compute camera transform (to convert world -> screen space for shader)
+            local camX, camY, camZoom = 0, 0, 1
+            local camEntities = ECS.getEntitiesWith({"Camera", "Position"})
+            if #camEntities > 0 then
+                local camId = camEntities[1]
+                local camPos = ECS.getComponent(camId, "Position")
+                local cam = ECS.getComponent(camId, "Camera")
+                if camPos and cam then
+                    camX = camPos.x or 0
+                    camY = camPos.y or 0
+                    camZoom = (cam.zoom or 1)
+                end
+            end
+
+            if trailShader then
+                -- Send per-particle uniforms (center in screen coords, scaled size)
+                local centerX = (particle.x - camX) * camZoom
+                local centerY = (particle.y - camY) * camZoom
+                pcall(function()
+                    trailShader:send("center", {centerX, centerY})
+                    trailShader:send("size", particle.size * camZoom * 2.0)
+                end)
+
+                -- Glow (additive) pass using shader
+                love.graphics.setShader(trailShader)
+                love.graphics.setBlendMode("add", "alphamultiply")
+                love.graphics.setColor(
+                    particle.color[1] or 1,
+                    particle.color[2] or 1,
+                    particle.color[3] or 1,
+                    1
+                )
+                love.graphics.circle("fill", particle.x, particle.y, particle.size * 2.2)
+
+                -- Restore and draw core with normal alpha
+                love.graphics.setShader()
+                love.graphics.setBlendMode("alpha", "alphamultiply")
+                love.graphics.setColor(
+                    particle.color[1] or 1,
+                    particle.color[2] or 1,
+                    particle.color[3] or 1,
+                    (particle.color[4] or 1) * alpha
+                )
+                love.graphics.circle("fill", particle.x, particle.y, particle.size * 0.9)
+            else
+                -- Fallback: previous simple circle drawing
+                love.graphics.setColor(
+                    particle.color[1] or 1,
+                    particle.color[2] or 1,
+                    particle.color[3] or 1,
+                    (particle.color[4] or 1) * alpha
+                )
+                love.graphics.circle("fill", particle.x, particle.y, particle.size)
+            end
         end
     end
 end

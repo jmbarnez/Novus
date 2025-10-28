@@ -37,14 +37,18 @@ if formatted ~= 'Unbound' then
 end
 
 print('Testing display text when key is unbound...')
-HotkeyConfig.current[action] = ''
+-- Use the public API to set an unbound key rather than mutating internals
+local okSet = HotkeyConfig.setHotkey(action, '')
+if not okSet then error('Failed to set hotkey to empty for test') end
 local displayText = HotkeyConfig.getDisplayText(action)
 if not displayText:match('Unbound') then
     error(string.format('Display text for unbound key did not include "Unbound": %s', displayText))
 end
 
 local targetOrig = HotkeyConfig.getHotkey('target_enemy')
-HotkeyConfig.current['target_enemy'] = ''
+-- Set via public API
+local okTargetSet = HotkeyConfig.setHotkey('target_enemy', '')
+if not okTargetSet then error('Failed to set target_enemy to empty for test') end
 local targetDisplay = HotkeyConfig.getDisplayText('target_enemy')
 if targetDisplay:match('Unbound%+Click') then
     error(string.format('Display text for unbound target_enemy should not include +Click: %s', targetDisplay))

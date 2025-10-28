@@ -74,6 +74,46 @@ HotkeyConfig.descriptions = {
     hotbar_slot_10 = "Hotbar Slot 10"
 }
 
+-- Optional: logical sections for UI grouping and ordering
+HotkeyConfig.sectionOrder = {
+    "Movement",
+    "Targeting",
+    "Windows",
+    "Hotbar"
+}
+
+-- Map actions to a section name (actions not listed will appear in "Other")
+HotkeyConfig.actionSections = {
+    move_up = "Movement",
+    move_down = "Movement",
+    move_left = "Movement",
+    move_right = "Movement",
+    target_enemy = "Targeting",
+    cargo_window = "Windows",
+    map_window = "Windows",
+    settings_window = "Windows",
+    toggle_hud = "Windows",
+    hotbar_slot_1 = "Hotbar",
+    hotbar_slot_2 = "Hotbar",
+    hotbar_slot_3 = "Hotbar",
+    hotbar_slot_4 = "Hotbar",
+    hotbar_slot_5 = "Hotbar",
+    hotbar_slot_6 = "Hotbar",
+    hotbar_slot_7 = "Hotbar",
+    hotbar_slot_8 = "Hotbar",
+    hotbar_slot_9 = "Hotbar",
+    hotbar_slot_10 = "Hotbar"
+}
+
+-- Human-friendly section titles (can be used by UI)
+HotkeyConfig.sectionTitles = {
+    Movement = "Movement",
+    Targeting = "Targeting",
+    Windows = "Windows",
+    Hotbar = "Hotbar",
+    Other = "Other"
+}
+
 -- Initialize hotkey configuration
 function HotkeyConfig.init()
     -- Start from a clean table so removed/defaulted hotkeys don't linger
@@ -100,15 +140,68 @@ end
 
 -- Get all configurable hotkeys
 function HotkeyConfig.getAllHotkeys()
-    local hotkeys = {}
+    local sections = {}
+    local other = {}
+
+    -- Collect actions into their sections
     for action, description in pairs(HotkeyConfig.descriptions) do
-        table.insert(hotkeys, {
+        local entry = {
             action = action,
             description = description,
             key = HotkeyConfig.getHotkey(action)
-        })
+        }
+        local section = HotkeyConfig.actionSections[action]
+        if section then
+            sections[section] = sections[section] or {}
+            table.insert(sections[section], entry)
+        else
+            table.insert(other, entry)
+        end
     end
-    return hotkeys
+
+    -- Helper to sort entries by description
+    local function sortByDescription(a, b)
+        return (a.description or "") < (b.description or "")
+    end
+
+    local result = {}
+
+    -- Append sections in the configured order, sorted within each section
+    for _, sectionName in ipairs(HotkeyConfig.sectionOrder) do
+        local list = sections[sectionName]
+        if list then
+            table.sort(list, sortByDescription)
+            for _, entry in ipairs(list) do
+                table.insert(result, entry)
+            end
+        end
+    end
+
+    -- Append any remaining sections not present in sectionOrder (sorted by section name)
+    local remainingSectionNames = {}
+    for name, _ in pairs(sections) do
+        local found = false
+        for _, orderedName in ipairs(HotkeyConfig.sectionOrder) do
+            if orderedName == name then found = true break end
+        end
+        if not found then table.insert(remainingSectionNames, name) end
+    end
+    table.sort(remainingSectionNames)
+    for _, name in ipairs(remainingSectionNames) do
+        local list = sections[name]
+        table.sort(list, sortByDescription)
+        for _, entry in ipairs(list) do
+            table.insert(result, entry)
+        end
+    end
+
+    -- Finally append unsectioned actions sorted by description
+    table.sort(other, sortByDescription)
+    for _, entry in ipairs(other) do
+        table.insert(result, entry)
+    end
+
+    return result
 end
 
 -- Reset all hotkeys to defaults

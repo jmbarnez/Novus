@@ -62,19 +62,9 @@ function ContinuousBeam.fire(ownerId, startX, startY, endX, endY, turretComp)
         end
     end
     
-    -- Offset start position away from owner ship to avoid self-collision
+    -- Use the provided start position directly (should already be calculated at proper muzzle position)
     local offsetStartX = startX
     local offsetStartY = startY
-    local ownerCollidable = ECS.getComponent(ownerId, "Collidable")
-    if ownerCollidable then
-        local dx = endX - startX
-        local dy = endY - startY
-        local dist = math.sqrt(dx * dx + dy * dy)
-        if dist > 0 then
-            offsetStartX = startX + (dx / dist) * (ownerCollidable.radius + 5)
-            offsetStartY = startY + (dy / dist) * (ownerCollidable.radius + 5)
-        end
-    end
     
     -- Acquire laser beam entity from pool
     turretComp.laserEntity = EntityPool.acquire("laser_beam")
@@ -118,19 +108,9 @@ end
 -- dt: delta time
 -- turretComp: turret component with heat information
 function ContinuousBeam.applyBeam(ownerId, startX, startY, endX, endY, dt, turretComp)
-    -- Offset start position to barrel end to match where laser visually originates
+    -- Use the provided start position directly (should already be calculated at proper muzzle position)
     local offsetStartX = startX
     local offsetStartY = startY
-    local ownerCollidable = ECS.getComponent(ownerId, "Collidable")
-    if ownerCollidable then
-        local dx = endX - startX
-        local dy = endY - startY
-        local dist = math.sqrt(dx * dx + dy * dy)
-        if dist > 0 then
-            offsetStartX = startX + (dx / dist) * (ownerCollidable.radius + 5)
-            offsetStartY = startY + (dy / dist) * (ownerCollidable.radius + 5)
-        end
-    end
 
     LaserAudio.start(turretComp, nil, {x = offsetStartX, y = offsetStartY})
 
@@ -298,6 +278,9 @@ function ContinuousBeam.applyBeam(ownerId, startX, startY, endX, endY, dt, turre
                 if hull.current <= 0 then
                     SkillXP.awardXp("combat")
                 end
+                
+                -- Create impact debris for hull hits
+                DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, ContinuousBeam.design.color)
             end
             debrisCreated = true
         -- Mining damage: target is an asteroid

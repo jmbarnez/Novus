@@ -19,6 +19,7 @@ end
 local celShader = nil
 local auroraShader = nil
 local nebulaShader = nil
+local trailShader = nil
 -- Cel-shading is now permanently enabled - no toggle functionality
 
 -- Initialize shaders
@@ -30,9 +31,14 @@ function ShaderManager.init()
     if celShaderCode then
         celShader = love.graphics.newShader(celShaderCode)
         if celShader then
+            -- Default cel shader properties (tweakable at runtime)
             ShaderManager.setCelShadingProperties({
                 plasmaIntensity = 0.6,    -- Reduced for subtle effect (0.5-2.0)
-                glowThreshold = 0.5       -- Only bright colors glow (0.0-1.0)
+                glowThreshold = 0.5,      -- Only bright colors glow (0.0-1.0)
+                exposure = 1.0,           -- Tonemapping exposure
+                saturation = 1.05,        -- Global saturation tweak
+                bloomAmount = 0.18,       -- Bloom strength multiplier
+                useChromatic = 1.0        -- Enable chromatic aberration by default
             })
             log("Cel shader loaded successfully")
         else
@@ -145,17 +151,49 @@ function ShaderManager.init()
     else
         print("FAILED: Could not read nebula shader file")
     end
+    -- Load trail shader (soft glow for particle trails)
+    log("=== Loading trail shader ===")
+    local trailShaderCode = love.filesystem.read("src/shaders/trail.frag")
+    if trailShaderCode then
+        local ok, res = pcall(function() return love.graphics.newShader(trailShaderCode) end)
+        if ok and res then
+            trailShader = res
+            log("SUCCESS: Trail shader loaded")
+        else
+            print("FAILED to create trail shader")
+            print("Error:", res)
+        end
+    else
+        log("No trail shader file found")
+    end
 end
 
 -- Set cel-shading properties
 function ShaderManager.setCelShadingProperties(props)
     if not celShader then return end
-    
+
     if props.plasmaIntensity then
         celShader:send("PlasmaIntensity", props.plasmaIntensity)
     end
     if props.glowThreshold then
         celShader:send("GlowThreshold", props.glowThreshold)
+    end
+    if props.exposure then
+        -- Exposure controls overall tonemapping curve
+        local ok, err = pcall(function() celShader:send("Exposure", props.exposure) end)
+        if not ok then log("Warning: cel shader does not accept 'Exposure' uniform:", err) end
+    end
+    if props.saturation then
+        local ok, err = pcall(function() celShader:send("Saturation", props.saturation) end)
+        if not ok then log("Warning: cel shader does not accept 'Saturation' uniform:", err) end
+    end
+    if props.bloomAmount then
+        local ok, err = pcall(function() celShader:send("BloomAmount", props.bloomAmount) end)
+        if not ok then log("Warning: cel shader does not accept 'BloomAmount' uniform:", err) end
+    end
+    if props.useChromatic ~= nil then
+        local ok, err = pcall(function() celShader:send("UseChromatic", props.useChromatic) end)
+        if not ok then log("Warning: cel shader does not accept 'UseChromatic' uniform:", err) end
     end
 end
 
@@ -197,6 +235,9 @@ function ShaderManager.updateTime()
     if nebulaShader then
         nebulaShader:send("time", love.timer.getTime())
     end
+    if trailShader then
+        pcall(function() trailShader:send("time", love.timer.getTime()) end)
+    end
 end
 
 -- Set aurora shader colors
@@ -225,6 +266,11 @@ end
 -- Get nebula shader
 function ShaderManager.getNebulaShader()
     return nebulaShader
+end
+
+-- Get trail shader used for particle glows
+function ShaderManager.getTrailShader()
+    return trailShader
 end
 
 -- Set nebula shader colors

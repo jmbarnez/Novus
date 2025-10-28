@@ -2,6 +2,8 @@
 -- Basic ECS core tests: entity creation, component add/remove, system order
 
 local ECS = require('src.ecs')
+-- Ensure a clean ECS state for deterministic tests
+ECS.clear()
 
 local function assertEqual(a, b, msg)
     if a ~= b then error(msg or (tostring(a) .. ' ~= ' .. tostring(b))) end
@@ -38,3 +40,6 @@ do
 end
 
 print('ECS core tests passed!')
+
+-- Clean up after test
+ECS.clear()

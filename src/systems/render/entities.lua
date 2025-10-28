@@ -352,6 +352,23 @@ function RenderEntities.drawItems(cullingCameraPos, cullingCamera)
                     love.graphics.setColor(cannonballBorder.borderColor)
                     love.graphics.circle("line", position.x, position.y, renderable.radius)
                 end
+            elseif renderable.shape == "custom" then
+                -- Custom shape rendering - check for ArcShape component
+                local arcShape = ECS.getComponent(entityId, "ArcShape")
+                if arcShape and arcShape.points then
+                    if renderable.color then
+                        local cols = resolveColors(renderable.color)
+                        love.graphics.setColor(cols.stripes[1], cols.stripes[2], cols.stripes[3], cols.stripes[4])
+                    end
+                    love.graphics.setLineWidth(3)
+                    -- Draw arc as connected line segments
+                    for i = 1, #arcShape.points - 1 do
+                        local p1 = arcShape.points[i]
+                        local p2 = arcShape.points[i + 1]
+                        love.graphics.line(p1.x, p1.y, p2.x, p2.y)
+                    end
+                    love.graphics.setLineWidth(1)
+                end
             elseif renderable.shape == "polygon" then
                 local polygonShape = ECS.getComponent(entityId, "PolygonShape")
                 if polygonShape then

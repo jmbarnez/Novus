@@ -163,15 +163,16 @@ function AiTurretHelper.fireLaserAtTarget(eid, turret, turretModule, targetPos, 
     -- Calculate laser start position from barrel
     local fireAngle = math.atan2(dy, dx)
     local muzzleDistance = computeMuzzleDistance(eid)
-    local laserStartX = pos.x + math.cos(fireAngle) * muzzleDistance
-    local laserStartY = pos.y + math.sin(fireAngle) * muzzleDistance
     
-    -- Adjust start position if we have a collider radius
+    -- Calculate final muzzle position (ship center + collider radius + muzzle distance)
     local collider = ECS.getComponent(eid, "Collidable")
-    if collider and dist > 0 then
-        laserStartX = pos.x + (dx / dist) * (collider.radius + muzzleDistance)
-        laserStartY = pos.y + (dy / dist) * (collider.radius + muzzleDistance)
+    local totalDistance = muzzleDistance
+    if collider then
+        totalDistance = collider.radius + muzzleDistance
     end
+    
+    local laserStartX = pos.x + math.cos(fireAngle) * totalDistance
+    local laserStartY = pos.y + math.sin(fireAngle) * totalDistance
     
     -- Call the module's fire() function directly to create laser entity
     if turretModule.fire then
@@ -195,6 +196,15 @@ function AiTurretHelper.fireLaserAtTarget(eid, turret, turretModule, targetPos, 
                 end
             end
         end
+    else
+        -- For non-continuous weapons, just update the visual endpoint
+        if turret.laserEntity then
+            local laserBeam = ECS.getComponent(turret.laserEntity, "LaserBeam")
+            if laserBeam then
+                laserBeam.start = {x = laserStartX, y = laserStartY}
+                laserBeam.endPos = {x = targetPos.x, y = targetPos.y}
+            end
+        end
     end
     
     return true
@@ -211,8 +221,16 @@ function AiTurretHelper.aimTurretAtTarget(eid, turret, shooterPos, targetPos)
     local dy = targetPos.y - shooterPos.y
     local fireAngle = math.atan2(dy, dx)
     local muzzleDistance = computeMuzzleDistance(eid)
-    turret.aimX = shooterPos.x + math.cos(fireAngle) * muzzleDistance
-    turret.aimY = shooterPos.y + math.sin(fireAngle) * muzzleDistance
+    
+    -- Calculate final muzzle position (ship center + collider radius + muzzle distance)
+    local collider = ECS.getComponent(eid, "Collidable")
+    local totalDistance = muzzleDistance
+    if collider then
+        totalDistance = collider.radius + muzzleDistance
+    end
+    
+    turret.aimX = shooterPos.x + math.cos(fireAngle) * totalDistance
+    turret.aimY = shooterPos.y + math.sin(fireAngle) * totalDistance
 end
 
 return AiTurretHelper

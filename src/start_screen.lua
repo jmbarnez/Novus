@@ -142,11 +142,14 @@ end
 
 local title = "Novus"
 local buttonText = "New Game"
+local loadButtonText = "Load Game"
 local buttonWidth = 220
 local buttonHeight = 40
+local buttonSpacing = 12
 local buttonY = nil -- will be set in draw
 local buttonX = nil -- will be set in draw
 local buttonHovered = false
+local loadButtonHovered = false
 
 -- Twinkling stars
 local starCount = 150
@@ -307,47 +310,77 @@ function start_screen.draw()
         love.graphics.print(titleText, titleX, titleY)
     end
 
-    -- Draw 'New Game' button using theme colors and styling
-    buttonY = height * 0.55
+    -- Draw 'New Game' and 'Load Game' buttons using theme colors and styling
+    local totalButtonsHeight = buttonHeight * 2 + buttonSpacing
+    local topY = height * 0.55 - totalButtonsHeight / 2
+
+    -- New Game button layout
+    buttonY = topY
     buttonX = width/2 - buttonWidth/2
-    -- Check hover
+    -- Load Game button layout
+    local loadButtonY = topY + buttonHeight + buttonSpacing
+
+    -- Check hover for both buttons
     local mx, my = love.mouse.getPosition()
     buttonHovered = mx >= buttonX and mx <= buttonX + buttonWidth and my >= buttonY and my <= buttonY + buttonHeight
+    loadButtonHovered = mx >= buttonX and mx <= buttonX + buttonWidth and my >= loadButtonY and my <= loadButtonY + buttonHeight
+
     HoverSound.update("start_screen:new_game", buttonHovered, {
         bounds = {x = buttonX, y = buttonY, w = buttonWidth, h = buttonHeight},
         space = "screen",
     })
-    
-    -- Draw button using theme's colors and style (with custom bold font)
+    HoverSound.update("start_screen:load_game", loadButtonHovered, {
+        bounds = {x = buttonX, y = loadButtonY, w = buttonWidth, h = buttonHeight},
+        space = "screen",
+    })
+
+    -- Draw both buttons (shared styling)
     local baseColor = Theme.colors.bgMedium
     local hoverColor = Theme.colors.buttonHover
-    
-    -- Background
-    if buttonHovered then
-        love.graphics.setColor(hoverColor[1], hoverColor[2], hoverColor[3], hoverColor[4])
-    else
-        love.graphics.setColor(baseColor[1], baseColor[2], baseColor[3], baseColor[4])
+
+    local function drawButton(x, y, w, h, hovered, text)
+        if hovered then
+            love.graphics.setColor(hoverColor[1], hoverColor[2], hoverColor[3], hoverColor[4])
+        else
+            love.graphics.setColor(baseColor[1], baseColor[2], baseColor[3], baseColor[4])
+        end
+        love.graphics.rectangle("fill", x, y, w, h)
+        love.graphics.setColor(Theme.colors.borderDark)
+        love.graphics.setLineWidth(2)
+        love.graphics.rectangle("line", x, y, w, h)
+        love.graphics.setLineWidth(1)
+        local buttonFont = Theme.getFontBold(24)
+        love.graphics.setColor(Theme.colors.textPrimary)
+        love.graphics.setFont(buttonFont)
+        local textHeight = buttonFont:getHeight()
+        local textYOffset = (h - textHeight) / 2
+        love.graphics.printf(text, x, y + textYOffset, w, "center")
     end
-    love.graphics.rectangle("fill", buttonX, buttonY, buttonWidth, buttonHeight)
-    
-    -- Border
-    love.graphics.setColor(Theme.colors.borderDark)
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", buttonX, buttonY, buttonWidth, buttonHeight)
-    love.graphics.setLineWidth(1)
-    
-    -- Text with custom font
-    local buttonFont = Theme.getFontBold(24)
-    love.graphics.setColor(Theme.colors.textPrimary)
-    love.graphics.setFont(buttonFont)
-    local textHeight = buttonFont:getHeight()
-    local textYOffset = (buttonHeight - textHeight) / 2
-    love.graphics.printf(buttonText, buttonX, buttonY + textYOffset, buttonWidth, "center")
+
+    drawButton(buttonX, buttonY, buttonWidth, buttonHeight, buttonHovered, buttonText)
+    drawButton(buttonX, loadButtonY, buttonWidth, buttonHeight, loadButtonHovered, loadButtonText)
 end
 
 function start_screen.mousepressed(x, y, button)
-    if button == 1 and buttonHovered then
-        return true -- signal to start game
+    if button ~= 1 then
+        return
+    end
+
+    -- If New Game clicked, signal to enter loading state
+    if buttonHovered then
+        return true
+    end
+
+    -- If Load Game clicked, attempt to load the most recent save and enter game
+    if loadButtonHovered then
+        -- Try to load using global Game.load; fall back silently if unavailable
+        if _G.Game and _G.Game.load then
+            -- attempt to load default slot name 'slot1' (adjust as needed)
+            local ok, err = _G.Game.load('slot1')
+            if ok then
+                return false -- don't trigger loading screen; Game.load will set state
+            end
+        end
     end
 end
 
