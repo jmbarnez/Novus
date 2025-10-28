@@ -247,6 +247,68 @@ function InputSystem.update(dt)
             -- Apply thrust force (accumulated with other forces this frame)
             ForceUtils.applyForce(controlledEntity, thrust_x, thrust_y)
         end
+        
+        -- Handle cursor-based ship rotation for player ships
+        local polygonShape = ECS.getComponent(controlledEntity, "PolygonShape")
+        local angularVelocity = ECS.getComponent(controlledEntity, "AngularVelocity")
+        local position = ECS.getComponent(controlledEntity, "Position")
+        local physics = ECS.getComponent(controlledEntity, "Physics")
+        
+        if polygonShape and angularVelocity and position and physics then
+            -- Get cursor position in world coordinates
+            local Scaling = require('src.scaling')
+            local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+            local cameraComp = cameraEntities[1] and ECS.getComponent(cameraEntities[1], "Camera")
+            local cameraPos = cameraEntities[1] and ECS.getComponent(cameraEntities[1], "Position")
+            
+            if cameraComp and cameraPos and love and love.mouse then
+                local mouseX, mouseY = love.mouse.getPosition()
+                local worldMouseX, worldMouseY = Scaling.toWorld(mouseX, mouseY, cameraComp, cameraPos)
+                
+                -- Calculate angle from ship to cursor
+                local dx = worldMouseX - position.x
+                local dy = worldMouseY - position.y
+                local distance = math.sqrt(dx * dx + dy * dy)
+                
+                if distance > 10 then -- Only rotate if cursor is far enough from ship
+                    -- Get ship design to account for front direction
+                    local wreckage = ECS.getComponent(controlledEntity, "Wreckage")
+                    local frontDirection = 0
+                    if wreckage and wreckage.sourceShip then
+                        local ShipLoader = require('src.ship_loader')
+                        local shipDesign = ShipLoader.getDesign(wreckage.sourceShip)
+                        if shipDesign and shipDesign.frontDirection then
+                            frontDirection = shipDesign.frontDirection
+                        end
+                    end
+                    
+                    local targetAngle = math.atan2(dy, dx) - frontDirection
+                    local currentAngle = polygonShape.rotation or 0
+                    
+                    -- Calculate angle difference
+                    local angleDiff = targetAngle - currentAngle
+                    
+                    -- Normalize angle difference to [-π, π]
+                    while angleDiff > math.pi do angleDiff = angleDiff - 2 * math.pi end
+                    while angleDiff < -math.pi do angleDiff = angleDiff + 2 * math.pi end
+                    
+                    -- Apply rotation speed limit (radians per second)
+                    local maxRotationSpeed = 3.0 -- Adjust this for faster/slower rotation
+                    local rotationSpeed = math.min(math.abs(angleDiff) * 2, maxRotationSpeed)
+                    
+                    if angleDiff > 0 then
+                        angularVelocity.omega = rotationSpeed
+                    elseif angleDiff < 0 then
+                        angularVelocity.omega = -rotationSpeed
+                    else
+                        angularVelocity.omega = 0
+                    end
+                else
+                    -- Stop rotation when cursor is close to ship
+                    angularVelocity.omega = 0
+                end
+            end
+        end
     end
 
     -- Handle weapon firing for entities with turrets

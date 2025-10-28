@@ -8,17 +8,17 @@ return {
     
     -- Visual design (equilateral triangle)
     polygon = {
-        -- Side length = 16, height = side * sqrt(3)/2
+        -- Side length = 32, height = side * sqrt(3)/2
         -- Centroid at origin: top vertex y = -2/3*height, base vertices y = 1/3*height
-        { x = 0,             y = -2 * (16 * math.sqrt(3) / 2) / 3 },
-        { x = 16 / 2,        y = (16 * math.sqrt(3) / 2) / 3 },
-        { x = -16 / 2,       y = (16 * math.sqrt(3) / 2) / 3 },
+        { x = 0,             y = -2 * (32 * math.sqrt(3) / 2) / 3 },
+        { x = 32 / 2,        y = (32 * math.sqrt(3) / 2) / 3 },
+        { x = -32 / 2,       y = (32 * math.sqrt(3) / 2) / 3 },
     cockpitOffsetX = 0,
-    cockpitOffsetY = -(16 * math.sqrt(3) / 2) * 0.2,
-    cockpitRadius = 4,
+    cockpitOffsetY = -(32 * math.sqrt(3) / 2) * 0.2,
+    cockpitRadius = 8,
     -- Position turret slightly forward toward the triangle tip
     turretOffsetX = 0,
-    turretOffsetY = -(16 * math.sqrt(3) / 2) * 0.25,
+    turretOffsetY = -(32 * math.sqrt(3) / 2) * 0.25,
     -- rotation can be set per-design (in radians) to rotate the whole polygon
     rotation = 0,
     },
@@ -33,19 +33,21 @@ return {
     },
     texture = {
         stripes = {
-            {x1 = 0, y1 = -8, x2 = 0, y2 = 7.5, color = {1, 0.7, 0.2, 0.5}}, -- Center stripe
-            {x1 = 2.2, y1 = -5.5, x2 = 2.2, y2 = 4.5, color = {0.8, 0.2, 0.2, 0.4}}, -- Left stripe
-            {x1 = -2.2, y1 = -5.5, x2 = -2.2, y2 = 4.5, color = {0.8, 0.2, 0.2, 0.4}}, -- Right stripe
+            {x1 = 0, y1 = -16, x2 = 0, y2 = 15, color = {1, 0.7, 0.2, 0.5}}, -- Center stripe
+            {x1 = 4.4, y1 = -11, x2 = 4.4, y2 = 9, color = {0.8, 0.2, 0.2, 0.4}}, -- Left stripe
+            {x1 = -4.4, y1 = -11, x2 = -4.4, y2 = 9, color = {0.8, 0.2, 0.2, 0.4}}, -- Right stripe
         },
         cockpit = {
-            {x = 0, y = -7, r = 1.2, color = {0.15, 0.15, 0.22, 1}}, -- Cockpit dome
+            {x = 0, y = -14, r = 2.4, color = {0.15, 0.15, 0.22, 1}}, -- Cockpit dome
         },
         engineGlow = {
-            {x = 2.8, y = 7.2, r = 0.7, color = {0.7, 0.7, 1, 0.7}}, -- Left engine glow
-            {x = -2.8, y = 7.2, r = 0.7, color = {0.7, 0.7, 1, 0.7}}, -- Right engine glow
+            {x = 5.6, y = 14.4, r = 1.4, color = {0.7, 0.7, 1, 0.7}}, -- Left engine glow
+            {x = -5.6, y = 14.4, r = 1.4, color = {0.7, 0.7, 1, 0.7}}, -- Right engine glow
         }
     },
-    collisionRadius = 6,
+    collisionRadius = 12,
+    frontDirection = -math.pi/2, -- Front faces "right" (90 degrees counter-clockwise from up)
+    turretConeAngle = math.pi/2, -- Turret can aim within 90 degrees (±45 degrees from front)
     
     -- Stats (same as starter drone)
     hull = {current = 60, max = 60},

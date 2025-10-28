@@ -54,49 +54,69 @@ local RenderTurrets = {}
 local DEBUG_TURRET_AIM = false
 
 function RenderTurrets.drawPlayerTurret(entityId, position, polygonShape, renderable)
+    -- Get ship design to access frontDirection and turretConeAngle
+    local wreckage = ECS.getComponent(entityId, "Wreckage")
+    local frontDirection = 0 -- Default to 0 if no design found
+    local turretConeAngle = math.pi -- Default to 180 degrees (no constraint)
+    
+    if wreckage and wreckage.sourceShip then
+        local ShipLoader = require('src.ship_loader')
+        local shipDesign = ShipLoader.getDesign(wreckage.sourceShip)
+        if shipDesign then
+            if shipDesign.frontDirection then
+                frontDirection = shipDesign.frontDirection
+            end
+            if shipDesign.turretConeAngle then
+                turretConeAngle = shipDesign.turretConeAngle
+            end
+        end
+    end
+    
+    -- Calculate turret position
+    local toffX = polygonShape.turretOffsetX or polygonShape.cockpitOffsetX or 0
+    local toffY = polygonShape.turretOffsetY or polygonShape.cockpitOffsetY or 0
+    local cos = math.cos(polygonShape.rotation)
+    local sin = math.sin(polygonShape.rotation)
+    local turretWorldX = position.x + (toffX * cos - toffY * sin)
+    local turretWorldY = position.y + (toffX * sin + toffY * cos)
+    
+    -- Calculate desired aim angle (cursor direction)
     local mouseScreenX, mouseScreenY = love.mouse.getPosition()
     local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
     local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
     local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
     
+    local desiredAngle = (polygonShape.rotation or 0) + frontDirection -- Default to ship front
+    
     if cameraComp and cameraPos then
-        -- Use helper to convert screen mouse coords to world coords (camera-aware)
+        local Scaling = require('src.scaling')
         local mouseX, mouseY = Scaling.toWorld(mouseScreenX, mouseScreenY, cameraComp, cameraPos)
-        -- atan2 handles full 360 degrees; use (dy, dx) order for proper angle calculation
-        local aimAngle = math.atan2(mouseY - position.y, mouseX - position.x)
-        local toffX = polygonShape.turretOffsetX or polygonShape.cockpitOffsetX or 0
-        local toffY = polygonShape.turretOffsetY or polygonShape.cockpitOffsetY or 0
-        local cos = math.cos(polygonShape.rotation)
-        local sin = math.sin(polygonShape.rotation)
-        local turretWorldX = position.x + (toffX * cos - toffY * sin)
-        local turretWorldY = position.y + (toffX * sin + toffY * cos)
-        local baseRadius = estimateBaseRadius(entityId, polygonShape, renderable)
-        drawTurret(entityId, turretWorldX, turretWorldY, renderable.color, aimAngle, baseRadius)
-        -- Debug drawing commented out - turret now works correctly in all 360 degrees
-        -- if DEBUG_TURRET_AIM then
-        --     -- Draw debug line from turret to mouse and print computed values
-        --     love.graphics.push()
-        --     love.graphics.setColor(1, 0, 0, 0.9)
-        --     love.graphics.setLineWidth(2)
-        --     love.graphics.line(turretWorldX, turretWorldY, mouseX, mouseY)
-        --     love.graphics.setLineWidth(1)
-        --     love.graphics.setColor(1, 1, 1, 1)
-        --     local dx = mouseX - position.x
-        --     local dy = mouseY - position.y
-        --     local info = string.format("aim=%.3f\ndx=%.1f dy=%.1f", aimAngle or 0, dx or 0, dy or 0)
-        --     love.graphics.print(info, turretWorldX + 8, turretWorldY - 16)
-        --     love.graphics.pop()
-        -- end
-    else
-        local toffX = polygonShape.turretOffsetX or polygonShape.cockpitOffsetX or 0
-        local toffY = polygonShape.turretOffsetY or polygonShape.cockpitOffsetY or 0
-        local cos = math.cos(polygonShape.rotation)
-        local sin = math.sin(polygonShape.rotation)
-        local turretWorldX = position.x + (toffX * cos - toffY * sin)
-        local turretWorldY = position.y + (toffX * sin + toffY * cos)
-    local baseRadius = estimateBaseRadius(entityId, polygonShape, renderable)
-    drawTurret(entityId, turretWorldX, turretWorldY, renderable.color, polygonShape.rotation, baseRadius)
+        local dx = mouseX - position.x
+        local dy = mouseY - position.y
+        local distance = math.sqrt(dx * dx + dy * dy)
+        
+        if distance > 5 then -- Only aim if cursor is far enough from ship
+            desiredAngle = math.atan2(dy, dx)
+        end
     end
+    
+    -- Calculate ship's front direction in world space
+    local shipFrontAngle = (polygonShape.rotation or 0) + frontDirection
+    
+    -- Constrain turret aim to cone around ship's front direction
+    local coneHalfAngle = turretConeAngle / 2
+    local angleDiff = desiredAngle - shipFrontAngle
+    
+    -- Normalize angle difference to [-π, π]
+    while angleDiff > math.pi do angleDiff = angleDiff - 2 * math.pi end
+    while angleDiff < -math.pi do angleDiff = angleDiff + 2 * math.pi end
+    
+    -- Clamp to cone boundaries
+    local constrainedAngleDiff = math.max(-coneHalfAngle, math.min(coneHalfAngle, angleDiff))
+    local aimAngle = shipFrontAngle + constrainedAngleDiff
+    
+    local baseRadius = estimateBaseRadius(entityId, polygonShape, renderable)
+    drawTurret(entityId, turretWorldX, turretWorldY, renderable.color, aimAngle, baseRadius)
 end
 
 function RenderTurrets.drawEnemyTurret(entityId, position, polygonShape, renderable)
