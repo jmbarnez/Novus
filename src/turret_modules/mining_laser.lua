@@ -189,7 +189,8 @@ function MiningLaser.applyBeam(ownerId, startX, startY, endX, endY, dt, turretCo
                 -- Track who is damaging this asteroid
                 local ownerEntity = ECS.getComponent(ownerId, "ControlledBy")
                 if ownerEntity and ownerEntity.pilotId then
-                    ECS.addComponent(hitAsteroidId, "LastDamager", Components.LastDamager(ownerEntity.pilotId, "mining_laser"))
+                    local EntityHelpers = require('src.entity_helpers')
+                    EntityHelpers.recordLastDamager(hitAsteroidId, ownerEntity.pilotId, "mining_laser")
                 end
                 
                 -- Enhanced visual feedback: More particles as asteroid gets damaged

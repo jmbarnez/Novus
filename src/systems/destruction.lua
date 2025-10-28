@@ -173,54 +173,72 @@ function DestructionSystem.update(dt)
                 -- Asteroid: drop items based on asteroid type
                 local asteroid = ECS.getComponent(entityId, "Asteroid")
                 if asteroid and (not durability or not durability.spawnBits) then
-                    local collidable = ECS.getComponent(entityId, "Collidable")
-                    local parentSize = collidable and collidable.radius or 20
-                    
-                    -- Determine item type and base count
-                    local itemType = "stone"
-                    local baseCount = math.random(8, 15)
-
-                    if asteroid.asteroidType == "crystal" then
-                        itemType = "crystal"
-                        baseCount = math.random(3, 6)  -- Crystals are rarer, so fewer drop
-                    elseif asteroid.asteroidType == "iron" then
-                        itemType = "iron"
-                        baseCount = math.random(6, 12)  -- Iron gives good yield
-                    end
-
-                    -- Crystal asteroids may also drop some stone fragments
-                    if asteroid.asteroidType == "crystal" and math.random() < 0.3 then
-                        DestructionSystem.spawnItems(pos.x + math.random(-10, 10), pos.y + math.random(-10, 10), {
-                            {itemId = "stone", count = math.random(2, 4)}
-                        })
-                    end
-                    
-                    -- Size bonus: Larger asteroids give more resources
-                    local sizeMultiplier = 1.0 + (parentSize / 100)  -- +1% per radius unit
-                    baseCount = math.floor(baseCount * sizeMultiplier)
-                    
-                    -- Skill bonus: Higher mining skill increases yield
-                    local playerEntities = ECS.getEntitiesWith({"Player", "Skills"})
-                    if #playerEntities > 0 then
-                        local skills = ECS.getComponent(playerEntities[1], "Skills")
-                        if skills and skills.skills.mining then
-                            local miningLevel = skills.skills.mining.level
-                            local skillBonus = 1.0 + (miningLevel * 0.15)  -- +15% per level
-                            baseCount = math.floor(baseCount * skillBonus)
+                    -- Only award/spawn loot if the last damager exists, is recent, and is a player
+                    local lastDamager = ECS.getComponent(entityId, "LastDamager")
+                    local shouldDrop = false
+                    if lastDamager and lastDamager.pilotId and lastDamager.timestamp then
+                        local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or os.time()
+                        local age = now - lastDamager.timestamp
+                        if age <= 2 then -- only attribute to recent damagers (2s)
+                            if ECS.hasComponent(lastDamager.pilotId, "Player") then
+                                shouldDrop = true
+                            end
                         end
                     end
-                    
-                    DestructionSystem.spawnItems(pos.x, pos.y, {
-                        count = baseCount,
-                        itemType = itemType,
-                        distance = 0,
-                        speed = {Constants.bit_spawn_speed_asteroid_min or 40, Constants.bit_spawn_speed_asteroid_max or 120}
-                    })
-                    
-                    -- Mark asteroid for respawn in its cluster
-                    local cluster = AsteroidClusters.getClusterForAsteroid(entityId)
-                    if cluster then
-                        AsteroidClusters.markForRespawn(entityId, cluster)
+
+                    if shouldDrop then
+                        local collidable = ECS.getComponent(entityId, "Collidable")
+                        local parentSize = collidable and collidable.radius or 20
+
+                        -- Determine item type and base count
+                        local itemType = "stone"
+                        local baseCount = math.random(8, 15)
+
+                        if asteroid.asteroidType == "crystal" then
+                            itemType = "crystal"
+                            baseCount = math.random(3, 6)  -- Crystals are rarer, so fewer drop
+                        elseif asteroid.asteroidType == "iron" then
+                            itemType = "iron"
+                            baseCount = math.random(6, 12)  -- Iron gives good yield
+                        end
+
+                        -- Crystal asteroids may also drop some stone fragments
+                        if asteroid.asteroidType == "crystal" and math.random() < 0.3 then
+                            DestructionSystem.spawnItems(pos.x + math.random(-10, 10), pos.y + math.random(-10, 10), {
+                                {itemId = "stone", count = math.random(2, 4)}
+                            })
+                        end
+
+                        -- Size bonus: Larger asteroids give more resources
+                        local sizeMultiplier = 1.0 + (parentSize / 100)  -- +1% per radius unit
+                        baseCount = math.floor(baseCount * sizeMultiplier)
+
+                        -- Skill bonus: Higher mining skill increases yield
+                        local playerEntities = ECS.getEntitiesWith({"Player", "Skills"})
+                        if #playerEntities > 0 then
+                            local skills = ECS.getComponent(playerEntities[1], "Skills")
+                            if skills and skills.skills.mining then
+                                local miningLevel = skills.skills.mining.level
+                                local skillBonus = 1.0 + (miningLevel * 0.15)  -- +15% per level
+                                baseCount = math.floor(baseCount * skillBonus)
+                            end
+                        end
+
+                        -- Spawn items but tag them so only lastDamager can see/pick them up
+                        local spawned = DestructionSystem.spawnItems(pos.x, pos.y, {
+                            count = baseCount,
+                            itemType = itemType,
+                            distance = 0,
+                            speed = {Constants.bit_spawn_speed_asteroid_min or 40, Constants.bit_spawn_speed_asteroid_max or 120}
+                        })
+
+                        -- TODO: Tag spawned items with an "ownerPilotId" or similar so only the lastDamager can pick them up.
+
+                        -- Mark asteroid for respawn in its cluster
+                        local cluster = AsteroidClusters.getClusterForAsteroid(entityId)
+                        if cluster then
+                            AsteroidClusters.markForRespawn(entityId, cluster)
+                        end
                     end
                 end
             end
@@ -241,7 +259,7 @@ function DestructionSystem.update(dt)
 
             -- Check if asteroid was destroyed by enemy (not player)
             local wasDestroyedByEnemy = false
-            if asteroid and lastDamager then
+            if asteroid and lastDamager and lastDamager.pilotId then
                 -- Check if the last damager was an AI-controlled entity (enemy)
                 local damagerEntity = ECS.getComponent(lastDamager.pilotId, "AI")
                 if damagerEntity then
@@ -259,8 +277,8 @@ function DestructionSystem.update(dt)
                 end
             end
 
-            -- Award mining XP if asteroid was destroyed by player
-            if asteroid and not wasDestroyedByEnemy then
+            -- Award mining XP ONLY if asteroid was destroyed by player (has LastDamager and not enemy AI)
+            if asteroid and lastDamager and not wasDestroyedByEnemy then
                 local xpAmount = asteroid.xpReward
                 SkillXP.awardXp("mining", xpAmount)
                 

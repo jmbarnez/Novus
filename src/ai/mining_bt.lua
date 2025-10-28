@@ -284,7 +284,8 @@ local function applyMinerDamage(entity, asteroidId, asteroidX, asteroidY, dt)
             durability.current = durability.current - damageApplied
 
             -- Track that this asteroid is being damaged by an enemy miner
-            ECS.addComponent(asteroidId, "LastDamager", {pilotId = entity, weaponType = "enemy_mining_laser"})
+            local EntityHelpers = require('src.entity_helpers')
+            EntityHelpers.recordLastDamager(asteroidId, entity, "enemy_mining_laser")
         end
 
         -- Create debris at impact point

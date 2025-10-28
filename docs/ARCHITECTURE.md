@@ -24,7 +24,7 @@ test2/
 ├── conf.lua              # LÖVE configuration (must stay in root)
 ├── main.lua              # Love2D entry point (delegates to core)
 ├── src/                  # All game modules
-│   ├── main.lua          # Love2D entry point (duplicate for compatibility)
+│   ├── (no main.lua)      # Entry point is the repository root `main.lua`
 │   ├── core.lua          # Core game logic and initialization
 │   ├── ecs.lua           # Entity Component System core
 │   ├── components.lua    # Component type definitions

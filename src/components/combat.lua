@@ -66,10 +66,12 @@ end
 -- LastDamager component - Tracks who last damaged an entity
 -- @field pilotId number: The pilot ID of whoever dealt the last damage
 -- @field weaponType string: The type of weapon used (e.g. "mining_laser", "basic_cannon")
-Components.LastDamager = function(pilotId, weaponType)
+-- @field timestamp number: Time when the damage was recorded (seconds)
+Components.LastDamager = function(pilotId, weaponType, timestamp)
     return {
         pilotId = pilotId or 0,
-        weaponType = weaponType or "unknown"
+        weaponType = weaponType or "unknown",
+        timestamp = timestamp or 0
     }
 end
 

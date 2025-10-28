@@ -393,6 +393,12 @@ local function applyProjectileDamage(projectileId, targetId)
     local durability = ECS.getComponent(targetId, "Durability")
     if durability then
         durability.current = durability.current - damage
+        
+        -- Track who damaged this asteroid for XP/loot purposes (projectiles)
+        if proj.ownerId then
+            local EntityHelpers = require('src.entity_helpers')
+            EntityHelpers.recordLastDamager(targetId, proj.ownerId, "projectile")
+        end
     end
     
     -- Trigger aggressive reaction if victim is AI

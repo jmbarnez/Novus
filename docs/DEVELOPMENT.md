@@ -53,23 +53,25 @@ Love2D uses LuaJIT 2.1 which is Lua 5.1-compatible. Using Lua 5.2+ features will
 - **Split when it makes logical sense, not based on arbitrary limits**
 - **Prioritize readability and maintainability over file size restrictions**
 
-### No Fallbacks
-- **Never implement error handling or backup systems**
-- **Systems must work perfectly or fail immediately**
-- **No try-catch, no default values, no graceful degradation**
-- If something breaks, let it break loudly and clearly
+### Error handling and fallbacks
 
-### Simple Logging
-- **Log only to show systems operating normally**
-- Use print statements sparingly for critical system confirmations
-- Example: `print("Camera initialized")` after successful setup
-- **Never log errors or warnings** - let failures be obvious through crashes
+- Prefer fail-fast behavior for critical systems so bugs are noticed quickly. However, use pragmatic error handling where it improves user experience or prevents data loss (for example: save/load operations, network I/O, and non-critical UI features).
+- Use clear, actionable error messages and avoid silent failures. Document where graceful degradation is acceptable and when strict failure is required.
 
-### No Testing
-- **Never write unit tests, integration tests, or any automated testing**
-- **Manual testing only** - run the game and observe behavior
-- Testing frameworks are forbidden
-- Debug by running the code and fixing what breaks
+### Logging
+- Use logging to aid debugging and observability. Log important lifecycle events (initialization, major state changes) and error conditions with enough context to diagnose issues.
+- Prefer structured messages where possible and avoid excessive debug spam in hot code paths. Errors and warnings should be logged — do not rely on crashes to signal problems.
+- Example: `print("Camera initialized")` for lifecycle events; include entity IDs and relevant state in error logs.
+
+### Testing
+Automated tests are encouraged for core logic and critical systems.
+
+- The repository contains a `tests/` directory with example/unit tests (for example: `tests/ecs_core_test.lua`, `tests/entity_pool_test.lua`). Use these as a starting point when adding tests.
+- If a unified test runner is not present, run tests locally according to project conventions (keep tests simple and runnable). Consider adding a lightweight test runner or CI step in the future.
+- Include tests with pull requests that introduce bug fixes or change core behavior. Fast, deterministic tests increase confidence and make refactors safer.
+- Keep tests focused on logic (ECS core, entity pools, deterministic algorithms) and avoid fragile integration tests that require a running Love2D session.
+
+If contributors prefer manual smoke testing for visual features (UI, rendering), document the steps needed to reproduce behavior in the change description.
 
 ### Lots of Comments
 - **Comment every function, every significant code block**
@@ -89,11 +91,9 @@ Love2D uses LuaJIT 2.1 which is Lua 5.1-compatible. Using Lua 5.2+ features will
 - **Import separation**: Explicit requires with full paths
 - **No cross-contamination**: Systems should not know about each other's internals
 
-### No Hard-coded Values (Except for Testing)
-- **Never hard-code numbers, strings, or configuration**
-- **Extract all values to named constants or configuration objects**
-- **Exception**: Hard-coded values are acceptable during initial development/testing phases
-- **Later**: Replace test hard-codes with proper configuration systems
+### Avoid hard-coded values
+- Prefer named constants or configuration for values that are likely to change or that affect gameplay balance. This makes tuning and localization easier.
+- Small, local constants used during early development are acceptable, but add a follow-up task to extract frequently-tuned values into `src/constants.lua` or a configuration layer.
 
 ## Organization Guidelines
 ├── conf.lua              # LÖVE config (framework requirement)

@@ -310,7 +310,8 @@ function ContinuousBeam.applyBeam(ownerId, startX, startY, endX, endY, dt, turre
                 -- Track who is damaging this asteroid
                 local ownerEntity = ECS.getComponent(ownerId, "ControlledBy")
                 if ownerEntity and ownerEntity.pilotId then
-                    ECS.addComponent(hitEntityId, "LastDamager", Components.LastDamager(ownerEntity.pilotId, "continuous_beam"))
+                    local EntityHelpers = require('src.entity_helpers')
+                    EntityHelpers.recordLastDamager(hitEntityId, ownerEntity.pilotId, "continuous_beam")
                 end
                 
                 -- Enhanced visual feedback: More particles as asteroid gets damaged

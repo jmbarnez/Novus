@@ -8,6 +8,34 @@ local EntityHelpers = {}
 local CachedAISystem = nil
 local CachedShieldImpactSystem = nil
 
+-- Record the last damager for a target entity in a canonical, update-in-place way
+-- Normalizes pilotId (prefers pilot entity if provided) and writes a timestamp
+-- @param targetId number: entity that took damage
+-- @param pilotId number: entity ID of pilot or ship responsible
+-- @param weaponType string: textual weapon type
+-- @param now number: optional timestamp (os.time()/love.timer.getTime())
+function EntityHelpers.recordLastDamager(targetId, pilotId, weaponType, now)
+    if not targetId or not pilotId then return end
+    now = now or (love and love.timer and love.timer.getTime and love.timer.getTime() or os.time())
+
+    -- Prefer pilot entity if pilotId references a ship with ControlledBy
+    local candidatePilot = pilotId
+    local controlledBy = ECS.getComponent(pilotId, "ControlledBy")
+    if controlledBy and controlledBy.pilotId then
+        candidatePilot = controlledBy.pilotId
+    end
+
+    local existing = ECS.getComponent(targetId, "LastDamager")
+    if existing then
+        existing.pilotId = candidatePilot
+        existing.weaponType = weaponType or existing.weaponType
+        existing.timestamp = now
+    else
+        local Components = require('src.components')
+        ECS.addComponent(targetId, "LastDamager", Components.LastDamager(candidatePilot, weaponType, now))
+    end
+end
+
 -- Get the player's pilot entity (the entity with Player and InputControlled components)
 -- Returns the pilot entity ID, or nil if not found
 function EntityHelpers.getPlayerPilot()
