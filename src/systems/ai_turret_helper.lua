@@ -105,6 +105,112 @@ function AiTurretHelper.getEffectiveEngagementRange(turretModule, minEffectivene
     return 1000  -- Fallback
 end
 
+-- AI SMART FIRING LOGIC: Determines if AI should fire this frame based on heat, energy, and burst patterns
+-- @param eid: Entity ID
+-- @param turret: Turret component
+-- @param turretModule: Turret module definition
+-- @param dt: Delta time
+-- @return shouldFire (boolean)
+function AiTurretHelper.shouldFireThisFrame(eid, turret, turretModule, dt)
+    -- Initialize AI firing state if not exists
+    if not turret._aiFiringState then
+        -- Get AI component to check for custom firing behavior
+        local ai = ECS.getComponent(eid, "AI")
+        local firingStyle = ai and ai.firingStyle or "balanced"
+        
+        -- Different firing patterns based on AI personality
+        local firingConfigs = {
+            aggressive = {
+                maxBurstLength = 4,    -- Longer bursts
+                cooldownLength = 1,   -- Shorter cooldowns
+                energyThreshold = 0.2, -- Fire until very low energy
+                heatThreshold = 0.8    -- Allow higher heat
+            },
+            balanced = {
+                maxBurstLength = 3,    -- Standard bursts
+                cooldownLength = 2,   -- Standard cooldowns
+                energyThreshold = 0.3, -- Stop at 30% energy
+                heatThreshold = 0.7    -- Stop at 70% heat
+            },
+            conservative = {
+                maxBurstLength = 2,    -- Shorter bursts
+                cooldownLength = 3,   -- Longer cooldowns
+                energyThreshold = 0.5, -- Stop at 50% energy
+                heatThreshold = 0.5    -- Stop at 50% heat
+            },
+            sniper = {
+                maxBurstLength = 1,    -- Very short bursts
+                cooldownLength = 4,   -- Long cooldowns
+                energyThreshold = 0.4, -- Moderate energy conservation
+                heatThreshold = 0.6    -- Moderate heat management
+            }
+        }
+        
+        local config = firingConfigs[firingStyle] or firingConfigs.balanced
+        
+        turret._aiFiringState = {
+            burstTimer = 0,
+            cooldownTimer = 0,
+            burstCount = 0,
+            maxBurstLength = config.maxBurstLength,
+            cooldownLength = config.cooldownLength,
+            energyThreshold = config.energyThreshold,
+            heatThreshold = config.heatThreshold
+        }
+    end
+    
+    local state = turret._aiFiringState
+    local energy = ECS.getComponent(eid, "Energy")
+    local maxHeat = turretModule.MAX_HEAT or 10
+    
+    -- Calculate current heat and energy percentages
+    local heatPercent = turret.heat and (turret.heat.current / maxHeat) or 0
+    local energyPercent = energy and (energy.current / energy.max) or 1
+    
+    -- Emergency stops: Don't fire if critically low energy or high heat
+    if energyPercent < state.energyThreshold then
+        state.burstTimer = 0
+        state.cooldownTimer = state.cooldownLength
+        return false
+    end
+    
+    if heatPercent > state.heatThreshold then
+        state.burstTimer = 0
+        state.cooldownTimer = state.cooldownLength
+        return false
+    end
+    
+    -- If in cooldown phase, count down and don't fire
+    if state.cooldownTimer > 0 then
+        state.cooldownTimer = state.cooldownTimer - dt
+        return false
+    end
+    
+    -- If in burst phase, count down and fire
+    if state.burstTimer > 0 then
+        state.burstTimer = state.burstTimer - dt
+        
+        -- Check if we should stop burst early due to heat/energy
+        if heatPercent > 0.5 or energyPercent < 0.5 then
+            state.burstTimer = 0
+            state.cooldownTimer = state.cooldownLength
+            return false
+        end
+        
+        return true
+    end
+    
+    -- Start new burst if conditions are good
+    if energyPercent > 0.6 and heatPercent < 0.4 then
+        state.burstTimer = state.maxBurstLength
+        state.cooldownTimer = 0
+        return true
+    end
+    
+    -- Otherwise, don't fire
+    return false
+end
+
 -- Fire a laser turret with proper positioning and damage handling
 -- Consolidated logic from chase/orbit states to reduce duplication
 -- @param eid: Entity ID of the shooter
@@ -157,6 +263,11 @@ function AiTurretHelper.fireLaserAtTarget(eid, turret, turretModule, targetPos, 
     
     -- Check if damage at this distance is meaningful
     if not AiTurretHelper.canFireAtDistance(turretModule, dist) then
+        return false
+    end
+    
+    -- AI SMART FIRING LOGIC: Implement burst firing patterns
+    if not AiTurretHelper.shouldFireThisFrame(eid, turret, turretModule, dt) then
         return false
     end
     

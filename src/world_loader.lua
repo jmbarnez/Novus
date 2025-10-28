@@ -311,7 +311,7 @@ function WorldLoader.spawnEnemies(config)
                             local ai = ECS.getComponent(shipId, "AI")
                             if ai then
                                 -- Determine mining weapon special-case (legacy)
-                                local isMiningWeapon = (weapon == "mining_laser" or weapon == "salvage_laser")
+                                local isMiningWeapon = (weapon == "continuous_beam")
                                 if isMiningWeapon then
                                     ai.type = "mining"
                                     ai.state = "mining"
@@ -405,7 +405,7 @@ function WorldLoader.spawnEnemy(enemyType, config)
         local ai = ECS.getComponent(shipId, "AI")
         if ai then
             -- Old mining-specific weapons get forced to mining AI
-            local isMiningWeapon = (weapon == "mining_laser" or weapon == "salvage_laser")
+            local isMiningWeapon = (weapon == "continuous_beam")
             if isMiningWeapon then
                 ai.type = "mining"
                 ai.state = "mining"

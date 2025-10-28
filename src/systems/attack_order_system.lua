@@ -52,6 +52,11 @@ function AttackOrderSystem.update(dt)
             end
         end
 
+        -- AI SMART FIRING LOGIC: Use burst patterns for all weapon types
+        if not AiTurretHelper.shouldFireThisFrame(entityId, turret, turretModule, dt) then
+            goto continue
+        end
+
         -- Aim turret at target
         AiTurretHelper.aimTurretAtTarget(entityId, turret, pos, targetPos)
 

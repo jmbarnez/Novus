@@ -252,7 +252,7 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
             local t = ECS.getComponent(shipId, "Turret")
             if t and t.moduleName then
                 -- Legacy mining weapons: set to mining by default
-                if t.moduleName == "mining_laser" or t.moduleName == "salvage_laser" then
+                if t.moduleName == "continuous_beam" then
                     aiType = "mining"
                 end
             end

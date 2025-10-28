@@ -12,9 +12,6 @@ local EnergySystem = {
 -- Energy consumption constants
 local ENERGY_CONSUMPTION = {
     shield_regen = 5,      -- per second when shield is regenerating
-    mining_laser = 15,     -- per second when firing
-    combat_laser = 20,     -- per second when firing
-    salvage_laser = 18,    -- per second when firing
     continuous_beam = 20,   -- per second when firing (unified laser)
     basic_cannon = 50,     -- per shot
     missile_launcher = 80, -- per shot

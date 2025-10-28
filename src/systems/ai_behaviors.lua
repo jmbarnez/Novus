@@ -123,6 +123,11 @@ local function fireAtTarget(eid, turret, pos, playerPos, dt)
             end
         end
 
+        -- AI SMART FIRING LOGIC: Use burst patterns for all weapon types
+        if not AiTurretHelper.shouldFireThisFrame(eid, turret, turretModule, dt) then
+            return
+        end
+
         AiTurretHelper.aimTurretAtTarget(eid, turret, pos, playerPos)
         turretSys.fireTurret(eid, playerPos.x, playerPos.y, dt)
 

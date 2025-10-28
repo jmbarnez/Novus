@@ -15,9 +15,8 @@ local ENEMY_MINER_DPS = 0.8
 local MINING_DETECTION_RANGE = 800
 local MINING_RANGE = 150
 
--- Track laser beams per miner (key: minerId, value: laserEntity)
-local minerLasers = {}
-
+-- Forward declare so helper can be called from earlier functions
+local cleanupLaser
 local function buildDesignData(entity)
     local physics = ECS.getComponent(entity, "Physics")
     local wreck = ECS.getComponent(entity, "Wreckage")
@@ -105,7 +104,12 @@ local function fleeFromAttacker(entity, dt)
         fleeState.active = true
         fleeState.lostTimer = LOST_ATTACKER_GRACE
         if not wasActive then
+            -- Stop mining visuals when entering flee state
+            if cleanupLaser then cleanupLaser(entity) end
             ECS.removeComponent(entity, "MiningTarget")
+        else
+            -- Ensure beam is off while fleeing
+            if cleanupLaser then cleanupLaser(entity) end
         end
     elseif fleeState.active then
         fleeState.lostTimer = (fleeState.lostTimer or 0) - dt
@@ -195,7 +199,9 @@ local function findAsteroid(entity, dt)
         ECS.addComponent(entity, "MiningTarget", { asteroid = closest })
         return BehaviorTree.SUCCESS
     else
+        -- No asteroid found: clear target and any active beam
         ECS.removeComponent(entity, "MiningTarget")
+        if cleanupLaser then cleanupLaser(entity) end
         return BehaviorTree.FAILURE
     end
 end
@@ -204,15 +210,24 @@ local function moveToAsteroid(entity, dt)
     local pos = ECS.getComponent(entity, "Position")
     local vel = ECS.getComponent(entity, "Velocity")
     local miningTarget = ECS.getComponent(entity, "MiningTarget")
-    if not (pos and vel and miningTarget and miningTarget.asteroid) then return BehaviorTree.FAILURE end
+    if not (pos and vel and miningTarget and miningTarget.asteroid) then
+        if cleanupLaser then cleanupLaser(entity) end
+        return BehaviorTree.FAILURE
+    end
     local asteroidPos = ECS.getComponent(miningTarget.asteroid, "Position")
-    if not asteroidPos then return BehaviorTree.FAILURE end
+    if not asteroidPos then
+        if cleanupLaser then cleanupLaser(entity) end
+        return BehaviorTree.FAILURE
+    end
     local dx, dy = asteroidPos.x - pos.x, asteroidPos.y - pos.y
     local dist = math.sqrt(dx*dx + dy*dy)
 
     if dist <= MINING_RANGE then
         return BehaviorTree.SUCCESS
     end
+
+    -- Outside optimal range: ensure any mining beam is removed
+    if cleanupLaser then cleanupLaser(entity) end
 
     -- Use steering-aware chase to approach asteroid (prevents instant direction changes)
     local aiComp = ECS.getComponent(entity, "AI")
@@ -226,37 +241,38 @@ end
 
 -- Helper: Update laser beam for miner
 local function updateMinerLaser(entity, startX, startY, endX, endY)
-    -- Destroy old laser if it exists
-    if minerLasers[entity] then
-        local oldLaser = ECS.getComponent(minerLasers[entity], "LaserBeam")
-        if oldLaser then
-            ECS.destroyEntity(minerLasers[entity])
+    -- Use the turret's laser entity instead of creating our own
+    local turret = ECS.getComponent(entity, "Turret")
+    if not turret then return end
+    
+    -- If turret doesn't have a laser entity, create one via the continuous beam module
+    if not turret.laserEntity then
+        local ContinuousBeam = require('src.turret_modules.continuous_beam')
+        ContinuousBeam.fire(entity, startX, startY, endX, endY, turret)
+    end
+    
+    -- Update the existing laser beam position
+    if turret.laserEntity then
+        local laserBeam = ECS.getComponent(turret.laserEntity, "LaserBeam")
+        if laserBeam then
+            -- Offset start position away from owner ship
+            local offsetStartX = startX
+            local offsetStartY = startY
+            local ownerCollidable = ECS.getComponent(entity, "Collidable")
+            if ownerCollidable then
+                local dx = endX - startX
+                local dy = endY - startY
+                local dist = math.sqrt(dx * dx + dy * dy)
+                if dist > 0 then
+                    offsetStartX = startX + (dx / dist) * (ownerCollidable.radius + 5)
+                    offsetStartY = startY + (dy / dist) * (ownerCollidable.radius + 5)
+                end
+            end
+            
+            laserBeam.start = {x = offsetStartX, y = offsetStartY}
+            laserBeam.endPos = {x = endX, y = endY}
         end
     end
-
-    -- Offset start position away from owner ship
-    local offsetStartX = startX
-    local offsetStartY = startY
-    local ownerCollidable = ECS.getComponent(entity, "Collidable")
-    if ownerCollidable then
-        local dx = endX - startX
-        local dy = endY - startY
-        local dist = math.sqrt(dx * dx + dy * dy)
-        if dist > 0 then
-            offsetStartX = startX + (dx / dist) * (ownerCollidable.radius + 5)
-            offsetStartY = startY + (dy / dist) * (ownerCollidable.radius + 5)
-        end
-    end
-
-    -- Create new laser beam entity
-    local laserEntity = ECS.createEntity()
-    ECS.addComponent(laserEntity, "LaserBeam", {
-        start = {x = offsetStartX, y = offsetStartY},
-        endPos = {x = endX, y = endY},
-        color = {0, 0.7, 1, 1}  -- Blue for mining laser (matches continuous beam)
-    })
-
-    minerLasers[entity] = laserEntity
 end
 
 -- Helper: Apply mining damage
@@ -269,9 +285,9 @@ local function applyMinerDamage(entity, asteroidId, asteroidX, asteroidY, dt)
 
     if intersection then
         -- Update laser visual to end at collision point instead of asteroid center
-        local laserEntity = minerLasers[entity]
-        if laserEntity then
-            local laserBeam = ECS.getComponent(laserEntity, "LaserBeam")
+        local turret = ECS.getComponent(entity, "Turret")
+        if turret and turret.laserEntity then
+            local laserBeam = ECS.getComponent(turret.laserEntity, "LaserBeam")
             if laserBeam then
                 laserBeam.endPos = {x = intersection.x, y = intersection.y}
             end
@@ -285,7 +301,7 @@ local function applyMinerDamage(entity, asteroidId, asteroidX, asteroidY, dt)
 
             -- Track that this asteroid is being damaged by an enemy miner
             local EntityHelpers = require('src.entity_helpers')
-            EntityHelpers.recordLastDamager(asteroidId, entity, "enemy_mining_laser")
+            EntityHelpers.recordLastDamager(asteroidId, entity, "continuous_beam")
         end
 
         -- Create debris at impact point
@@ -345,7 +361,7 @@ local function mineAsteroid(entity, dt)
     local miningTarget = ECS.getComponent(entity, "MiningTarget")
     if not (miningTarget and miningTarget.asteroid) then
         -- Clean up laser if no target
-        cleanupLaser(entity)
+        if cleanupLaser then cleanupLaser(entity) end
         return BehaviorTree.FAILURE
     end
 
@@ -361,8 +377,8 @@ local function mineAsteroid(entity, dt)
     -- Future: Add energy consumption logic here if needed
     local energy = ECS.getComponent(entity, "Energy")
     if energy and energy.current < 1 then  -- Minimum energy threshold
-        -- Not enough energy to mine, but enemy miners currently have unlimited energy
-        -- This is where energy management would go for player-like mining
+        -- Not enough energy to mine, stop beam until we can resume
+        if cleanupLaser then cleanupLaser(entity) end
         return BehaviorTree.RUNNING  -- Keep trying, but don't consume energy yet
     end
 
@@ -390,14 +406,12 @@ local function mineAsteroid(entity, dt)
     return BehaviorTree.RUNNING
 end
 
--- Cleanup function for laser beams when miner is destroyed
-local function cleanupLaser(entity)
-    if minerLasers[entity] then
-        local laserBeam = ECS.getComponent(minerLasers[entity], "LaserBeam")
-        if laserBeam then
-            ECS.destroyEntity(minerLasers[entity])
-        end
-        minerLasers[entity] = nil
+-- Cleanup function for laser beams when miner is destroyed or stops mining
+function cleanupLaser(entity)
+    local turret = ECS.getComponent(entity, "Turret")
+    if turret and turret.laserEntity then
+        local ContinuousBeam = require('src.turret_modules.continuous_beam')
+        ContinuousBeam.stopFiring(turret)
     end
 end
 

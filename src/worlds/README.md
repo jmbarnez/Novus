@@ -44,7 +44,7 @@ return {
         -- Weapon assignments per enemy type
         weapons = {
             ["red_scout"] = "basic_cannon",
-            ["heavy_drone"] = "combat_laser"
+            ["heavy_drone"] = "continuous_beam"
         },
         
         -- AI behavior settings
