@@ -25,21 +25,21 @@ local Theme = {
     -- Semantic color tokens (use these instead of raw colors)
     colors = {
         -- Surfaces (background layers)
-        surface = {0.10, 0.10, 0.10, 1},      -- Main surface (dark gray)
-        surfaceAlt = {0.12, 0.12, 0.12, 1},   -- Alternative surface (slightly lighter)
-        surfaceLight = {0.15, 0.15, 0.15, 1}, -- Light surface
-        backdrop = {0.05, 0.05, 0.05, 0.8},   -- Backdrop/overlay
+        surface = {0.06, 0.06, 0.06, 1},      -- Main surface (darker gray)
+        surfaceAlt = {0.08, 0.08, 0.08, 1},   -- Alternative surface (slightly lighter)
+        surfaceLight = {0.10, 0.10, 0.10, 1}, -- Light surface
+        backdrop = {0.03, 0.03, 0.03, 0.8},   -- Backdrop/overlay
 
         -- Borders
-        border = {0.06, 0.06, 0.06, 1},       -- Default border
-        borderAlt = {0.08, 0.08, 0.08, 1},    -- Alternative border
-        borderLight = {0.20, 0.20, 0.20, 1},  -- Light border
-        borderAccent = {0.30, 0.30, 0.30, 1}, -- Accent border
+        border = {0.04, 0.04, 0.04, 1},       -- Default border
+        borderAlt = {0.06, 0.06, 0.06, 1},    -- Alternative border
+        borderLight = {0.15, 0.15, 0.15, 1},  -- Light border
+        borderAccent = {0.25, 0.25, 0.25, 1}, -- Accent border
 
         -- Text
-        text = {0.95, 0.95, 0.95, 1},         -- Primary text
-        textSecondary = {0.80, 0.80, 0.80, 1}, -- Secondary text
-        textMuted = {0.60, 0.60, 0.60, 1},    -- Muted text
+        text = {0.90, 0.90, 0.90, 1},         -- Primary text
+        textSecondary = {0.75, 0.75, 0.75, 1}, -- Secondary text
+        textMuted = {0.55, 0.55, 0.55, 1},    -- Muted text
         accent = {0.60, 0.80, 1.0, 1},        -- Accent text/color
 
         -- Interactive
@@ -153,23 +153,23 @@ local Theme = {
         dark = {
             name = "Dark",
             colors = {
-                surface = {0.10, 0.10, 0.10, 1},
-                surfaceAlt = {0.12, 0.12, 0.12, 1},
-                surfaceLight = {0.15, 0.15, 0.15, 1},
-                text = {0.95, 0.95, 0.95, 1},
-                textSecondary = {0.80, 0.80, 0.80, 1},
-                textMuted = {0.60, 0.60, 0.60, 1},
+                surface = {0.06, 0.06, 0.06, 1},
+                surfaceAlt = {0.08, 0.08, 0.08, 1},
+                surfaceLight = {0.10, 0.10, 0.10, 1},
+                text = {0.90, 0.90, 0.90, 1},
+                textSecondary = {0.75, 0.75, 0.75, 1},
+                textMuted = {0.55, 0.55, 0.55, 1},
             }
         },
         light = {
             name = "Light",
             colors = {
-                surface = {0.95, 0.95, 0.95, 1},
-                surfaceAlt = {0.90, 0.90, 0.90, 1},
-                surfaceLight = {0.85, 0.85, 0.85, 1},
-                text = {0.10, 0.10, 0.10, 1},
-                textSecondary = {0.30, 0.30, 0.30, 1},
-                textMuted = {0.50, 0.50, 0.50, 1},
+                surface = {0.70, 0.70, 0.70, 1},
+                surfaceAlt = {0.65, 0.65, 0.65, 1},
+                surfaceLight = {0.60, 0.60, 0.60, 1},
+                text = {0.15, 0.15, 0.15, 1},
+                textSecondary = {0.25, 0.25, 0.25, 1},
+                textMuted = {0.35, 0.35, 0.35, 1},
             }
         }
     },

@@ -239,12 +239,13 @@ local function drawDecorativeParts(parts)
         if part.x or part.y then
             love.graphics.translate(part.x or 0, part.y or 0)
         end
-        local t = love.timer.getTime()
-        local r = (part.rot or part.angle or 0) + ((part.spinSpeed or 0) * t)
-        if r ~= 0 then
+    -- Static parts only: ignore spinSpeed/time to keep decorations built-into the station
+    local r = part.rot or part.angle or 0
+    if r ~= 0 then
             love.graphics.rotate(r)
         end
-        love.graphics.setColor((part.color or {1,1,1,1}))
+        -- Use table.unpack to pass color components explicitly for compatibility
+        love.graphics.setColor(table.unpack(part.color or {1,1,1,1}))
         if part.type == "circle" then
             love.graphics.circle("fill", 0, 0, part.radius or 10)
         elseif part.type == "ring" then

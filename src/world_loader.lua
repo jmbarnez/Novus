@@ -9,6 +9,7 @@ local Procedural = require('src.procedural')
 local ShipLoader = require('src.ship_loader')
 local AsteroidClusters = require('src.systems.asteroid_clusters')
 local QuestSystem = require('src.systems.quest_system')
+local WorldObjects = require('src.world_objects')
 
 local WorldLoader = {
     worlds = {},
@@ -157,7 +158,20 @@ function WorldLoader.initWorld(worldId)
             stationDef.x, stationDef.y = 0, 0
         end
         
-        local stationComponents = require('src.procedural').generateEntity('station', stationDef)
+        local stationComponents
+        -- Prefer world_objects prefabs when a prefab is specified
+        if stationDef.prefab and WorldObjects and WorldObjects.getPrefab then
+            local prefab = WorldObjects.getPrefab(stationDef.prefab)
+            if prefab and prefab.generate then
+                stationComponents = prefab.generate(stationDef)
+            end
+        end
+
+        -- Fallback to procedural station template if no prefab generated components
+        if not stationComponents then
+            stationComponents = Procedural.generateEntity('station', stationDef)
+        end
+
         local stationId = ECS.createEntity()
         for compType, compData in pairs(stationComponents) do
             ECS.addComponent(stationId, compType, compData)

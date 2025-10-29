@@ -155,7 +155,11 @@ function Dropdown:drawOpen(alpha)
             love.graphics.rectangle('fill', self.x, optionY, contentWidth, self.itemHeight)
         end
 
-        love.graphics.setColor(isSelected and table.unpack(Theme.colors.accent) or table.unpack(Theme.colors.text))
+        if isSelected then
+            love.graphics.setColor(table.unpack(Theme.colors.accent))
+        else
+            love.graphics.setColor(table.unpack(Theme.colors.text))
+        end
         love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
         love.graphics.printf(option, self.x + 8, optionY + 2, contentWidth - 16, "left")
     end

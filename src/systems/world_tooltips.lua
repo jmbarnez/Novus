@@ -29,8 +29,11 @@ local tooltipExpanded = {}
 -- @param data table: Tooltip data {title, message, resources?, buttonText?, buttonCallback?}
 function WorldTooltips.registerTooltip(entityId, data)
     activeTooltips[entityId] = data
-    -- Start in compact mode by default
-    tooltipExpanded[entityId] = false
+    -- Preserve existing expanded state when re-registering; if there is
+    -- no entry yet, start in compact mode by default.
+    if tooltipExpanded[entityId] == nil then
+        tooltipExpanded[entityId] = false
+    end
 end
 
 -- Unregister a tooltip
@@ -282,6 +285,7 @@ function WorldTooltips.drawFullTooltip(entityId, gx, gy, gr, data)
     local font = Theme.getFont(16)
     local smallFont = Theme.getFont(12)
     love.graphics.setFont(font)
+    local Scaling = require('src.scaling')
 
     local tw = font:getWidth(data.title)
     local th = font:getHeight()
@@ -333,6 +337,48 @@ function WorldTooltips.drawFullTooltip(entityId, gx, gy, gr, data)
     love.graphics.setLineWidth(2)
     love.graphics.rectangle("line", bx, by, boxW, boxH, 6, 6)
 
+    -- Minimize button (top-right, looks like Windows minimize)
+    do
+        local minSize = 16
+        local minMargin = 8
+        local minX = bx + boxW - minSize - minMargin
+        local minY = by + minMargin
+
+        -- Determine hover state in either HUD or world render mode
+        local mx, my = love.mouse.getPosition()
+        local renderMode = WorldTooltips._renderMode or "world"
+        local isHovered = false
+        if renderMode == "hud" then
+            local uiMx, uiMy = Scaling.toUI(mx, my)
+            isHovered = uiMx and uiMy and uiMx >= minX and uiMx <= minX + minSize and uiMy >= minY and uiMy <= minY + minSize
+        else
+            local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+            if #cameraEntities > 0 then
+                local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
+                local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
+                local wx, wy = Scaling.toWorld(mx, my, cameraComp, cameraPos)
+                isHovered = wx and wy and wx >= minX and wx <= minX + minSize and wy >= minY and wy <= minY + minSize
+            end
+        end
+
+        local btnBg = isHovered and Theme.colors.surfaceAlt or Theme.colors.surface
+        local btnBorder = isHovered and Theme.colors.accentHover or Theme.colors.border
+
+        love.graphics.setColor(btnBg[1], btnBg[2], btnBg[3], 1)
+        love.graphics.rectangle("fill", minX, minY, minSize, minSize, 4, 4)
+        love.graphics.setColor(btnBorder[1], btnBorder[2], btnBorder[3], 1)
+        love.graphics.setLineWidth(1.5)
+        love.graphics.rectangle("line", minX, minY, minSize, minSize, 4, 4)
+
+        -- Draw the minimize underscore
+        love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], 1)
+        love.graphics.setLineWidth(2)
+        local ux1 = minX + 4
+        local ux2 = minX + minSize - 4
+        local uy = minY + minSize / 2 + 3
+        love.graphics.line(ux1, uy, ux2, uy)
+    end
+
     -- Title
     love.graphics.setFont(font)
     love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 1)
@@ -357,11 +403,6 @@ function WorldTooltips.drawFullTooltip(entityId, gx, gy, gr, data)
         WorldTooltips.drawButton(bx, by, boxW, boxH, data)
     end
     
-    -- Draw collapse hint at the bottom
-    local hintFont = Theme.getFont(10)
-    love.graphics.setFont(hintFont)
-    love.graphics.setColor(Theme.colors.textMuted[1], Theme.colors.textMuted[2], Theme.colors.textMuted[3], 1)
-    love.graphics.print("Click to collapse", bx + boxW - 100, by + boxH - 14)
 end
 
 -- Draw tooltips in HUD / screen (UI) space. Converts world positions to UI coordinates
@@ -671,6 +712,21 @@ function WorldTooltips.handleClick(mx, my, button)
                         -- Add extra padding between content and button
                         local buttonPadding = data.hasResources and 4 or 8
                         boxH = boxH + buttonPadding + buttonH + 8
+                    end
+                    -- Calculate tooltip origin for hit testing
+                    local bx = gx - boxW / 2
+                    local by = gy - gr - boxH - 8
+
+                    -- Minimize button hit test (top-right)
+                    do
+                        local minSize = 16
+                        local minMargin = 8
+                        local minX = bx + boxW - minSize - minMargin
+                        local minY = by + minMargin
+                        if px >= minX and px <= minX + minSize and py >= minY and py <= minY + minSize then
+                            tooltipExpanded[entId] = false
+                            return true
+                        end
                     end
                     -- Calculate button width for click detection
                     local buttonFont = Theme.getFont(18)
