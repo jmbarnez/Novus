@@ -20,6 +20,7 @@ local celShader = nil
 local auroraShader = nil
 local nebulaShader = nil
 local trailShader = nil
+local portalShader = nil
 -- Cel-shading is now permanently enabled - no toggle functionality
 
 -- Initialize shaders
@@ -166,6 +167,22 @@ function ShaderManager.init()
     else
         log("No trail shader file found")
     end
+
+    -- Load portal shader (used for warp gate portals)
+    log("=== Loading portal shader ===")
+    local portalShaderCode = love.filesystem.read("src/shaders/portal.frag")
+    if portalShaderCode then
+        local ok, res = pcall(function() return love.graphics.newShader(portalShaderCode) end)
+        if ok and res then
+            portalShader = res
+            log("SUCCESS: Portal shader loaded")
+        else
+            print("FAILED to create portal shader")
+            print("Error:", res)
+        end
+    else
+        log("No portal shader file found")
+    end
 end
 
 -- Set cel-shading properties
@@ -238,6 +255,9 @@ function ShaderManager.updateTime()
     if trailShader then
         pcall(function() trailShader:send("time", love.timer.getTime()) end)
     end
+    if portalShader then
+        pcall(function() portalShader:send("time", love.timer.getTime()) end)
+    end
 end
 
 -- Set aurora shader colors
@@ -266,6 +286,11 @@ end
 -- Get nebula shader
 function ShaderManager.getNebulaShader()
     return nebulaShader
+end
+
+-- Get portal shader used for warp gate portal effects
+function ShaderManager.getPortalShader()
+    return portalShader
 end
 
 -- Get trail shader used for particle glows
