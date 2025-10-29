@@ -134,11 +134,11 @@ function ShipWindow:drawSectionButtons(windowX, windowY, alpha)
         local isHovered = mx >= tabX and mx <= tabX + tabWidth and my >= tabY and my <= tabY + NAV_BUTTON_HEIGHT
         local isActive = self.activeTab == tabKey and not isHovered
 
-        local baseColor = isActive and Theme.colors.buttonHover or Theme.colors.bgMedium
-        local hoverColor = Theme.colors.buttonHover
+        local baseColor = isActive and Theme.colors.hover or Theme.colors.surfaceAlt
+        local hoverColor = Theme.colors.hover
         Theme.drawButton(tabX, tabY, tabWidth, NAV_BUTTON_HEIGHT, self.tabNames[tabKey], isHovered, baseColor, hoverColor, {
             font = font,
-            textColor = Theme.colors.textPrimary,
+            textColor = Theme.colors.text,
         })
 
         table.insert(self.tabButtons, {
@@ -147,7 +147,7 @@ function ShipWindow:drawSectionButtons(windowX, windowY, alpha)
         })
     end
 
-    local borderColor = Theme.colors.borderDark
+    local borderColor = Theme.colors.border
     love.graphics.setColor(borderColor[1], borderColor[2], borderColor[3], (borderColor[4] or 1) * alpha)
     love.graphics.line(windowX, tabY + NAV_BUTTON_HEIGHT, windowX + self.width, tabY + NAV_BUTTON_HEIGHT)
 end
@@ -158,7 +158,7 @@ function ShipWindow:drawBottomBar(windowX, windowY, alpha)
     local y = windowY + self.height - Theme.window.bottomBarHeight
     local w = self.width
     local h = Theme.window.bottomBarHeight
-    local padding = Theme.spacing.padding
+    local padding = Theme.spacing.sm
 
     -- Get player and ship data
     local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
@@ -181,12 +181,12 @@ function ShipWindow:drawBottomBar(windowX, windowY, alpha)
 
     -- Draw left side: Credits
     local creditsText = wallet and string.format("Credits: %d", wallet.credits) or "Credits: 0"
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
     love.graphics.print(creditsText, x + padding, textY)
 
     -- Draw right side: Cargo capacity
     local cargoText = string.format("Cargo: %.2f/%.2f m^3", currentVolume, maxCapacity)
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
     love.graphics.printf(cargoText, x + padding, textY, w - padding * 2, "right")
 end
 
@@ -352,15 +352,15 @@ function ShipWindow:drawContextMenu(x, y, alpha)
     local optionHeight = menu.optionHeight or 28
     local highlightInset = menu.highlightInset or 4
 
-    local bgColor = Theme.colors.bgMedium
+    local bgColor = Theme.colors.surfaceAlt
     love.graphics.setColor(bgColor[1], bgColor[2], bgColor[3], alpha * 0.94)
     love.graphics.rectangle("fill", x, y, menuWidth, menuHeight)
 
-    local accent = Theme.colors.buttonHover
+    local accent = Theme.colors.hover
     love.graphics.setColor(accent[1], accent[2], accent[3], (accent[4] or 1) * alpha * 0.35)
     love.graphics.rectangle("fill", x, y, menuWidth, 2)
 
-    local borderColor = Theme.colors.borderDark
+    local borderColor = Theme.colors.border
     love.graphics.setColor(borderColor[1], borderColor[2], borderColor[3], alpha)
     love.graphics.setLineWidth(1)
     love.graphics.rectangle("line", x, y, menuWidth, menuHeight)
@@ -378,14 +378,14 @@ function ShipWindow:drawContextMenu(x, y, alpha)
             love.graphics.rectangle("fill", x + highlightInset, optionTop, menuWidth - highlightInset * 2, optionHeight)
         end
 
-        local textColor = Theme.colors.textPrimary
+        local textColor = Theme.colors.text
         if option.action == "equip" and option.slotType then
             if option.slotType == "Turret Module" then
-                textColor = Theme.colors.textAccent
+                textColor = Theme.colors.accent
             elseif option.slotType == "Defensive Module" then
                 textColor = Theme.colors.textSecondary
             elseif option.slotType == "Generator Module" then
-                textColor = Theme.colors.textPrimary
+                textColor = Theme.colors.text
             end
         elseif option.action == "noop" then
             textColor = {

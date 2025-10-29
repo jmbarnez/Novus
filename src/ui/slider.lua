@@ -125,13 +125,13 @@ function Slider:draw(alpha)
     local hovered = self:isMouseOver(mx, my)
     
     -- Draw track background
-    love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], 
-                          Theme.colors.bgMedium[3], alpha * 0.6)
+    love.graphics.setColor(Theme.colors.surfaceAlt[1], Theme.colors.surfaceAlt[2],
+                          Theme.colors.surfaceAlt[3], alpha * 0.6)
     love.graphics.rectangle("fill", self.x, self.y + self.height/2 - 2, self.width, 4, 2, 2)
     
     -- Draw track border
-    love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], 
-                          Theme.colors.borderMedium[3], alpha)
+    love.graphics.setColor(Theme.colors.borderAlt[1], Theme.colors.borderAlt[2],
+                          Theme.colors.borderAlt[3], alpha)
     love.graphics.setLineWidth(1)
     love.graphics.rectangle("line", self.x, self.y + self.height/2 - 2, self.width, 4, 2, 2)
     
@@ -139,25 +139,25 @@ function Slider:draw(alpha)
     local thumbX = self:getThumbPosition()
     local fillWidth = thumbX - self.x + 8  -- Half thumb width
     if fillWidth > 0 then
-        love.graphics.setColor(Theme.colors.buttonHover[1], Theme.colors.buttonHover[2], 
-                              Theme.colors.buttonHover[3], alpha * 0.8)
+        love.graphics.setColor(Theme.colors.hover[1], Theme.colors.hover[2],
+                              Theme.colors.hover[3], alpha * 0.8)
         love.graphics.rectangle("fill", self.x, self.y + self.height/2 - 2, fillWidth, 4, 2, 2)
     end
     
     -- Draw thumb
-    local thumbColor = (hovered or self.isDragging) and Theme.colors.buttonHover or Theme.colors.borderLight
+    local thumbColor = (hovered or self.isDragging) and Theme.colors.hover or Theme.colors.borderLight
     love.graphics.setColor(thumbColor[1], thumbColor[2], thumbColor[3], alpha)
     love.graphics.rectangle("fill", thumbX, self.y + self.height/2 - 8, 16, 16, 3, 3)
     
     -- Draw thumb border
-    love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], 
-                          Theme.colors.borderMedium[3], alpha)
+    love.graphics.setColor(Theme.colors.borderAlt[1], Theme.colors.borderAlt[2],
+                          Theme.colors.borderAlt[3], alpha)
     love.graphics.setLineWidth(1)
     love.graphics.rectangle("line", thumbX, self.y + self.height/2 - 8, 16, 16, 3, 3)
     
     -- Draw value text
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], 
-                          Theme.colors.textPrimary[3], alpha)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2],
+                          Theme.colors.text[3], alpha)
     love.graphics.setFont(Theme.getFont(Theme.fonts.small))
     local valueText = string.format("%.0f%%", self.currentValue)
     love.graphics.printf(valueText, self.x + self.width + 10, self.y + 2, 40, "left")

@@ -41,7 +41,7 @@ end
 -- Helper to draw a single skill entry
 function SkillsPanel.drawSkillEntry(skillName, skill, x, y, width, alpha, barColor)
     -- Skill name
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
     love.graphics.setFont(Theme.getFont(Theme.fonts.small))
     love.graphics.print(skillName, x + 8, y)
     
@@ -57,7 +57,7 @@ function SkillsPanel.drawSkillEntry(skillName, skill, x, y, width, alpha, barCol
     love.graphics.rectangle("fill", barX, barY, barWidth, barHeight)
     
     -- Experience bar border
-    love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha)
+    love.graphics.setColor(Theme.colors.borderAlt[1], Theme.colors.borderAlt[2], Theme.colors.borderAlt[3], alpha)
     love.graphics.rectangle("line", barX, barY, barWidth, barHeight)
     
     -- Experience bar fill

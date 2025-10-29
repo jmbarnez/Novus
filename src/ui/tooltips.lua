@@ -88,7 +88,7 @@ function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
         maxWidth = math.max(maxWidth, width)
     end
     
-    local padding = Scaling.scaleSize(Theme.spacing.padding)
+    local padding = Scaling.scaleSize(Theme.spacing.sm)
     local tooltipW = maxWidth + padding * 2
     local tooltipH = #lines * lineHeight + padding * 2
     
@@ -116,27 +116,27 @@ function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
     end
     
     -- Draw background
-    love.graphics.setColor(Theme.colors.bgMedium)
+    love.graphics.setColor(unpack(Theme.colors.surfaceAlt))
     love.graphics.rectangle("fill", tooltipX - Scaling.scaleX(2), tooltipY - Scaling.scaleY(2), tooltipW + Scaling.scaleX(4), tooltipH + Scaling.scaleY(4))
     
     -- Draw thick plasma-style border
-    love.graphics.setColor(Theme.colors.borderDark)
+    love.graphics.setColor(unpack(Theme.colors.border))
     love.graphics.setLineWidth(2)
     love.graphics.rectangle("line", tooltipX - Scaling.scaleX(2), tooltipY - Scaling.scaleY(2), tooltipW + Scaling.scaleX(4), tooltipH + Scaling.scaleY(4))
     love.graphics.setLineWidth(1)
     
     -- Draw text
-    love.graphics.setColor(Theme.colors.textPrimary)
+    love.graphics.setColor(unpack(Theme.colors.text))
     local textY = tooltipY + padding
     
     for i, line in ipairs(lines) do
         if i == 1 then
             -- Item name in accent color
-            love.graphics.setColor(Theme.colors.textAccent)
+            love.graphics.setColor(unpack(Theme.colors.accent))
         elseif line == "" then
             textY = textY + lineHeight
         else
-            love.graphics.setColor(Theme.colors.textPrimary)
+            love.graphics.setColor(unpack(Theme.colors.text))
         end
         
         if line ~= "" then

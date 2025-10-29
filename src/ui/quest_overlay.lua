@@ -11,7 +11,7 @@ local QuestOverlay = {
     isOpen = true
 }
 
-local QUEST_PADDING = Theme.spacing.padding
+local QUEST_PADDING = Theme.spacing.sm
 local FRAME_PADDING = QUEST_PADDING * 1.5
 local PANEL_SIDE_PADDING = QUEST_PADDING * 1.5
 local ROW_HEIGHT = QUEST_PADDING * 8
@@ -71,7 +71,7 @@ local function computeProgress(quest)
 end
 
 local function drawQuest(quest, x, y, w, h, fonts, alpha)
-    local titleColor = quest.isMainStory and Theme.colors.buttonYes or Theme.colors.textAccent
+    local titleColor = quest.isMainStory and Theme.colors.success or Theme.colors.accent
     local currentY = y
 
     BatchRenderer.queueText(
@@ -89,19 +89,8 @@ local function drawQuest(quest, x, y, w, h, fonts, alpha)
     local barY = y + h - barHeight - QUEST_PADDING * 0.5
 
     if fraction then
-        local bg = Theme.colors.bgMedium
-        local fillColor = quest.isMainStory and Theme.colors.buttonYes or Theme.colors.textAccent
-        local border = Theme.colors.borderDark
-
-        BatchRenderer.queueRect(
-            x,
-            barY,
-            w,
-            barHeight,
-            bg[1], bg[2], bg[3],
-            alpha,
-            1
-        )
+        local fillColor = quest.isMainStory and Theme.colors.success or Theme.colors.accent
+        local border = Theme.colors.border
 
         if fraction > 0 then
             BatchRenderer.queueRect(
@@ -135,9 +124,9 @@ local function drawQuest(quest, x, y, w, h, fonts, alpha)
             textX,
             textY,
             fonts.small,
-            Theme.colors.textPrimary[1],
-            Theme.colors.textPrimary[2],
-            Theme.colors.textPrimary[3],
+            Theme.colors.text[1],
+            Theme.colors.text[2],
+            Theme.colors.text[3],
             alpha
         )
     end
@@ -155,7 +144,7 @@ function QuestOverlay.draw()
 
     local overlayX, overlayY, overlayWidth, overlayHeight = calculateFrame(#quests)
     local alpha = 0.9
-    local borderColor = Theme.colors.borderDark
+    local borderColor = Theme.colors.border
 
     local fonts = {
         title = Theme.getFont(Theme.fonts.normal),

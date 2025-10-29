@@ -208,14 +208,7 @@ function start_screen.draw()
     love.graphics.clear(0.01, 0.02, 0.05)
     local width, height = love.graphics.getDimensions()
     
-    -- Draw subtle background gradient
-    local gradientSteps = 20
-    for i = 0, gradientSteps do
-        local alpha = (1 - i / gradientSteps) * 0.1
-        local y = height * (i / gradientSteps)
-        love.graphics.setColor(0.1, 0.2, 0.4, alpha)
-        love.graphics.rectangle('fill', 0, y, width, height / gradientSteps)
-    end
+    -- Background gradient removed to eliminate visible lines
     
     -- Nebula background intentionally disabled on start screen.
     -- Keeping nebula shader assets in the project but not drawing them here.
@@ -334,9 +327,9 @@ function start_screen.draw()
         space = "screen",
     })
 
-    -- Draw both buttons (shared styling)
-    local baseColor = Theme.colors.bgMedium
-    local hoverColor = Theme.colors.buttonHover
+    -- Draw both buttons (shared styling) using semantic colors
+    local baseColor = Theme.colors.surfaceAlt
+    local hoverColor = Theme.colors.hover
 
     local function drawButton(x, y, w, h, hovered, text)
         if hovered then
@@ -345,12 +338,12 @@ function start_screen.draw()
             love.graphics.setColor(baseColor[1], baseColor[2], baseColor[3], baseColor[4])
         end
         love.graphics.rectangle("fill", x, y, w, h)
-        love.graphics.setColor(Theme.colors.borderDark)
+        love.graphics.setColor(unpack(Theme.colors.border))
         love.graphics.setLineWidth(2)
         love.graphics.rectangle("line", x, y, w, h)
         love.graphics.setLineWidth(1)
-        local buttonFont = Theme.getFontBold(24)
-        love.graphics.setColor(Theme.colors.textPrimary)
+        local buttonFont = Theme.getFontBold("lg")  -- Use semantic size
+        love.graphics.setColor(unpack(Theme.colors.text))
         love.graphics.setFont(buttonFont)
         local textHeight = buttonFont:getHeight()
         local textYOffset = (h - textHeight) / 2

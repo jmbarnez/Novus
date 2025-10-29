@@ -98,7 +98,7 @@ function HUDStats.drawSpeedText(viewportWidth, viewportHeight)
     local x = Scaling.getCurrentWidth() - minimapSize - 20
     local y = 150 + 30
     local font = Theme.getFont(Theme.fonts.normal)
-    local color = Theme.colors.textPrimary
+    local color = Theme.colors.text
 
     BatchRenderer.queueText(cachedSpeedText, x, y, font, color[1], color[2], color[3], color[4], "center", minimapSize)
 end

@@ -134,27 +134,27 @@ function SettingsWindow:drawHotkeyButtons(alpha)
         
         -- Button background
         if selected or self.waitingForKey then
-            love.graphics.setColor(Theme.colors.buttonHover[1], Theme.colors.buttonHover[2], 
-                                 Theme.colors.buttonHover[3], alpha * 0.8)
+            love.graphics.setColor(Theme.colors.hover[1], Theme.colors.hover[2],
+                                 Theme.colors.hover[3], alpha * 0.8)
         elseif hovered then
-            love.graphics.setColor(Theme.colors.buttonHover[1], Theme.colors.buttonHover[2], 
-                                 Theme.colors.buttonHover[3], alpha * 0.4)
+            love.graphics.setColor(Theme.colors.hover[1], Theme.colors.hover[2],
+                                 Theme.colors.hover[3], alpha * 0.4)
         else
-            love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], 
-                                 Theme.colors.bgMedium[3], alpha * 0.6)
+            love.graphics.setColor(Theme.colors.surfaceAlt[1], Theme.colors.surfaceAlt[2],
+                                 Theme.colors.surfaceAlt[3], alpha * 0.6)
         end
         
         love.graphics.rectangle("fill", button.x, button.y, button.width, button.height, 4, 4)
         
         -- Button border
-        love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], 
-                             Theme.colors.borderMedium[3], alpha)
+        love.graphics.setColor(Theme.colors.borderAlt[1], Theme.colors.borderAlt[2],
+                             Theme.colors.borderAlt[3], alpha)
         love.graphics.setLineWidth(1)
         love.graphics.rectangle("line", button.x, button.y, button.width, button.height, 4, 4)
         
         -- Button text
-        love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], 
-                             Theme.colors.textPrimary[3], alpha)
+        love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2],
+                             Theme.colors.text[3], alpha)
         love.graphics.setFont(Theme.getFont(Theme.fonts.small))
         
         local displayText = HotkeyConfig.getDisplayText(button.action)
@@ -202,13 +202,13 @@ function SettingsWindow:drawScrollBar(alpha)
     sb.height = contentAreaH
     
     -- Always draw scroll bar background
-    love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], 
-                          Theme.colors.bgDark[3], alpha * 0.8)
+    love.graphics.setColor(Theme.colors.surface[1], Theme.colors.surface[2],
+                          Theme.colors.surface[3], alpha * 0.8)
     love.graphics.rectangle("fill", sb.x, sb.y, sb.width, sb.height, 2, 2)
     
     -- Scroll bar border
-    love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], 
-                          Theme.colors.borderMedium[3], alpha)
+    love.graphics.setColor(Theme.colors.borderAlt[1], Theme.colors.borderAlt[2],
+                          Theme.colors.borderAlt[3], alpha)
     love.graphics.setLineWidth(1)
     love.graphics.rectangle("line", sb.x, sb.y, sb.width, sb.height, 2, 2)
     
@@ -225,8 +225,8 @@ function SettingsWindow:drawScrollBar(alpha)
                             my >= sb.thumbY and my <= sb.thumbY + sb.thumbHeight
         
         if thumbHovered then
-            love.graphics.setColor(Theme.colors.buttonHover[1], Theme.colors.buttonHover[2], 
-                                 Theme.colors.buttonHover[3], alpha)
+            love.graphics.setColor(Theme.colors.hover[1], Theme.colors.hover[2],
+                                 Theme.colors.hover[3], alpha)
         else
             love.graphics.setColor(Theme.colors.borderLight[1], Theme.colors.borderLight[2], 
                                  Theme.colors.borderLight[3], alpha)
@@ -244,10 +244,10 @@ function SettingsWindow:initialize()
     self:saveSettingsSnapshot()
     
     -- Layout helpers (keep in sync with draw() so labels and controls align)
-    local paddingX = Theme.spacing.padding * 5  -- Scaled padding
-    local labelOffset = Theme.window.topBarHeight + Theme.spacing.padding * 3  -- Y offset for labels from window top
-    local controlOffset = Theme.window.topBarHeight + Theme.spacing.padding * 4  -- Y offset for the first control from window top
-    local sectionSpacing = Theme.spacing.padding * 10  -- Vertical spacing between control sections
+    local paddingX = Theme.spacing.sm * 5  -- Scaled padding
+    local labelOffset = Theme.window.topBarHeight + Theme.spacing.sm * 3  -- Y offset for labels from window top
+    local controlOffset = Theme.window.topBarHeight + Theme.spacing.sm * 4  -- Y offset for the first control from window top
+    local sectionSpacing = Theme.spacing.sm * 10  -- Vertical spacing between control sections
 
     local x, y = self.position.x + paddingX, self.position.y + controlOffset
     local dropdownWidth = self.width - (paddingX * 2)
@@ -345,9 +345,9 @@ end
 function SettingsWindow:initializeHotkeyButtons()
     self.hotkeyButtons = {}
     local hotkeys = HotkeyConfig.getAllHotkeys()
-    local buttonHeight = Theme.spacing.padding * 3.33  -- Scaled button height
-    local buttonSpacing = Theme.spacing.padding  -- Scaled spacing
-    local hotkeyLabelHeight = Theme.spacing.padding * 2  -- Scaled label height
+    local buttonHeight = Theme.spacing.sm * 3.33  -- Scaled button height
+    local buttonSpacing = Theme.spacing.sm  -- Scaled spacing
+    local hotkeyLabelHeight = Theme.spacing.sm * 2  -- Scaled label height
 
     -- Calculate total hotkey buttons height including section headers
     local sectionHeaderHeight = buttonHeight * 0.8
@@ -364,16 +364,16 @@ function SettingsWindow:initializeHotkeyButtons()
     local hotkeyButtonsHeight = yOffset + hotkeyLabelHeight
 
     -- Layout: VSync + FPS + Resolution + Audio + Hotkeys + bottom padding
-    local vsyncHeight = Theme.spacing.padding * 10  -- Scaled VSync section height
-    local fpsHeight = Theme.spacing.padding * 10  -- Scaled FPS section height
-    local resHeight = Theme.spacing.padding * 10  -- Scaled resolution section height
-    local audioHeight = Theme.spacing.padding * 30  -- Scaled audio section height
+    local vsyncHeight = Theme.spacing.sm * 10  -- Scaled VSync section height
+    local fpsHeight = Theme.spacing.sm * 10  -- Scaled FPS section height
+    local resHeight = Theme.spacing.sm * 10  -- Scaled resolution section height
+    local audioHeight = Theme.spacing.sm * 30  -- Scaled audio section height
     local hotkeyStartY = vsyncHeight + fpsHeight + resHeight + audioHeight  -- Start position for hotkey buttons
-    local bottomPadding = Theme.spacing.padding * 3.33  -- Scaled bottom padding
+    local bottomPadding = Theme.spacing.sm * 3.33  -- Scaled bottom padding
 
     -- Add extra bottom padding to ensure the scrollable content extends far enough
     -- so all hotkey entries can be reached on smaller screens / tighter layouts.
-    local extraBottomPadding = Theme.spacing.padding * 12
+    local extraBottomPadding = Theme.spacing.sm * 12
 
     local contentHeight = hotkeyStartY + hotkeyButtonsHeight + bottomPadding + extraBottomPadding
 
@@ -384,8 +384,8 @@ function SettingsWindow:initializeHotkeyButtons()
     end
 
     -- Define position and width variables for panel initialization
-    local paddingX = Theme.spacing.padding * 5  -- Scaled padding
-    local controlOffset = Theme.window.topBarHeight + Theme.spacing.padding * 4  -- Scaled control offset
+    local paddingX = Theme.spacing.sm * 5  -- Scaled padding
+    local controlOffset = Theme.window.topBarHeight + Theme.spacing.sm * 4  -- Scaled control offset
     local x, y = self.position.x + paddingX, self.position.y + controlOffset
     local dropdownWidth = self.width - (paddingX * 2)
     
@@ -418,8 +418,8 @@ end
 function SettingsWindow:updatePanelPositions()
     if not self._initialized or not self.position then return end
     
-    local paddingX = Theme.spacing.padding * 5  -- Scaled padding
-    local controlOffset = Theme.window.topBarHeight + Theme.spacing.padding * 4  -- Y offset for the first control from window top
+    local paddingX = Theme.spacing.sm * 5  -- Scaled padding
+    local controlOffset = Theme.window.topBarHeight + Theme.spacing.sm * 4  -- Y offset for the first control from window top
     
     local x = self.position.x + paddingX
     local y = self.position.y + controlOffset
@@ -489,8 +489,55 @@ function SettingsWindow:draw()
     
     -- Title (always visible at top)
     love.graphics.setFont(Theme.getFontBold(Theme.fonts.title))
-    love.graphics.setColor(Theme.colors.textPrimary)
+    love.graphics.setColor(unpack(Theme.colors.text))
     love.graphics.printf("Settings", x + 10, y + 6, self.width - 20, "left")
+    -- Theme toggle icon button (dark/light) — placed fully inside the top bar
+    do
+        local btnW, btnH = 34, 20
+        local padding = 12
+        local closeBtnOffset = 35
+        local closeBtnX = x + self.width - closeBtnOffset
+        local btnX = closeBtnX - btnW - 8
+        local topBarH = Theme.window.topBarHeight or 28
+        local btnY = y + (topBarH - btnH) / 2
+        local mx, my
+        if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+            mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+        else
+            mx, my = Scaling.toUI(love.mouse.getPosition())
+        end
+        local btnHovered = mx and (mx >= btnX and mx <= btnX + btnW and my >= btnY and my <= btnY + btnH)
+
+        -- Draw button background using Theme.drawButton for consistent styling (empty label)
+        Theme.drawButton(btnX, btnY, btnW, btnH, "", btnHovered, nil, nil, {font = Theme.getFont("sm")})
+
+        -- Draw icon centered in button
+        local iconCx = btnX + btnW / 2
+        local iconCy = btnY + btnH / 2
+        local r = math.min(btnW, btnH) * 0.28
+        local currentVariant = Theme.variants.current or "dark"
+        if currentVariant == "dark" then
+            -- Moon (crescent)
+            love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], (Theme.colors.text[4] or 1) * alpha)
+            love.graphics.circle("fill", iconCx, iconCy, r)
+            love.graphics.setColor(Theme.colors.surface[1], Theme.colors.surface[2], Theme.colors.surface[3], (Theme.colors.surface[4] or 1) * alpha)
+            love.graphics.circle("fill", iconCx + r * 0.45, iconCy - r * 0.2, r * 0.9)
+        else
+            -- Sun
+            love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], (Theme.colors.accent[4] or 1) * alpha)
+            love.graphics.circle("fill", iconCx, iconCy, r)
+            love.graphics.setLineWidth(1)
+            for i = 0, 7 do
+                local a = i * (math.pi * 2 / 8)
+                local x1 = iconCx + math.cos(a) * (r + 2)
+                local y1 = iconCy + math.sin(a) * (r + 2)
+                local x2 = iconCx + math.cos(a) * (r + 6)
+                local y2 = iconCy + math.sin(a) * (r + 6)
+                love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], (Theme.colors.accent[4] or 1) * alpha)
+                love.graphics.line(x1, y1, x2, y2)
+            end
+        end
+    end
     
     -- Set up scissor/clip region for scrollable content
     local topBarH = Theme.window.topBarHeight
@@ -503,12 +550,12 @@ function SettingsWindow:draw()
     
     -- Labels (draw BEFORE panels so they don't overlap)
     love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-    love.graphics.setColor(Theme.colors.textAccent)
+    love.graphics.setColor(unpack(Theme.colors.accent))
 
     local scrollY = self.scrollHandler:getScrollY()
-    local paddingX = Theme.spacing.padding * 5  -- Scaled padding
-    local labelOffset = Theme.window.topBarHeight + Theme.spacing.padding * 3  -- Y offset for labels from window top
-    local sectionSpacing = Theme.spacing.padding * 12  -- Vertical spacing between sections (increased for better alignment)
+    local paddingX = Theme.spacing.sm * 5  -- Scaled padding
+    local labelOffset = Theme.window.topBarHeight + Theme.spacing.sm * 3  -- Y offset for labels from window top
+    local sectionSpacing = Theme.spacing.sm * 12  -- Vertical spacing between sections (increased for better alignment)
 
     local labelX = x + paddingX
     local baseLabelY = y + labelOffset - scrollY
@@ -572,6 +619,26 @@ function SettingsWindow:mousepressed(mx, my, button)
     
     -- Convert screen coordinates to UI coordinates for UI element checks
     local uiMx, uiMy = Scaling.toUI(mx, my)
+
+    -- Theme toggle icon button click (top-right of window)
+    do
+        local btnW, btnH = 34, 20
+        local padding = 12
+        local closeBtnOffset = 35
+        local closeBtnX = self.position.x + self.width - closeBtnOffset
+        local btnX = closeBtnX - btnW - 8
+        local topBarH = Theme.window.topBarHeight or 28
+        local btnY = self.position.y + (topBarH - btnH) / 2
+        if uiMx >= btnX and uiMx <= btnX + btnW and uiMy >= btnY and uiMy <= btnY + btnH then
+            -- Toggle theme variant
+            local current = Theme.variants.current or "dark"
+            local next = (current == "dark") and "light" or "dark"
+            Theme.setVariant(next)
+            -- Save preference snapshot
+            self:saveSettingsSnapshot()
+            return true
+        end
+    end
     
     -- Debug coordinate conversion (remove in production)
     -- print(string.format("Settings Mouse: raw(%d,%d) -> UI(%.1f,%.1f)", mx, my, uiMx, uiMy))

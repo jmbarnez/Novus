@@ -93,18 +93,18 @@ function LoadoutPanel.draw(shipWin, windowX, windowY, width, height, alpha)
 
     love.graphics.setColor(drawColor)
     love.graphics.rectangle('fill', buttonX, buttonY, buttonWidth, buttonHeight, 5, 5)
-    love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], alpha)
+    love.graphics.setColor(Theme.colors.border[1], Theme.colors.border[2], Theme.colors.border[3], alpha)
     love.graphics.setLineWidth(2)
     love.graphics.rectangle('line', buttonX, buttonY, buttonWidth, buttonHeight, 5, 5)
     love.graphics.setLineWidth(1)
 
     local buttonLabel = StatsWindow:getOpen() and "Close Stats" or "Open Stats"
     love.graphics.setFont(Theme.getFontBold(Theme.fonts.normal))
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
     love.graphics.printf(buttonLabel, buttonX, buttonY + 8, buttonWidth, 'center')
 
     love.graphics.setFont(Theme.getFontBold(Theme.fonts.title))
-    love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
+    love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], alpha)
     love.graphics.printf("Ship Loadout", contentX + 10, contentY, leftPanelWidth - buttonWidth - 40, 'left')
 
     love.graphics.setFont(Theme.getFont(Theme.fonts.tiny))
@@ -180,11 +180,11 @@ function LoadoutPanel.drawEquipmentSlot(shipWin, slotName, equippedItemId, x, y,
     if isDropZone then
         love.graphics.setColor(0.3, 0.8, 0.3, alpha * 0.5)
     else
-        love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.8)
+        love.graphics.setColor(Theme.colors.surface[1], Theme.colors.surface[2], Theme.colors.surface[3], alpha * 0.8)
     end
     love.graphics.rectangle('fill', x, y, slotSize, slotSize, 4, 4)
 
-    local borderColor = isDropZone and {0.3, 1, 0.3, alpha} or {Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha}
+    local borderColor = isDropZone and {0.3, 1, 0.3, alpha} or {Theme.colors.borderAlt[1], Theme.colors.borderAlt[2], Theme.colors.borderAlt[3], alpha}
     love.graphics.setColor(borderColor)
     love.graphics.rectangle('line', x, y, slotSize, slotSize, 4, 4)
 
@@ -507,9 +507,9 @@ function LoadoutPanel.drawModuleSubslots(shipWin, slotName, slotX, slotY, slotSi
 
     shipWin.moduleSubslots[slotName] = {}
 
-    local enabledColor = Theme.colors.buttonHover
-    local disabledFill = Theme.colors.bgMedium
-    local disabledBorder = Theme.colors.borderDark
+    local enabledColor = Theme.colors.hover
+    local disabledFill = Theme.colors.surfaceAlt
+    local disabledBorder = Theme.colors.border
     local activeBorder = Theme.colors.borderLight
     local crossColor = Theme.colors.textMuted
 

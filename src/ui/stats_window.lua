@@ -170,16 +170,16 @@ local function drawSection(sectionX, sectionY, sectionW, title, lines, alpha)
     local lineSpacing = 18
     local sectionH = baseHeight + lineCount * lineSpacing
 
-    love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], Theme.colors.bgMedium[3], alpha * 0.9)
+    love.graphics.setColor(Theme.colors.surfaceAlt[1], Theme.colors.surfaceAlt[2], Theme.colors.surfaceAlt[3], alpha * 0.9)
     love.graphics.rectangle('fill', sectionX, sectionY, sectionW, sectionH, 6, 6)
 
-    love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha)
+    love.graphics.setColor(Theme.colors.borderAlt[1], Theme.colors.borderAlt[2], Theme.colors.borderAlt[3], alpha)
     love.graphics.setLineWidth(2)
     love.graphics.rectangle('line', sectionX, sectionY, sectionW, sectionH, 6, 6)
     love.graphics.setLineWidth(1)
 
     love.graphics.setFont(Theme.getFontBold(Theme.fonts.title))
-    love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
+    love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], alpha)
     love.graphics.printf(title, sectionX + 14, sectionY + 10, sectionW - 28, 'left')
 
     love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
@@ -250,7 +250,7 @@ function StatsWindow:draw(viewportWidth, viewportHeight, uiMx, uiMy)
     love.graphics.setScissor(contentAreaX, contentAreaY, contentAreaW, contentAreaH)
 
     love.graphics.setFont(titleFont)
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
     local cursorY = contentOriginY - scrollY
     love.graphics.printf("Ship Statistics", contentAreaX, cursorY, contentAreaW, 'left')
     cursorY = cursorY + titleHeight + titleSpacing

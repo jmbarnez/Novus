@@ -195,7 +195,7 @@ function Notifications.draw()
             love.graphics.setColor(0.4, 0.75, 1.0, alpha * 0.9)
             love.graphics.rectangle('fill', barX, barY, barWidth, math.max(1, barHeight * 0.45))
         else
-            love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.92)
+            love.graphics.setColor(Theme.colors.surface[1], Theme.colors.surface[2], Theme.colors.surface[3], alpha * 0.92)
             love.graphics.rectangle('fill', x, y, notifWidth, notifHeight, Scaling.scaleSize(8), Scaling.scaleSize(8))
             love.graphics.setColor(Theme.colors.borderLight[1], Theme.colors.borderLight[2], Theme.colors.borderLight[3], alpha)
             love.graphics.setLineWidth(1)
@@ -204,7 +204,7 @@ function Notifications.draw()
             if notif.type == 'skill' and notif.text:find('LVL UP!') then
                 love.graphics.setColor(0.2, 1, 0.2, alpha)
             else
-                love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
+                love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], alpha)
             end
             love.graphics.print(notif.text, x + Scaling.scaleX(14), y + Scaling.scaleY(7))
 
@@ -215,7 +215,7 @@ function Notifications.draw()
                 local barHeight = Scaling.scaleSize(8)
                 love.graphics.setColor(0.1, 0.1, 0.1, alpha)
                 love.graphics.rectangle('fill', barX, barY, barWidth, barHeight)
-                love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha)
+                love.graphics.setColor(Theme.colors.borderAlt[1], Theme.colors.borderAlt[2], Theme.colors.borderAlt[3], alpha)
                 love.graphics.rectangle('line', barX, barY, barWidth, barHeight)
                 local barColor = {0.2, 0.6, 1.0}
                 if notif.text:find('SALVAGING') then barColor = {0.2, 1.0, 0.2} end

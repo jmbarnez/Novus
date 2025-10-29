@@ -12,6 +12,8 @@ local WorldTooltips = {
     name = "WorldTooltipsSystem",
     priority = 21
 }
+-- Current render mode: "world" (default) or "hud" (screen/UI layer)
+WorldTooltips._renderMode = "hud"
 
 -- Track nearby interactive entities for keyboard input
 local nearbyInteractables = {}
@@ -97,45 +99,10 @@ function WorldTooltips.update(dt)
     end
 end
 
--- Draw all active world tooltips
-function WorldTooltips.draw()
-    for entityId, data in pairs(activeTooltips) do
-        local pos = ECS.getComponent(entityId, "Position")
-        local coll = ECS.getComponent(entityId, "Collidable")
-        
-        if not pos or not coll then
-            activeTooltips[entityId] = nil
-            goto continue
-        end
-        
-        -- Check if player is nearby
-        local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-        local playerPos = nil
-        if #playerEntities > 0 then
-            local pilotId = playerEntities[1]
-            local input = ECS.getComponent(pilotId, "InputControlled")
-            if input and input.targetEntity then
-                playerPos = ECS.getComponent(input.targetEntity, "Position")
-            end
-        end
-        
-        if not playerPos then goto continue end
-        
-        local dist = math.sqrt((pos.x - playerPos.x)^2 + (pos.y - playerPos.y)^2)
-        local triggerDistance = data.triggerDistance or 800
-        
-        if dist < triggerDistance then
-            WorldTooltips.drawTooltip(entityId, pos, coll, data)
-            -- Track this as a nearby interactable
-            nearbyInteractables[entityId] = data
-        else
-            -- Remove from nearby if out of range
-            nearbyInteractables[entityId] = nil
-        end
-        
-        ::continue::
-    end
-end
+-- NOTE: Tooltips are rendered in HUD/screen space via drawHUD().
+-- The old world-space draw function has been removed; proximity checks
+-- and rendering are handled inside `drawHUD` so interactions work with
+-- the HUD coordinate system.
 
 -- Handle keyboard input for nearby interactables
 function WorldTooltips.handleKeyPress(key)
@@ -240,87 +207,151 @@ end
 
 -- Draw a single tooltip
 function WorldTooltips.drawTooltip(entityId, pos, coll, data)
-    local gx, gy, gr = pos.x, pos.y, coll.radius or 80
-    
+    -- `pos` and `coll` are expected to be in UI/reference (canvas) coordinates
+    local gx, gy, gr = pos.x, pos.y, coll.radius or 48
+
     -- Use plasma theme colors
     local font = Theme.getFont(16)
     local smallFont = Theme.getFont(12)
     love.graphics.setFont(font)
-    
+
     local tw = font:getWidth(data.title)
     local th = font:getHeight()
-    
-    -- Calculate tooltip dimensions
-    local boxW = math.max(tw + 32, 260)
-    local boxH = th + 16
-    
-    -- Add space for message if provided
+
+    -- Compact tooltip dimensions
+    local paddingH = 12
+    local paddingW = 16
+    local minWidth = 180
+    local boxW = math.max(tw + paddingW * 2, minWidth)
+    local boxH = th + paddingH
+
+    -- Message space
     if data.message then
-        local smallFont = Theme.getFont(12)
         love.graphics.setFont(smallFont)
         local msgW = smallFont:getWidth(data.message)
-        boxW = math.max(boxW, msgW + 32)
-        boxH = boxH + 16 + 8
+        boxW = math.max(boxW, msgW + paddingW * 2)
+        boxH = boxH + smallFont:getHeight() + 6
     end
-    
-    -- Add space for content if provided
-    if data.hasResources then
-        boxH = boxH + 18 + 8 + 48 + 12 + 30 + 8
-    end
-    
-    -- Add space for button if provided
-    if data.buttonText then
-        boxH = boxH + 30 + 8
-    end
-    
-    local bx = gx - boxW/2
-    local by = gy - gr - boxH - 10
-    
-    -- Draw tooltip background (plasma-style dark background) - immediate draw so it appears in world space
-    love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], 1)
-    love.graphics.rectangle("fill", bx, by, boxW, boxH, 6, 6)
 
-    -- Draw thick plasma-style border
-    love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1)
-    love.graphics.setLineWidth(3)
+    -- Compact resources block
+    if data.hasResources then
+        boxH = boxH + 12 + (#(data.resources or {}) * 16)
+    end
+
+    -- Button area
+    local buttonH = 28
+    if data.buttonText then
+        boxH = boxH + buttonH + 8
+    end
+
+    local bx = gx - boxW / 2
+    local by = gy - gr - boxH - 8
+
+    -- Draw background and border
+    love.graphics.setColor(Theme.colors.surface[1], Theme.colors.surface[2], Theme.colors.surface[3], 1)
+    love.graphics.rectangle("fill", bx, by, boxW, boxH, 6, 6)
+    love.graphics.setColor(Theme.colors.border[1], Theme.colors.border[2], Theme.colors.border[3], 1)
+    love.graphics.setLineWidth(2)
     love.graphics.rectangle("line", bx, by, boxW, boxH, 6, 6)
 
-    -- Draw title with plasma accent color
+    -- Title
     love.graphics.setFont(font)
-    love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], 1)
+    love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 1)
     love.graphics.print(data.title, bx + (boxW - tw) / 2, by + 8)
-    
-    -- Draw message if provided
-    local yOffset = by + th + 16
+
+    -- Message
+    local yOffset = by + th + 12
     if data.message then
-        local smallFont = Theme.getFont(12)
         love.graphics.setFont(smallFont)
-        love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
-        love.graphics.print(data.message, bx + 16, yOffset)
-        yOffset = yOffset + 16 + 8
+        love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], 1)
+        love.graphics.print(data.message, bx + paddingW, yOffset)
+        yOffset = yOffset + smallFont:getHeight() + 6
     end
 
-    -- Draw resources if needed
+    -- Resources
     if data.hasResources then
         WorldTooltips.drawResources(bx, by, th, boxW, boxH, data)
     end
 
-    -- Draw button if provided (and not already drawn via resources)
+    -- Button (if not drawn inside resources)
     if data.buttonText and not data.hasResources then
         WorldTooltips.drawButton(bx, by, boxW, boxH, data)
     end
-    
+
     love.graphics.setColor(1, 1, 1, 1)
+end
+
+-- Draw tooltips in HUD / screen (UI) space. Converts world positions to UI coordinates
+-- and reuses the same tooltip drawing logic but in screen/reference space.
+function WorldTooltips.drawHUD()
+    local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+    if #cameraEntities == 0 then return end
+
+    local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
+    local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
+    if not cameraComp or not cameraPos then return end
+
+    -- Temporarily set render mode so helpers use UI conversions for hover/click
+    local prevMode = WorldTooltips._renderMode
+    WorldTooltips._renderMode = "hud"
+
+    for entityId, data in pairs(activeTooltips) do
+        local pos = ECS.getComponent(entityId, "Position")
+        local coll = ECS.getComponent(entityId, "Collidable")
+
+        if not pos or not coll then
+            activeTooltips[entityId] = nil
+            goto continue
+        end
+
+        -- Check if player is nearby (distance measured in world space)
+        local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+        local playerPos = nil
+        if #playerEntities > 0 then
+            local pilotId = playerEntities[1]
+            local input = ECS.getComponent(pilotId, "InputControlled")
+            if input and input.targetEntity then
+                playerPos = ECS.getComponent(input.targetEntity, "Position")
+            end
+        end
+        if not playerPos then goto continue end
+
+        local dist = math.sqrt((pos.x - playerPos.x)^2 + (pos.y - playerPos.y)^2)
+        local triggerDistance = data.triggerDistance or 800
+
+        if dist < triggerDistance then
+            -- Convert world position to UI/reference coordinates used by HUD
+            local gx = (pos.x - cameraPos.x) * (cameraComp and cameraComp.zoom or 1)
+            local gy = (pos.y - cameraPos.y) * (cameraComp and cameraComp.zoom or 1)
+            local gr = (coll.radius or 80) * (cameraComp and cameraComp.zoom or 1)
+
+            -- Build a lightweight pos/coll table compatible with drawTooltip
+            local uiPos = { x = gx, y = gy }
+            local uiColl = { radius = gr }
+
+            -- Draw via the existing tooltip painter (now in HUD coords)
+            WorldTooltips.drawTooltip(entityId, uiPos, uiColl, data)
+
+            -- Track this as a nearby interactable (used by keyboard input)
+            nearbyInteractables[entityId] = data
+        else
+            nearbyInteractables[entityId] = nil
+        end
+
+        ::continue::
+    end
+
+    WorldTooltips._renderMode = prevMode or "world"
 end
 
 -- Draw resource requirements and button
 function WorldTooltips.drawResources(bx, by, th, boxW, boxH, data)
     local smallFont = Theme.getFont(12)
     love.graphics.setFont(smallFont)
-    local yOffset = by + th + 16
+    local yOffset = by + th + 12
 
     -- Draw "Required Resources:" label
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], 1)
     love.graphics.print("Required Resources:", bx + 12, yOffset)
     yOffset = yOffset + 18 + 8
 
@@ -336,54 +367,67 @@ function WorldTooltips.drawResources(bx, by, th, boxW, boxH, data)
 
     -- Draw button if provided
     if data.buttonText then
-        local buttonW = 260
-        local buttonH = 38
+        local buttonW = 160
+        local buttonH = 28
         local buttonX = bx + (boxW - buttonW) / 2
         local buttonY = by + boxH - buttonH - 8
 
         -- Draw using theme button for consistent style and hover
         local mx, my = love.mouse.getPosition()
         local Scaling = require('src.scaling')
-        local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+        local renderMode = WorldTooltips._renderMode or "world"
         local isHovered = false
-        if #cameraEntities > 0 then
-            local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
-            local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
-            local wx, wy = Scaling.toWorld(mx, my, cameraComp, cameraPos)
-            isHovered = mx and my and wx >= buttonX and wx <= buttonX + buttonW and wy >= buttonY and wy <= buttonY + buttonH
+        if renderMode == "hud" then
+            local uiMx, uiMy = Scaling.toUI(mx, my)
+            isHovered = uiMx and uiMy and uiMx >= buttonX and uiMx <= buttonX + buttonW and uiMy >= buttonY and uiMy <= buttonY + buttonH
+        else
+            local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+            if #cameraEntities > 0 then
+                local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
+                local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
+                local wx, wy = Scaling.toWorld(mx, my, cameraComp, cameraPos)
+                isHovered = mx and my and wx >= buttonX and wx <= buttonX + buttonW and wy >= buttonY and wy <= buttonY + buttonH
+            end
         end
         Theme.drawButton(
             buttonX, buttonY, buttonW, buttonH, data.buttonText, isHovered,
-            data.buttonEnabled and Theme.colors.buttonYes or Theme.colors.bgMedium,
-            data.buttonEnabled and Theme.colors.buttonYesHover or Theme.colors.bgMedium,
-            {textColor = data.buttonEnabled and Theme.colors.textPrimary or Theme.colors.textMuted, font = Theme.getFont(18)}
+            data.buttonEnabled and Theme.colors.success or Theme.colors.surfaceAlt,
+            data.buttonEnabled and Theme.colors.successHover or Theme.colors.surfaceAlt,
+            {textColor = data.buttonEnabled and Theme.colors.text or Theme.colors.textMuted, font = Theme.getFont(18)}
         )
     end
 end
 
 -- Draw button helper function
 function WorldTooltips.drawButton(bx, by, boxW, boxH, data)
-    local buttonW = 260
-    local buttonH = 38
+    local buttonW = 160
+    local buttonH = 28
     local buttonX = bx + (boxW - buttonW) / 2
     local buttonY = by + boxH - buttonH - 8
 
     -- Draw using theme button for consistent style and hover
     local mx, my = love.mouse.getPosition()
     local Scaling = require('src.scaling')
-    local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+    local renderMode = WorldTooltips._renderMode or "world"
     local isHovered = false
-    if #cameraEntities > 0 then
-        local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
-        local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
-        local wx, wy = Scaling.toWorld(mx, my, cameraComp, cameraPos)
-        isHovered = mx and my and wx >= buttonX and wx <= buttonX + buttonW and wy >= buttonY and wy <= buttonY + buttonH
+    if renderMode == "hud" then
+        -- Convert raw screen mouse to UI coordinates (canvas/reference)
+        local uiMx, uiMy = Scaling.toUI(mx, my)
+        isHovered = uiMx and uiMy and uiMx >= buttonX and uiMx <= buttonX + buttonW and uiMy >= buttonY and uiMy <= buttonY + buttonH
+    else
+        local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+        if #cameraEntities > 0 then
+            local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
+            local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
+            local wx, wy = Scaling.toWorld(mx, my, cameraComp, cameraPos)
+            isHovered = mx and my and wx >= buttonX and wx <= buttonX + buttonW and wy >= buttonY and wy <= buttonY + buttonH
+        end
     end
     Theme.drawButton(
         buttonX, buttonY, buttonW, buttonH, data.buttonText, isHovered,
-        data.buttonEnabled and Theme.colors.buttonYes or Theme.colors.bgMedium,
-        data.buttonEnabled and Theme.colors.buttonYesHover or Theme.colors.bgMedium,
-        {textColor = data.buttonEnabled and Theme.colors.textPrimary or Theme.colors.textMuted, font = Theme.getFont(18)}
+        data.buttonEnabled and Theme.colors.success or Theme.colors.surfaceAlt,
+        data.buttonEnabled and Theme.colors.successHover or Theme.colors.surfaceAlt,
+        {textColor = data.buttonEnabled and Theme.colors.text or Theme.colors.textMuted, font = Theme.getFont(18)}
     )
 end
 
@@ -398,7 +442,13 @@ function WorldTooltips.handleClick(mx, my, button)
     if not cameraComp or not cameraPos then return false end
 
     local Scaling = require('src.scaling')
-    local wx, wy = Scaling.toWorld(mx, my, cameraComp, cameraPos)
+    local renderMode = WorldTooltips._renderMode or "world"
+    local px, py
+    if renderMode == "hud" then
+        px, py = Scaling.toUI(mx, my)
+    else
+        px, py = Scaling.toWorld(mx, my, cameraComp, cameraPos)
+    end
 
     -- Check all nearby interactables for a button click
     for entId, data in pairs(nearbyInteractables) do
@@ -407,28 +457,43 @@ function WorldTooltips.handleClick(mx, my, button)
             local pos = ECS.getComponent(entId, "Position")
             local coll = ECS.getComponent(entId, "Collidable")
             if pos and coll then
-                local gx, gy, gr = pos.x, pos.y, coll.radius or 80
+                local renderMode = WorldTooltips._renderMode or "world"
+                local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+                local cameraComp = cameraEntities[1] and ECS.getComponent(cameraEntities[1], "Camera")
+                local cameraPos = cameraEntities[1] and ECS.getComponent(cameraEntities[1], "Position")
+
+                local gx, gy, gr
+                -- If we're in HUD mode, convert world pos to UI/reference coords
+                if renderMode == "hud" and cameraComp and cameraPos then
+                    gx = (pos.x - cameraPos.x) * (cameraComp.zoom or 1)
+                    gy = (pos.y - cameraPos.y) * (cameraComp.zoom or 1)
+                    gr = (coll.radius or 48) * (cameraComp.zoom or 1)
+                else
+                    gx, gy, gr = pos.x, pos.y, coll.radius or 48
+                end
+
                 local font = Theme.getFont(16)
                 local tw = font:getWidth(data.title)
-                local boxW = math.max(tw + 32, 260)
-                local boxH = font:getHeight() + 16
+                local paddingW = 16
+                local minWidth = 180
+                local boxW = math.max(tw + paddingW * 2, minWidth)
+                local boxH = font:getHeight() + 12
                 if data.message then
-                    local smallFont = Theme.getFont(12)
-                    boxH = boxH + 16 + 8
+                    boxH = boxH + Theme.getFont(12):getHeight() + 6
                 end
                 if data.hasResources then
-                    boxH = boxH + 18 + 8 + 48 + 12 + 30 + 8
+                    boxH = boxH + 12 + (#(data.resources or {}) * 16)
                 end
+                local buttonW = 160
+                local buttonH = 28
                 if data.buttonText then
-                    boxH = boxH + 30 + 8
+                    boxH = boxH + buttonH + 8
                 end
-                local bx = gx - boxW/2
-                local by = gy - gr - boxH - 10
-                local buttonW = 260
-                local buttonH = 38
+                local bx = gx - boxW / 2
+                local by = gy - gr - boxH - 8
                 local buttonX = bx + (boxW - buttonW) / 2
                 local buttonY = by + boxH - buttonH - 8
-                if wx >= buttonX and wx <= buttonX + buttonW and wy >= buttonY and wy <= buttonY + buttonH then
+                if px >= buttonX and px <= buttonX + buttonW and py >= buttonY and py <= buttonY + buttonH then
                     if data.buttonEnabled then
                         -- Simulate E-key repair logic
                         local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})

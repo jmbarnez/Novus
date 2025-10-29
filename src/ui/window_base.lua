@@ -180,7 +180,7 @@ function WindowBase:drawCloseButton(x, y, alpha, mx, my)
 
     local font = Theme.getFontBold(Theme.fonts.title)
     love.graphics.setFont(font)
-    local textColor = closeHover and Theme.colors.buttonCloseHover or Theme.colors.textPrimary
+    local textColor = closeHover and Theme.colors.closeHover or Theme.colors.text
     love.graphics.setColor(textColor[1], textColor[2], textColor[3], (textColor[4] or 1) * alpha)
     local textHeight = font:getHeight()
     local textYOffset = (buttonSize - textHeight) / 2
@@ -247,12 +247,12 @@ function WindowBase:draw(viewportWidth, viewportHeight, uiMx, uiMy)
     end
 
     -- Panel background matching the pause menu styling
-    setColor(Theme.colors.bgDark, 0.95)
+    setColor(Theme.colors.surface, 0.95)
     love.graphics.rectangle('fill', x, y, w, h, radius, radius)
 
     -- Header strip (mirrors pause menu header treatment)
     if topBarH > 0 then
-        setColor(Theme.colors.bgMedium, 0.95)
+        setColor(Theme.colors.surfaceAlt, 0.95)
         love.graphics.rectangle('fill', x, y, w, topBarH, radius, radius)
         setColor(Theme.colors.borderLight, 0.7)
         love.graphics.rectangle('fill', x, y + topBarH - 2, w, 2)
@@ -260,14 +260,14 @@ function WindowBase:draw(viewportWidth, viewportHeight, uiMx, uiMy)
 
     -- Footer strip for action rows / status text
     if bottomBarH > 0 then
-        setColor(Theme.colors.bgMedium, 0.85)
+        setColor(Theme.colors.surfaceAlt, 0.85)
         love.graphics.rectangle('fill', x, y + h - bottomBarH, w, bottomBarH, radius, radius)
         setColor(Theme.colors.borderLight, 0.5)
         love.graphics.rectangle('fill', x, y + h - bottomBarH, w, 2)
     end
 
     -- Primary border drawn last so it sits above header/footer fills
-    setColor(Theme.colors.borderDark)
+    setColor(Theme.colors.border)
     love.graphics.setLineWidth(2)
     love.graphics.rectangle('line', x, y, w, h, radius, radius)
     love.graphics.setLineWidth(1)

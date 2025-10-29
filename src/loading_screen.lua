@@ -12,7 +12,7 @@ function loading_screen.draw()
     local width, height = love.graphics.getDimensions()
     local font = Theme.getFontBold(48)
     love.graphics.setFont(font)
-    love.graphics.setColor(Theme.colors.textAccent)
+    love.graphics.setColor(unpack(Theme.colors.accent))
     love.graphics.printf(loadingText, 0, height/2 - font:getHeight()/2, width, "center")
 end
 

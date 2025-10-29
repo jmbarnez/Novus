@@ -89,16 +89,16 @@ function WarpGateHUD.draw(viewportWidth, viewportHeight)
     local by = viewportHeight - boxH - 80
 
     -- Background
-    love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], 0.95)
+    love.graphics.setColor(Theme.colors.surface[1], Theme.colors.surface[2], Theme.colors.surface[3], 0.95)
     love.graphics.rectangle("fill", bx, by, boxW, boxH, 8, 8)
     -- Border
-    love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1)
+    love.graphics.setColor(Theme.colors.border[1], Theme.colors.border[2], Theme.colors.border[3], 1)
     love.graphics.setLineWidth(2)
     love.graphics.rectangle("line", bx + 1, by + 1, boxW - 2, boxH - 2, 8, 8)
 
     -- Title
     love.graphics.setFont(font)
-    love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], 1)
+    love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 1)
     local titleW = font:getWidth(title)
     love.graphics.print(title, bx + (boxW - titleW) / 2, by + 10)
 
@@ -107,7 +107,7 @@ function WarpGateHUD.draw(viewportWidth, viewportHeight)
     local y = by + 40
     local pad = 16
 
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], 1)
     love.graphics.print("Required Resources:", bx + pad, y)
     y = y + 20
 
@@ -128,12 +128,12 @@ function WarpGateHUD.draw(viewportWidth, viewportHeight)
     local buttonX = bx + (boxW - buttonW) / 2
     local buttonY = by + boxH - buttonH - 14
 
-    local bg = hasResources and Theme.colors.buttonYes or Theme.colors.bgMedium
-    local textCol = hasResources and Theme.colors.textPrimary or Theme.colors.textMuted
+    local bg = hasResources and Theme.colors.success or Theme.colors.surfaceAlt
+    local textCol = hasResources and Theme.colors.text or Theme.colors.textMuted
 
     love.graphics.setColor(bg[1], bg[2], bg[3], 1)
     love.graphics.rectangle("fill", buttonX, buttonY, buttonW, buttonH, 6, 6)
-    love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1)
+    love.graphics.setColor(Theme.colors.border[1], Theme.colors.border[2], Theme.colors.border[3], 1)
     love.graphics.setLineWidth(1)
     love.graphics.rectangle("line", buttonX, buttonY, buttonW, buttonH, 6, 6)
 

@@ -13,7 +13,7 @@ local ConstructionButton = {
 
 -- Draw a hex-nut with a wrench overlay (plasma-style, fits theme)
 local function drawHexWrench(cx, cy, size, color, alpha)
-    color = color or Theme.colors.textPrimary
+    color = color or Theme.colors.text
     alpha = alpha or 1
     -- Hex nut
     local hex_radius = size * 0.32
@@ -41,7 +41,7 @@ function ConstructionButton.update(dt)
     local mx, my = love.mouse.getPosition()
     local uiMx, uiMy = Scaling.toUI(mx, my)
     
-    local basePadding = Theme.spacing.padding * 2
+    local basePadding = Theme.spacing.sm * 2
     local baseIconSize = 44
     local baseBtnW = baseIconSize + basePadding * 2
     local baseBtnH = baseIconSize + basePadding * 2
@@ -66,7 +66,7 @@ function ConstructionButton.draw(viewportWidth, viewportHeight)
     viewportWidth = viewportWidth or love.graphics.getWidth()
     viewportHeight = viewportHeight or love.graphics.getHeight()
 
-    local basePadding = Theme.spacing.padding * 2
+    local basePadding = Theme.spacing.sm * 2
     local baseIconSize = 44
     local baseBtnW = baseIconSize + basePadding * 2
     local baseBtnH = baseIconSize + basePadding * 2
@@ -83,14 +83,14 @@ function ConstructionButton.draw(viewportWidth, viewportHeight)
         space = "ui",
     })
 
-    local color = ConstructionButton._hovered and Theme.colors.buttonHover or Theme.colors.bgDark
+    local color = ConstructionButton._hovered and Theme.colors.hover or Theme.colors.surface
     BatchRenderer.queueRect(uiX, uiY, baseBtnW, baseBtnH, color[1], color[2], color[3], 1)
-    BatchRenderer.queueRectLine(uiX, uiY, baseBtnW, baseBtnH, Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], 1, 2)
+    BatchRenderer.queueRectLine(uiX, uiY, baseBtnW, baseBtnH, Theme.colors.border[1], Theme.colors.border[2], Theme.colors.border[3], 1, 2)
     -- Draw hex-wrench icon
-    drawHexWrench(uiX + baseBtnW / 2, uiY + baseBtnH / 2 + 2, baseIconSize, Theme.colors.textPrimary, 1)
+    drawHexWrench(uiX + baseBtnW / 2, uiY + baseBtnH / 2 + 2, baseIconSize, Theme.colors.text, 1)
     -- Label
     local font = Theme.getFontBold(Theme.fonts.small)
-    BatchRenderer.queueText("BUILD", uiX, uiY + baseBtnH - 14, font, Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], 1, "center", baseBtnW)
+    BatchRenderer.queueText("BUILD", uiX, uiY + baseBtnH - 14, font, Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 1, "center", baseBtnW)
 end
 
 function ConstructionButton.checkPressed(mx, my, button)
