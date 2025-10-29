@@ -69,7 +69,7 @@ function CargoWindow:drawCargoContentOnly(windowX, windowY, alpha)
     local currency = ECS.getComponent(pilotId, "Currency")
 
     -- Draw cargo info (bottom bar background provided by WindowBase)
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
     love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
     local volumeText = string.format("Cargo: %.2f / %.2f m3", cargo.currentVolume or 0, cargo.capacity or 0)
     local bottomBarH = Theme.window.bottomBarHeight
@@ -271,15 +271,15 @@ function CargoWindow:drawContextMenu(x, y, alpha)
     local highlightInset = menu.highlightInset or 4
 
     -- Panel background and border (flat, theme-aligned)
-    local bgColor = Theme.colors.bgMedium
+    local bgColor = Theme.colors.surfaceAlt
     love.graphics.setColor(bgColor[1], bgColor[2], bgColor[3], alpha * 0.94)
     love.graphics.rectangle("fill", x, y, menuWidth, menuHeight)
 
-    local accent = Theme.colors.buttonHover
+    local accent = Theme.colors.hover
     love.graphics.setColor(accent[1], accent[2], accent[3], (accent[4] or 1) * alpha * 0.35)
     love.graphics.rectangle("fill", x, y, menuWidth, 2)
 
-    local borderColor = Theme.colors.borderDark
+    local borderColor = Theme.colors.border
     love.graphics.setColor(borderColor[1], borderColor[2], borderColor[3], alpha)
     love.graphics.setLineWidth(1)
     love.graphics.rectangle("line", x, y, menuWidth, menuHeight)
@@ -298,14 +298,14 @@ function CargoWindow:drawContextMenu(x, y, alpha)
             love.graphics.rectangle("fill", x + highlightInset, optionTop, menuWidth - highlightInset * 2, optionHeight)
         end
 
-        local textColor = Theme.colors.textPrimary
+        local textColor = Theme.colors.text
         if option.action == "equip" and option.slotType then
             if option.slotType == "Turret Module" then
-                textColor = Theme.colors.textAccent
+                textColor = Theme.colors.accent
             elseif option.slotType == "Defensive Module" then
                 textColor = Theme.colors.textSecondary
             elseif option.slotType == "Generator Module" then
-                textColor = Theme.colors.textPrimary
+                textColor = Theme.colors.text
             end
         elseif option.action == "noop" then
             textColor = {
@@ -393,9 +393,9 @@ function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
             -- Subtle green tint for compatible items
             love.graphics.setColor(0.1, 0.25, 0.1, alpha * 0.4)
             love.graphics.rectangle("fill", iconX - 1, iconY - 1, slotSize + 2, slotSize + 2, 5, 5)
-            love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.8)
+            love.graphics.setColor(Theme.colors.surface[1], Theme.colors.surface[2], Theme.colors.surface[3], alpha * 0.8)
         else
-            love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.8)
+            love.graphics.setColor(Theme.colors.surface[1], Theme.colors.surface[2], Theme.colors.surface[3], alpha * 0.8)
         end
         love.graphics.rectangle("fill", iconX, iconY, slotSize, slotSize, 4, 4)
 
@@ -411,7 +411,7 @@ function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
         if #compatibleSlots > 0 then
             love.graphics.setColor(0.15, 0.35, 0.15, alpha * 0.6)
         else
-            love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha * 0.3)
+            love.graphics.setColor(Theme.colors.borderAlt[1], Theme.colors.borderAlt[2], Theme.colors.borderAlt[3], alpha * 0.3)
         end
         love.graphics.rectangle("line", iconX, iconY, slotSize, slotSize, 4, 4)
 
@@ -433,14 +433,14 @@ function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
         love.graphics.pop()
 
         -- Draw item name at bottom center of the slot (helps finding new items like railgun)
-        love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+        love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
         love.graphics.setFont(Theme.getFont(Theme.fonts.small))
         local label = (itemDef and itemDef.name) or tostring(itemId)
         -- Center label under the slot and keep within slot width
         love.graphics.printf(label, uiIconX, uiIconY + uiIconSize + labelOffset, uiIconSize, "center")
 
         if count > 1 then
-            love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+            love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
             love.graphics.setFont(Theme.getFont(Theme.fonts.small))
             love.graphics.printf(tostring(count), iconX, iconY + slotSize - 8, slotSize, "center")
         end

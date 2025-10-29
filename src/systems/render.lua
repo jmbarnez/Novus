@@ -151,11 +151,7 @@ local RenderSystem = {
         local TargetHUD = require('src.systems.hud.target_hud')
         TargetHUD.drawWorldIndicator()
         
-        -- Draw world tooltips (warp gates, etc.)
-        local worldTooltips = getWorldTooltipsSystem()
-        if worldTooltips and worldTooltips.draw then
-            worldTooltips.draw()
-        end
+        -- World tooltips are now drawn as HUD elements in screen/UI space
 
         -- Record culling statistics to profiler
         Profiler.recordCulling(renderedItems + renderedEntities, culledItems + culledEntities)
@@ -192,6 +188,12 @@ local RenderSystem = {
         AsteroidBars.draw(w, h)
         WreckageBars.draw(w, h)
         Profiler.stop("ui_durability_bars")
+
+        -- Draw world tooltips as HUD overlay (convert world -> UI and render in screen space)
+        local worldTooltips = getWorldTooltipsSystem()
+        if worldTooltips and worldTooltips.drawHUD then
+            worldTooltips.drawHUD()
+        end
 
         -- Draw HUD overlays in screen space (queued to batch)
         Profiler.start("ui_hud_overlays")

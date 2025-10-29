@@ -23,7 +23,7 @@ function Dialogs.drawConfirmDialog()
     local sw, sh = lg.getWidth(), lg.getHeight()
     local font = Theme.getFontBold(16)
     lg.setFont(font)
-    local padding = Theme.spacing.padding * 2
+    local padding = Theme.spacing.sm * 2
 
     local txt = Dialogs.confirmMessage or "Are you sure?"
     local txtW = font:getWidth(txt)
@@ -34,14 +34,14 @@ function Dialogs.drawConfirmDialog()
     local boxY = (sh - boxH) / 2
 
     -- Overlay
-    lg.setColor(Theme.colors.overlay)
+    lg.setColor(table.unpack(Theme.colors.overlay))
     lg.rectangle('fill', 0, 0, sw, sh)
     Theme.draw3DBorder(boxX, boxY, boxW, boxH, Theme.window.borderThickness)
 
     -- Message
     local msgX = boxX + padding
     local msgY = boxY + padding
-    lg.setColor(Theme.colors.text)
+    lg.setColor(table.unpack(Theme.colors.text))
     lg.print(txt, msgX, msgY)
 
     -- Buttons
@@ -55,8 +55,8 @@ function Dialogs.drawConfirmDialog()
     local yesHover = mx >= yesBtn.x and mx <= yesBtn.x + yesBtn.w and my >= yesBtn.y and my <= yesBtn.y + yesBtn.h
     local noHover = mx >= noBtn.x and mx <= noBtn.x + noBtn.w and my >= noBtn.y and my <= noBtn.y + noBtn.h
 
-    Theme.drawButton(yesBtn.x, yesBtn.y, yesBtn.w, yesBtn.h, "Yes", yesHover, Theme.colors.buttonYes, Theme.colors.buttonYesHover)
-    Theme.drawButton(noBtn.x, noBtn.y, noBtn.w, noBtn.h, "No", noHover, Theme.colors.buttonNo, Theme.colors.buttonNoHover)
+    Theme.drawButton(yesBtn.x, yesBtn.y, yesBtn.w, yesBtn.h, "Yes", yesHover, Theme.colors.success, Theme.colors.successHover)
+    Theme.drawButton(noBtn.x, noBtn.y, noBtn.w, noBtn.h, "No", noHover, Theme.colors.danger, Theme.colors.dangerHover)
 end
 
 function Dialogs.mousepressed(x, y, button)

@@ -61,21 +61,21 @@ function CargoPanel.drawCargoGrid(shipWin, cargoItems, x, y, width, height, alph
             if #compatibleSlots > 0 then
                 love.graphics.setColor(0.1, 0.25, 0.1, alpha * 0.4)
                 love.graphics.rectangle("fill", slotX - 1, slotY - 1, slotSize + 2, slotSize + 2, 5, 5)
-                love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.8)
+                love.graphics.setColor(Theme.colors.surface[1], Theme.colors.surface[2], Theme.colors.surface[3], alpha * 0.8)
             else
-                love.graphics.setColor(Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], alpha * 0.8)
+                love.graphics.setColor(Theme.colors.surface[1], Theme.colors.surface[2], Theme.colors.surface[3], alpha * 0.8)
             end
             love.graphics.rectangle("fill", slotX, slotY, slotSize, slotSize, 4, 4)
 
             if isHoveringSlot then
-                love.graphics.setColor(Theme.colors.bgLight[1], Theme.colors.bgLight[2], Theme.colors.bgLight[3], 0.32 * alpha)
+                love.graphics.setColor(Theme.colors.surfaceLight[1], Theme.colors.surfaceLight[2], Theme.colors.surfaceLight[3], 0.32 * alpha)
                 love.graphics.rectangle("fill", slotX, slotY, slotSize, slotSize, 4, 4)
             end
 
             if #compatibleSlots > 0 then
                 love.graphics.setColor(0.15, 0.35, 0.15, alpha * 0.6)
             else
-                love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], Theme.colors.borderMedium[3], alpha * 0.3)
+                love.graphics.setColor(Theme.colors.borderAlt[1], Theme.colors.borderAlt[2], Theme.colors.borderAlt[3], alpha * 0.3)
             end
             love.graphics.rectangle("line", slotX, slotY, slotSize, slotSize, 4, 4)
 
@@ -95,12 +95,12 @@ function CargoPanel.drawCargoGrid(shipWin, cargoItems, x, y, width, height, alph
             love.graphics.pop()
 
             if count > 1 then
-                love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+                love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
                 love.graphics.setFont(Theme.getFont(Theme.fonts.small))
                 love.graphics.printf(tostring(count), slotX, slotY + slotSize - 16, slotSize, "center")
             end
 
-            love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+            love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
             love.graphics.setFont(Theme.getFont(Theme.fonts.small))
             local label = (itemDef and itemDef.name) or tostring(itemId)
             love.graphics.printf(label, slotX, slotY + slotSize + 4, slotSize, "center")

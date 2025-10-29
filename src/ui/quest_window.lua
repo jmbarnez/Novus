@@ -79,7 +79,7 @@ function QuestWindow:drawQuestContent(x, y, w, h, topBarH, bottomBarH, alpha)
     local smallFont = Theme.getFont(12)
     
     -- Draw title
-    love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
+    love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], alpha)
     love.graphics.setFont(titleFont)
     local title = "Quest Board"
     local titleW = titleFont:getWidth(title)
@@ -89,7 +89,7 @@ function QuestWindow:drawQuestContent(x, y, w, h, topBarH, bottomBarH, alpha)
     if self.currentStationId then
         local stationLabel = ECS.getComponent(self.currentStationId, "StationLabel")
         if stationLabel and stationLabel[1] then
-            love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+            love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
             love.graphics.setFont(font)
             love.graphics.print(stationLabel[1], x + 20, y + topBarH + 50)
         end
@@ -114,7 +114,7 @@ function QuestWindow:drawQuestContent(x, y, w, h, topBarH, bottomBarH, alpha)
     
     -- Draw "no quests" message if empty
     if #quests == 0 then
-        love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+        love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
         love.graphics.setFont(font)
         local questText = "No active quests available."
         local questTextW = font:getWidth(questText)
@@ -135,7 +135,7 @@ function QuestWindow:drawQuest(qx, qy, qw, qh, quest, alpha, index)
     local buttonFont = Theme.getFont(12)
     
     -- Quest background
-    local bgColor = Theme.colors.bgMedium
+    local bgColor = Theme.colors.surfaceAlt
     if quest.accepted then
         bgColor = {bgColor[1] * 0.8, bgColor[2] * 0.8, bgColor[3] * 0.8}
     end
@@ -146,12 +146,12 @@ function QuestWindow:drawQuest(qx, qy, qw, qh, quest, alpha, index)
     love.graphics.rectangle("fill", qx, qy, qw, qh, 4, 4)
     
     -- Quest border
-    local borderColor = Theme.colors.borderDark
+    local borderColor = Theme.colors.border
     if quest.accepted then
-        borderColor = Theme.colors.textAccent
+        borderColor = Theme.colors.accent
     end
     if quest.completed then
-        borderColor = Theme.colors.buttonYes
+        borderColor = Theme.colors.success
     end
     love.graphics.setColor(borderColor[1], borderColor[2], borderColor[3], alpha)
     love.graphics.setLineWidth(2)
@@ -159,17 +159,17 @@ function QuestWindow:drawQuest(qx, qy, qw, qh, quest, alpha, index)
     love.graphics.setLineWidth(1)
     
     -- Quest title
-    love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
+    love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], alpha)
     love.graphics.setFont(font)
     love.graphics.print(quest.title, qx + 12, qy + 8)
     
     -- Quest description
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
     love.graphics.setFont(smallFont)
     love.graphics.print(quest.description, qx + 12, qy + 28)
     
     -- Quest reward
-    love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
+    love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], alpha)
     love.graphics.setFont(smallFont)
     local rewardText = "Reward: " .. quest.reward .. " credits"
     love.graphics.print(rewardText, qx + 12, qy + 45)
@@ -199,7 +199,7 @@ function QuestWindow:drawQuest(qx, qy, qw, qh, quest, alpha, index)
         
         local isHovered = mx >= buttonX and mx <= buttonX + buttonW and my >= buttonY and my <= buttonY + buttonH
         
-        local buttonColor = Theme.colors.buttonYes
+        local buttonColor = Theme.colors.success
         if isHovered then
             buttonColor = {buttonColor[1] * 1.2, buttonColor[2] * 1.2, buttonColor[3] * 1.2}
         end
@@ -207,11 +207,11 @@ function QuestWindow:drawQuest(qx, qy, qw, qh, quest, alpha, index)
         love.graphics.setColor(buttonColor[1], buttonColor[2], buttonColor[3], alpha)
         love.graphics.rectangle("fill", buttonX, buttonY, buttonW, buttonH, 3, 3)
         
-        love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], alpha)
+        love.graphics.setColor(Theme.colors.border[1], Theme.colors.border[2], Theme.colors.border[3], alpha)
         love.graphics.setLineWidth(1)
         love.graphics.rectangle("line", buttonX, buttonY, buttonW, buttonH, 3, 3)
         
-        love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+        love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
         love.graphics.setFont(buttonFont)
         local acceptText = "Accept"
         local acceptTextW = buttonFont:getWidth(acceptText)
@@ -224,7 +224,7 @@ function QuestWindow:drawQuest(qx, qy, qw, qh, quest, alpha, index)
         
         local isHovered = mx >= buttonX and mx <= buttonX + buttonW and my >= buttonY and my <= buttonY + buttonH
         
-        local buttonColor = Theme.colors.buttonYes
+        local buttonColor = Theme.colors.success
         if isHovered then
             buttonColor = {buttonColor[1] * 1.2, buttonColor[2] * 1.2, buttonColor[3] * 1.2}
         end
@@ -232,18 +232,18 @@ function QuestWindow:drawQuest(qx, qy, qw, qh, quest, alpha, index)
         love.graphics.setColor(buttonColor[1], buttonColor[2], buttonColor[3], alpha)
         love.graphics.rectangle("fill", buttonX, buttonY, buttonW, buttonH, 3, 3)
         
-        love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], alpha)
+        love.graphics.setColor(Theme.colors.border[1], Theme.colors.border[2], Theme.colors.border[3], alpha)
         love.graphics.setLineWidth(1)
         love.graphics.rectangle("line", buttonX, buttonY, buttonW, buttonH, 3, 3)
         
-        love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+        love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
         love.graphics.setFont(buttonFont)
         local turnInText = "Turn In"
         local turnInTextW = buttonFont:getWidth(turnInText)
         love.graphics.print(turnInText, buttonX + (buttonW - turnInTextW) / 2, buttonY + (buttonH - buttonFont:getHeight()) / 2)
     else
         -- Accepted indicator
-        love.graphics.setColor(Theme.colors.textAccent[1], Theme.colors.textAccent[2], Theme.colors.textAccent[3], alpha)
+        love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], alpha)
         love.graphics.setFont(smallFont)
         local acceptedText = "✓ Accepted"
         love.graphics.print(acceptedText, qx + qw - 12 - smallFont:getWidth(acceptedText), qy + qh - buttonH - 8)

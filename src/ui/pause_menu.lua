@@ -379,7 +379,7 @@ function PauseMenu:draw()
     love.graphics.push('all')
 
     love.graphics.setFont(self._titleFont)
-    love.graphics.setColor(Theme.colors.textAccent)
+    love.graphics.setColor(table.unpack(Theme.colors.accent))
     local layout = self._layout or {}
     love.graphics.printf('Paused', self.position.x, (layout.titleY or (self.position.y + Theme.window.topBarHeight + 12)), self.width, 'center')
 

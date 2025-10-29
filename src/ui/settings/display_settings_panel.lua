@@ -111,8 +111,8 @@ end
 function DisplaySettingsPanel:updatePositions(position, contentScrollY)
     self.position = position
     local x, y = position.x, position.y - contentScrollY
-    local sectionSpacing = Theme.spacing.padding * 12  -- Match settings window spacing
-    local controlVerticalOffset = Theme.spacing.padding * 2  -- Offset controls below labels
+    local sectionSpacing = Theme.spacing.sm * 12  -- Match settings window spacing
+    local controlVerticalOffset = Theme.spacing.sm * 2  -- Offset controls below labels
 
     if self.vsyncDropdown then
         self.vsyncDropdown.x = x

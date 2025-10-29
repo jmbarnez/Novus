@@ -40,7 +40,7 @@ function AudioSettingsPanel:initialize(position, width, onSettingsChange)
         self:getCurrentVolume("master"),
         x, y,  -- Will be positioned by updatePositions
         width - 50,  -- Leave space for value text
-        Theme.spacing.padding * 3.33,  -- Scaled height
+        Theme.spacing.sm * 3.33,  -- Scaled height
         function(value)
             self:setVolume("master", value)
             if self.onSettingsChange then
@@ -56,7 +56,7 @@ function AudioSettingsPanel:initialize(position, width, onSettingsChange)
         self:getCurrentVolume("music"),
         x, y,  -- Will be positioned by updatePositions
         width - 50,
-        Theme.spacing.padding * 3.33,  -- Scaled height
+        Theme.spacing.sm * 3.33,  -- Scaled height
         function(value)
             self:setVolume("music", value)
             if self.onSettingsChange then
@@ -72,7 +72,7 @@ function AudioSettingsPanel:initialize(position, width, onSettingsChange)
         self:getCurrentVolume("sfx"),
         x, y,  -- Will be positioned by updatePositions
         width - 50,
-        Theme.spacing.padding * 3.33,  -- Scaled height
+        Theme.spacing.sm * 3.33,  -- Scaled height
         function(value)
             self:setVolume("sfx", value)
             if self.onSettingsChange then
@@ -86,8 +86,8 @@ end
 function AudioSettingsPanel:updatePositions(position, contentScrollY)
     self.position = position
     local x, y = position.x, position.y - contentScrollY
-    local sectionSpacing = Theme.spacing.padding * 12  -- Match settings window spacing
-    local controlVerticalOffset = Theme.spacing.padding * 2  -- Offset controls below labels
+    local sectionSpacing = Theme.spacing.sm * 12  -- Match settings window spacing
+    local controlVerticalOffset = Theme.spacing.sm * 2  -- Offset controls below labels
 
     if self.masterVolumeSlider then
         self.masterVolumeSlider.x = x

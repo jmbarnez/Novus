@@ -16,6 +16,76 @@ local TargetHUD = {
     hoverRadius = 30,  -- World units
 }
 
+local function queuePanelChrome(x, y, w, h, accentHeight, cornerRadius)
+    accentHeight = accentHeight or 0
+    cornerRadius = cornerRadius or 0
+
+    local bg = Theme.colors.surface
+    local accent = Theme.colors.accent
+    local border = Theme.colors.borderLight
+
+    BatchRenderer.queueRect(x, y, w, h, bg[1], bg[2], bg[3], 0.95, cornerRadius)
+
+    if accentHeight > 0 then
+        BatchRenderer.queueRect(x, y, w, accentHeight, accent[1], accent[2], accent[3], 0.85, 0)
+    end
+
+    BatchRenderer.queueRectLine(
+        x,
+        y,
+        w,
+        h,
+        border[1], border[2], border[3], border[4] or 1,
+        math.max(1, Scaling.scaleSize and Scaling.scaleSize(1) or 1),
+        cornerRadius
+    )
+end
+
+local function queueProgressBar(x, y, width, height, ratio, fillColor, backgroundColor, borderColor)
+    if width <= 0 or height <= 0 then return end
+
+    ratio = math.max(0, math.min(ratio or 0, 1))
+
+    local bg = backgroundColor or Theme.colors.surfaceAlt
+    local border = borderColor or Theme.colors.borderLight
+    local fillA = fillColor[4] or 1
+    local bgA = bg[4] or 0.8
+    local borderA = border[4] or 0.9
+
+    BatchRenderer.queueRect(x, y, width, height, bg[1], bg[2], bg[3], bgA, 0)
+
+    if ratio > 0 then
+        local innerWidth = math.max(0, width - 2)
+        local innerHeight = math.max(0, height - 2)
+        BatchRenderer.queueRect(
+            x + 1,
+            y + 1,
+            innerWidth * ratio,
+            innerHeight,
+            fillColor[1], fillColor[2], fillColor[3], fillA,
+            0
+        )
+    end
+
+    BatchRenderer.queueRectLine(
+        x,
+        y,
+        width,
+        height,
+        border[1], border[2], border[3], borderA,
+        math.max(1, Scaling.scaleSize and Scaling.scaleSize(1) or 1),
+        0
+    )
+end
+
+local function computeRatioAndPercent(current, max)
+    if not current or not max or max <= 0 then
+        return 0, 0
+    end
+    local ratio = math.max(0, math.min(current / max, 1))
+    return ratio, math.floor(ratio * 100 + 0.5)
+end
+
 -- Update hover detection
 function TargetHUD.update()
     local mouseX, mouseY = love.mouse.getPosition()
@@ -163,142 +233,56 @@ function TargetHUD.update()
     end
 end
 
--- Draw hover indicator (circle around item/enemy/asteroid - in world space)
+local function drawEntityOutline(entityId)
+    local position = ECS.getComponent(entityId, "Position")
+    if not position then return end
+
+    local polygonShape = ECS.getComponent(entityId, "PolygonShape")
+    local collidable = ECS.getComponent(entityId, "Collidable")
+
+    if polygonShape and polygonShape.vertices and #polygonShape.vertices > 2 then
+        local flatVertices = {}
+        for i = 1, #polygonShape.vertices do
+            local v = polygonShape.vertices[i]
+            flatVertices[#flatVertices + 1] = v.x
+            flatVertices[#flatVertices + 1] = v.y
+        end
+
+        local rotation = polygonShape.rotation or 0
+        love.graphics.push()
+        love.graphics.translate(position.x, position.y)
+        love.graphics.rotate(rotation)
+        love.graphics.polygon("line", flatVertices)
+        love.graphics.pop()
+    elseif collidable then
+        love.graphics.circle("line", position.x, position.y, collidable.radius or 30)
+    end
+end
+
+-- Draw world-space indicator around hovered objects
 function TargetHUD.drawWorldIndicator()
-    -- Use plasma cyan color for all hover indicators (consistent with theme)
-    local cyanColor = Theme.colors.borderNeon
-    
-    -- Draw indicator for hovered item
+    local indicatorColor = Theme.colors.accent
+
+    love.graphics.setColor(indicatorColor[1], indicatorColor[2], indicatorColor[3], 0.8)
+    love.graphics.setLineWidth(2)
+
     if TargetHUD.hoveredItem then
-        local position = ECS.getComponent(TargetHUD.hoveredItem, "Position")
-        local collidable = ECS.getComponent(TargetHUD.hoveredItem, "Collidable")
-        local polygonShape = ECS.getComponent(TargetHUD.hoveredItem, "PolygonShape")
-        if position then
-            love.graphics.setColor(cyanColor[1], cyanColor[2], cyanColor[3], 0.6)
-            love.graphics.setLineWidth(2)
-            if polygonShape and polygonShape.vertices then
-                -- Polygonal highlight
-                local flatVertices = {}
-                for i = 1, #polygonShape.vertices do
-                    local v = polygonShape.vertices[i]
-                    table.insert(flatVertices, v.x)
-                    table.insert(flatVertices, v.y)
-                end
-                local rotation = polygonShape.rotation or 0
-                love.graphics.push()
-                love.graphics.translate(position.x, position.y)
-                love.graphics.rotate(rotation)
-                love.graphics.polygon("line", flatVertices)
-                love.graphics.pop()
-            else
-                -- Fallback: circle
-                love.graphics.circle("line", position.x, position.y, (collidable and collidable.radius) or 20)
-            end
-            love.graphics.setLineWidth(1)
-        end
+        drawEntityOutline(TargetHUD.hoveredItem)
     end
-    
-    -- Draw indicator for hovered asteroid
-    if TargetHUD.hoveredAsteroid then
-        local position = ECS.getComponent(TargetHUD.hoveredAsteroid, "Position")
-        local collidable = ECS.getComponent(TargetHUD.hoveredAsteroid, "Collidable")
-        local polygonShape = ECS.getComponent(TargetHUD.hoveredAsteroid, "PolygonShape")
-        
-        if position then
-            love.graphics.setColor(cyanColor[1], cyanColor[2], cyanColor[3], 0.6)
-            love.graphics.setLineWidth(2)
-            
-            if polygonShape and polygonShape.vertices then
-                -- Draw perfect outline using polygon vertices
-                -- Flatten vertices table into array of numbers
-                local flatVertices = {}
-                for i = 1, #polygonShape.vertices do
-                    local v = polygonShape.vertices[i]
-                    table.insert(flatVertices, v.x)
-                    table.insert(flatVertices, v.y)
-                end
-                
-                local rotation = polygonShape.rotation or 0
-                love.graphics.push()
-                love.graphics.translate(position.x, position.y)
-                love.graphics.rotate(rotation)
-                love.graphics.polygon("line", flatVertices)
-                love.graphics.pop()
-            elseif collidable then
-                -- Fallback to circle
-                love.graphics.circle("line", position.x, position.y, collidable.radius or 30)
-            end
-            
-            love.graphics.setLineWidth(1)
-        end
-    end
-    
-    -- Draw indicator for hovered wreckage (treat similar to asteroid)
+
     if TargetHUD.hoveredWreckage then
-        local position = ECS.getComponent(TargetHUD.hoveredWreckage, "Position")
-        local collidable = ECS.getComponent(TargetHUD.hoveredWreckage, "Collidable")
-        local polygonShape = ECS.getComponent(TargetHUD.hoveredWreckage, "PolygonShape")
-        
-        if position then
-            love.graphics.setColor(cyanColor[1], cyanColor[2], cyanColor[3], 0.6)
-            love.graphics.setLineWidth(2)
-            
-            if polygonShape and polygonShape.vertices then
-                -- Draw polygonal outline for wreckage
-                local flatVertices = {}
-                for i = 1, #polygonShape.vertices do
-                    local v = polygonShape.vertices[i]
-                    table.insert(flatVertices, v.x)
-                    table.insert(flatVertices, v.y)
-                end
-                local rotation = polygonShape.rotation or 0
-                love.graphics.push()
-                love.graphics.translate(position.x, position.y)
-                love.graphics.rotate(rotation)
-                love.graphics.polygon("line", flatVertices)
-                love.graphics.pop()
-            elseif collidable then
-                love.graphics.circle("line", position.x, position.y, collidable.radius or 24)
-            end
-            
-            love.graphics.setLineWidth(1)
-        end
+        drawEntityOutline(TargetHUD.hoveredWreckage)
     end
-    
-    -- Draw indicator for hovered enemy
+
+    if TargetHUD.hoveredAsteroid then
+        drawEntityOutline(TargetHUD.hoveredAsteroid)
+    end
+
     if TargetHUD.hoveredEnemy then
-        local position = ECS.getComponent(TargetHUD.hoveredEnemy, "Position")
-        local collidable = ECS.getComponent(TargetHUD.hoveredEnemy, "Collidable")
-        local polygonShape = ECS.getComponent(TargetHUD.hoveredEnemy, "PolygonShape")
-        
-        if position then
-            love.graphics.setColor(cyanColor[1], cyanColor[2], cyanColor[3], 0.6)
-            love.graphics.setLineWidth(2)
-            
-            if polygonShape and polygonShape.vertices then
-                -- Draw perfect outline using polygon vertices
-                -- Flatten vertices table into array of numbers
-                local flatVertices = {}
-                for i = 1, #polygonShape.vertices do
-                    local v = polygonShape.vertices[i]
-                    table.insert(flatVertices, v.x)
-                    table.insert(flatVertices, v.y)
-                end
-                
-                local rotation = polygonShape.rotation or 0
-                love.graphics.push()
-                love.graphics.translate(position.x, position.y)
-                love.graphics.rotate(rotation)
-                love.graphics.polygon("line", flatVertices)
-                love.graphics.pop()
-            elseif collidable then
-                -- Fallback to circle
-                love.graphics.circle("line", position.x, position.y, collidable.radius or 30)
-            end
-            
-            love.graphics.setLineWidth(1)
-        end
+        drawEntityOutline(TargetHUD.hoveredEnemy)
     end
+
+    love.graphics.setLineWidth(1)
 end
 
 -- Draw popup (in screen space, same style/position as skill notifications)
@@ -308,102 +292,119 @@ function TargetHUD.drawPopup()
     
     -- Same positioning as skill notifications
     local screenW = Scaling.getCurrentWidth()
-    local popupWidth = Scaling.scaleSize(400)
-    
-    -- Determine popup height based on type
-    local popupHeight = Scaling.scaleSize(44) -- Default height
-    if TargetHUD.hoveredAsteroid then
-        popupHeight = Scaling.scaleSize(72) -- Taller for asteroids to show durability bar
-    elseif TargetHUD.hoveredEnemy then
-        -- Check if enemy is targeted (will show more info)
-        local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
-        local inputComp = (#controllers > 0) and ECS.getComponent(controllers[1], "InputControlled")
-        local isTargeted = inputComp and inputComp.targetedEnemy == TargetHUD.hoveredEnemy
-        if isTargeted then
-            popupHeight = Scaling.scaleSize(70) -- Taller for targeted enemies to show health bar and stats
-        end
-    end
-    
-    -- Calculate starting Y position - below any skill notifications
-    local startY = Scaling.scaleY(18)
-    local y = startY
-    
-    -- Stack below skill notifications if any are showing -- REMOVE THIS SKILL STACKING LOGIC --
-    
-    local x = (screenW - popupWidth) / 2
-    
-    -- Set fonts
+    local popupWidth = Scaling.scaleSize(420)
+    local cornerRadius = Scaling.scaleSize(8)
+    local accentHeight = math.max(Scaling.scaleSize(4), 2)
+
+    -- Layout metrics
+    local padX = Scaling.scaleX(18)
+    local padTop = Scaling.scaleY(16)
+    local padBottom = Scaling.scaleY(18)
+    local lineGap = Scaling.scaleY(6)
+    local sectionGap = Scaling.scaleY(12)
+    local barLabelGap = Scaling.scaleY(4)
+    local barSpacing = Scaling.scaleY(10)
+    local barHeight = Scaling.scaleSize(8)
+
+    -- Fonts & palette
     local normalFont = Theme.getFont(Scaling.scaleSize(Theme.fonts.normal))
-    
-    -- Draw popup background (same style as skill notifications)
-    BatchRenderer.queueRect(x, y, popupWidth, popupHeight, Theme.colors.bgDark[1], Theme.colors.bgDark[2], Theme.colors.bgDark[3], 0.92, Scaling.scaleSize(8))
-    
-    -- Draw popup border
-    BatchRenderer.queueRectLine(x, y, popupWidth, popupHeight, Theme.colors.borderLight[1], Theme.colors.borderLight[2], Theme.colors.borderLight[3], 1, 1, Scaling.scaleSize(8))
-    
-    -- Handle item popup
+    local titleFont = Theme.getFontBold(Scaling.scaleSize(Theme.fonts.normal))
+    local smallFont = Theme.getFont(Scaling.scaleSize(Theme.fonts.small))
+
+    local textPrimary = Theme.colors.text
+    local textSecondary = Theme.colors.textSecondary
+    local accentColor = Theme.colors.accent
+
+    -- Calculate starting Y position - below any skill notifications
+    local y = Scaling.scaleY(18)
+    local x = (screenW - popupWidth) / 2
+    local popupHeight = accentHeight + padTop + padBottom + titleFont:getHeight()
+
+    local content = { type = nil }
+
     if TargetHUD.hoveredItem then
         local item = ECS.getComponent(TargetHUD.hoveredItem, "Item")
-        if item and item.def then
-            -- Draw item icon (miniature version) - keep icon for items only
-            -- This will require a separate canvas or direct drawing, which is complex.
-            -- For now, we'll skip the icon and just draw the text.
-            
-            -- Draw item name
-            BatchRenderer.queueText(string.upper(item.def.name), x + Scaling.scaleX(48), y + Scaling.scaleY(14), normalFont, Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
+        if not item or not item.def then return end
+
+        content.type = "item"
+        content.title = string.upper(item.def.name or "UNKNOWN ITEM")
+
+        local metaParts = {}
+        if item.def.value then
+            table.insert(metaParts, string.format("Value: %d", math.floor(item.def.value + 0.5)))
         end
-    -- Handle asteroid popup (minimal)
+        if item.def.volume then
+            table.insert(metaParts, string.format("Volume: %.3f m^3", item.def.volume))
+        end
+        if item.def.stackable then
+            table.insert(metaParts, "Stackable")
+        end
+
+        if #metaParts > 0 then
+            content.metaText = table.concat(metaParts, "   ")
+            popupHeight = popupHeight + lineGap + smallFont:getHeight()
+        end
+
+        popupHeight = math.max(popupHeight, Scaling.scaleSize(78))
+
     elseif TargetHUD.hoveredAsteroid then
         local asteroid = ECS.getComponent(TargetHUD.hoveredAsteroid, "Asteroid")
         local durability = ECS.getComponent(TargetHUD.hoveredAsteroid, "Durability")
+        if not asteroid or not durability then return end
 
-        if asteroid and durability then
-            local asteroidTypeName = "ASTEROID"
-            if asteroid.asteroidType == "iron" then
-                asteroidTypeName = "IRON ASTEROID"
-            elseif asteroid.asteroidType == "stone" then
-                asteroidTypeName = "STONE ASTEROID"
-            end
-
-            -- Minimal: type name + durability percent
-            BatchRenderer.queueText(asteroidTypeName, x + Scaling.scaleX(14), y + Scaling.scaleY(12), normalFont, Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
-
-            local percent = math.floor((durability.current / math.max(durability.max, 1)) * 100)
-            local percentText = string.format("%d%%", percent)
-            BatchRenderer.queueText(percentText, x + popupWidth - Scaling.scaleX(14) - normalFont:getWidth(percentText), y + Scaling.scaleY(12), normalFont, Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], 1)
+        content.type = "asteroid"
+        if asteroid.asteroidType == "iron" then
+            content.title = "IRON ASTEROID"
+        elseif asteroid.asteroidType == "stone" then
+            content.title = "STONE ASTEROID"
+        else
+            content.title = "ASTEROID"
         end
-    -- Handle wreckage popup (minimal)
+
+        content.ratio, content.percent = computeRatioAndPercent(durability.current, durability.max)
+        content.percentText = string.format("%d%%", content.percent)
+        content.barLabel = "DURABILITY"
+        content.fillColor = PlasmaTheme.colors.asteroidBarFill
+        content.barBackground = PlasmaTheme.colors.asteroidBarBg
+
+        popupHeight = popupHeight + sectionGap + smallFont:getHeight() + barLabelGap + barHeight
+        popupHeight = math.max(popupHeight, Scaling.scaleSize(96))
+
     elseif TargetHUD.hoveredWreckage then
         local wreck = ECS.getComponent(TargetHUD.hoveredWreckage, "Wreckage")
         local durability = ECS.getComponent(TargetHUD.hoveredWreckage, "Durability")
+        if not wreck or not durability then return end
 
-        if wreck and durability then
-            -- Prefer friendly display name from ship design, fallback to sourceShip id
-            local displayName = "WRECKAGE"
-            if wreck.sourceShip then
-                local design = ShipLoader.getDesign(wreck.sourceShip)
-                if design and design.name then
-                    displayName = string.format("%s WRECKAGE", design.name)
-                else
-                    displayName = string.format("%s WRECKAGE", wreck.sourceShip)
-                end
+        content.type = "wreckage"
+
+        local displayName = "WRECKAGE"
+        if wreck.sourceShip then
+            local design = ShipLoader.getDesign(wreck.sourceShip)
+            if design and design.name then
+                displayName = string.format("%s WRECKAGE", design.name)
+            else
+                displayName = string.format("%s WRECKAGE", wreck.sourceShip)
             end
-            BatchRenderer.queueText(string.upper(displayName), x + Scaling.scaleX(14), y + Scaling.scaleY(12), normalFont, Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
-
-            local percent = math.floor((durability.current / math.max(durability.max, 1)) * 100)
-            local percentText = string.format("%d%%", percent)
-            BatchRenderer.queueText(percentText, x + popupWidth - Scaling.scaleX(14) - normalFont:getWidth(percentText), y + Scaling.scaleY(12), normalFont, Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], 1)
         end
+        content.title = string.upper(displayName)
 
-    -- Handle enemy popup
+        content.ratio, content.percent = computeRatioAndPercent(durability.current, durability.max)
+        content.percentText = string.format("%d%%", content.percent)
+        content.barLabel = "SALVAGE INTEGRITY"
+        content.fillColor = PlasmaTheme.colors.wreckageBarFill
+        content.barBackground = PlasmaTheme.colors.wreckageBarBg
+
+        popupHeight = popupHeight + sectionGap + smallFont:getHeight() + barLabelGap + barHeight
+        popupHeight = math.max(popupHeight, Scaling.scaleSize(100))
+
     elseif TargetHUD.hoveredEnemy then
         local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
         local inputComp = (#controllers > 0) and ECS.getComponent(controllers[1], "InputControlled")
         local isTargeted = inputComp and inputComp.targetedEnemy == TargetHUD.hoveredEnemy
-        
+
         if isTargeted then
-            -- Minimal targeted enemy info: name, level, hull/shield percents
-            -- Use the ship design's display name when available. Do NOT append "WRECKAGE" here.
+            content.type = "enemy-targeted"
+
             local wreck = ECS.getComponent(TargetHUD.hoveredEnemy, "Wreckage")
             local name = "ENEMY"
             if wreck and wreck.sourceShip then
@@ -414,42 +415,162 @@ function TargetHUD.drawPopup()
                     name = string.upper(wreck.sourceShip)
                 end
             end
+            content.title = name
+
             local levelComp = ECS.getComponent(TargetHUD.hoveredEnemy, "Level")
-            local levelText = levelComp and string.format("Lv %d", levelComp.level) or ""
+            content.levelText = levelComp and string.format("Lv %d", levelComp.level) or ""
 
-            -- Name (left) and level (right)
-            BatchRenderer.queueText(name, x + Scaling.scaleX(14), y + Scaling.scaleY(12), normalFont, Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
-            if levelText ~= "" then
-                BatchRenderer.queueText(levelText, x + popupWidth - Scaling.scaleX(14) - normalFont:getWidth(levelText), y + Scaling.scaleY(12), normalFont, Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], 1)
-            end
-
-            -- Hull / Shield percents (small font)
+            local bars = {}
             local hull = ECS.getComponent(TargetHUD.hoveredEnemy, "Hull")
-            local shield = ECS.getComponent(TargetHUD.hoveredEnemy, "Shield")
-            local smallFont = Theme.getFont(Scaling.scaleSize(Theme.fonts.small))
-            local stats = ""
             if hull and hull.max and hull.max > 0 then
-                local hpPct = math.floor((hull.current / math.max(hull.max, 1)) * 100)
-                stats = string.format("Hull: %d%%", hpPct)
+                local ratio, percent = computeRatioAndPercent(hull.current, hull.max)
+                table.insert(bars, {
+                    label = "HULL",
+                    ratio = ratio,
+                    percentText = string.format("%d%%", percent),
+                    fillColor = PlasmaTheme.colors.healthBarFill,
+                    bgColor = PlasmaTheme.colors.healthBarBg
+                })
             end
+
+            local shield = ECS.getComponent(TargetHUD.hoveredEnemy, "Shield")
             if shield and shield.max and shield.max > 0 then
-                local shPct = math.floor((shield.current / math.max(shield.max, 1)) * 100)
-                if stats ~= "" then stats = stats .. "  " end
-                stats = stats .. string.format("Shield: %d%%", shPct)
+                local ratio, percent = computeRatioAndPercent(shield.current, shield.max)
+                table.insert(bars, {
+                    label = "SHIELD",
+                    ratio = ratio,
+                    percentText = string.format("%d%%", percent),
+                    fillColor = PlasmaTheme.colors.shieldBarFill,
+                    bgColor = PlasmaTheme.colors.healthBarBg
+                })
             end
-            if stats ~= "" then
-                BatchRenderer.queueText(stats, x + Scaling.scaleX(14), y + Scaling.scaleY(36), smallFont, Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], 1)
+
+            content.bars = bars
+
+            if #bars > 0 then
+                local barBlockHeight = 0
+                for i = 1, #bars do
+                    barBlockHeight = barBlockHeight + smallFont:getHeight() + barLabelGap + barHeight
+                    if i < #bars then
+                        barBlockHeight = barBlockHeight + barSpacing
+                    end
+                end
+                popupHeight = popupHeight + sectionGap + barBlockHeight
+            else
+                popupHeight = popupHeight + sectionGap + normalFont:getHeight()
             end
+
+            popupHeight = math.max(popupHeight, Scaling.scaleSize(112))
+
         else
-            -- Show simple message for untargeted enemies
+            content.type = "enemy-scan"
             local message = "Ctrl+Click to scan"
             if inputComp and inputComp.targetingTarget == TargetHUD.hoveredEnemy then
                 local progress = math.floor((inputComp.targetingProgress or 0) * 100)
-                message = string.format("Scanning... %d%% (Ctrl+Click to cancel)", progress)
+                message = string.format("Scanning... %d%%  (Ctrl+Click to cancel)", progress)
             end
-            
-            BatchRenderer.queueText(message, x + Scaling.scaleX(14), y + Scaling.scaleY(14), normalFont, Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], 1)
+            content.message = message
+
+            popupHeight = accentHeight + padTop + padBottom + normalFont:getHeight()
+            popupHeight = math.max(popupHeight, Scaling.scaleSize(72))
         end
+    end
+
+    -- Draw panel
+    queuePanelChrome(x, y, popupWidth, popupHeight, accentHeight, cornerRadius)
+
+    -- Content baseline
+    local cursorY = y + accentHeight + padTop
+    local textX = x + padX
+    local contentWidth = popupWidth - padX * 2
+
+    if content.type == "item" then
+        BatchRenderer.queueText(content.title, textX, cursorY, titleFont, textPrimary[1], textPrimary[2], textPrimary[3], 1)
+
+        if content.metaText then
+            cursorY = cursorY + titleFont:getHeight() + lineGap
+            BatchRenderer.queueText(content.metaText, textX, cursorY, smallFont, textSecondary[1], textSecondary[2], textSecondary[3], 1)
+        end
+
+    elseif content.type == "asteroid" or content.type == "wreckage" then
+        local percentWidth = titleFont:getWidth(content.percentText)
+        BatchRenderer.queueText(content.title, textX, cursorY, titleFont, textPrimary[1], textPrimary[2], textPrimary[3], 1)
+        BatchRenderer.queueText(
+            content.percentText,
+            x + popupWidth - padX - percentWidth,
+            cursorY,
+            titleFont,
+            textSecondary[1], textSecondary[2], textSecondary[3], 1
+        )
+
+        cursorY = cursorY + titleFont:getHeight() + sectionGap
+        BatchRenderer.queueText(content.barLabel, textX, cursorY, smallFont, accentColor[1], accentColor[2], accentColor[3], 1)
+
+        cursorY = cursorY + smallFont:getHeight() + barLabelGap
+        queueProgressBar(
+            textX,
+            cursorY,
+            contentWidth,
+            barHeight,
+            content.ratio,
+            content.fillColor,
+            content.barBackground,
+            Theme.colors.borderLight
+        )
+
+    elseif content.type == "enemy-targeted" then
+        BatchRenderer.queueText(content.title, textX, cursorY, titleFont, textPrimary[1], textPrimary[2], textPrimary[3], 1)
+
+        if content.levelText and content.levelText ~= "" then
+            local levelWidth = smallFont:getWidth(content.levelText)
+            local levelY = cursorY + titleFont:getHeight() - smallFont:getHeight()
+            BatchRenderer.queueText(
+                content.levelText,
+                x + popupWidth - padX - levelWidth,
+                levelY,
+                smallFont,
+                textSecondary[1], textSecondary[2], textSecondary[3], 1
+            )
+        end
+
+        cursorY = cursorY + titleFont:getHeight() + sectionGap
+
+        if content.bars and #content.bars > 0 then
+            for index, bar in ipairs(content.bars) do
+                BatchRenderer.queueText(bar.label, textX, cursorY, smallFont, accentColor[1], accentColor[2], accentColor[3], 1)
+
+                local percentWidth = smallFont:getWidth(bar.percentText)
+                BatchRenderer.queueText(
+                    bar.percentText,
+                    x + popupWidth - padX - percentWidth,
+                    cursorY,
+                    smallFont,
+                    textSecondary[1], textSecondary[2], textSecondary[3], 1
+                )
+
+                cursorY = cursorY + smallFont:getHeight() + barLabelGap
+                queueProgressBar(
+                    textX,
+                    cursorY,
+                    contentWidth,
+                    barHeight,
+                    bar.ratio,
+                    bar.fillColor,
+                    bar.bgColor,
+                    Theme.colors.borderLight
+                )
+
+                cursorY = cursorY + barHeight
+                if index < #content.bars then
+                    cursorY = cursorY + barSpacing
+                end
+            end
+        else
+            BatchRenderer.queueText("No telemetry", textX, cursorY, normalFont, textSecondary[1], textSecondary[2], textSecondary[3], 1)
+        end
+
+    elseif content.type == "enemy-scan" then
+        BatchRenderer.queueText(content.message, textX, cursorY, normalFont, accentColor[1], accentColor[2], accentColor[3], 1)
     end
 end
 

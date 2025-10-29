@@ -50,7 +50,7 @@ function MapWindow:draw(viewportWidth, viewportHeight)
     local w, h = self.width, self.height
 
     -- Map rectangle (fit within window content area, respect top/bottom bars)
-    local padding = Theme.spacing.padding
+    local padding = Theme.spacing.sm
     local mapX = x + padding
     local mapY = y + Theme.window.topBarHeight + padding
     local mapW = w - padding * 2
@@ -204,17 +204,17 @@ function MapWindow:draw(viewportWidth, viewportHeight)
     local btnSize = 30
     local btnX = mapX + mapW / 2 - btnSize / 2
     local btnY = mapY + mapH - btnSize - 10  -- 10 pixels padding from bottom
-    love.graphics.setColor(Theme.colors.bgLight[1], Theme.colors.bgLight[2], Theme.colors.bgLight[3], alpha)
+    love.graphics.setColor(Theme.colors.surfaceLight[1], Theme.colors.surfaceLight[2], Theme.colors.surfaceLight[3], alpha)
     love.graphics.rectangle('fill', btnX, btnY, btnSize, btnSize, 4, 4)
-    love.graphics.setColor(Theme.colors.borderDark[1], Theme.colors.borderDark[2], Theme.colors.borderDark[3], alpha)
+    love.graphics.setColor(Theme.colors.border[1], Theme.colors.border[2], Theme.colors.border[3], alpha)
     love.graphics.rectangle('line', btnX, btnY, btnSize, btnSize, 4, 4)
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
     love.graphics.setFont(Theme.getFontBold(Theme.fonts.normal))
     love.graphics.printf('R', btnX, btnY + 6, btnSize, 'center')
     self.resetButtonRect = {x = btnX, y = btnY, w = btnSize, h = btnSize}
 
     -- Title text
-    love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], Theme.colors.textPrimary[3], alpha)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
     love.graphics.setFont(Theme.getFontBold(Theme.fonts.title))
     love.graphics.printf("Map", x + 8, y + 4, w - 16, 'left')
 
@@ -245,7 +245,7 @@ end
 -- Input handling for panning
 function MapWindow:mousepressed(mx, my, button)
     if not self.isOpen then return end
-    local mapX, mapY, mapW, mapH = self._mapX or (self.position.x + Theme.spacing.padding), self._mapY or (self.position.y + Theme.window.topBarHeight + Theme.spacing.padding), self._mapW or self.width - Theme.spacing.padding*2, self._mapH or self.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - Theme.spacing.padding*2
+    local mapX, mapY, mapW, mapH = self._mapX or (self.position.x + Theme.spacing.sm), self._mapY or (self.position.y + Theme.window.topBarHeight + Theme.spacing.sm), self._mapW or self.width - Theme.spacing.sm*2, self._mapH or self.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - Theme.spacing.sm*2
     if self.resetButtonRect and mx >= self.resetButtonRect.x and mx <= self.resetButtonRect.x + self.resetButtonRect.w
        and my >= self.resetButtonRect.y and my <= self.resetButtonRect.y + self.resetButtonRect.h then
         -- Reset view
@@ -305,7 +305,7 @@ end
 function MapWindow:wheelmoved(dx, dy)
     if not self.isOpen then return end
     if dy == 0 then return end
-    local mapX, mapY, mapW, mapH = self._mapX or self.position.x + Theme.spacing.padding, self._mapY or self.position.y + Theme.window.topBarHeight + Theme.spacing.padding, self._mapW or self.width - Theme.spacing.padding*2, self._mapH or self.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - Theme.spacing.padding*2
+    local mapX, mapY, mapW, mapH = self._mapX or self.position.x + Theme.spacing.sm, self._mapY or self.position.y + Theme.window.topBarHeight + Theme.spacing.sm, self._mapW or self.width - Theme.spacing.sm*2, self._mapH or self.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - Theme.spacing.sm*2
     local baseScale = self._baseScale or 1
     local oldZoom = self.zoom or 1
     local newZoom = oldZoom * (1 + 0.15 * (dy > 0 and 1 or -1))

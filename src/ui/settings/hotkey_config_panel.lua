@@ -31,12 +31,12 @@ function HotkeyConfigPanel:initialize(position, width, contentScrollY)
     self.buttons = {}
     
     local hotkeys = HotkeyConfig.getAllHotkeys()
-    local buttonHeight = Theme.spacing.padding * 3.33  -- Scaled button height
-    local buttonSpacing = Theme.spacing.padding  -- Scaled spacing
+    local buttonHeight = Theme.spacing.sm * 3.33  -- Scaled button height
+    local buttonSpacing = Theme.spacing.sm  -- Scaled spacing
 
     -- Compute start Y to align with hotkeys label (6 sections: VSync, FPS, Resolution, Master, Music, SFX)
-    local sectionSpacing = Theme.spacing.padding * 12  -- Match settings window spacing
-    local controlVerticalOffset = Theme.spacing.padding * 2  -- Offset controls below labels
+    local sectionSpacing = Theme.spacing.sm * 12  -- Match settings window spacing
+    local controlVerticalOffset = Theme.spacing.sm * 2  -- Offset controls below labels
     local hotkeyStartY = sectionSpacing * 6 + controlVerticalOffset
     
     -- Build buttons with section headers using HotkeyConfig.actionSections
@@ -81,10 +81,10 @@ function HotkeyConfigPanel:updatePositions(position, contentScrollY)
     self.position = position
     self.contentScrollY = contentScrollY
 
-    local buttonHeight = Theme.spacing.padding * 3.33  -- Scaled button height
-    local buttonSpacing = Theme.spacing.padding  -- Scaled spacing
-    local sectionSpacing = Theme.spacing.padding * 12  -- Match settings window spacing
-    local controlVerticalOffset = Theme.spacing.padding * 2  -- Offset controls below labels
+    local buttonHeight = Theme.spacing.sm * 3.33  -- Scaled button height
+    local buttonSpacing = Theme.spacing.sm  -- Scaled spacing
+    local sectionSpacing = Theme.spacing.sm * 12  -- Match settings window spacing
+    local controlVerticalOffset = Theme.spacing.sm * 2  -- Offset controls below labels
     
     -- Calculate start Y to align with hotkeys label (6 sections: VSync, FPS, Resolution, Master, Music, SFX)
     local hotkeyStartY = sectionSpacing * 6 + controlVerticalOffset
@@ -110,7 +110,7 @@ function HotkeyConfigPanel:draw(alpha)
     for i, button in ipairs(self.buttons) do
         if button.type == "section" then
             -- Draw section header (green)
-            local col = Theme.colors.buttonYes or Theme.colors.textSecondary
+            local col = Theme.colors.success or Theme.colors.textSecondary
             love.graphics.setColor(col[1], col[2], col[3], (col[4] or 1) * alpha)
             love.graphics.setFont(Theme.getFont(Theme.fonts.small))
             love.graphics.printf(button.title, button.x + 8, button.y + 4, button.width - 16, "left")
@@ -121,27 +121,27 @@ function HotkeyConfigPanel:draw(alpha)
             
             -- Button background
             if selected or self.waitingForKey then
-                love.graphics.setColor(Theme.colors.buttonHover[1], Theme.colors.buttonHover[2], 
-                                     Theme.colors.buttonHover[3], alpha * 0.8)
+                love.graphics.setColor(Theme.colors.hover[1], Theme.colors.hover[2],
+                                     Theme.colors.hover[3], alpha * 0.8)
             elseif hovered then
-                love.graphics.setColor(Theme.colors.buttonHover[1], Theme.colors.buttonHover[2], 
-                                     Theme.colors.buttonHover[3], alpha * 0.4)
+                love.graphics.setColor(Theme.colors.hover[1], Theme.colors.hover[2],
+                                     Theme.colors.hover[3], alpha * 0.4)
             else
-                love.graphics.setColor(Theme.colors.bgMedium[1], Theme.colors.bgMedium[2], 
-                                     Theme.colors.bgMedium[3], alpha * 0.6)
+                love.graphics.setColor(Theme.colors.surfaceAlt[1], Theme.colors.surfaceAlt[2],
+                                     Theme.colors.surfaceAlt[3], alpha * 0.6)
             end
             
             love.graphics.rectangle("fill", button.x, button.y, button.width, button.height, 4, 4)
             
             -- Button border
-            love.graphics.setColor(Theme.colors.borderMedium[1], Theme.colors.borderMedium[2], 
-                                 Theme.colors.borderMedium[3], alpha)
+            love.graphics.setColor(Theme.colors.borderAlt[1], Theme.colors.borderAlt[2],
+                                 Theme.colors.borderAlt[3], alpha)
             love.graphics.setLineWidth(1)
             love.graphics.rectangle("line", button.x, button.y, button.width, button.height, 4, 4)
             
             -- Button text
-            love.graphics.setColor(Theme.colors.textPrimary[1], Theme.colors.textPrimary[2], 
-                                 Theme.colors.textPrimary[3], alpha)
+            love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2],
+                                 Theme.colors.text[3], alpha)
             love.graphics.setFont(Theme.getFont(Theme.fonts.small))
             
             local displayText = HotkeyConfig.getDisplayText(button.action)

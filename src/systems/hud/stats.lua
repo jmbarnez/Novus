@@ -98,7 +98,7 @@ function HUDStats.drawSpeedText(viewportWidth, viewportHeight)
     local x = Scaling.getCurrentWidth() - minimapSize - 20
     local y = 150 + 30
     local font = Theme.getFont(Theme.fonts.normal)
-    local color = Theme.colors.textPrimary
+    local color = Theme.colors.text
 
     BatchRenderer.queueText(cachedSpeedText, x, y, font, color[1], color[2], color[3], color[4], "center", minimapSize)
 end
@@ -121,9 +121,14 @@ local function calculateHullShieldRatios(hull, shield)
 end
 
 local function queueSleekBackground(x, y, width, height, accentHeight)
-    BatchRenderer.queueRect(x, y, width, height, 0.02, 0.03, 0.06, 0.92, 0)
-    BatchRenderer.queueRect(x, y, width, accentHeight, 0.12, 0.35, 0.82, 0.4, 0)
-    BatchRenderer.queueRectLine(x, y, width, height, 0.15, 0.32, 0.72, 0.85, 1, 0)
+    -- Use themed surface colors for the panel background and header accent
+    local surf = Theme.colors.surface or {0.1,0.1,0.1,1}
+    local surfAlt = Theme.colors.surfaceAlt or {0.12,0.12,0.12,1}
+    local border = Theme.colors.border or {0.06,0.06,0.06,1}
+
+    BatchRenderer.queueRect(x, y, width, height, surf[1], surf[2], surf[3], (surf[4] or 1) * 0.95, 0)
+    BatchRenderer.queueRect(x, y, width, accentHeight, surfAlt[1], surfAlt[2], surfAlt[3], (surfAlt[4] or 1) * 0.6, 0)
+    BatchRenderer.queueRectLine(x, y, width, height, border[1], border[2], border[3], (border[4] or 1) * 0.9, 1, 0)
 end
 
 function HUDStats.drawPlayerVitals(viewportWidth, viewportHeight)
@@ -159,9 +164,13 @@ function HUDStats.drawPlayerVitals(viewportWidth, viewportHeight)
     queueSleekBackground(x, y, panelWidth, panelHeight, Scaling.scaleSize(4))
 
     -- Level column with XP band
-    BatchRenderer.queueRect(x, y, levelBlockWidth, panelHeight, 0.02, 0.04, 0.08, 0.9, 0)
-    BatchRenderer.queueRect(x, y, levelBlockWidth, panelHeight * 0.4, 0.08, 0.28, 0.6, 0.4, 0)
-    BatchRenderer.queueRectLine(x, y, levelBlockWidth, panelHeight, 0.2, 0.75, 1.0, 0.9, 1, 0)
+    local surf = Theme.colors.surface or {0.1,0.1,0.1,1}
+    local surfAlt = Theme.colors.surfaceAlt or {0.12,0.12,0.12,1}
+    local border = Theme.colors.border or {0.06,0.06,0.06,1}
+
+    BatchRenderer.queueRect(x, y, levelBlockWidth, panelHeight, surf[1], surf[2], surf[3], (surf[4] or 1) * 0.9, 0)
+    BatchRenderer.queueRect(x, y, levelBlockWidth, panelHeight * 0.4, surfAlt[1], surfAlt[2], surfAlt[3], (surfAlt[4] or 1) * 0.5, 0)
+    BatchRenderer.queueRectLine(x, y, levelBlockWidth, panelHeight, border[1], border[2], border[3], (border[4] or 1) * 0.9, 1, 0)
 
     local levelText = string.format("%02d", levelData.level or 1)
     -- guard against nil font and compute height safely for vertical centering
@@ -177,11 +186,13 @@ function HUDStats.drawPlayerVitals(viewportWidth, viewportHeight)
     local xpWidth = levelBlockWidth - xpPad * 2
     local xpHeight = Scaling.scaleSize(4)
     local xpY = y + panelHeight - xpHeight - xpPad
-    BatchRenderer.queueRect(x + xpPad, xpY, xpWidth, xpHeight, 0.1, 0.18, 0.34, 0.7, 0)
+    local surfLight = Theme.colors.surfaceLight or {0.15,0.15,0.15,1}
+    local accent = Theme.colors.accent or {0.6,0.8,1,1}
+    BatchRenderer.queueRect(x + xpPad, xpY, xpWidth, xpHeight, surfLight[1], surfLight[2], surfLight[3], (surfLight[4] or 1) * 0.7, 0)
     if xpRatio > 0 then
         local fillWidth = xpWidth * xpRatio
-        BatchRenderer.queueRect(x + xpPad, xpY, fillWidth, xpHeight, 0.3, 0.8, 1.0, 0.9, 0)
-        BatchRenderer.queueRect(x + xpPad, xpY, fillWidth, math.max(1, xpHeight * 0.45), 0.65, 0.95, 1.0, 0.5, 0)
+        BatchRenderer.queueRect(x + xpPad, xpY, fillWidth, xpHeight, accent[1], accent[2], accent[3], (accent[4] or 1) * 0.9, 0)
+        BatchRenderer.queueRect(x + xpPad, xpY, fillWidth, math.max(1, xpHeight * 0.45), accent[1], accent[2], accent[3], (accent[4] or 1) * 0.5, 0)
     end
 
     -- Combined hull/shield bar
@@ -201,7 +212,8 @@ function HUDStats.drawPlayerVitals(viewportWidth, viewportHeight)
 
     if shieldRatio > 0 then
         local shieldWidth = math.max(0, (contentWidth - 6) * shieldRatio)
-        local shieldX = contentX + contentWidth - shieldWidth - 2
+        -- Draw shield filling left-to-right like the hull bar
+        local shieldX = contentX + 2
         BatchRenderer.queueRect(shieldX, hybridY + 4, shieldWidth, hybridHeight - 8, 0.12, 0.74, 1.0, 0.72, 0)
         BatchRenderer.queueRect(shieldX, hybridY + 4, shieldWidth, math.max(2, (hybridHeight - 8) * 0.42), 0.54, 0.94, 1.0, 0.6, 0)
     end

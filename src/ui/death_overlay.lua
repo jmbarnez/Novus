@@ -32,7 +32,7 @@ function DeathOverlay.draw()
     local buttonFontSize = 16
     local buttonFont = Theme.getFontBold(buttonFontSize)
     lg.setFont(buttonFont)
-    local padding = Theme.spacing.padding * 2
+    local padding = Theme.spacing.sm * 2
 
     local btnW = 290
     local btnH = buttonFontSize + padding * 2
@@ -42,7 +42,7 @@ function DeathOverlay.draw()
     local boxX, boxY = centerBox(boxW, boxH)
 
     -- Overlay
-    lg.setColor(Theme.colors.overlay)
+    lg.setColor(table.unpack(Theme.colors.overlay))
     lg.rectangle('fill', 0, 0, sw, sh)
     Theme.draw3DBorder(boxX, boxY, boxW, boxH, Theme.window.borderThickness)
 
@@ -71,15 +71,15 @@ function DeathOverlay.draw()
         respawnBtn.x, respawnBtn.y, respawnBtn.w, respawnBtn.h,
         "Respawn (Random Point)",
         hoverState.respawn,
-        Theme.colors.buttonYes,
-        Theme.colors.buttonYesHover)
+        Theme.colors.success,
+        Theme.colors.successHover)
 
     Theme.drawButton(
         quitBtn.x, quitBtn.y, quitBtn.w, quitBtn.h,
         "Rage Quit (Main Menu)",
         hoverState.quit,
-        Theme.colors.buttonNo,
-        Theme.colors.buttonNoHover)
+        Theme.colors.danger,
+        Theme.colors.dangerHover)
 end
 
 function DeathOverlay.mousepressed(x, y, button)
