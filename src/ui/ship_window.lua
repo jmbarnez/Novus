@@ -15,6 +15,7 @@ local SkillsPanel = require('src.ui.skills_panel')
 local LoadoutPanel = require('src.ui.loadout_panel')
 local CargoPanel = require('src.ui.cargo_panel')
 local SkillsPanelWrapper = require('src.ui.skills_panel_wrapper')
+local ContextMenu = require('src.ui.context_menu')
 
 -- Helper function to truncate text with "..." if it doesn't fit in the given width
 local function truncateText(text, maxWidth, font)
@@ -66,7 +67,6 @@ ShipWindow.tabButtons = {}
 ShipWindow.draggedItem = nil
 ShipWindow.hoveredItemSlot = nil
 ShipWindow.hoveredEquipmentSlot = nil
-ShipWindow.contextMenu = nil  -- {itemId, itemDef, x, y, options}
 
 -- Public interface for toggling
 function ShipWindow:toggle()
@@ -111,6 +111,11 @@ function ShipWindow:draw(viewportWidth, viewportHeight, uiMx, uiMy)
 
     -- Draw bottom bar with status info
     self:drawBottomBar(x, y, alpha)
+
+    -- Draw context menu if open
+    if ContextMenu.isOpen() then
+        ContextMenu.draw(alpha)
+    end
 end
 
 -- Keep ship tabs compact even if the theme sets a taller default
@@ -291,117 +296,22 @@ function ShipWindow:openContextMenu(itemId, itemDef, x, y)
         table.insert(options, { text = "No compatible slots", action = "noop" })
     end
 
-    local menuFont = Theme.getFont(Theme.fonts.normal)
-    local fontHeight = menuFont:getHeight()
-    local paddingX = 22
-    local paddingY = 12
-    local optionHeight = math.max(fontHeight + 10, 28)
-    local minWidth = 280
-    local maxTextWidth = 0
-    for _, option in ipairs(options) do
-        local text = option.text or ""
-        maxTextWidth = math.max(maxTextWidth, menuFont:getWidth(text))
-    end
-
-    local menuWidth = math.max(minWidth, maxTextWidth + paddingX * 2)
-    local menuHeight = paddingY * 2 + optionHeight * #options
-
-    self.contextMenu = {
+    ContextMenu.open({
         itemId = itemId,
         itemDef = itemDef,
         x = x,
         y = y,
-        options = options,
-        hoveredOption = nil,
-        width = menuWidth,
-        height = menuHeight,
-        paddingX = paddingX,
-        paddingY = paddingY,
-        optionHeight = optionHeight,
-        fontSize = Theme.fonts.normal,
-        fontLineHeight = fontHeight,
-        highlightInset = 4
-    }
+        options = options
+    }, function(option)
+        if option.action == "equip" then
+            -- Delegate to ShipWindow:equipModule (keeps original behaviour)
+            self:equipModule(itemId)
+        end
+    end)
 end
 
 -- Handle context menu option clicks
-function ShipWindow:handleContextMenuClick(optionIndex)
-    if not self.contextMenu or not self.contextMenu.options[optionIndex] then return end
-
-    local option = self.contextMenu.options[optionIndex]
-    if option.action == "equip" and option.slotType then
-        -- Delegating to equipModule is sufficient; it will replace existing module and add it to cargo
-        self:equipModule(self.contextMenu.itemId)
-    end
-
-    -- No-op for "noop" or other actions
-    self.contextMenu = nil
-end
-
--- Draw context menu for cargo items
-function ShipWindow:drawContextMenu(x, y, alpha)
-    if not self.contextMenu then
-        return
-    end
-
-    local menu = self.contextMenu
-    local menuWidth = menu.width or 200
-    local menuHeight = menu.height or ((menu.paddingY or 12) * 2 + (#menu.options * (menu.optionHeight or 24)))
-    local paddingX = menu.paddingX or 22
-    local paddingY = menu.paddingY or 12
-    local optionHeight = menu.optionHeight or 28
-    local highlightInset = menu.highlightInset or 4
-
-    local bgColor = Theme.colors.surfaceAlt
-    love.graphics.setColor(bgColor[1], bgColor[2], bgColor[3], alpha * 0.94)
-    love.graphics.rectangle("fill", x, y, menuWidth, menuHeight)
-
-    local accent = Theme.colors.hover
-    love.graphics.setColor(accent[1], accent[2], accent[3], (accent[4] or 1) * alpha * 0.35)
-    love.graphics.rectangle("fill", x, y, menuWidth, 2)
-
-    local borderColor = Theme.colors.border
-    love.graphics.setColor(borderColor[1], borderColor[2], borderColor[3], alpha)
-    love.graphics.setLineWidth(1)
-    love.graphics.rectangle("line", x, y, menuWidth, menuHeight)
-
-    local font = Theme.getFont(menu.fontSize or Theme.fonts.normal)
-    love.graphics.setFont(font)
-    local fontHeight = menu.fontLineHeight or font:getHeight()
-
-    for i, option in ipairs(menu.options) do
-        local optionTop = y + paddingY + (i - 1) * optionHeight
-        local isHovered = menu.hoveredOption == i
-
-        if isHovered then
-            love.graphics.setColor(accent[1], accent[2], accent[3], (accent[4] or 1) * alpha * 0.18)
-            love.graphics.rectangle("fill", x + highlightInset, optionTop, menuWidth - highlightInset * 2, optionHeight)
-        end
-
-        local textColor = Theme.colors.text
-        if option.action == "equip" and option.slotType then
-            if option.slotType == "Turret Module" then
-                textColor = Theme.colors.accent
-            elseif option.slotType == "Defensive Module" then
-                textColor = Theme.colors.textSecondary
-            elseif option.slotType == "Generator Module" then
-                textColor = Theme.colors.text
-            end
-        elseif option.action == "noop" then
-            textColor = {
-                Theme.colors.textSecondary[1] * 0.6,
-                Theme.colors.textSecondary[2] * 0.6,
-                Theme.colors.textSecondary[3] * 0.6,
-                Theme.colors.textSecondary[4] or 1
-            }
-        end
-
-        love.graphics.setColor(textColor[1], textColor[2], textColor[3], (textColor[4] or 1) * alpha)
-
-        local textY = optionTop + (optionHeight - fontHeight) / 2
-        love.graphics.print(option.text or "", x + paddingX, textY)
-    end
-end
+-- Context menu drawing and input handling delegated to `src.ui.context_menu`
 
 function ShipWindow:drawEquipmentSlot(slotName, equippedItemId, x, y, width, alpha, droneId)
     local LoadoutPanel = require('src.ui.loadout_panel')
@@ -453,13 +363,13 @@ function ShipWindow:mousepressed(x, y, button)
     end
 
     -- Close context menu if clicking outside of it (any button)
-    if self.contextMenu then
-        local menu = self.contextMenu
+    if ContextMenu.isOpen() then
+        local menu = ContextMenu.getMenu()
         local cmW = menu.width or 200
         local cmH = menu.height or ((menu.paddingY or 12) * 2 + (#menu.options * (menu.optionHeight or 24)))
         if not (uiX >= menu.x and uiX <= menu.x + cmW and
             uiY >= menu.y and uiY <= menu.y + cmH) then
-            self.contextMenu = nil
+            ContextMenu.close()
             return
         end
     end
@@ -477,7 +387,7 @@ end
 
 ---@diagnostic disable-next-line: duplicate-set-field
 function ShipWindow:mousereleased(x, y, button)
-    if button == 1 and self.contextMenu then
+    if button == 1 and ContextMenu.isOpen() then
         local uiX, uiY
         if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
             uiX, uiY = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
@@ -485,24 +395,12 @@ function ShipWindow:mousereleased(x, y, button)
             uiX, uiY = Scaling.toUI(x, y)
         end
 
-        local menu = self.contextMenu
-        local menuWidth = menu.width or 200
-        local menuHeight = menu.height or ((menu.paddingY or 12) * 2 + (#menu.options * (menu.optionHeight or 24)))
-
-        if uiX >= menu.x and uiX <= menu.x + menuWidth and uiY >= menu.y and uiY <= menu.y + menuHeight then
-            local optionHeight = menu.optionHeight or 28
-            local optionStartY = menu.y + (menu.paddingY or 12)
-            local relativeY = uiY - optionStartY
-            if relativeY >= 0 then
-                local optionIndex = math.floor(relativeY / optionHeight) + 1
-                if optionIndex >= 1 and optionIndex <= #menu.options then
-                    self:handleContextMenuClick(optionIndex)
-                    return
-                end
-            end
-            self.contextMenu = nil
+        if ContextMenu.handleClickAt(uiX, uiY) then
             return
         end
+
+        -- If click wasn't on a selectable option, close the menu
+        return
     end
 
     if self.activeTab == "loadout" then
@@ -519,38 +417,14 @@ end
 ---@diagnostic disable-next-line: duplicate-set-field
 function ShipWindow:mousemoved(x, y, dx, dy)
     -- Handle context menu hover detection
-    if self.contextMenu then
+    if ContextMenu.isOpen() then
         local uiX, uiY
         if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
             uiX, uiY = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
         else
             uiX, uiY = x, y
         end
-        
-        local menu = self.contextMenu
-        local menuX = menu.x
-        local menuY = menu.y
-        local menuWidth = menu.width or 200
-        local menuHeight = menu.height or ((menu.paddingY or 12) * 2 + (#menu.options * (menu.optionHeight or 24)))
-
-        if uiX >= menuX and uiX <= menuX + menuWidth and uiY >= menuY and uiY <= menuY + menuHeight then
-            local optionHeight = menu.optionHeight or 28
-            local optionStartY = menuY + (menu.paddingY or 12)
-            local relativeY = uiY - optionStartY
-            if relativeY >= 0 then
-                local optionIndex = math.floor(relativeY / optionHeight) + 1
-
-                if optionIndex >= 1 and optionIndex <= #menu.options then
-                    menu.hoveredOption = optionIndex
-                else
-                    menu.hoveredOption = nil
-                end
-            else
-                menu.hoveredOption = nil
-            end
-        else
-            menu.hoveredOption = nil
-        end
+        ContextMenu.mousemoved(uiX, uiY)
     end
 
     if self.activeTab == "loadout" then
@@ -567,8 +441,8 @@ end
 ---@diagnostic disable-next-line: duplicate-set-field
 function ShipWindow:keypressed(key)
     -- Close context menu on escape
-    if key == "escape" and self.contextMenu then
-        self.contextMenu = nil
+    if key == "escape" and ContextMenu.isOpen() then
+        ContextMenu.close()
         return true
     end
     if self.activeTab == "cargo" then

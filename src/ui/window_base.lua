@@ -204,6 +204,16 @@ function WindowBase:mousemoved(x, y, dx, dy)
     end
 end
 
+function WindowBase:keypressed(key)
+    -- Default: windows don't consume key presses
+    return false
+end
+
+function WindowBase:textinput(t)
+    -- Default: windows don't consume text input
+    return false
+end
+
 function WindowBase:isVisible()
     if self.isOpen then
         return true
