@@ -26,10 +26,10 @@ function BasicShield.equip(shipId)
         ))
     else
         -- Boost existing shield (if stacking multiple defensive modules in future)
-        shield.max = shield.max + BasicShield.SHIELD_AMOUNT
-        shield.current = math.min(shield.current + BasicShield.SHIELD_AMOUNT, shield.max)
-        shield.regenRate = math.max(shield.regenRate, BasicShield.REGEN_RATE)
-        shield.regenDelay = math.min(shield.regenDelay, BasicShield.REGEN_DELAY)
+        shield.max = (shield.max or 0) + BasicShield.SHIELD_AMOUNT
+        shield.current = math.min((shield.current or 0) + BasicShield.SHIELD_AMOUNT, shield.max)
+        shield.regen = math.max(shield.regen or 0, BasicShield.REGEN_RATE)
+        shield.regenDelay = math.min(shield.regenDelay or math.huge, BasicShield.REGEN_DELAY)
     end
     -- Shield equipped
 end

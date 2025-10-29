@@ -59,6 +59,21 @@ end
 local function collectEquippedModules(droneId)
     local entries = {}
 
+    local function hasActiveAbility(entry)
+        -- Turrets always have an active ability (can be fired)
+        if entry.sourceType == "turret" then
+            return true
+        end
+        
+        -- Check if module has an active ability function
+        local module = entry.itemDef and entry.itemDef.module
+        if module then
+            return module.activate ~= nil or module.use ~= nil or module.trigger ~= nil
+        end
+        
+        return false
+    end
+
     local function push(itemId, sourceType, sourceSlot)
         if not itemId then
             return
@@ -73,6 +88,12 @@ local function collectEquippedModules(droneId)
             sourceType = sourceType,
             sourceSlot = sourceSlot
         }
+        
+        -- Only add modules that have active abilities
+        if not hasActiveAbility(entry) then
+            return
+        end
+        
         entry.key = getEntryKey(entry)
         entries[#entries + 1] = entry
     end

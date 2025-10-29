@@ -109,7 +109,8 @@ function CargoPanel.drawCargoGrid(shipWin, cargoItems, x, y, width, height, alph
             love.graphics.translate(slotX + slotSize / 2, slotY + slotSize / 2)
             -- Scale icons to fill slot better (use ~75% of slot size)
             local iconScale = (slotSize * 0.75) / (itemDef.design and itemDef.design.size or 16)
-            iconScale = math.max(iconScale, 1.0) -- Don't scale down if already small enough
+            -- Clamp to at most 1.0 so large icons are scaled down to fit the slot
+            iconScale = math.min(iconScale, 1.0)
             love.graphics.scale(iconScale, iconScale)
             if type(itemDef.module) == "table" and itemDef.module.draw then
                 love.graphics.setColor(1, 1, 1, alpha)
