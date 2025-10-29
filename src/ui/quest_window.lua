@@ -19,12 +19,10 @@ end
 
 -- Create quest window instance inheriting from WindowBase
 local QuestWindow = WindowBase:new{
-    width = 700,
-    height = 600,
+    width = 560,
+    height = 480,
     isOpen = false,
     animAlphaSpeed = 2.5,
-    elasticitySpring = 18,
-    elasticityDamping = 0.7,
 }
 
 -- Store current station ID
@@ -63,35 +61,35 @@ function QuestWindow:draw(viewportWidth, viewportHeight)
     local w = self.width
     local h = self.height
     local topBarH = Theme.window.topBarHeight
-    local bottomBarH = Theme.window.bottomBarHeight
 
     -- Draw close button using the shared plasma styling
     WindowBase.drawCloseButton(self, x, y, alpha)
 
     -- Draw quest content
-    self:drawQuestContent(x, y, w, h, topBarH, bottomBarH, alpha)
+    self:drawQuestContent(x, y, w, h, topBarH, alpha)
 end
 
 -- Draw quest content
-function QuestWindow:drawQuestContent(x, y, w, h, topBarH, bottomBarH, alpha)
-    local font = Theme.getFont(16)
-    local titleFont = Theme.getFont(20)
-    local smallFont = Theme.getFont(12)
+function QuestWindow:drawQuestContent(x, y, w, h, topBarH, alpha)
+    local titleFont = Theme.getFont("lg")
+    local font = Theme.getFont("sm")
+    local smallFont = Theme.getFont("xs")
+    local spacing = Theme.spacing
     
-    -- Draw title
+    -- Draw title in top bar area (left-aligned)
     love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], alpha)
     love.graphics.setFont(titleFont)
-    local title = "Quest Board"
-    local titleW = titleFont:getWidth(title)
-    love.graphics.print(title, x + (w - titleW) / 2, y + topBarH + 20)
+    love.graphics.print("Quest Board", x + spacing.md, y + (topBarH - titleFont:getHeight()) / 2)
     
-    -- Draw station name if available
+    -- Draw station name if available (smaller, muted)
+    local contentStartY = y + topBarH + spacing.md
     if self.currentStationId then
         local stationLabel = ECS.getComponent(self.currentStationId, "StationLabel")
         if stationLabel and stationLabel[1] then
-            love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
-            love.graphics.setFont(font)
-            love.graphics.print(stationLabel[1], x + 20, y + topBarH + 50)
+            love.graphics.setColor(Theme.colors.textMuted[1], Theme.colors.textMuted[2], Theme.colors.textMuted[3], alpha)
+            love.graphics.setFont(smallFont)
+            love.graphics.print(stationLabel[1], x + spacing.md, contentStartY)
+            contentStartY = contentStartY + smallFont:getHeight() + spacing.xs
         end
     end
     
@@ -104,49 +102,52 @@ function QuestWindow:drawQuestContent(x, y, w, h, topBarH, bottomBarH, alpha)
         quests = questSys.getQuests(self.currentStationId)
     end
     
-    -- Draw quests
-    local questStartY = y + topBarH + 80
-    local questHeight = (h - topBarH - bottomBarH - 80 - 20) / 3
+    -- Draw quests in compact list (no bottom bar needed)
+    local questStartY = contentStartY + (self.currentStationId and spacing.xs or 0)
+    local availableHeight = h - topBarH - (questStartY - y) - spacing.md
+    local questHeight = math.floor(availableHeight / math.max(3, #quests)) - spacing.xs
     
     for i, quest in ipairs(quests) do
-        self:drawQuest(x + 16, questStartY + (i-1) * questHeight, w - 32, questHeight - 4, quest, alpha, i)
+        self:drawQuest(x + spacing.md, questStartY + (i-1) * (questHeight + spacing.xs), w - spacing.md * 2, questHeight, quest, alpha, i)
     end
     
     -- Draw "no quests" message if empty
     if #quests == 0 then
-        love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+        local centerY = y + topBarH + (h - topBarH) / 2
+        love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
         love.graphics.setFont(font)
         local questText = "No active quests available."
         local questTextW = font:getWidth(questText)
-        love.graphics.print(questText, x + (w - questTextW) / 2, questStartY + (h - topBarH - bottomBarH - 80) / 2 - 10)
+        love.graphics.print(questText, x + (w - questTextW) / 2, centerY - font:getHeight())
         
         love.graphics.setColor(Theme.colors.textMuted[1], Theme.colors.textMuted[2], Theme.colors.textMuted[3], alpha)
         love.graphics.setFont(smallFont)
         local hintText = "Come back later for new missions!"
         local hintTextW = smallFont:getWidth(hintText)
-        love.graphics.print(hintText, x + (w - hintTextW) / 2, questStartY + (h - topBarH - bottomBarH - 80) / 2 + 20)
+        love.graphics.print(hintText, x + (w - hintTextW) / 2, centerY + spacing.xs)
     end
 end
 
 -- Draw a single quest
 function QuestWindow:drawQuest(qx, qy, qw, qh, quest, alpha, index)
-    local font = Theme.getFont(14)
-    local smallFont = Theme.getFont(11)
-    local buttonFont = Theme.getFont(12)
+    local spacing = Theme.spacing
+    local titleFont = Theme.getFont("sm")
+    local font = Theme.getFont("xs")
+    local buttonFont = Theme.getFont("xs")
     
-    -- Quest background
+    -- Quest background (sharp corners)
     local bgColor = Theme.colors.surfaceAlt
     if quest.accepted then
-        bgColor = {bgColor[1] * 0.8, bgColor[2] * 0.8, bgColor[3] * 0.8}
+        bgColor = Theme.colors.surfaceLight
     end
     if quest.completed then
-        bgColor = {0.1, 0.3, 0.1, 1} -- Green tint for completed
+        bgColor = Theme.darken(Theme.colors.success, 0.7)
     end
-    love.graphics.setColor(bgColor[1], bgColor[2], bgColor[3], alpha * 0.5)
-    love.graphics.rectangle("fill", qx, qy, qw, qh, 4, 4)
+    love.graphics.setColor(bgColor[1], bgColor[2], bgColor[3], alpha)
+    love.graphics.rectangle("fill", qx, qy, qw, qh)
     
-    -- Quest border
-    local borderColor = Theme.colors.border
+    -- Quest border (sharp corners, accent for accepted, success for completed)
+    local borderColor = Theme.colors.borderAlt
     if quest.accepted then
         borderColor = Theme.colors.accent
     end
@@ -154,99 +155,120 @@ function QuestWindow:drawQuest(qx, qy, qw, qh, quest, alpha, index)
         borderColor = Theme.colors.success
     end
     love.graphics.setColor(borderColor[1], borderColor[2], borderColor[3], alpha)
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", qx, qy, qw, qh, 4, 4)
+    love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", qx, qy, qw, qh)
     love.graphics.setLineWidth(1)
     
-    -- Quest title
+    -- Compact quest layout
+    local padding = spacing.sm
+    local lineHeight = font:getHeight() + 2
+    local currentY = qy + padding
+    
+    -- Quest title (accent color, bold)
     love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], alpha)
+    love.graphics.setFont(titleFont)
+    love.graphics.print(quest.title, qx + padding, currentY)
+    currentY = currentY + titleFont:getHeight() + 2
+    
+    -- Quest description (wrapped, muted if accepted)
+    local descColor = quest.accepted and Theme.colors.textSecondary or Theme.colors.text
+    love.graphics.setColor(descColor[1], descColor[2], descColor[3], alpha)
     love.graphics.setFont(font)
-    love.graphics.print(quest.title, qx + 12, qy + 8)
-    
-    -- Quest description
-    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
-    love.graphics.setFont(smallFont)
-    love.graphics.print(quest.description, qx + 12, qy + 28)
-    
-    -- Quest reward
-    love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], alpha)
-    love.graphics.setFont(smallFont)
-    local rewardText = "Reward: " .. quest.reward .. " credits"
-    love.graphics.print(rewardText, qx + 12, qy + 45)
-    
-    -- Show progress if accepted
-    if quest.accepted and quest.requirements then
-        local progressText = string.format("Progress: %d/%d", quest.requirements.current, quest.requirements.count)
-        love.graphics.setColor(Theme.colors.textMuted[1], Theme.colors.textMuted[2], Theme.colors.textMuted[3], alpha)
-        love.graphics.setFont(smallFont)
-        love.graphics.print(progressText, qx + 12, qy + 60)
+    local descW = qw - padding * 2
+    local descLines = {}
+    local descWords = {}
+    for word in quest.description:gmatch("%S+") do
+        table.insert(descWords, word)
+    end
+    local line = ""
+    for _, word in ipairs(descWords) do
+        local testLine = line == "" and word or line .. " " .. word
+        if font:getWidth(testLine) <= descW then
+            line = testLine
+        else
+            if line ~= "" then
+                table.insert(descLines, line)
+            end
+            line = word
+        end
+    end
+    if line ~= "" then
+        table.insert(descLines, line)
+    end
+    for i, lineText in ipairs(descLines) do
+        if currentY + lineHeight <= qy + qh - 28 then
+            love.graphics.print(lineText, qx + padding, currentY)
+            currentY = currentY + lineHeight
+        end
     end
     
-    -- Button dimensions (used in all branches)
-    local buttonW = 100
-    local buttonH = 24
+    -- Reward and progress on same line (compact)
+    currentY = qy + qh - 22
+    love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
+    love.graphics.setFont(font)
+    local rewardText = quest.reward .. " cr"
+    love.graphics.print(rewardText, qx + padding, currentY)
     
-    -- Accept button (if not accepted)
+    -- Progress if accepted
+    if quest.accepted and quest.requirements then
+        local progressText = string.format("%d/%d", quest.requirements.current, quest.requirements.count)
+        local progressW = font:getWidth(progressText)
+        love.graphics.print(progressText, qx + qw - padding - progressW, currentY)
+    end
+    
+    -- Button (compact, 80px wide, 22px tall)
+    local buttonW = 80
+    local buttonH = 22
+    local buttonX = qx + qw - buttonW - spacing.sm
+    local buttonY = qy + spacing.xs
+    
+    local mx, my
+    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+        mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+    else
+        mx, my = Scaling.toUI(love.mouse.getX(), love.mouse.getY())
+    end
+    
     if not quest.accepted then
-        local mx, my
-        if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
-            mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
-        else
-            mx, my = Scaling.toUI(love.mouse.getX(), love.mouse.getY())
-        end
-        local buttonX = qx + qw - buttonW - 12
-        local buttonY = qy + qh - buttonH - 8
-        
+        -- Accept button (manual draw for alpha control)
         local isHovered = mx >= buttonX and mx <= buttonX + buttonW and my >= buttonY and my <= buttonY + buttonH
-        
-        local buttonColor = Theme.colors.success
-        if isHovered then
-            buttonColor = {buttonColor[1] * 1.2, buttonColor[2] * 1.2, buttonColor[3] * 1.2}
-        end
-        
+        local buttonColor = isHovered and Theme.colors.successHover or Theme.colors.success
         love.graphics.setColor(buttonColor[1], buttonColor[2], buttonColor[3], alpha)
-        love.graphics.rectangle("fill", buttonX, buttonY, buttonW, buttonH, 3, 3)
-        
+        love.graphics.rectangle("fill", buttonX, buttonY, buttonW, buttonH)
         love.graphics.setColor(Theme.colors.border[1], Theme.colors.border[2], Theme.colors.border[3], alpha)
         love.graphics.setLineWidth(1)
-        love.graphics.rectangle("line", buttonX, buttonY, buttonW, buttonH, 3, 3)
-        
+        love.graphics.rectangle("line", buttonX, buttonY, buttonW, buttonH)
         love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
         love.graphics.setFont(buttonFont)
         local acceptText = "Accept"
         local acceptTextW = buttonFont:getWidth(acceptText)
         love.graphics.print(acceptText, buttonX + (buttonW - acceptTextW) / 2, buttonY + (buttonH - buttonFont:getHeight()) / 2)
     elseif quest.completed then
-        -- Turn in button for completed quests
-        local mx, my = Scaling.toUI(love.mouse.getX(), love.mouse.getY())
-        local buttonX = qx + qw - buttonW - 12
-        local buttonY = qy + qh - buttonH - 8
-        
+        -- Turn in button (manual draw for alpha control)
         local isHovered = mx >= buttonX and mx <= buttonX + buttonW and my >= buttonY and my <= buttonY + buttonH
-        
-        local buttonColor = Theme.colors.success
-        if isHovered then
-            buttonColor = {buttonColor[1] * 1.2, buttonColor[2] * 1.2, buttonColor[3] * 1.2}
-        end
-        
+        local buttonColor = isHovered and Theme.colors.successHover or Theme.colors.success
         love.graphics.setColor(buttonColor[1], buttonColor[2], buttonColor[3], alpha)
-        love.graphics.rectangle("fill", buttonX, buttonY, buttonW, buttonH, 3, 3)
-        
+        love.graphics.rectangle("fill", buttonX, buttonY, buttonW, buttonH)
         love.graphics.setColor(Theme.colors.border[1], Theme.colors.border[2], Theme.colors.border[3], alpha)
         love.graphics.setLineWidth(1)
-        love.graphics.rectangle("line", buttonX, buttonY, buttonW, buttonH, 3, 3)
-        
+        love.graphics.rectangle("line", buttonX, buttonY, buttonW, buttonH)
         love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
         love.graphics.setFont(buttonFont)
         local turnInText = "Turn In"
         local turnInTextW = buttonFont:getWidth(turnInText)
         love.graphics.print(turnInText, buttonX + (buttonW - turnInTextW) / 2, buttonY + (buttonH - buttonFont:getHeight()) / 2)
     else
-        -- Accepted indicator
+        -- Accepted indicator (compact badge)
+        love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], alpha * 0.6)
+        love.graphics.rectangle("fill", buttonX, buttonY, buttonW, buttonH)
         love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], alpha)
-        love.graphics.setFont(smallFont)
-        local acceptedText = "✓ Accepted"
-        love.graphics.print(acceptedText, qx + qw - 12 - smallFont:getWidth(acceptedText), qy + qh - buttonH - 8)
+        love.graphics.setLineWidth(1)
+        love.graphics.rectangle("line", buttonX, buttonY, buttonW, buttonH)
+        love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+        love.graphics.setFont(buttonFont)
+        local acceptedText = "Active"
+        local acceptedTextW = buttonFont:getWidth(acceptedText)
+        love.graphics.print(acceptedText, buttonX + (buttonW - acceptedTextW) / 2, buttonY + (buttonH - buttonFont:getHeight()) / 2)
     end
 end
 
@@ -254,43 +276,47 @@ end
 function QuestWindow:mousepressed(x, y, button)
     if not self.isOpen or not self.position then return false end
     
-    -- Check close button
-    local closeSize = 20
-    local closeX = self.position.x + self.width - closeSize - 8
-    local closeY = self.position.y + 8
+    -- Call parent to handle close button and dragging
+    WindowBase.mousepressed(self, x, y, button)
     
-    if x >= closeX and x <= closeX + closeSize and y >= closeY and y <= closeY + closeSize then
-        self:setOpen(false)
+    -- If window was closed or dragging started, return true
+    if not self.isOpen or self.isDragging then
         return true
     end
     
-    -- Check for dragging
-    if button == 1 and y >= self.position.y and y <= self.position.y + Theme.window.topBarHeight then
-        self.isDragging = true
-        self.dragOffset = {x = x - self.position.x, y = y - self.position.y}
-        return true
-    end
+    -- Convert to UI coordinates for quest button checking
+    local mx, my = Scaling.toUI(x, y)
     
     -- Check for quest accept/turn-in buttons
     if button == 1 and self.currentStationId then
         local questSys = getQuestSystem()
         if questSys then
             local quests = questSys.getQuests(self.currentStationId)
-            local questStartY = self.position.y + Theme.window.topBarHeight + 80
-            local questHeight = (self.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - 80 - 20) / 3
+            local spacing = Theme.spacing
+            local contentStartY = self.position.y + Theme.window.topBarHeight + spacing.md
+            
+            -- Recalculate station label offset
+            local stationLabel = ECS.getComponent(self.currentStationId, "StationLabel")
+            if stationLabel and stationLabel[1] then
+                local smallFont = Theme.getFont("xs")
+                contentStartY = contentStartY + smallFont:getHeight() + spacing.xs + spacing.xs
+            end
+            
+            local availableHeight = self.height - Theme.window.topBarHeight - (contentStartY - self.position.y) - spacing.md
+            local questHeight = math.floor(availableHeight / math.max(3, #quests)) - spacing.xs
             
             for i, quest in ipairs(quests) do
-                local qx = self.position.x + 16
-                local qy = questStartY + (i-1) * questHeight
-                local qw = self.width - 32
-                local qh = questHeight - 4
+                local qx = self.position.x + spacing.md
+                local qy = contentStartY + (i-1) * (questHeight + spacing.xs)
+                local qw = self.width - spacing.md * 2
+                local qh = questHeight
                 
-                local buttonW = 100
-                local buttonH = 24
-                local buttonX = qx + qw - buttonW - 12
-                local buttonY = qy + qh - buttonH - 8
+                local buttonW = 80
+                local buttonH = 22
+                local buttonX = qx + qw - buttonW - spacing.sm
+                local buttonY = qy + spacing.xs
                 
-                if x >= buttonX and x <= buttonX + buttonW and y >= buttonY and y <= buttonY + buttonH then
+                if mx >= buttonX and mx <= buttonX + buttonW and my >= buttonY and my <= buttonY + buttonH then
                     if not quest.accepted then
                         -- Accept quest
                         QuestSystem.acceptQuest(self.currentStationId, quest.id)
@@ -317,16 +343,11 @@ function QuestWindow:mousepressed(x, y, button)
 end
 
 function QuestWindow:mousereleased(x, y, button)
-    if button == 1 then
-        self.isDragging = false
-    end
+    WindowBase.mousereleased(self, x, y, button)
 end
 
 function QuestWindow:mousemoved(x, y, dx, dy)
-    if self.isDragging and self.position then
-        self.position.x = x - self.dragOffset.x
-        self.position.y = y - self.dragOffset.y
-    end
+    WindowBase.mousemoved(self, x, y, dx, dy)
 end
 
 return QuestWindow
