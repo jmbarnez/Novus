@@ -83,8 +83,29 @@ function GameInput.keypressed(key)
     end
 
     UISystem.keypressed = UISystem.keypressed or function(_) end
-    UISystem.keypressed(key)
+    local consumed = UISystem.keypressed(key)
+    if consumed then
+        return -- Don't process input system if UI consumed it
+    end
     Systems.InputSystem.keypressed(key)
+end
+
+function GameInput.textinput(t)
+    local DeathOverlay = require('src.ui.death_overlay')
+    if DeathOverlay and DeathOverlay.isVisible then
+        return
+    end
+    if UISystem.isPauseMenuOpen and UISystem.isPauseMenuOpen() then
+        return
+    end
+    -- Check if ShipWindow is open and wants to consume input (e.g., search bar focused)
+    local ShipWindow = require('src.ui.ship_window')
+    if ShipWindow and ShipWindow:getOpen() then
+        local consumed = ShipWindow:textinput(t)
+        if consumed then
+            return -- Don't process other input if UI consumed it
+        end
+    end
 end
 
 function GameInput.mousepressed(x, y, button)

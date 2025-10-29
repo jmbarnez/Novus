@@ -82,10 +82,10 @@ function WorldTooltips.update(dt)
         -- Check if player has enough resources
         local hasResources = false
         local resources = {}
-        if playerCargo and needsRepair then
-            local scrapCount = playerCargo.items["scrap"] or 0
-            local stoneCount = playerCargo.items["stone"] or 0
-            local ironCount = playerCargo.items["iron"] or 0
+        if needsRepair then
+            local scrapCount = playerCargo and (playerCargo.items["scrap"] or 0) or 0
+            local stoneCount = playerCargo and (playerCargo.items["stone"] or 0) or 0
+            local ironCount = playerCargo and (playerCargo.items["iron"] or 0) or 0
             
             hasResources = scrapCount >= requiredScrap and stoneCount >= requiredStone and ironCount >= requiredIron
             
@@ -332,10 +332,10 @@ function WorldTooltips.drawFullTooltip(entityId, gx, gy, gr, data)
 
     -- Draw background and border
     love.graphics.setColor(Theme.colors.surface[1], Theme.colors.surface[2], Theme.colors.surface[3], 1)
-    love.graphics.rectangle("fill", bx, by, boxW, boxH, 6, 6)
+    love.graphics.rectangle("fill", bx, by, boxW, boxH, 0, 0)
     love.graphics.setColor(Theme.colors.border[1], Theme.colors.border[2], Theme.colors.border[3], 1)
     love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", bx, by, boxW, boxH, 6, 6)
+    love.graphics.rectangle("line", bx, by, boxW, boxH, 0, 0)
 
     -- Minimize button (top-right, looks like Windows minimize)
     do
@@ -365,10 +365,10 @@ function WorldTooltips.drawFullTooltip(entityId, gx, gy, gr, data)
         local btnBorder = isHovered and Theme.colors.accentHover or Theme.colors.border
 
         love.graphics.setColor(btnBg[1], btnBg[2], btnBg[3], 1)
-        love.graphics.rectangle("fill", minX, minY, minSize, minSize, 4, 4)
+        love.graphics.rectangle("fill", minX, minY, minSize, minSize, 0, 0)
         love.graphics.setColor(btnBorder[1], btnBorder[2], btnBorder[3], 1)
         love.graphics.setLineWidth(1.5)
-        love.graphics.rectangle("line", minX, minY, minSize, minSize, 4, 4)
+        love.graphics.rectangle("line", minX, minY, minSize, minSize, 0, 0)
 
         -- Draw the minimize underscore
         love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], 1)

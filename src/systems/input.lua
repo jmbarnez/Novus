@@ -212,26 +212,32 @@ function InputSystem.update(dt)
             local thrust_x = 0
             local thrust_y = 0
 
-            -- Use configurable movement keys
-            local moveUp = HotkeyConfig.getHotkey("move_up")
-            local moveDown = HotkeyConfig.getHotkey("move_down")
-            local moveLeft = HotkeyConfig.getHotkey("move_left")
-            local moveRight = HotkeyConfig.getHotkey("move_right")
+            -- Skip movement if cargo search bar is focused
+            local CargoPanel = require('src.ui.cargo_panel')
+            if CargoPanel and CargoPanel.isSearchFocused and CargoPanel.isSearchFocused() then
+                -- Don't process movement when search bar is focused
+            else
+                -- Use configurable movement keys
+                local moveUp = HotkeyConfig.getHotkey("move_up")
+                local moveDown = HotkeyConfig.getHotkey("move_down")
+                local moveLeft = HotkeyConfig.getHotkey("move_left")
+                local moveRight = HotkeyConfig.getHotkey("move_right")
 
-            if love.keyboard.isDown(moveUp) then
-                thrust_y = -thrustMagnitude
-            end
+                if love.keyboard.isDown(moveUp) then
+                    thrust_y = -thrustMagnitude
+                end
 
-            if love.keyboard.isDown(moveDown) then
-                thrust_y = thrust_y + thrustMagnitude
-            end
+                if love.keyboard.isDown(moveDown) then
+                    thrust_y = thrust_y + thrustMagnitude
+                end
 
-            if love.keyboard.isDown(moveLeft) then
-                thrust_x = -thrustMagnitude
-            end
+                if love.keyboard.isDown(moveLeft) then
+                    thrust_x = -thrustMagnitude
+                end
 
-            if love.keyboard.isDown(moveRight) then
-                thrust_x = thrust_x + thrustMagnitude
+                if love.keyboard.isDown(moveRight) then
+                    thrust_x = thrust_x + thrustMagnitude
+                end
             end
 
             -- Normalize diagonal movement so speed is consistent in all directions

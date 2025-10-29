@@ -298,36 +298,46 @@ function UISystem.keypressed(key)
         return true
     end
 
+    -- Check if ShipWindow is open and wants to consume input (e.g., search bar focused)
+    if ShipWindow:getOpen() then
+        local consumed = ShipWindow:keypressed(key)
+        if consumed then
+            return true
+        end
+    end
+
     -- Tab key is now handled in core.lua to toggle ShipWindow
     local HotkeyConfig = require('src.hotkey_config')
     if key == HotkeyConfig.getHotkey("settings_window") then
         if SettingsWindow:getOpen() then
             SettingsWindow:setOpen(false)
-            return
+            return true
         end
         if ShipWindow:getOpen() then
             ShipWindow:setOpen(false)
-            return
+            return true
         end
         if MapWindow:getOpen() then
             MapWindow:setOpen(false)
-            return
+            return true
         end
         if QuestWindow:getOpen() then
             QuestWindow:setOpen(false)
-            return
+            return true
         end
         -- If no windows open, open settings window
         SettingsWindow:setOpen(true)
         UISystem.setWindowFocus('settings_window')
-        return
+        return true
     end
     if key == HotkeyConfig.getHotkey("map_window") then
         MapWindow:toggle()
         if MapWindow:getOpen() then
             UISystem.setWindowFocus('map_window')
         end
+        return true
     end
+    return false
 end
 
 -- Mouse pressed handler

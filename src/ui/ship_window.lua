@@ -569,10 +569,33 @@ function ShipWindow:keypressed(key)
     -- Close context menu on escape
     if key == "escape" and self.contextMenu then
         self.contextMenu = nil
-        return
+        return true
+    end
+    if self.activeTab == "cargo" then
+        local CargoPanel = require('src.ui.cargo_panel')
+        if CargoPanel and CargoPanel.keypressed then
+            local consumed = CargoPanel.keypressed(self, key)
+            if consumed then
+                return true
+            end
+        end
     end
 
     WindowBase.keypressed(self, key)
+    return false
+end
+
+function ShipWindow:textinput(t)
+    if self.activeTab == "cargo" then
+        local CargoPanel = require('src.ui.cargo_panel')
+        if CargoPanel and CargoPanel.textinput then
+            local consumed = CargoPanel.textinput(self, t)
+            if consumed then
+                return true
+            end
+        end
+    end
+    return false
 end
 
 -- Handle mouse wheel for scrolling within the ship window (stat area)

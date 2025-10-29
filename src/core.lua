@@ -66,6 +66,10 @@ function Core.wheelmoved(x, y)
     GameInput.wheelmoved(x, y)
 end
 
+function Core.textinput(t)
+    GameInput.textinput(t)
+end
+
 -- Game cleanup - completely reset all game state
 function Core.quit()
     print("NOVUS shutting down...")

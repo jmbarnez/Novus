@@ -23,6 +23,8 @@ function CargoPanel.draw(shipWin, windowX, windowY, width, height, alpha)
     -- Initialize control state
     shipWin.cargoSortMode = shipWin.cargoSortMode or "name" -- "name" | "qty"
     shipWin.cargoFilterMode = shipWin.cargoFilterMode or "All" -- "All" | "Modules" | "Resources"
+    shipWin.cargoSearchQuery = shipWin.cargoSearchQuery or ""
+    shipWin.cargoSearchFocused = shipWin.cargoSearchFocused or false
 
     -- Draw controls and adjust layout
     local controlsHeight = CargoPanel.drawControls(shipWin, contentX, contentY, contentWidth, alpha)
@@ -105,7 +107,10 @@ function CargoPanel.drawCargoGrid(shipWin, cargoItems, x, y, width, height, alph
 
             love.graphics.push()
             love.graphics.translate(slotX + slotSize / 2, slotY + slotSize / 2)
-            love.graphics.scale(1, 1)
+            -- Scale icons to fill slot better (use ~75% of slot size)
+            local iconScale = (slotSize * 0.75) / (itemDef.design and itemDef.design.size or 16)
+            iconScale = math.max(iconScale, 1.0) -- Don't scale down if already small enough
+            love.graphics.scale(iconScale, iconScale)
             if type(itemDef.module) == "table" and itemDef.module.draw then
                 love.graphics.setColor(1, 1, 1, alpha)
                 itemDef.module.draw(itemDef.module, 0, 0)
@@ -114,7 +119,8 @@ function CargoPanel.drawCargoGrid(shipWin, cargoItems, x, y, width, height, alph
             else
                 local color = itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}
                 love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha)
-                love.graphics.circle("fill", 0, 0, slotSize / 4)
+                local iconRadius = (itemDef.design and itemDef.design.size or 16) / 2
+                love.graphics.circle("fill", 0, 0, iconRadius)
             end
             love.graphics.pop()
 
@@ -125,7 +131,7 @@ function CargoPanel.drawCargoGrid(shipWin, cargoItems, x, y, width, height, alph
             end
 
             love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
-            love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+            love.graphics.setFont(Theme.getFont("xs"))
             local label = (itemDef and itemDef.name) or tostring(itemId)
             love.graphics.printf(label, slotX, slotY + slotSize + 4, slotSize, "center")
 
@@ -151,6 +157,14 @@ function CargoPanel.getFilteredAndSortedItems(shipWin, cargoItems)
                 include = isResource
             else
                 include = true
+            end
+
+            -- Search filter
+            local query = (shipWin.cargoSearchQuery or ""):lower()
+            if include and query ~= "" then
+                local name = (itemDef.name or ""):lower()
+                local idLower = tostring(itemId):lower()
+                include = (name:find(query, 1, true) ~= nil) or (idLower:find(query, 1, true) ~= nil)
             end
 
             if include then
@@ -221,6 +235,46 @@ function CargoPanel.drawControls(shipWin, x, y, width, alpha)
     drawButton("filter_modules", "Modules", cx, cy, shipWin.cargoFilterMode == "Modules")
     cx = cx + btnW + spacing
     drawButton("filter_resources", "Resources", cx, cy, shipWin.cargoFilterMode == "Resources")
+
+    -- Search box (aligned right)
+    local searchW = 220
+    local searchH = btnH
+    local searchX = x + width - searchW
+    local searchY = cy
+    shipWin.cargoSearchRect = { x = searchX, y = searchY, w = searchW, h = searchH }
+
+    local bg = Theme.colors.surface
+    local border = Theme.colors.border
+    local text = Theme.colors.text
+    if shipWin.cargoSearchFocused then
+        love.graphics.setColor(0.2, 0.4, 0.6, 0.28 * alpha)
+        love.graphics.rectangle("fill", searchX - 1, searchY - 1, searchW + 2, searchH + 2, 6, 6)
+    end
+    love.graphics.setColor(bg[1], bg[2], bg[3], 0.95 * alpha)
+    love.graphics.rectangle("fill", searchX, searchY, searchW, searchH, 6, 6)
+    love.graphics.setColor(border[1], border[2], border[3], 0.5 * alpha)
+    love.graphics.rectangle("line", searchX, searchY, searchW, searchH, 6, 6)
+
+    local placeholder = "Search..."
+    local query = shipWin.cargoSearchQuery or ""
+    local showPlaceholder = query == "" and not shipWin.cargoSearchFocused
+    love.graphics.setScissor(searchX + 8, searchY, searchW - 16, searchH)
+    if showPlaceholder then
+        local tc = Theme.colors.textSecondary
+        love.graphics.setColor(tc[1], tc[2], tc[3], (tc[4] or 1) * alpha)
+        love.graphics.printf(placeholder, searchX + 8, searchY + 5, searchW - 16, "left")
+    else
+        love.graphics.setColor(text[1], text[2], text[3], alpha)
+        love.graphics.printf(query, searchX + 8, searchY + 5, searchW - 16, "left")
+        -- Caret
+        if shipWin.cargoSearchFocused then
+            local font = love.graphics.getFont()
+            local caretX = searchX + 8 + font:getWidth(query)
+            love.graphics.setColor(text[1], text[2], text[3], 0.6 * alpha)
+            love.graphics.line(caretX, searchY + 6, caretX, searchY + searchH - 6)
+        end
+    end
+    love.graphics.setScissor()
 
     return btnH + padding
 end
@@ -293,8 +347,20 @@ function CargoPanel.mousepressed(shipWin, x, y, button)
                 elseif id == "filter_resources" then
                     shipWin.cargoFilterMode = "Resources"
                 end
+                shipWin.cargoSearchFocused = false
                 return
             end
+        end
+    end
+
+    -- Search focus handling (UI space coords already)
+    if button == 1 and shipWin.cargoSearchRect then
+        local r = shipWin.cargoSearchRect
+        if pointInRect(x, y, r.x, r.y, r.w, r.h) then
+            shipWin.cargoSearchFocused = true
+            return
+        else
+            shipWin.cargoSearchFocused = false
         end
     end
 
@@ -317,6 +383,50 @@ end
 
 function CargoPanel.mousemoved(shipWin, x, y, dx, dy)
     -- No-op; ship window handles context menu hover centrally
+end
+
+function CargoPanel.keypressed(shipWin, key)
+    if not shipWin.cargoSearchFocused then return false end
+    -- Consume input when search bar is focused
+    if key == "backspace" then
+        local q = shipWin.cargoSearchQuery or ""
+        local len = #q
+        if len > 0 then
+            shipWin.cargoSearchQuery = q:sub(1, len - 1)
+        end
+        return true
+    elseif key == "escape" then
+        shipWin.cargoSearchFocused = false
+        return true
+    elseif key == "return" or key == "kpenter" then
+        shipWin.cargoSearchFocused = false
+        return true
+    end
+    -- For all other keys, return true to consume input (textinput will handle actual characters)
+    return true
+end
+
+function CargoPanel.textinput(shipWin, t)
+    if not shipWin.cargoSearchFocused then return false end
+    t = t or ""
+    if t == "" then return false end
+    shipWin.cargoSearchQuery = (shipWin.cargoSearchQuery or "") .. t
+    -- Optional max length cap to avoid runaway
+    if #shipWin.cargoSearchQuery > 64 then
+        shipWin.cargoSearchQuery = shipWin.cargoSearchQuery:sub(1, 64)
+    end
+    return true
+end
+
+-- Helper to check if cargo search is focused (can be called from anywhere)
+function CargoPanel.isSearchFocused()
+    local ShipWindow = require('src.ui.ship_window')
+    if not ShipWindow then return false end
+    -- Access the singleton instance
+    if ShipWindow.isOpen and ShipWindow:getOpen() then
+        return ShipWindow.cargoSearchFocused == true
+    end
+    return false
 end
 
 return CargoPanel

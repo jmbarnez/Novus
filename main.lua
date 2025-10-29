@@ -190,6 +190,13 @@ function love.wheelmoved(x, y)
 end
 
 
+function love.textinput(t)
+    if gameState == "game" then
+        Core.textinput(t)
+    end
+end
+
+
 
 
 function love.mousepressed(x, y, button)
