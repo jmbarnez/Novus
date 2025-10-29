@@ -20,9 +20,19 @@ function CargoPanel.draw(shipWin, windowX, windowY, width, height, alpha)
     local cargo = ECS.getComponent(droneId, "Cargo")
     if not cargo then return end
 
+    -- Initialize control state
+    shipWin.cargoSortMode = shipWin.cargoSortMode or "name" -- "name" | "qty"
+    shipWin.cargoFilterMode = shipWin.cargoFilterMode or "All" -- "All" | "Modules" | "Resources"
+
+    -- Draw controls and adjust layout
+    local controlsHeight = CargoPanel.drawControls(shipWin, contentX, contentY, contentWidth, alpha)
+    local gridY = contentY + controlsHeight + 8
+    local gridHeight = contentHeight - controlsHeight - 8
+
     shipWin.hoveredItemSlot = nil
-    -- Draw cargo grid full area
-    shipWin:drawCargoGrid(cargo.items, contentX, contentY, contentWidth, contentHeight, alpha)
+    -- Draw cargo grid filtered/sorted
+    local itemsList = CargoPanel.getFilteredAndSortedItems(shipWin, cargo.items)
+    shipWin:drawCargoGrid(itemsList, contentX, gridY, contentWidth, gridHeight, alpha)
 
     if shipWin.contextMenu then
         shipWin:drawContextMenu(shipWin.contextMenu.x, shipWin.contextMenu.y, alpha)
@@ -43,7 +53,21 @@ function CargoPanel.drawCargoGrid(shipWin, cargoItems, x, y, width, height, alph
 
     local i = 0
 
-    for itemId, count in pairs(cargoItems) do
+    -- cargoItems may be a list produced by getFilteredAndSortedItems, or a map
+    local iterateList
+    if #cargoItems > 0 then
+        iterateList = cargoItems
+    else
+        iterateList = {}
+        for itemId, count in pairs(cargoItems) do
+            table.insert(iterateList, { itemId = itemId, count = count })
+        end
+        table.sort(iterateList, function(a, b) return tostring(a.itemId) < tostring(b.itemId) end)
+    end
+
+    for _, entry in ipairs(iterateList) do
+        local itemId = entry.itemId
+        local count = entry.count
         local itemDef = ItemDefs[itemId]
         if itemDef then
             local row = math.floor(i / cols)
@@ -110,6 +134,101 @@ function CargoPanel.drawCargoGrid(shipWin, cargoItems, x, y, width, height, alph
     end
 end
 
+function CargoPanel.getFilteredAndSortedItems(shipWin, cargoItems)
+    local ItemDefs = require('src.items.item_loader')
+    local list = {}
+    for itemId, count in pairs(cargoItems) do
+        local itemDef = ItemDefs[itemId]
+        if itemDef then
+            local filter = shipWin.cargoFilterMode or "All"
+            local isModule = (itemDef.module ~= nil) or (itemDef.type == "turret" or itemDef.type == "defensive" or itemDef.type == "generator")
+            local isResource = (not isModule) and ((itemDef.type == nil) or (itemDef.type == "resource") or (itemDef.stackable == true))
+
+            local include = true
+            if filter == "Modules" then
+                include = isModule
+            elseif filter == "Resources" then
+                include = isResource
+            else
+                include = true
+            end
+
+            if include then
+                table.insert(list, { itemId = itemId, count = count, itemDef = itemDef })
+            end
+        end
+    end
+
+    local sortMode = shipWin.cargoSortMode or "name"
+    if sortMode == "qty" then
+        table.sort(list, function(a, b)
+            if a.count == b.count then
+                return (a.itemDef.name or a.itemId) < (b.itemDef.name or b.itemId)
+            end
+            return a.count > b.count
+        end)
+    else
+        table.sort(list, function(a, b)
+            local an = a.itemDef.name or a.itemId
+            local bn = b.itemDef.name or b.itemId
+            if an == bn then return a.count > b.count end
+            return an < bn
+        end)
+    end
+
+    return list
+end
+
+function CargoPanel.drawControls(shipWin, x, y, width, alpha)
+    local padding = 6
+    local btnH = 26
+    local btnW = 96
+    local spacing = 8
+
+    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+
+    shipWin.cargoControlButtons = {}
+
+    local function drawButton(id, label, bx, by, active)
+        local bg = Theme.colors.surface
+        local border = Theme.colors.borderAlt
+        local text = Theme.colors.text
+        if active then
+            love.graphics.setColor(0.2, 0.5, 0.3, 0.35 * alpha)
+            love.graphics.rectangle("fill", bx - 1, by - 1, btnW + 2, btnH + 2, 6, 6)
+        end
+        love.graphics.setColor(bg[1], bg[2], bg[3], 0.9 * alpha)
+        love.graphics.rectangle("fill", bx, by, btnW, btnH, 6, 6)
+        love.graphics.setColor(border[1], border[2], border[3], 0.4 * alpha)
+        love.graphics.rectangle("line", bx, by, btnW, btnH, 6, 6)
+        love.graphics.setColor(text[1], text[2], text[3], alpha)
+        love.graphics.printf(label, bx, by + 5, btnW, "center")
+        shipWin.cargoControlButtons[id] = { x = bx, y = by, w = btnW, h = btnH }
+    end
+
+    local cx = x
+    local cy = y
+
+    -- Sort buttons
+    drawButton("sort_name", "Sort: Name", cx, cy, shipWin.cargoSortMode == "name")
+    cx = cx + btnW + spacing
+    drawButton("sort_qty", "Sort: Qty", cx, cy, shipWin.cargoSortMode == "qty")
+
+    -- Filter buttons
+    cx = cx + btnW + spacing * 2
+    drawButton("filter_all", "All", cx, cy, shipWin.cargoFilterMode == "All")
+    cx = cx + btnW + spacing
+    drawButton("filter_modules", "Modules", cx, cy, shipWin.cargoFilterMode == "Modules")
+    cx = cx + btnW + spacing
+    drawButton("filter_resources", "Resources", cx, cy, shipWin.cargoFilterMode == "Resources")
+
+    return btnH + padding
+end
+
+local function pointInRect(px, py, rx, ry, rw, rh)
+    return px >= rx and px <= rx + rw and py >= ry and py <= ry + rh
+end
+
 function CargoPanel.canEquipInSlot(shipWin, itemId, slotType)
     local ItemDefs = require('src.items.item_loader')
     local itemDef = ItemDefs[itemId]
@@ -159,6 +278,26 @@ function CargoPanel.drawContextMenu(shipWin, x, y, alpha)
 end
 
 function CargoPanel.mousepressed(shipWin, x, y, button)
+    -- Controls handling
+    if shipWin.cargoControlButtons and button == 1 then
+        for id, btn in pairs(shipWin.cargoControlButtons) do
+            if pointInRect(x, y, btn.x, btn.y, btn.w, btn.h) then
+                if id == "sort_name" then
+                    shipWin.cargoSortMode = "name"
+                elseif id == "sort_qty" then
+                    shipWin.cargoSortMode = "qty"
+                elseif id == "filter_all" then
+                    shipWin.cargoFilterMode = "All"
+                elseif id == "filter_modules" then
+                    shipWin.cargoFilterMode = "Modules"
+                elseif id == "filter_resources" then
+                    shipWin.cargoFilterMode = "Resources"
+                end
+                return
+            end
+        end
+    end
+
     -- Delegate to ship window logic (maintain existing behavior)
     if button == 2 and shipWin.hoveredItemSlot and not shipWin.contextMenu then
         -- Use UI-space coordinates for context menu positioning

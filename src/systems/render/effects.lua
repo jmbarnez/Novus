@@ -212,6 +212,17 @@ local function generateWarpGateCanvas(active, radius)
     love.graphics.clear(0, 0, 0, 0)
     
     if active then
+        -- Metallic structure (static)
+        love.graphics.setColor(0.18, 0.26, 0.34, 1)
+        love.graphics.setLineWidth(32)
+        love.graphics.circle("line", cx, cy, radius + 18)
+        love.graphics.setColor(0.34, 0.50, 0.72, 0.17)
+        love.graphics.setLineWidth(7)
+        love.graphics.circle("line", cx, cy, radius + 8)
+        love.graphics.setColor(0.08, 0.10, 0.13, 0.30)
+        love.graphics.setLineWidth(9)
+        love.graphics.circle("line", cx, cy, radius + 26)
+        
         -- Static struts (no animation in cache)
         for i = 1, 6 do
             local angle = (i-1) * (2 * math.pi / 6)
@@ -233,6 +244,17 @@ local function generateWarpGateCanvas(active, radius)
             love.graphics.circle("fill", x2, y2, 4.2)
         end
     else
+        -- Broken: metallic structure (static)
+        love.graphics.setColor(0.22, 0.18, 0.16, 1)
+        love.graphics.setLineWidth(32)
+        love.graphics.circle("line", cx, cy, radius + 18)
+        love.graphics.setColor(0.72, 0.34, 0.34, 0.12)
+        love.graphics.setLineWidth(7)
+        love.graphics.circle("line", cx, cy, radius + 8)
+        love.graphics.setColor(0.11, 0.04, 0.02, 0.20)
+        love.graphics.setLineWidth(9)
+        love.graphics.circle("line", cx, cy, radius + 26)
+        
         -- Static struts (no animation)
         for i = 1, 6 do
             local angle = (i-1) * (2 * math.pi / 6)
