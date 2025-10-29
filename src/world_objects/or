@@ -1,0 +1,54 @@
+-- Orion Port - Standard Trading Station
+-- Simplified design with essential trading and administrative modules
+
+return {
+    name = "Orion Port",
+    description = "Standard trading station with commerce and administrative facilities",
+    
+    -- Basic properties
+    x = 0,
+    y = 0,
+    size = 100,
+    mass = 1200,
+    color = {0.79, 0.85, 1, 1},
+    label = "Orion Port",
+    
+    -- Simplified hull - octagonal base
+    hullSides = 8,
+    hullRadius = 115,
+    hullRotation = math.pi / 12,
+    hullColor = {0.68, 0.78, 1, 1},
+    collidableRadius = 125,
+    
+    -- Essential modules only - simplified design
+    modules = {
+        -- Central core with glow
+        { type = "core_glow", radius = 40, color = {0.98, 1, 1, 0.32} },
+        
+        -- Main processing disc
+        { type = "disc", radius = 34, color = {0.94, 0.96, 1, 0.42} },
+        
+        -- Outer ring structure
+        { type = "ring", radius = 72, width = 14, color = {0.55, 0.7, 1, 0.4} },
+        
+        -- Support spokes (reduced count)
+        { type = "spokes", count = 4, innerRadius = 28, outerRadius = 98, width = 9, color = {0.8, 0.88, 1, 0.28} },
+        
+        -- Solar panels (simplified)
+        { type = "panels", count = 3, radius = 148, width = 68, height = 20, color = {0.26, 0.68, 1, 0.46} },
+        
+        -- Docking arms (reduced count)
+        { type = "arms", count = 3, radius = 124, length = 58, width = 16, capRadius = 10, capOffset = 38, color = {0.74, 0.86, 1, 0.36} },
+        
+        -- Cargo pods (simplified)
+        { type = "pods", count = 3, radius = 176, sides = 6, podRadius = 16, rotationOffset = math.pi / 6, color = {0.78, 0.92, 1, 0.55} },
+        
+        -- Communication array
+        { type = "dish", radius = 84, width = 4, startAngle = -0.35, endAngle = 0.35, spinSpeed = 1.1, mastLength = 28, mastWidth = 6, mastAngle = 0.08, color = {0.88, 0.94, 1, 0.62} },
+        
+        -- Basic shield generator
+        { type = "shield", radius = 190, color = {0.5, 0.72, 1, 0.18} }
+    },
+    
+    disableQuestionMark = true
+}

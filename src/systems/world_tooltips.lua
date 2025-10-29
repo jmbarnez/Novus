@@ -21,16 +21,22 @@ local nearbyInteractables = {}
 -- Track active tooltips and their data
 local activeTooltips = {}
 
+-- Track expanded state for tooltips (compact arrows vs full tooltips)
+local tooltipExpanded = {}
+
 -- Register a world-space tooltip for an entity
 -- @param entityId number: Entity ID
 -- @param data table: Tooltip data {title, message, resources?, buttonText?, buttonCallback?}
 function WorldTooltips.registerTooltip(entityId, data)
     activeTooltips[entityId] = data
+    -- Start in compact mode by default
+    tooltipExpanded[entityId] = false
 end
 
 -- Unregister a tooltip
 function WorldTooltips.unregisterTooltip(entityId)
     activeTooltips[entityId] = nil
+    tooltipExpanded[entityId] = nil
 end
 
 -- Update system - registers warp gate tooltips
@@ -120,9 +126,9 @@ function WorldTooltips.handleKeyPress(key)
         
         -- Check for nearby stations
         local stations = ECS.getEntitiesWith({"Station", "Position", "Collidable"})
-        local closestStationId = nil
-        local closestDist = math.huge
-        local interactionRange = 800
+    local closestStationId = nil
+    local closestDist = math.huge
+    local interactionRange = 500 -- reduced docking interaction range
         
         for _, stationId in ipairs(stations) do
             local pos = ECS.getComponent(stationId, "Position")
@@ -210,6 +216,68 @@ function WorldTooltips.drawTooltip(entityId, pos, coll, data)
     -- `pos` and `coll` are expected to be in UI/reference (canvas) coordinates
     local gx, gy, gr = pos.x, pos.y, coll.radius or 48
 
+    -- Check if this tooltip is expanded
+    local isExpanded = tooltipExpanded[entityId] or false
+
+    if not isExpanded then
+        -- Draw compact up arrow button
+        WorldTooltips.drawCompactArrow(entityId, gx, gy, gr, data)
+    else
+        -- Draw full tooltip (original logic)
+        WorldTooltips.drawFullTooltip(entityId, gx, gy, gr, data)
+    end
+
+    love.graphics.setColor(1, 1, 1, 1)
+end
+
+-- Draw compact up arrow button
+function WorldTooltips.drawCompactArrow(entityId, gx, gy, gr, data)
+    local arrowSize = 24
+    local arrowX = gx
+    local arrowY = gy - gr - 8
+    local padding = 6
+    
+    -- Calculate hover state
+    local mx, my = love.mouse.getPosition()
+    local Scaling = require('src.scaling')
+    local renderMode = WorldTooltips._renderMode or "world"
+    local isHovered = false
+    if renderMode == "hud" then
+        local uiMx, uiMy = Scaling.toUI(mx, my)
+        isHovered = uiMx and uiMy and uiMx >= arrowX - arrowSize/2 and uiMx <= arrowX + arrowSize/2
+                   and uiMy >= arrowY - arrowSize/2 and uiMy <= arrowY + arrowSize/2
+    end
+    
+    -- Background circle
+    local bgColor = isHovered and Theme.colors.accent or Theme.colors.surface
+    local borderColor = isHovered and Theme.colors.accentHover or Theme.colors.border
+    
+    love.graphics.setColor(bgColor[1], bgColor[2], bgColor[3], 1)
+    love.graphics.circle("fill", arrowX, arrowY, arrowSize / 2 + padding)
+    
+    love.graphics.setColor(borderColor[1], borderColor[2], borderColor[3], 1)
+    love.graphics.setLineWidth(2)
+    love.graphics.circle("line", arrowX, arrowY, arrowSize / 2 + padding)
+    
+    -- Draw up arrow
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], 1)
+    love.graphics.setLineWidth(3)
+    
+    -- Arrow pointing up
+    local arrowHeight = arrowSize - 8
+    local arrowWidth = arrowSize - 10
+    local tipY = arrowY - arrowHeight / 2
+    local baseY = arrowY + arrowHeight / 2
+    local leftX = arrowX - arrowWidth / 2
+    local rightX = arrowX + arrowWidth / 2
+    
+    love.graphics.line(arrowX, tipY, arrowX, baseY) -- Vertical line
+    love.graphics.line(arrowX, tipY, leftX, tipY + 8) -- Left diagonal
+    love.graphics.line(arrowX, tipY, rightX, tipY + 8) -- Right diagonal
+end
+
+-- Draw full expanded tooltip (original drawTooltip logic)
+function WorldTooltips.drawFullTooltip(entityId, gx, gy, gr, data)
     -- Use plasma theme colors
     local font = Theme.getFont(16)
     local smallFont = Theme.getFont(12)
@@ -288,8 +356,12 @@ function WorldTooltips.drawTooltip(entityId, pos, coll, data)
     if data.buttonText and not data.hasResources then
         WorldTooltips.drawButton(bx, by, boxW, boxH, data)
     end
-
-    love.graphics.setColor(1, 1, 1, 1)
+    
+    -- Draw collapse hint at the bottom
+    local hintFont = Theme.getFont(10)
+    love.graphics.setFont(hintFont)
+    love.graphics.setColor(Theme.colors.textMuted[1], Theme.colors.textMuted[2], Theme.colors.textMuted[3], 1)
+    love.graphics.print("Click to collapse", bx + boxW - 100, by + boxH - 14)
 end
 
 -- Draw tooltips in HUD / screen (UI) space. Converts world positions to UI coordinates
@@ -350,6 +422,70 @@ function WorldTooltips.drawHUD()
         end
 
         ::continue::
+    end
+
+    -- Station docking prompt: show a subtle center/HUD prompt when player is within docking range
+    -- This is independent of the warp-gate tooltips above.
+    local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+    local playerPos = nil
+    if #playerEntities > 0 then
+        local pilotId = playerEntities[1]
+        local input = ECS.getComponent(pilotId, "InputControlled")
+        if input and input.targetEntity then
+            playerPos = ECS.getComponent(input.targetEntity, "Position")
+        end
+    end
+
+    if playerPos then
+        local stations = ECS.getEntitiesWith({"Station", "Position", "Collidable"})
+        local dockRange = 500
+        local nearest = nil
+        local ndist = math.huge
+        for _, sid in ipairs(stations) do
+            local spos = ECS.getComponent(sid, "Position")
+            if spos then
+                local d = math.sqrt((spos.x - playerPos.x)^2 + (spos.y - playerPos.y)^2)
+                if d < dockRange and d < ndist then
+                    ndist = d
+                    nearest = sid
+                end
+            end
+        end
+
+        if nearest then
+            -- Draw subtle prompt in center of screen and a smaller HUD hint near bottom
+            local Theme = require('src.ui.theme')
+            local Scaling = require('src.scaling')
+
+            local centerX = Scaling.REFERENCE_WIDTH / 2
+            local centerY = Scaling.REFERENCE_HEIGHT / 2
+
+            local font = Theme.getFont(20)
+            local smallFont = Theme.getFont(14)
+            love.graphics.setFont(font)
+
+            -- Use muted text color with slight alpha so it's subtle
+            local text = "Press [E/Enter] to dock"
+            local tw = font:getWidth(text)
+            local th = font:getHeight()
+
+            -- Optional faint background to improve readability
+            love.graphics.setColor(0, 0, 0, 0.35)
+            love.graphics.rectangle("fill", centerX - tw/2 - 12, centerY - th/2 - 6, tw + 24, th + 12, 6, 6)
+            love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], 0.95)
+            love.graphics.print(text, centerX - tw/2, centerY - th/2)
+
+            -- Draw a smaller HUD hint lower on the screen
+            love.graphics.setFont(smallFont)
+            local hint = "Docking available"
+            local hw = smallFont:getWidth(hint)
+            local hy = Scaling.REFERENCE_HEIGHT - 120
+            -- subtle background for hint
+            love.graphics.setColor(0, 0, 0, 0.25)
+            love.graphics.rectangle("fill", centerX - hw/2 - 10, hy - smallFont:getHeight()/2 - 6, hw + 20, smallFont:getHeight() + 12, 6, 6)
+            love.graphics.setColor(Theme.colors.textMuted[1], Theme.colors.textMuted[2], Theme.colors.textMuted[3], 0.9)
+            love.graphics.print(hint, centerX - hw/2, hy - smallFont:getHeight()/2)
+        end
     end
 
     WorldTooltips._renderMode = prevMode or "world"
@@ -477,28 +613,127 @@ function WorldTooltips.handleClick(mx, my, button)
         px, py = Scaling.toWorld(mx, my, cameraComp, cameraPos)
     end
 
-    -- Check all nearby interactables for a button click
+    -- Check all nearby interactables for clicks
     for entId, data in pairs(nearbyInteractables) do
-        if data.buttonText then
-            -- Button geometry must match drawResources/drawButton
-            local pos = ECS.getComponent(entId, "Position")
-            local coll = ECS.getComponent(entId, "Collidable")
-            if pos and coll then
-                local renderMode = WorldTooltips._renderMode or "world"
-                local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
-                local cameraComp = cameraEntities[1] and ECS.getComponent(cameraEntities[1], "Camera")
-                local cameraPos = cameraEntities[1] and ECS.getComponent(cameraEntities[1], "Position")
+        local pos = ECS.getComponent(entId, "Position")
+        local coll = ECS.getComponent(entId, "Collidable")
+        if pos and coll then
+            local renderMode = WorldTooltips._renderMode or "world"
+            local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+            local cameraComp = cameraEntities[1] and ECS.getComponent(cameraEntities[1], "Camera")
+            local cameraPos = cameraEntities[1] and ECS.getComponent(cameraEntities[1], "Position")
 
-                local gx, gy, gr
-                -- If we're in HUD mode, convert world pos to UI/reference coords
-                if renderMode == "hud" and cameraComp and cameraPos then
-                    gx = (pos.x - cameraPos.x) * (cameraComp.zoom or 1)
-                    gy = (pos.y - cameraPos.y) * (cameraComp.zoom or 1)
-                    gr = (coll.radius or 48) * (cameraComp.zoom or 1)
-                else
-                    gx, gy, gr = pos.x, pos.y, coll.radius or 48
+            local gx, gy, gr
+            -- If we're in HUD mode, convert world pos to UI/reference coords
+            if renderMode == "hud" and cameraComp and cameraPos then
+                gx = (pos.x - cameraPos.x) * (cameraComp.zoom or 1)
+                gy = (pos.y - cameraPos.y) * (cameraComp.zoom or 1)
+                gr = (coll.radius or 48) * (cameraComp.zoom or 1)
+            else
+                gx, gy, gr = pos.x, pos.y, coll.radius or 48
+            end
+
+            local isExpanded = tooltipExpanded[entId] or false
+
+            if not isExpanded then
+                -- Check click on compact arrow button
+                local arrowSize = 24
+                local arrowX = gx
+                local arrowY = gy - gr - 8
+                local padding = 6
+                local arrowRadius = arrowSize / 2 + padding
+                
+                local distSq = (px - arrowX)^2 + (py - arrowY)^2
+                if distSq <= arrowRadius^2 then
+                    -- Toggle to expanded state
+                    tooltipExpanded[entId] = true
+                    return true
                 end
-
+            else
+                -- Check if click is on full tooltip content (button or inside tooltip area)
+                if data.buttonText then
+                    -- Check click on button area
+                    local font = Theme.getFont(16)
+                    local tw = font:getWidth(data.title)
+                    local paddingW = 16
+                    local minWidth = 180
+                    local boxW = math.max(tw + paddingW * 2, minWidth)
+                    local boxH = font:getHeight() + 12
+                    if data.message then
+                        boxH = boxH + Theme.getFont(12):getHeight() + 6
+                    end
+                    if data.hasResources then
+                        -- Account for "Required Resources:" label (height + spacing) + resource list
+                        boxH = boxH + 18 + 8 + 12 + (#(data.resources or {}) * 16)
+                    end
+                    local buttonH = 28
+                    if data.buttonText then
+                        -- Add extra padding between content and button
+                        local buttonPadding = data.hasResources and 4 or 8
+                        boxH = boxH + buttonPadding + buttonH + 8
+                    end
+                    -- Calculate button width for click detection
+                    local buttonFont = Theme.getFont(18)
+                    local textWidth = buttonFont:getWidth(data.buttonText)
+                    local buttonW = math.max(160, math.min(textWidth + 24, boxW - 32))
+                    local bx = gx - boxW / 2
+                    local by = gy - gr - boxH - 8
+                    local buttonX = bx + (boxW - buttonW) / 2
+                    local buttonY = by + boxH - buttonH - 8
+                    
+                    if px >= buttonX and px <= buttonX + buttonW and py >= buttonY and py <= buttonY + buttonH then
+                        if data.buttonEnabled then
+                            -- Simulate E-key repair logic
+                            local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+                            local playerCargo = nil
+                            if #playerEntities > 0 then
+                                local pilotId = playerEntities[1]
+                                local input = ECS.getComponent(pilotId, "InputControlled")
+                                if input and input.targetEntity then
+                                    playerCargo = ECS.getComponent(input.targetEntity, "Cargo")
+                                end
+                            end
+                            local gate = ECS.getComponent(entId, "WarpGate")
+                            if gate and not gate.active then
+                                local requiredScrap = 100
+                                local requiredStone = 200
+                                local requiredIron = 80
+                                local removed = true
+                                if playerCargo and playerCargo.removeItem then
+                                    removed = removed and playerCargo:removeItem("scrap", requiredScrap)
+                                    removed = removed and playerCargo:removeItem("stone", requiredStone)
+                                    removed = removed and playerCargo:removeItem("iron", requiredIron)
+                                else
+                                    removed = false
+                                end
+                                if removed then
+                                    gate.active = true
+                                    QuestSystem.onWarpGateRepaired(entId)
+                                    WorldTooltips.registerTooltip(entId, {
+                                        title = "Warp Gate Active",
+                                        hasResources = false,
+                                        resources = {},
+                                        buttonText = nil,
+                                        buttonEnabled = false,
+                                        triggerDistance = 800
+                                    })
+                                    local SoundSystem = require('src.systems.sound')
+                                    if SoundSystem and SoundSystem.play then
+                                        pcall(function() SoundSystem.play('assets/sounds/repair.ogg') end)
+                                    end
+                                else
+                                    local Notifications = require('src.ui.notifications')
+                                    if Notifications and Notifications.show then
+                                        pcall(function() Notifications.show("Not enough resources to repair the gate") end)
+                                    end
+                                end
+                            end
+                        end
+                        return true
+                    end
+                end
+                
+                -- Check if click is outside tooltip area to collapse it
                 local font = Theme.getFont(16)
                 local tw = font:getWidth(data.title)
                 local paddingW = 16
@@ -509,71 +744,19 @@ function WorldTooltips.handleClick(mx, my, button)
                     boxH = boxH + Theme.getFont(12):getHeight() + 6
                 end
                 if data.hasResources then
-                    -- Account for "Required Resources:" label (height + spacing) + resource list
                     boxH = boxH + 18 + 8 + 12 + (#(data.resources or {}) * 16)
                 end
                 local buttonH = 28
                 if data.buttonText then
-                    -- Add extra padding between content and button
                     local buttonPadding = data.hasResources and 4 or 8
                     boxH = boxH + buttonPadding + buttonH + 8
                 end
-                -- Calculate button width for click detection
-                local buttonFont = Theme.getFont(18)
-                local textWidth = buttonFont:getWidth(data.buttonText)
-                local buttonW = math.max(160, math.min(textWidth + 24, boxW - 32))
                 local bx = gx - boxW / 2
                 local by = gy - gr - boxH - 8
-                local buttonX = bx + (boxW - buttonW) / 2
-                local buttonY = by + boxH - buttonH - 8
-                if px >= buttonX and px <= buttonX + buttonW and py >= buttonY and py <= buttonY + buttonH then
-                    if data.buttonEnabled then
-                        -- Simulate E-key repair logic
-                        local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-                        local playerCargo = nil
-                        if #playerEntities > 0 then
-                            local pilotId = playerEntities[1]
-                            local input = ECS.getComponent(pilotId, "InputControlled")
-                            if input and input.targetEntity then
-                                playerCargo = ECS.getComponent(input.targetEntity, "Cargo")
-                            end
-                        end
-                        local gate = ECS.getComponent(entId, "WarpGate")
-                        if gate and not gate.active then
-                            local requiredScrap = 100
-                            local requiredStone = 200
-                            local requiredIron = 80
-                            local removed = true
-                            if playerCargo and playerCargo.removeItem then
-                                removed = removed and playerCargo:removeItem("scrap", requiredScrap)
-                                removed = removed and playerCargo:removeItem("stone", requiredStone)
-                                removed = removed and playerCargo:removeItem("iron", requiredIron)
-                            else
-                                removed = false
-                            end
-                            if removed then
-                                gate.active = true
-                                QuestSystem.onWarpGateRepaired(entId)
-                                WorldTooltips.registerTooltip(entId, {
-                                    title = "Warp Gate Active",
-                                    hasResources = false,
-                                    resources = {},
-                                    buttonText = nil,
-                                    buttonEnabled = false,
-                                    triggerDistance = 800
-                                })
-                                local SoundSystem = require('src.systems.sound')
-                                if SoundSystem and SoundSystem.play then
-                                    pcall(function() SoundSystem.play('assets/sounds/repair.ogg') end)
-                                end
-                            else
-                                local Notifications = require('src.ui.notifications')
-                                if Notifications and Notifications.show then
-                                    pcall(function() Notifications.show("Not enough resources to repair the gate") end)
-                                end
-                            end
-                        end
-                    end
+                
+                -- If click is outside tooltip bounds, collapse it
+                if px < bx or px > bx + boxW or py < by or py > by + boxH then
+                    tooltipExpanded[entId] = false
                     return true
                 end
             end
