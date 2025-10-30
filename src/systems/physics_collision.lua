@@ -392,12 +392,18 @@ local function applyProjectileDamage(projectileId, targetId)
     -- Also apply to Durability if present (asteroids and hull)
     local durability = ECS.getComponent(targetId, "Durability")
     if durability then
-        -- Reduce effectiveness against asteroids and wreckage: apply 10% of projectile damage
+        -- Adjust damage to durability for asteroids and wreckage
         local targetAsteroid = ECS.getComponent(targetId, "Asteroid")
         local targetWreckage = ECS.getComponent(targetId, "Wreckage")
         local damageToApply = damage
         if targetAsteroid or targetWreckage then
-            damageToApply = damage * 0.1
+            -- Turret module projectiles deal 4x damage to asteroids/wreckage
+            -- (fallback to previous reduced scaling for non-turret sources)
+            if proj.weaponModule or proj.weaponType then
+                damageToApply = damage * 4.0
+            else
+                damageToApply = damage * 0.1
+            end
         end
         durability.current = durability.current - damageToApply
 

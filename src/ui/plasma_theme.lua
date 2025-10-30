@@ -26,6 +26,16 @@ PlasmaTheme.colors = {
 PlasmaTheme.colors.accent = PlasmaTheme.palette.accent
 PlasmaTheme.colors.accentHover = PlasmaTheme.colors.textAccent or PlasmaTheme.palette.accent
 PlasmaTheme.colors.borderAlt = PlasmaTheme.colors.borderLight
+-- Provide legacy light surface shade used by various UI panels without depending on later functions
+do
+    local s = PlasmaTheme.colors.surface or {0.06,0.06,0.06,1}
+    local amt = 0.12
+    local r = s[1] + (1 - s[1]) * amt
+    local g = s[2] + (1 - s[2]) * amt
+    local b = s[3] + (1 - s[3]) * amt
+    local a = s[4] or 1
+    PlasmaTheme.colors.surfaceLight = PlasmaTheme.colors.surfaceLight or {r,g,b,a}
+end
 PlasmaTheme.colors.successHover = PlasmaTheme.colors.success and PlasmaTheme.lighten(PlasmaTheme.colors.success, 0.15) or {0.3,0.9,0.3,1}
 PlasmaTheme.colors.dangerHover = PlasmaTheme.colors.danger and PlasmaTheme.lighten(PlasmaTheme.colors.danger, 0.15) or {1,0.45,0.45,1}
 -- Overlay/backdrop used by modal/pause overlays

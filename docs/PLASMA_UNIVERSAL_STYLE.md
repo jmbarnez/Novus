@@ -82,8 +82,8 @@ outlineVeryThick = 4
 
 ### UI Systems
 - `src/systems/hud.lua` - HUD health bars use plasma theme
-- `src/ui/plasma_theme.lua` - New universal theme module
-- `src/ui/theme.lua` - Updated with plasma color palette
+-- `src/ui/plasma_theme.lua` - New universal theme module
+-- `src/ui/plasma_theme.lua` - Updated with plasma color palette (legacy `theme.lua` removed)
 
 ## Visual Consistency
 

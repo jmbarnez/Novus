@@ -8,6 +8,8 @@ local ShaderManager = require('src.shader_manager')
 local HoverSound = require('src.ui.hover_sound')
 local start_screen = {}
 
+-- (spinner removed)
+
 -- Play the start screen intro music immediately (no fade)
 function start_screen.playIntro()
     local ok, Systems = pcall(require, 'src.systems')
@@ -138,6 +140,8 @@ function start_screen.update(dt)
         p.life = p.life + dt * 0.1
         if p.life > 1.0 then p.life = 0.0 end
     end
+
+    -- no spinner
 end
 
 local title = "Novus"
@@ -205,7 +209,7 @@ end
     -- Twinkling stars don't need update
 
 function start_screen.draw()
-    love.graphics.clear(0.01, 0.02, 0.05)
+    love.graphics.clear(0.01, 0.012, 0.016)
     local width, height = love.graphics.getDimensions()
     
     -- Background gradient removed to eliminate visible lines
@@ -302,6 +306,8 @@ function start_screen.draw()
         love.graphics.setColor(0.5, 0.8, 1.0, 1)
         love.graphics.print(titleText, titleX, titleY)
     end
+
+	-- Spinner intentionally removed
 
     -- Draw 'New Game' and 'Load Game' buttons using theme colors and styling
     local totalButtonsHeight = buttonHeight * 2 + buttonSpacing

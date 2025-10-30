@@ -71,22 +71,23 @@ function Dropdown:drawClosed(alpha)
     end
     
     -- Draw closed dropdown button
-    love.graphics.setColor(table.unpack(Theme.colors.surfaceAlt))
+    do local c = Theme.colors.surfaceAlt or {0.08,0.08,0.08,1} love.graphics.setColor(c[1], c[2], c[3], c[4]) end
     love.graphics.rectangle('fill', self.x, self.y, self.width, self.height, 4, 4)
     
     -- Highlight if hovering
     local isHovering = mx >= self.x and mx <= self.x + self.width and 
                       my >= self.y and my <= self.y + self.height and not self.isOpen
     if isHovering then
-        love.graphics.setColor(table.unpack(Theme.colors.surfaceLight))
+        local c = Theme.colors.surfaceLight or Theme.colors.surfaceAlt or {0.10,0.10,0.10,1}
+        love.graphics.setColor(c[1], c[2], c[3], c[4])
         love.graphics.rectangle('fill', self.x, self.y, self.width, self.height, 4, 4)
     end
     
-    love.graphics.setColor(table.unpack(Theme.colors.borderAlt))
+    do local c = Theme.colors.borderAlt or Theme.colors.border or {0.06,0.06,0.06,1} love.graphics.setColor(c[1], c[2], c[3], c[4]) end
     love.graphics.rectangle('line', self.x, self.y, self.width, self.height, 4, 4)
     
     -- Draw selected text
-    love.graphics.setColor(table.unpack(Theme.colors.text))
+    do local c = Theme.colors.text or {1,1,1,1} love.graphics.setColor(c[1], c[2], c[3], c[4]) end
     love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
     local selectedText = self.options[self.selectedIndex] or "Select"
     love.graphics.printf(selectedText, self.x + 8, self.y + 4, self.width - 30, "left")
@@ -127,10 +128,10 @@ function Dropdown:drawOpen(alpha)
     local visibleCount = math.min(total, self.maxVisible)
     local dropdownHeight = visibleCount * self.itemHeight
 
-    love.graphics.setColor(table.unpack(Theme.colors.surface))
+        do local c = Theme.colors.surface or {0.06,0.06,0.06,1} love.graphics.setColor(c[1], c[2], c[3], c[4]) end
     love.graphics.rectangle('fill', self.x, self.y + self.height, self.width, dropdownHeight, 0, 0, 4, 4)
 
-    love.graphics.setColor(table.unpack(Theme.colors.borderAlt))
+    do local c = Theme.colors.borderAlt or Theme.colors.border or {0.06,0.06,0.06,1} love.graphics.setColor(c[1], c[2], c[3], c[4]) end
     love.graphics.rectangle('line', self.x, self.y + self.height, self.width, dropdownHeight, 0, 0, 4, 4)
 
     -- Use full width for option rendering
@@ -148,17 +149,21 @@ function Dropdown:drawOpen(alpha)
                               my >= optionY and my <= optionY + self.itemHeight
 
         if isSelected then
-            love.graphics.setColor(table.unpack(Theme.colors.surfaceLight))
+            local c = Theme.colors.surfaceLight or Theme.colors.surfaceAlt or {0.10,0.10,0.10,1}
+            love.graphics.setColor(c[1], c[2], c[3], c[4])
             love.graphics.rectangle('fill', self.x, optionY, contentWidth, self.itemHeight)
         elseif isItemHovering then
-            love.graphics.setColor(table.unpack(Theme.colors.surfaceAlt))
+            local c = Theme.colors.surfaceAlt or {0.08,0.08,0.08,1}
+            love.graphics.setColor(c[1], c[2], c[3], c[4])
             love.graphics.rectangle('fill', self.x, optionY, contentWidth, self.itemHeight)
         end
 
         if isSelected then
-            love.graphics.setColor(table.unpack(Theme.colors.accent))
+            local c = Theme.colors.accent or {0.4,0.9,1,1}
+            love.graphics.setColor(c[1], c[2], c[3], c[4])
         else
-            love.graphics.setColor(table.unpack(Theme.colors.text))
+            local c = Theme.colors.text or {1,1,1,1}
+            love.graphics.setColor(c[1], c[2], c[3], c[4])
         end
         love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
         love.graphics.printf(option, self.x + 8, optionY + 2, contentWidth - 16, "left")

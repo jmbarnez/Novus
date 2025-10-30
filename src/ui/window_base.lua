@@ -256,7 +256,25 @@ function WindowBase:draw(viewportWidth, viewportHeight, uiMx, uiMy)
         love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha * (multiplier or 1))
     end
 
+    -- Soft shadow (subtle, multi-pass rectangle expansion) using elevation tokens
+    local function drawPanelShadow(px, py, pw, ph, pr, elev, baseAlpha)
+        elev = elev or (Theme.elevation and Theme.elevation.low) or 2
+        baseAlpha = baseAlpha or 0.28
+        for i = 1, elev do
+            local mul = (1 - (i - 1) / (elev + 1)) * 0.6
+            local inset = i
+            local a = baseAlpha * mul * alpha
+            love.graphics.setColor(0, 0, 0, a)
+            love.graphics.rectangle('fill', px - inset, py - inset, pw + inset * 2, ph + inset * 2, (pr or 0) + inset, (pr or 0) + inset)
+        end
+    end
+
     -- Panel background matching the pause menu styling
+    -- Draw subtle shadow first so it sits under the panel
+    pcall(function()
+        local elev = (Theme.elevation and Theme.elevation.low) or 2
+        drawPanelShadow(x, y, w, h, radius, elev, 0.28)
+    end)
     setColor(Theme.colors.surface, 0.95)
     love.graphics.rectangle('fill', x, y, w, h, radius, radius)
 

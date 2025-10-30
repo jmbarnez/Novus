@@ -150,6 +150,7 @@ function Notifications.update(dt)
             end
         end
     end
+
 end
 
 -- Draw notifications (bottom-left, one per line, skill-theme style)

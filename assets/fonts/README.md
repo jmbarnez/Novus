@@ -31,4 +31,4 @@ If you prefer other sci-fi fonts, you can substitute with:
 - **Electrolize** - Tech-inspired font
 - **Michroma** - Geometric and modern
 
-Simply download TTF files and place them in this directory, then update the font paths in `src/ui/theme.lua`.
+Simply download TTF files and place them in this directory, then update the font paths in `src/ui/plasma_theme.lua`.

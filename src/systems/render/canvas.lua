@@ -32,12 +32,12 @@ function RenderCanvas.setupCanvas()
     -- Get current world background color (default to navy blue if no world)
     local WorldLoader = require('src.world_loader')
     local world = WorldLoader.getCurrentWorld and WorldLoader.getCurrentWorld()
-    -- Nearly black, but with a hint of blue for space
-    local backgroundColor = world and world.theme and world.theme.background or {0.04, 0.06, 0.10}
+    -- Nearly black, with a very subtle blue tint for space
+    local backgroundColor = world and world.theme and world.theme.background or {0.01, 0.012, 0.016}
 
     -- Use safe unpacking in environments where table.unpack may be nil
-    local bc = backgroundColor or {0.04, 0.06, 0.10}
-    local br, bg, bb, ba = bc[1] or 0.04, bc[2] or 0.06, bc[3] or 0.10, bc[4] or 1
+    local bc = backgroundColor or {0.01, 0.012, 0.016}
+    local br, bg, bb, ba = bc[1] or 0.01, bc[2] or 0.012, bc[3] or 0.016, bc[4] or 1
     love.graphics.clear(br, bg, bb, ba)
 
     -- Fill background with world-specific space color to avoid residual artifacts
@@ -83,8 +83,8 @@ function RenderCanvas.finalizeCanvas(canvasComp)
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setCanvas()
 
-    -- Clear the screen to nearly black (very dark blue) before drawing the canvas (handles letterboxing)
-    love.graphics.clear(0.04, 0.06, 0.10, 1)
+    -- Clear the screen to near-black (subtle blue) before drawing the canvas (handles letterboxing)
+    love.graphics.clear(0.01, 0.012, 0.016, 1)
 
     local windowW, windowH = DisplayManager.getWindowSize()
     local scaleX, scaleY, offsetX, offsetY = DisplayManager.computeDrawParameters(canvasComp.width, canvasComp.height)
