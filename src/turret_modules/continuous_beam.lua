@@ -20,6 +20,7 @@ local ContinuousBeam = {
     value = 200,
     volume = 0.2,
     skill = "lasers",
+    levelRequirement = 2, -- Requires player level 2
     CONTINUOUS = true,
     HEAT_RATE = 3.0,
     MAX_HEAT = 12.0,
@@ -30,6 +31,8 @@ local ContinuousBeam = {
     FALLOFF_START = 350,
     FALLOFF_END = 1200,
     ZERO_DAMAGE_RANGE = 1200,
+    -- Allow one sub-module slot by default for laser tuning
+    subslotCount = 1,
     design = {
         shape = "custom",
         size = 16,
@@ -308,8 +311,17 @@ function ContinuousBeam.applyBeam(ownerId, startX, startY, endX, endY, dt, turre
         elseif asteroid then
             local durability = ECS.getComponent(hitEntityId, "Durability")
             if durability then
-                -- Turret beams deal 4x damage to asteroids
-                local scaledDamage = finalDamage * 4.0
+                -- Turret beams deal 4x damage to asteroids; apply sub-module bonuses
+                local asteroidMultiplier = 4.0
+                if turretComp and turretComp.subModules and #turretComp.subModules > 0 then
+                    for _, sub in ipairs(turretComp.subModules) do
+                        local effects = sub and (sub.effects or sub.effect) or nil
+                        if effects and effects.asteroidDamageMultiplier then
+                            asteroidMultiplier = asteroidMultiplier * effects.asteroidDamageMultiplier
+                        end
+                    end
+                end
+                local scaledDamage = finalDamage * asteroidMultiplier
                 local damageApplied = math.min(scaledDamage, durability.current)
                 durability.current = durability.current - damageApplied
 

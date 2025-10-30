@@ -4,6 +4,7 @@ local ECS = require('src.ecs')
 local TurretRegistry = require('src.turret_registry')
 local Scaling = require('src.scaling')
 local StatsWindow = require('src.ui.stats_window')
+local DragState = require('src.ui.drag_state')
 
 local LoadoutPanel = {}
 LoadoutPanel.MAX_SUBSLOTS_PER_MODULE = 3
@@ -44,8 +45,8 @@ end
 
 function LoadoutPanel.draw(shipWin, windowX, windowY, width, height, alpha)
     local contentX = windowX + 10
-    local contentY = windowY + Theme.window.topBarHeight + 40 + 10
-    local contentWidth = shipWin.width - 20
+    local contentY = windowY + Theme.window.topBarHeight + 8
+    local contentWidth = width - 20
 
     shipWin.hoveredItemSlot = nil
     shipWin.hoveredEquipmentSlot = nil
@@ -128,23 +129,26 @@ function LoadoutPanel.draw(shipWin, windowX, windowY, width, height, alpha)
     love.graphics.printf("GENERATOR", contentX + 10, generatorY, leftPanelWidth - 20, 'left')
     LoadoutPanel.drawEquipmentSlot(shipWin, "Generator Module", generatorSlots and generatorSlots.slots[1], contentX + (leftPanelWidth - slotSize) / 2, generatorY + 18, slotSize, alpha, droneId)
 
-    if shipWin.draggedItem and shipWin.draggedItem.itemDef then
-        local mx, my = getMousePositionUI()
-        love.graphics.setColor(1, 1, 1, 0.8 * alpha)
-        local itemDef = shipWin.draggedItem.itemDef
-        love.graphics.push()
-        love.graphics.translate(mx, my)
-        love.graphics.scale(1.2, 1.2)
-        if itemDef.module and itemDef.module.draw then
-            itemDef.module.draw(itemDef.module, 0, 0)
-        elseif itemDef.draw then
-            itemDef:draw(0, 0)
-        else
-            local color = itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}
-            love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * 0.8 * alpha)
-            love.graphics.circle('fill', 0, 0, 10)
+    if DragState.hasDrag() then
+        local draggedItem = DragState.getDragItem()
+        if draggedItem and draggedItem.itemDef then
+            local mx, my = getMousePositionUI()
+            love.graphics.setColor(1, 1, 1, 0.8 * alpha)
+            local itemDef = draggedItem.itemDef
+            love.graphics.push()
+            love.graphics.translate(mx, my)
+            love.graphics.scale(1.2, 1.2)
+            if itemDef.module and itemDef.module.draw then
+                itemDef.module.draw(itemDef.module, 0, 0)
+            elseif itemDef.draw then
+                itemDef:draw(0, 0)
+            else
+                local color = itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}
+                love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * 0.8 * alpha)
+                love.graphics.circle('fill', 0, 0, 10)
+            end
+            love.graphics.pop()
         end
-        love.graphics.pop()
     end
 end
 
@@ -154,13 +158,16 @@ function LoadoutPanel.drawEquipmentSlot(shipWin, slotName, equippedItemId, x, y,
     shipWin.moduleSubslots = shipWin.moduleSubslots or {}
 
     local isDropZone = false
-    if shipWin.draggedItem and shipWin.draggedItem.itemDef then
-        local itemDef = shipWin.draggedItem.itemDef
-        if (slotName == "Turret Module" and itemDef.type == "turret") or
-           (slotName == "Defensive Module" and string.match(shipWin.draggedItem.itemId, "shield")) or
-           (slotName == "Generator Module" and itemDef.type == "generator") then
-            if mx >= x and mx <= x + width and my >= y and my <= y + slotSize then
-                isDropZone = true
+    if DragState.hasDrag() then
+        local draggedItem = DragState.getDragItem()
+        if draggedItem and draggedItem.itemDef then
+            local itemDef = draggedItem.itemDef
+            if (slotName == "Turret Module" and itemDef.type == "turret") or
+               (slotName == "Defensive Module" and string.match(draggedItem.itemId, "shield")) or
+               (slotName == "Generator Module" and itemDef.type == "generator") then
+                if mx >= x and mx <= x + width and my >= y and my <= y + slotSize then
+                    isDropZone = true
+                end
             end
         end
     end
@@ -282,20 +289,40 @@ end
 
 function LoadoutPanel.equipModule(shipWin, itemId)
     local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-    if #pilotEntities == 0 then return end
+    if #pilotEntities == 0 then return false end
     local pilotId = pilotEntities[1]
     local input = ECS.getComponent(pilotId, "InputControlled")
-    if not input or not input.targetEntity then return end
+    if not input or not input.targetEntity then return false end
     local droneId = input.targetEntity
 
     local cargo = ECS.getComponent(droneId, "Cargo")
-    if not cargo or not cargo.items[itemId] or cargo.items[itemId] <= 0 then return end
+    if not cargo or not cargo.items[itemId] or cargo.items[itemId] <= 0 then return false end
 
     local ItemDefs = require('src.items.item_loader')
     local itemDef = ItemDefs[itemId]
-    if not itemDef then return end
+    if not itemDef then return false end
 
     if itemDef.type == "turret" then
+        -- Check level requirement
+        local module = itemDef.module
+        if module and module.levelRequirement then
+            local LevelUtils = require('src.level_utils')
+            local playerLevelData = LevelUtils.getPlayerLevelData()
+            local playerLevel = playerLevelData and playerLevelData.level or 1
+            
+            if playerLevel < module.levelRequirement then
+                local Notifications = require('src.ui.notifications')
+                local moduleName = module.displayName or itemDef.name or itemId
+                local message = string.format("%s requires level %d (you are level %d)", moduleName, module.levelRequirement, playerLevel)
+                Notifications.addNotification({
+                    type = 'system',
+                    text = message,
+                    timer = 4.0
+                })
+                return false -- Prevent equipping
+            end
+        end
+        
         local turretSlots = ECS.getComponent(droneId, "TurretSlots")
         local playerTurret = ECS.getComponent(droneId, "Turret")
 
@@ -312,7 +339,9 @@ function LoadoutPanel.equipModule(shipWin, itemId)
                 end
             end
             cargo:removeItem(itemId, 1)
+            return true -- Successfully equipped
         end
+        return false
     elseif itemDef.type == "shield" or string.match(itemId, "shield") then
         local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
 
@@ -326,7 +355,9 @@ function LoadoutPanel.equipModule(shipWin, itemId)
                 itemDef.module.equip(droneId)
             end
             cargo:removeItem(itemId, 1)
+            return true -- Successfully equipped
         end
+        return false
     elseif itemDef.type == "generator" then
         local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
 
@@ -340,8 +371,11 @@ function LoadoutPanel.equipModule(shipWin, itemId)
                 itemDef.module.equip(droneId)
             end
             cargo:removeItem(itemId, 1)
+            return true -- Successfully equipped
         end
+        return false
     end
+    return false
 end
 
 function LoadoutPanel.mousepressed(shipWin, x, y, button)
@@ -355,23 +389,25 @@ function LoadoutPanel.mousepressed(shipWin, x, y, button)
         end
 
         if shipWin.hoveredItemSlot then
-            shipWin.draggedItem = {
+            DragState.startDrag({
                 itemId = shipWin.hoveredItemSlot.itemId,
                 itemDef = shipWin.hoveredItemSlot.itemDef,
                 slotIndex = shipWin.hoveredItemSlot.slotIndex,
                 count = shipWin.hoveredItemSlot.count,
+                fromCargo = false,
                 fromEquipment = false
-            }
+            })
         elseif shipWin.hoveredEquipmentSlot then
             local ItemDefs = require('src.items.item_loader')
             local itemDef = ItemDefs[shipWin.hoveredEquipmentSlot.itemId]
             if itemDef then
-                shipWin.draggedItem = {
+                DragState.startDrag({
                     itemId = shipWin.hoveredEquipmentSlot.itemId,
                     itemDef = itemDef,
                     slotName = shipWin.hoveredEquipmentSlot.slotName,
+                    fromCargo = false,
                     fromEquipment = true
-                }
+                })
             end
         end
     elseif button == 2 then
@@ -405,10 +441,16 @@ function LoadoutPanel.mousereleased(shipWin, x, y, button)
         return
     end
 
-    if button == 1 and shipWin.draggedItem then
+    if button == 1 and DragState.hasDrag() then
+        local draggedItem = DragState.getDragItem()
+        if not draggedItem then
+            DragState.endDrag()
+            return
+        end
+
         local controllers = ECS.getEntitiesWith({'InputControlled', 'Player'})
         if #controllers == 0 then
-            shipWin.draggedItem = nil
+            DragState.endDrag()
             return
         end
 
@@ -416,13 +458,13 @@ function LoadoutPanel.mousereleased(shipWin, x, y, button)
         local inputComp = ECS.getComponent(pilotId, 'InputControlled')
         local shipId = inputComp and inputComp.targetEntity or nil
         if not shipId then
-            shipWin.draggedItem = nil
+            DragState.endDrag()
             return
         end
 
         local cargo = ECS.getComponent(shipId, 'Cargo')
         if not cargo then
-            shipWin.draggedItem = nil
+            DragState.endDrag()
             return
         end
 
@@ -431,47 +473,109 @@ function LoadoutPanel.mousereleased(shipWin, x, y, button)
             for slotName, slotRect in pairs(shipWin.equipmentSlots) do
                 if x >= slotRect.x and x <= slotRect.x + slotRect.w and
                    y >= slotRect.y and y <= slotRect.y + slotRect.h then
-                    local itemDef = shipWin.draggedItem.itemDef
+                    local itemDef = draggedItem.itemDef
                     if (slotName == 'Turret Module' and itemDef.type == 'turret') or
-                       (slotName == 'Defensive Module' and string.match(shipWin.draggedItem.itemId, 'shield')) or
+                       (slotName == 'Defensive Module' and string.match(draggedItem.itemId, 'shield')) or
                        (slotName == 'Generator Module' and itemDef.type == 'generator') then
-                        if shipWin.draggedItem.fromEquipment and shipWin.draggedItem.slotName then
-                            LoadoutPanel.unequipModule(shipWin, shipWin.draggedItem.slotName, shipWin.draggedItem.itemId)
+                        if draggedItem.fromEquipment and draggedItem.slotName then
+                            LoadoutPanel.unequipModule(shipWin, draggedItem.slotName, draggedItem.itemId)
                         end
-                        LoadoutPanel.equipModule(shipWin, shipWin.draggedItem.itemId)
-                        equippedToSlot = true
+                        local success = LoadoutPanel.equipModule(shipWin, draggedItem.itemId)
+                        if success then
+                            equippedToSlot = true
+                        end
                         break
                     end
                 end
             end
         end
 
-        if not equippedToSlot then
-            local windowX, windowY = shipWin.position.x, shipWin.position.y
-            local windowW, windowH = shipWin.width, shipWin.height
-            local isOutsideBounds = x < windowX or x > windowX + windowW or y < windowY or y > windowY + windowH
-
-            if shipWin.draggedItem.fromEquipment then
-                if not isOutsideBounds then
-                    if shipWin.draggedItem.slotName then
-                        LoadoutPanel.unequipModule(shipWin, shipWin.draggedItem.slotName, shipWin.draggedItem.itemId)
-                    end
-                else
-                    if shipWin.draggedItem.slotName then
-                        LoadoutPanel.unequipModule(shipWin, shipWin.draggedItem.slotName, shipWin.draggedItem.itemId)
-                        local itemId = shipWin.draggedItem.itemId
-                        if cargo and cargo.items and cargo.items[itemId] then
-                            cargo.items[itemId] = cargo.items[itemId] - 1
-                            if cargo.items[itemId] <= 0 then
-                                cargo.items[itemId] = nil
+        -- Handle dropping sub-modules onto active subslots of the Turret Module
+        if not equippedToSlot and shipWin.moduleSubslots and draggedItem and draggedItem.itemDef and draggedItem.itemDef.type == 'submodule' then
+            local turretSlot = shipWin.moduleSubslots['Turret Module']
+            if turretSlot then
+                for idx, rect in pairs(turretSlot) do
+                    if rect.enabled and x >= rect.x and x <= rect.x + rect.w and y >= rect.y and y <= rect.y + rect.h then
+                        -- Equip sub-module if compatible and capacity allows
+                        local ItemDefs = require('src.items.item_loader')
+                        local turretSlots = ECS.getComponent(shipId, 'TurretSlots')
+                        local playerTurret = ECS.getComponent(shipId, 'Turret')
+                        local equippedTurretId = turretSlots and turretSlots.slots and turretSlots.slots[1] or nil
+                        local turretItem = equippedTurretId and ItemDefs[equippedTurretId] or nil
+                        local activeCount = turretItem and resolveModuleSubslotCount(turretItem) or 0
+                        if playerTurret then
+                            local currentCount = (playerTurret.subModules and #playerTurret.subModules) or 0
+                            if currentCount < activeCount then
+                                local subItem = draggedItem.itemDef
+                                local compat = subItem.submodule and subItem.submodule.compatible or subItem.compatible or {}
+                                local ok = false
+                                if compat and (compat.moduleType == nil or compat.moduleType == 'turret') then
+                                    local turretMod = turretItem and turretItem.module or nil
+                                    if compat.skill == nil then
+                                        ok = true
+                                    else
+                                        local skill = turretMod and turretMod.skill or nil
+                                        ok = (skill == compat.skill)
+                                    end
+                                end
+                                if ok then
+                                    playerTurret.subModules = playerTurret.subModules or {}
+                                    table.insert(playerTurret.subModules, subItem.submodule or subItem)
+                                    -- consume from cargo
+                                    local itemId = draggedItem.itemId
+                                    if cargo and cargo.items and cargo.items[itemId] and cargo.items[itemId] > 0 then
+                                        cargo.items[itemId] = cargo.items[itemId] - 1
+                                        if cargo.items[itemId] <= 0 then cargo.items[itemId] = nil end
+                                    end
+                                    equippedToSlot = true
+                                    break
+                                end
                             end
                         end
                     end
                 end
-            else
-                if isOutsideBounds then
-                    local itemId = shipWin.draggedItem.itemId
-                    if cargo and cargo.items and cargo.items[itemId] then
+            end
+        end
+
+        if not equippedToSlot then
+            -- Check if dropped on cargo window (cross-window drag)
+            local CargoWindow = require('src.ui.cargo_window')
+            local cargoWindow = CargoWindow
+            local cargoOpen = cargoWindow:getOpen()
+            local isInCargoWindow = false
+            if cargoOpen then
+                local cargoX, cargoY = cargoWindow.position.x, cargoWindow.position.y
+                local cargoW, cargoH = cargoWindow.width, cargoWindow.height
+                isInCargoWindow = x >= cargoX and x <= cargoX + cargoW and y >= cargoY and y <= cargoY + cargoH
+            end
+
+            local windowX, windowY = shipWin.position.x, shipWin.position.y
+            local windowW, windowH = shipWin.width, shipWin.height
+            local isOutsideLoadoutWindow = x < windowX or x > windowX + windowW or y < windowY or y > windowY + windowH
+
+            if draggedItem.fromEquipment then
+                -- If dropped on cargo window, unequip and add to cargo
+                if isInCargoWindow then
+                    if draggedItem.slotName then
+                        LoadoutPanel.unequipModule(shipWin, draggedItem.slotName, draggedItem.itemId)
+                        cargo:addItem(draggedItem.itemId, 1)
+                    end
+                elseif not isOutsideLoadoutWindow then
+                    -- Dropped back in loadout window, just unequip
+                    if draggedItem.slotName then
+                        LoadoutPanel.unequipModule(shipWin, draggedItem.slotName, draggedItem.itemId)
+                    end
+                else
+                    -- Dropped outside both windows, unequip and discard
+                    if draggedItem.slotName then
+                        LoadoutPanel.unequipModule(shipWin, draggedItem.slotName, draggedItem.itemId)
+                    end
+                end
+            elseif draggedItem.fromCargo then
+                -- If dropped outside loadout window and not on cargo window, discard from cargo
+                if isOutsideLoadoutWindow and not isInCargoWindow then
+                    local itemId = draggedItem.itemId
+                    if cargo.items[itemId] and cargo.items[itemId] > 0 then
                         cargo.items[itemId] = cargo.items[itemId] - 1
                         if cargo.items[itemId] <= 0 then
                             cargo.items[itemId] = nil
@@ -481,7 +585,7 @@ function LoadoutPanel.mousereleased(shipWin, x, y, button)
             end
         end
 
-        shipWin.draggedItem = nil
+        DragState.endDrag()
     end
 end
 

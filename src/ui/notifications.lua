@@ -159,7 +159,7 @@ function Notifications.draw()
     local Scaling = require('src.scaling')
     local Theme = require('src.ui.plasma_theme')
     local x = Scaling.scaleX(20)
-    local notifWidth = Scaling.scaleSize(400)
+    local maxNotifWidth = Scaling.scaleSize(400)
     local normalFont = Theme.getFont(Scaling.scaleSize(Theme.fonts.normal))
     love.graphics.setFont(normalFont)
 
@@ -175,6 +175,11 @@ function Notifications.draw()
         elseif notif.type == 'level' then
             notifHeight = Scaling.scaleSize(44)
         end
+
+        -- Measure text width to fit background
+        local textPadding = Scaling.scaleX(14)
+        local textWidth = normalFont:getWidth(notif.text)
+        local notifWidth = math.min(maxNotifWidth, textWidth + textPadding * 2)
 
         if notif.type == 'level' then
             local radius = Scaling.scaleSize(12)
@@ -207,12 +212,12 @@ function Notifications.draw()
             else
                 love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], alpha)
             end
-            love.graphics.print(notif.text, x + Scaling.scaleX(14), y + Scaling.scaleY(7))
+            love.graphics.print(notif.text, x + textPadding, y + Scaling.scaleY(7))
 
             if notif.type == 'skill' and notif.skillData then
-                local barX = x + Scaling.scaleX(14)
+                local barX = x + textPadding
                 local barY = y + Scaling.scaleY(28)
-                local barWidth = notifWidth - Scaling.scaleX(28)
+                local barWidth = notifWidth - textPadding * 2
                 local barHeight = Scaling.scaleSize(8)
                 love.graphics.setColor(0.1, 0.1, 0.1, alpha)
                 love.graphics.rectangle('fill', barX, barY, barWidth, barHeight)

@@ -11,6 +11,7 @@ local Railgun = {
 	value = 200,
 	volume = 0.4,
 	skill = "kinetic", -- Skill awarded for this turret
+	levelRequirement = 5, -- Requires player level 5
 	SLUG_SPEED = 2000,  -- Very fast but within CCD detection range
 	SLUG_LENGTH = 16,
 	SLUG_THICKNESS = 0.8,

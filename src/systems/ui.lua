@@ -7,8 +7,11 @@ local Constants = require('src.constants')
 local SkillUtils = require('src.skill_utils')
 local Theme = require('src.ui.plasma_theme')
 local MapWindow = require('src.ui.map_window')
-local ShipWindow = require('src.ui.ship_window')
+-- ShipWindow removed - use LoadoutWindow, CargoWindow, or SkillsWindow instead
 local StatsWindow = require('src.ui.stats_window')
+local CargoWindow = require('src.ui.cargo_window')
+local LoadoutWindow = require('src.ui.loadout_window')
+local SkillsWindow = require('src.ui/skills_window')
 local QuestWindow = require('src.ui.quest_window')
 local Tooltips = require('src.ui.tooltips')
 local Notifications = require('src.ui.notifications')
@@ -19,6 +22,7 @@ local DeathOverlay = require('src.ui.death_overlay')
 local Dialogs = require('src.ui.dialogs')
 local ConstructionButton = require('src.ui.construction_button')
 local HUDSystem = require('src.systems.hud')
+local ContextMenu = require('src.ui.context_menu')
 -- QuestOverlay moved to HUD system for batched rendering
 -- Hotbar removed
 -- CargoWindow removed - now integrated into ShipWindow
@@ -104,7 +108,9 @@ end
 
 
 
--- Cargo and Skills windows are now integrated into ShipWindow as panels
+-- Cargo and Skills windows were previously integrated into ShipWindow as panels.
+-- They are now available as independent windows (`CargoWindow`, `SkillsWindow`) and
+-- can be opened directly. ShipWindow still embeds panels for tabbed mode.
 
 -- Map window
 UISystem.registerInteractive('map_window', function(x, y, button)
@@ -116,12 +122,35 @@ end, function(x, y, button)
     return true
 end)
 
--- Ship window (contains loadout, inventory, and skills panels)
-UISystem.registerInteractive('ship_window', function(x, y, button)
-    return ShipWindow.isOpen and ShipWindow.position and x >= ShipWindow.position.x and x <= ShipWindow.position.x + ShipWindow.width
-           and y >= ShipWindow.position.y and y <= ShipWindow.position.y + ShipWindow.height
+-- ShipWindow removed - use LoadoutWindow, CargoWindow, or SkillsWindow instead
+
+-- Cargo window (standalone)
+UISystem.registerInteractive('cargo_window', function(x, y, button)
+    return CargoWindow:getOpen() and CargoWindow.position and x >= CargoWindow.position.x and x <= CargoWindow.position.x + CargoWindow.width
+           and y >= CargoWindow.position.y and y <= CargoWindow.position.y + CargoWindow.height
 end, function(x, y, button)
-    ShipWindow:mousepressed(x, y, button)
+    UISystem.setWindowFocus('cargo_window')
+    if CargoWindow.mousepressed then CargoWindow:mousepressed(x, y, button) end
+    return true
+end)
+
+-- Loadout window (standalone)
+UISystem.registerInteractive('loadout_window', function(x, y, button)
+    return LoadoutWindow:getOpen() and LoadoutWindow.position and x >= LoadoutWindow.position.x and x <= LoadoutWindow.position.x + LoadoutWindow.width
+           and y >= LoadoutWindow.position.y and y <= LoadoutWindow.position.y + LoadoutWindow.height
+end, function(x, y, button)
+    UISystem.setWindowFocus('loadout_window')
+    if LoadoutWindow.mousepressed then LoadoutWindow:mousepressed(x, y, button) end
+    return true
+end)
+
+-- Skills window (standalone)
+UISystem.registerInteractive('skills_window', function(x, y, button)
+    return SkillsWindow:getOpen() and SkillsWindow.position and x >= SkillsWindow.position.x and x <= SkillsWindow.position.x + SkillsWindow.width
+           and y >= SkillsWindow.position.y and y <= SkillsWindow.position.y + SkillsWindow.height
+end, function(x, y, button)
+    UISystem.setWindowFocus('skills_window')
+    if SkillsWindow.mousepressed then SkillsWindow:mousepressed(x, y, button) end
     return true
 end)
 
@@ -209,7 +238,9 @@ function UISystem.draw(viewportWidth, viewportHeight, uiMx, uiMy)
     -- Draw windows in focus order (background to foreground)
     local windows = {
         map_window = MapWindow,
-        ship_window = ShipWindow,
+        cargo_window = CargoWindow,
+        loadout_window = LoadoutWindow,
+        skills_window = SkillsWindow,
         stats_window = StatsWindow,
         quest_window = QuestWindow,
         settings_window = SettingsWindow
@@ -252,15 +283,39 @@ function UISystem.draw(viewportWidth, viewportHeight, uiMx, uiMy)
         return true
     end
 
-    -- Draw tooltip for hovered slots (only if ship window is open and no dialog)
-    if not ShipWindow:getOpen() or Dialogs.confirmDialog then
+    -- Draw tooltip for hovered slots (check both ShipWindow and CargoWindow)
+    if Dialogs.confirmDialog then
         return false
     end
     
-    -- Check for hovered items in priority order
-    local hoveredSlot = ShipWindow.hoveredItemSlot or ShipWindow.hoveredTurretSlot or ShipWindow.hoveredDefensiveSlot
-    local contextMenuOpen = ShipWindow.contextMenu ~= nil
+    -- Check for hovered items in priority order (CargoWindow first, then LoadoutWindow, then ShipWindow)
+    local hoveredSlot = nil
+    local hoveredEquipmentSlot = nil
+    local contextMenuOpen = false
+    local mouseX, mouseY
+    
+    -- Get current mouse position in UI space for tooltips
+    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+        mouseX, mouseY = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+    else
+        mouseX, mouseY = Scaling.toUI(love.mouse.getPosition())
+    end
+    
+    if CargoWindow:getOpen() then
+        hoveredSlot = CargoWindow.hoveredItemSlot
+        contextMenuOpen = ContextMenu.isOpen()
+    end
+    
+    if not hoveredSlot and LoadoutWindow:getOpen() then
+        -- Check for hovered equipment slot
+        if LoadoutWindow.hoveredEquipmentSlot and LoadoutWindow.hoveredEquipmentSlot.itemId then
+            hoveredEquipmentSlot = LoadoutWindow.hoveredEquipmentSlot
+        end
+        contextMenuOpen = ContextMenu.isOpen()
+    end
+    
 
+    -- Draw tooltip for cargo/item slots
     if hoveredSlot and not contextMenuOpen then
         Tooltips.drawItemTooltip(
             hoveredSlot.itemId,
@@ -269,6 +324,19 @@ function UISystem.draw(viewportWidth, viewportHeight, uiMx, uiMy)
             hoveredSlot.mouseX,
             hoveredSlot.mouseY
         )
+    -- Draw tooltip for equipment slots
+    elseif hoveredEquipmentSlot and not contextMenuOpen then
+        local ItemDefs = require('src.items.item_loader')
+        local itemDef = ItemDefs[hoveredEquipmentSlot.itemId]
+        if itemDef then
+            Tooltips.drawItemTooltip(
+                hoveredEquipmentSlot.itemId,
+                itemDef,
+                1, -- count is always 1 for equipped items
+                mouseX,
+                mouseY
+            )
+        end
     end
 
     -- Remove or comment out:
@@ -282,7 +350,9 @@ function UISystem.update(dt)
     Notifications.update(dt)
     PauseMenu:update(dt)
     MapWindow:update(dt)
-    ShipWindow:update(dt)
+    CargoWindow:update(dt)
+    LoadoutWindow:update(dt)
+    SkillsWindow:update(dt)
     StatsWindow:update(dt)
     QuestWindow:update(dt)
     SettingsWindow:update(dt)
@@ -298,12 +368,18 @@ function UISystem.keypressed(key)
         return true
     end
 
-    -- Check if ShipWindow is open and wants to consume input (e.g., search bar focused)
-    if ShipWindow:getOpen() then
-        local consumed = ShipWindow:keypressed(key)
-        if consumed then
-            return true
-        end
+    -- Check if CargoWindow, LoadoutWindow, or SkillsWindow want to consume input
+    if CargoWindow:getOpen() then
+        local consumed = CargoWindow:keypressed(key)
+        if consumed then return true end
+    end
+    if LoadoutWindow:getOpen() then
+        local consumed = LoadoutWindow:keypressed(key)
+        if consumed then return true end
+    end
+    if SkillsWindow:getOpen() then
+        local consumed = SkillsWindow:keypressed(key)
+        if consumed then return true end
     end
 
     -- Tab key is now handled in core.lua to toggle ShipWindow
@@ -311,10 +387,6 @@ function UISystem.keypressed(key)
     if key == HotkeyConfig.getHotkey("settings_window") then
         if SettingsWindow:getOpen() then
             SettingsWindow:setOpen(false)
-            return true
-        end
-        if ShipWindow:getOpen() then
-            ShipWindow:setOpen(false)
             return true
         end
         if MapWindow:getOpen() then
@@ -416,7 +488,7 @@ function UISystem.mousepressed(x, y, button)
     -- Check remaining interactive elements (non-windows) in registration order
     for _, name in ipairs(interactiveOrder) do
         -- Skip windows since we already handled them above
-        if not (name == 'cargo_window' or name == 'map_window' or name == 'ship_window') then
+        if not (name == 'cargo_window' or name == 'map_window' or name == 'loadout_window' or name == 'skills_window') then
             local entry = interactiveMap[name]
             if entry and entry.hit and entry.hit(mx, my, button) then
                 local handled = true
@@ -481,7 +553,9 @@ function UISystem.mousereleased(x, y, button)
     -- Forward to windows in focus order (most focused first) - only if open
     local windows = {
         map_window = MapWindow,
-        ship_window = ShipWindow,
+        cargo_window = CargoWindow,
+        loadout_window = LoadoutWindow,
+        skills_window = SkillsWindow,
         stats_window = StatsWindow
     }
 
@@ -546,6 +620,9 @@ function UISystem.mousemoved(x, y, dx, dy, isTouch)
     local windows = {
         map_window = MapWindow,
         ship_window = ShipWindow,
+        cargo_window = CargoWindow,
+        loadout_window = LoadoutWindow,
+        skills_window = SkillsWindow,
         stats_window = StatsWindow,
         quest_window = QuestWindow
     }
@@ -605,7 +682,9 @@ function UISystem.wheelmoved(x, y)
     -- Forward to other windows - only if open
     local windows = {
         map_window = MapWindow,
-        ship_window = ShipWindow,
+        cargo_window = CargoWindow,
+        loadout_window = LoadoutWindow,
+        skills_window = SkillsWindow,
         stats_window = StatsWindow
     }
 
@@ -628,23 +707,58 @@ end
 
 -- Public API functions
 -- CargoWindow has been integrated into ShipWindow
--- For backwards compatibility, cargo functions now control ShipWindow
 function UISystem.setCargoWindowOpen(state)
-    ShipWindow:setOpen(state)
+    CargoWindow:setOpen(state)
     if state then
-        UISystem.setWindowFocus('ship_window')
+        UISystem.setWindowFocus('cargo_window')
     end
 end
 
 function UISystem.toggleCargoWindow()
-    ShipWindow:toggle()
-    if ShipWindow:getOpen() then
-        UISystem.setWindowFocus('ship_window')
+    CargoWindow:setOpen(not CargoWindow.isOpen)
+    if CargoWindow:getOpen() then
+        UISystem.setWindowFocus('cargo_window')
     end
 end
 
 function UISystem.isCargoWindowOpen()
-    return ShipWindow:getOpen()
+    return CargoWindow:getOpen()
+end
+
+function UISystem.setLoadoutWindowOpen(state)
+    LoadoutWindow:setOpen(state)
+    if state then
+        UISystem.setWindowFocus('loadout_window')
+    end
+end
+
+function UISystem.toggleLoadoutWindow()
+    LoadoutWindow:setOpen(not LoadoutWindow.isOpen)
+    if LoadoutWindow:getOpen() then
+        UISystem.setWindowFocus('loadout_window')
+    end
+end
+
+function UISystem.isLoadoutWindowOpen()
+    return LoadoutWindow:getOpen()
+end
+
+function UISystem.setSkillsWindowOpen(state)
+    SkillsWindow:setOpen(state)
+    if state then
+        UISystem.setWindowFocus('skills_window')
+    end
+end
+
+function UISystem.toggleSkillsWindow()
+    SkillsWindow:setOpen(not SkillsWindow.isOpen)
+    if SkillsWindow:getOpen() then
+        UISystem.setWindowFocus('skills_window')
+    end
+end
+
+function UISystem.isSkillsWindowOpen()
+    return SkillsWindow:getOpen()
 end
 
 function UISystem.setMapWindowOpen(state)
@@ -688,23 +802,7 @@ end
 -- Skills panel is now integrated into ShipWindow
 -- No separate API functions needed
 
-function UISystem.setShipWindowOpen(state)
-    ShipWindow:setOpen(state)
-    if state then
-        UISystem.setWindowFocus('ship_window')
-    end
-end
-
-function UISystem.toggleShipWindow()
-    ShipWindow:toggle()
-    if ShipWindow:getOpen() then
-        UISystem.setWindowFocus('ship_window')
-    end
-end
-
-function UISystem.isShipWindowOpen()
-    return ShipWindow:getOpen()
-end
+-- ShipWindow removed - use individual windows instead
 
 -- Public API for adding skill experience
 function UISystem.addSkillExperience(skillName, xpGain)
@@ -744,7 +842,9 @@ end
 function UISystem.onResize(screenW, screenH)
     screenW = screenW or love.graphics.getWidth()
     screenH = screenH or love.graphics.getHeight()
-    if ShipWindow and ShipWindow.onResize then ShipWindow:onResize(screenW, screenH) end
+    if CargoWindow and CargoWindow.onResize then CargoWindow:onResize(screenW, screenH) end
+    if LoadoutWindow and LoadoutWindow.onResize then LoadoutWindow:onResize(screenW, screenH) end
+    if SkillsWindow and SkillsWindow.onResize then SkillsWindow:onResize(screenW, screenH) end
     if QuestWindow and QuestWindow.onResize then QuestWindow:onResize(screenW, screenH) end
     if SettingsWindow and SettingsWindow.onResize then SettingsWindow:onResize(screenW, screenH) end
     if MapWindow and MapWindow.onResize then MapWindow:onResize(screenW, screenH) end

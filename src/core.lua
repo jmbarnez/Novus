@@ -77,7 +77,9 @@ function Core.quit()
     -- Close all UI windows
     if UISystem then
         -- Close all windows
-        if UISystem.setShipWindowOpen then UISystem.setShipWindowOpen(false) end
+        if UISystem.setCargoWindowOpen then UISystem.setCargoWindowOpen(false) end
+        if UISystem.setLoadoutWindowOpen then UISystem.setLoadoutWindowOpen(false) end
+        if UISystem.setSkillsWindowOpen then UISystem.setSkillsWindowOpen(false) end
         if UISystem.setMapWindowOpen then UISystem.setMapWindowOpen(false) end
         if UISystem.setSettingsWindowOpen then UISystem.setSettingsWindowOpen(false) end
         if UISystem.setPauseMenuOpen then UISystem.setPauseMenuOpen(false) end

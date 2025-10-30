@@ -144,7 +144,7 @@ local function gatherShipData()
     local movementLines = {}
     table.insert(movementLines, string.format("Mass: %.1f", mass))
     table.insert(movementLines, string.format("Max Velocity: %.0f u/s", maxVelocity))
-    table.insert(movementLines, string.format("Acceleration: %.0f u/s²", acceleration))
+    table.insert(movementLines, string.format("Acceleration: %.0f u/s2", acceleration))
 
     local energyLines = {}
     if energy then

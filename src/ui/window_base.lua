@@ -52,6 +52,14 @@ function WindowBase:setOpen(state)
     self._lastAnimTimestamp = Timer and Timer.getTime() or nil
 end
 
+function WindowBase:getOpen()
+    return self.isOpen
+end
+
+function WindowBase:toggle()
+    self:setOpen(not self.isOpen)
+end
+
 function WindowBase:centerOnScreen(screenW, screenH)
     screenW = screenW or Scaling.getCurrentWidth()
     screenH = screenH or Scaling.getCurrentHeight()
@@ -140,7 +148,8 @@ end
 
 function WindowBase:mousepressed(x, y, button)
     if not self.isOpen or not self.position then return end
-    local mx, my = Scaling.toUI(x, y)
+    -- x, y are already in UI coordinates when called from UI system
+    local mx, my = x, y
     -- Close button handling (if present)
     if self.closeButtonRect and button == 1 then
         if mx >= self.closeButtonRect.x and mx <= self.closeButtonRect.x + self.closeButtonRect.w
@@ -197,9 +206,9 @@ end
 
 function WindowBase:mousemoved(x, y, dx, dy)
     if self.isDragging and self.position then
-        local mx, my = Scaling.toUI(x, y)
-        self.position.x = mx - self.dragOffset.x
-        self.position.y = my - self.dragOffset.y
+        -- x, y are already in UI coordinates when called from UI system
+        self.position.x = x - self.dragOffset.x
+        self.position.y = y - self.dragOffset.y
         self.userMoved = true
     end
 end

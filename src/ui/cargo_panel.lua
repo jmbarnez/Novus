@@ -2,15 +2,16 @@
 local Theme = require('src.ui.plasma_theme')
 local ECS = require('src.ecs')
 local Scaling = require('src.scaling')
+local DragState = require('src.ui.drag_state')
 
 local CargoPanel = {}
 
 function CargoPanel.draw(shipWin, windowX, windowY, width, height, alpha)
     local contentX = windowX + 10
-    local contentY = windowY + Theme.window.topBarHeight + 40 + 10
-    local contentWidth = shipWin.width - 20
-    local contentHeight = shipWin.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - 40 - 20
-
+    local contentY = windowY + Theme.window.topBarHeight + 8
+    local contentWidth = width - 20
+    local bottomBarH = Theme.window.bottomBarHeight or 0
+    
     local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
     if #pilotEntities == 0 then return end
     local pilotId = pilotEntities[1]
@@ -26,15 +27,46 @@ function CargoPanel.draw(shipWin, windowX, windowY, width, height, alpha)
     shipWin.cargoSearchQuery = shipWin.cargoSearchQuery or ""
     shipWin.cargoSearchFocused = shipWin.cargoSearchFocused or false
 
-    -- Draw controls and adjust layout
-    local controlsHeight = CargoPanel.drawControls(shipWin, contentX, contentY, contentWidth, alpha)
+    -- Draw sort/filter controls at top (no search box)
+    local controlsHeight = CargoPanel.drawTopControls(shipWin, contentX, contentY, contentWidth, alpha)
     local gridY = contentY + controlsHeight + 8
-    local gridHeight = contentHeight - controlsHeight - 8
+    local gridHeight = height - Theme.window.topBarHeight - bottomBarH - controlsHeight - 24
 
     shipWin.hoveredItemSlot = nil
     -- Draw cargo grid filtered/sorted
     local itemsList = CargoPanel.getFilteredAndSortedItems(shipWin, cargo.items)
     shipWin:drawCargoGrid(itemsList, contentX, gridY, contentWidth, gridHeight, alpha)
+
+    -- Draw bottom bar with search, credits, and cargo capacity
+    CargoPanel.drawBottomBar(shipWin, windowX, windowY, width, height, alpha, pilotId, droneId)
+
+    -- Draw dragged item if being dragged
+    if DragState.hasDrag() then
+        local draggedItem = DragState.getDragItem()
+        if draggedItem and draggedItem.itemDef then
+            local mx, my
+            if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
+                mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
+            else
+                mx, my = Scaling.toUI(love.mouse.getPosition())
+            end
+            love.graphics.setColor(1, 1, 1, 0.8 * alpha)
+            local itemDef = draggedItem.itemDef
+            love.graphics.push()
+            love.graphics.translate(mx, my)
+            love.graphics.scale(1.2, 1.2)
+            if itemDef.module and itemDef.module.draw then
+                itemDef.module.draw(itemDef.module, 0, 0)
+            elseif itemDef.draw then
+                itemDef:draw(0, 0)
+            else
+                local color = itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}
+                love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * 0.8 * alpha)
+                love.graphics.circle('fill', 0, 0, 10)
+            end
+            love.graphics.pop()
+        end
+    end
 
     if shipWin.contextMenu then
         shipWin:drawContextMenu(shipWin.contextMenu.x, shipWin.contextMenu.y, alpha)
@@ -125,6 +157,31 @@ function CargoPanel.drawCargoGrid(shipWin, cargoItems, x, y, width, height, alph
             end
             love.graphics.pop()
 
+            -- Draw level requirement in top left corner if item has one
+            if itemDef.module and itemDef.module.levelRequirement then
+                local levelReq = itemDef.module.levelRequirement
+                local LevelUtils = require('src.level_utils')
+                local playerLevelData = LevelUtils.getPlayerLevelData()
+                local playerLevel = playerLevelData and playerLevelData.level or 1
+                
+                local levelDiff = levelReq - playerLevel
+                local color
+                if playerLevel >= levelReq then
+                    -- Green if requirement met
+                    color = {0.2, 1.0, 0.2}
+                elseif levelDiff <= 3 then
+                    -- Yellow if within 3 levels (close)
+                    color = {1.0, 1.0, 0.2}
+                else
+                    -- Red if more than 3 levels away (far)
+                    color = {1.0, 0.2, 0.2}
+                end
+                
+                love.graphics.setColor(color[1], color[2], color[3], alpha)
+                love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+                love.graphics.print(tostring(levelReq), slotX + 4, slotY + 4)
+            end
+
             if count > 1 then
                 love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
                 love.graphics.setFont(Theme.getFont(Theme.fonts.small))
@@ -194,7 +251,7 @@ function CargoPanel.getFilteredAndSortedItems(shipWin, cargoItems)
     return list
 end
 
-function CargoPanel.drawControls(shipWin, x, y, width, alpha)
+function CargoPanel.drawTopControls(shipWin, x, y, width, alpha)
     local padding = 6
     local btnH = 26
     local btnW = 96
@@ -237,11 +294,45 @@ function CargoPanel.drawControls(shipWin, x, y, width, alpha)
     cx = cx + btnW + spacing
     drawButton("filter_resources", "Resources", cx, cy, shipWin.cargoFilterMode == "Resources")
 
-    -- Search box (aligned right)
+    return btnH + padding
+end
+
+-- Draw bottom bar with search, credits, and cargo capacity
+function CargoPanel.drawBottomBar(shipWin, windowX, windowY, width, height, alpha, pilotId, droneId)
+    local Theme = require('src.ui.plasma_theme')
+    local bottomBarH = Theme.window.bottomBarHeight or 0
+    if bottomBarH <= 0 then return end
+    
+    local x = windowX
+    local y = windowY + height - bottomBarH
+    local w = width
+    local h = bottomBarH
+    local padding = Theme.spacing.sm
+
+    local wallet = ECS.getComponent(pilotId, "Wallet")
+    local cargo = ECS.getComponent(droneId, "Cargo")
+    local currentVolume = cargo and cargo.currentVolume or 0
+    local maxCapacity = cargo and cargo.capacity or 0
+
+    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
+    local fontHeight = love.graphics.getFont():getHeight()
+    local textY = y + (h - fontHeight) / 2
+
+    -- Draw left side: Credits
+    local creditsText = wallet and string.format("Credits: %d", wallet.credits) or "Credits: 0"
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+    love.graphics.print(creditsText, x + padding, textY)
+
+    -- Draw center: Cargo capacity
+    local cargoText = string.format("Cargo: %.2f/%.2f m3", currentVolume, maxCapacity)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+    love.graphics.printf(cargoText, x + padding, textY, w - padding * 2, "center")
+
+    -- Draw right side: Search box
     local searchW = 220
-    local searchH = btnH
-    local searchX = x + width - searchW
-    local searchY = cy
+    local searchH = 26
+    local searchX = x + w - searchW - padding
+    local searchY = y + (h - searchH) / 2
     shipWin.cargoSearchRect = { x = searchX, y = searchY, w = searchW, h = searchH }
 
     local bg = Theme.colors.surface
@@ -276,8 +367,6 @@ function CargoPanel.drawControls(shipWin, x, y, width, alpha)
         end
     end
     love.graphics.setScissor()
-
-    return btnH + padding
 end
 
 local function pointInRect(px, py, rx, ry, rw, rh)
@@ -365,6 +454,19 @@ function CargoPanel.mousepressed(shipWin, x, y, button)
         end
     end
 
+    -- Start dragging from cargo (left-click on item)
+    if button == 1 and shipWin.hoveredItemSlot then
+        DragState.startDrag({
+            itemId = shipWin.hoveredItemSlot.itemId,
+            itemDef = shipWin.hoveredItemSlot.itemDef,
+            slotIndex = shipWin.hoveredItemSlot.slotIndex,
+            count = shipWin.hoveredItemSlot.count,
+            fromCargo = true,
+            fromEquipment = false
+        })
+        return
+    end
+
     -- Delegate to ship window logic (maintain existing behavior)
     if button == 2 and shipWin.hoveredItemSlot and not shipWin.contextMenu then
         -- Use UI-space coordinates for context menu positioning
@@ -379,7 +481,60 @@ function CargoPanel.mousepressed(shipWin, x, y, button)
 end
 
 function CargoPanel.mousereleased(shipWin, x, y, button)
-    -- No-op; ship window handles release logic centrally
+    if button == 1 and DragState.hasDrag() then
+        local draggedItem = DragState.getDragItem()
+        if not draggedItem then
+            DragState.endDrag()
+            return
+        end
+
+        -- Check if dropped on cargo grid slot (same window or cross-window)
+        local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+        if #pilotEntities == 0 then
+            DragState.endDrag()
+            return
+        end
+
+        local pilotId = pilotEntities[1]
+        local input = ECS.getComponent(pilotId, "InputControlled")
+        if not input or not input.targetEntity then
+            DragState.endDrag()
+            return
+        end
+        local droneId = input.targetEntity
+        local cargo = ECS.getComponent(droneId, "Cargo")
+        if not cargo then
+            DragState.endDrag()
+            return
+        end
+
+        -- Check if drop is within cargo window bounds
+        local windowX, windowY = shipWin.position.x, shipWin.position.y
+        local windowW, windowH = shipWin.width, shipWin.height
+        local isInCargoWindow = x >= windowX and x <= windowX + windowW and y >= windowY and y <= windowY + windowH
+
+        -- Handle drops from equipment onto cargo window
+        if isInCargoWindow and draggedItem.fromEquipment then
+            -- If dropped on cargo window, unequip (which already adds to cargo)
+            if draggedItem.slotName then
+                local LoadoutPanel = require('src.ui.loadout_panel')
+                LoadoutPanel.unequipModule(shipWin, draggedItem.slotName, draggedItem.itemId)
+            end
+        elseif draggedItem.fromCargo then
+            -- If dropped outside cargo window, item is discarded
+            if not isInCargoWindow then
+                local itemId = draggedItem.itemId
+                if cargo.items[itemId] and cargo.items[itemId] > 0 then
+                    cargo.items[itemId] = cargo.items[itemId] - 1
+                    if cargo.items[itemId] <= 0 then
+                        cargo.items[itemId] = nil
+                    end
+                end
+            end
+        end
+
+        DragState.endDrag()
+    end
 end
 
 function CargoPanel.mousemoved(shipWin, x, y, dx, dy)
@@ -421,11 +576,11 @@ end
 
 -- Helper to check if cargo search is focused (can be called from anywhere)
 function CargoPanel.isSearchFocused()
-    local ShipWindow = require('src.ui.ship_window')
-    if not ShipWindow then return false end
-    -- Access the singleton instance
-    if ShipWindow.isOpen and ShipWindow:getOpen() then
-        return ShipWindow.cargoSearchFocused == true
+    local CargoWindow = require('src.ui.cargo_window')
+    if not CargoWindow then return false end
+    -- Access the window instance
+    if CargoWindow:getOpen() then
+        return CargoWindow:isSearchFocused()
     end
     return false
 end

@@ -11,10 +11,9 @@ local WindowBase = require('src.ui.window_base')
 local Scaling = require('src.scaling')
 
 -- Import the skills panel module
-local SkillsPanel = require('src.ui.skills_panel')
-local LoadoutPanel = require('src.ui.loadout_panel')
-local CargoPanel = require('src.ui.cargo_panel')
-local SkillsPanelWrapper = require('src.ui.skills_panel_wrapper')
+local LoadoutWindow = require('src.ui.loadout_window')
+local CargoWindow = require('src.ui.cargo_window')
+local SkillsWindow = require('src.ui.skills_window')
 local ContextMenu = require('src.ui.context_menu')
 
 -- Helper function to truncate text with "..." if it doesn't fit in the given width
@@ -64,9 +63,7 @@ ShipWindow.tabNames = {
 ShipWindow.tabButtons = {}
 
 -- Initialize cargo and skills state
-ShipWindow.draggedItem = nil
-ShipWindow.hoveredItemSlot = nil
-ShipWindow.hoveredEquipmentSlot = nil
+-- Panel state moved into the individual window instances below
 
 -- Public interface for toggling
 function ShipWindow:toggle()
@@ -190,21 +187,25 @@ function ShipWindow:drawBottomBar(windowX, windowY, alpha)
     love.graphics.print(creditsText, x + padding, textY)
 
     -- Draw right side: Cargo capacity
-    local cargoText = string.format("Cargo: %.2f/%.2f m^3", currentVolume, maxCapacity)
+    local cargoText = string.format("Cargo: %.2f/%.2f m3", currentVolume, maxCapacity)
     love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
     love.graphics.printf(cargoText, x + padding, textY, w - padding * 2, "right")
 end
 
 -- Draw the combined equipment + cargo view side-by-side
 function ShipWindow:drawLoadoutContent(windowX, windowY, alpha)
-    -- Delegate to LoadoutPanel
-    LoadoutPanel.draw(self, windowX, windowY, self.width, self.height, alpha)
+    -- Ensure window instances exist and are parented
+    self.loadoutWindow = self.loadoutWindow or LoadoutWindow
+    self.loadoutWindow.parentShipWindow = self
+    -- Delegate to the loadout window (embedded mode uses the loadout window instance as shipWin)
+    self.loadoutWindow:drawEmbedded(windowX, windowY, self.width, self.height, alpha)
 end
 
 -- Draw the cargo grid showing all items
 function ShipWindow:drawCargoGrid(cargoItems, x, y, width, height, alpha)
-    local CargoPanel = require('src.ui.cargo_panel')
-    CargoPanel.drawCargoGrid(self, cargoItems, x, y, width, height, alpha)
+    self.cargoWindow = self.cargoWindow or CargoWindow
+    self.cargoWindow.parentShipWindow = self
+    self.cargoWindow:drawCargoGrid(cargoItems, x, y, width, height, alpha)
 end
 
 
@@ -244,7 +245,9 @@ end
 
 -- New: drawCargoContent uses the full content area for cargo listing
 function ShipWindow:drawCargoContent(windowX, windowY, alpha)
-    CargoPanel.draw(self, windowX, windowY, self.width, self.height, alpha)
+    self.cargoWindow = self.cargoWindow or CargoWindow
+    self.cargoWindow.parentShipWindow = self
+    self.cargoWindow:drawEmbedded(windowX, windowY, self.width, self.height, alpha)
 end
 
 -- Open context menu for cargo items
@@ -314,24 +317,29 @@ end
 -- Context menu drawing and input handling delegated to `src.ui.context_menu`
 
 function ShipWindow:drawEquipmentSlot(slotName, equippedItemId, x, y, width, alpha, droneId)
-    local LoadoutPanel = require('src.ui.loadout_panel')
-    return LoadoutPanel.drawEquipmentSlot(self, slotName, equippedItemId, x, y, width, alpha, droneId)
+    self.loadoutWindow = self.loadoutWindow or LoadoutWindow
+    self.loadoutWindow.parentShipWindow = self
+    return self.loadoutWindow:drawEquipmentSlot(slotName, equippedItemId, x, y, width, alpha, droneId)
 end
 
 
 function ShipWindow:unequipModule(slotType, itemId)
-    local LoadoutPanel = require('src.ui.loadout_panel')
-    return LoadoutPanel.unequipModule(self, slotType, itemId)
+    self.loadoutWindow = self.loadoutWindow or LoadoutWindow
+    self.loadoutWindow.parentShipWindow = self
+    return self.loadoutWindow:unequipModule(slotType, itemId)
 end
 
 
 function ShipWindow:drawSkillsContent(windowX, windowY, alpha)
-    SkillsPanelWrapper.draw(self, windowX, windowY, self.width - 20, self.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - 20, alpha)
+    self.skillsWindow = self.skillsWindow or SkillsWindow
+    self.skillsWindow.parentShipWindow = self
+    self.skillsWindow:drawEmbedded(windowX, windowY, self.width - 20, self.height - Theme.window.topBarHeight - Theme.window.bottomBarHeight - 20, alpha)
 end
 
 function ShipWindow:equipModule(itemId)
-    local LoadoutPanel = require('src.ui.loadout_panel')
-    return LoadoutPanel.equipModule(self, itemId)
+    self.loadoutWindow = self.loadoutWindow or LoadoutWindow
+    self.loadoutWindow.parentShipWindow = self
+    return self.loadoutWindow:equipModule(itemId)
 end
 
 -- Handle tab switching and delegate mouse events to appropriate tab content
@@ -375,11 +383,14 @@ function ShipWindow:mousepressed(x, y, button)
     end
 
     if self.activeTab == "loadout" then
-        if LoadoutPanel and LoadoutPanel.mousepressed then LoadoutPanel.mousepressed(self, x, y, button) end
+        self.loadoutWindow = self.loadoutWindow or LoadoutWindow
+        if self.loadoutWindow.mousepressedEmbedded then self.loadoutWindow:mousepressedEmbedded(x, y, button) end
     elseif self.activeTab == "cargo" then
-        if CargoPanel and CargoPanel.mousepressed then CargoPanel.mousepressed(self, x, y, button) end
+        self.cargoWindow = self.cargoWindow or CargoWindow
+        if self.cargoWindow.mousepressedEmbedded then self.cargoWindow:mousepressedEmbedded(x, y, button) end
     elseif self.activeTab == "skills" then
-        if SkillsPanelWrapper and SkillsPanelWrapper.mousepressed then SkillsPanelWrapper.mousepressed(self, x, y, button) end
+        self.skillsWindow = self.skillsWindow or SkillsWindow
+        if self.skillsWindow.mousepressedEmbedded then self.skillsWindow:mousepressedEmbedded(x, y, button) end
     end
 
     WindowBase.mousepressed(self, x, y, button)
@@ -404,11 +415,14 @@ function ShipWindow:mousereleased(x, y, button)
     end
 
     if self.activeTab == "loadout" then
-        if LoadoutPanel and LoadoutPanel.mousereleased then LoadoutPanel.mousereleased(self, x, y, button) end
+        self.loadoutWindow = self.loadoutWindow or LoadoutWindow
+        if self.loadoutWindow.mousereleasedEmbedded then self.loadoutWindow:mousereleasedEmbedded(x, y, button) end
     elseif self.activeTab == "cargo" then
-        if CargoPanel and CargoPanel.mousereleased then CargoPanel.mousereleased(self, x, y, button) end
+        self.cargoWindow = self.cargoWindow or CargoWindow
+        if self.cargoWindow.mousereleasedEmbedded then self.cargoWindow:mousereleasedEmbedded(x, y, button) end
     elseif self.activeTab == "skills" then
-        if SkillsPanelWrapper and SkillsPanelWrapper.mousereleased then SkillsPanelWrapper.mousereleased(self, x, y, button) end
+        self.skillsWindow = self.skillsWindow or SkillsWindow
+        if self.skillsWindow.mousereleasedEmbedded then self.skillsWindow:mousereleasedEmbedded(x, y, button) end
     end
 
     WindowBase.mousereleased(self, x, y, button)
@@ -428,11 +442,14 @@ function ShipWindow:mousemoved(x, y, dx, dy)
     end
 
     if self.activeTab == "loadout" then
-        if LoadoutPanel and LoadoutPanel.mousemoved then LoadoutPanel.mousemoved(self, x, y, dx, dy) end
+        self.loadoutWindow = self.loadoutWindow or LoadoutWindow
+        if self.loadoutWindow.mousemovedEmbedded then self.loadoutWindow:mousemovedEmbedded(x, y, dx, dy) end
     elseif self.activeTab == "cargo" then
-        if CargoPanel and CargoPanel.mousemoved then CargoPanel.mousemoved(self, x, y, dx, dy) end
+        self.cargoWindow = self.cargoWindow or CargoWindow
+        if self.cargoWindow.mousemovedEmbedded then self.cargoWindow:mousemovedEmbedded(x, y, dx, dy) end
     elseif self.activeTab == "skills" then
-        if SkillsPanelWrapper and SkillsPanelWrapper.mousemoved then SkillsPanelWrapper.mousemoved(self, x, y, dx, dy) end
+        self.skillsWindow = self.skillsWindow or SkillsWindow
+        if self.skillsWindow.mousemovedEmbedded then self.skillsWindow:mousemovedEmbedded(x, y, dx, dy) end
     end
 
     WindowBase.mousemoved(self, x, y, dx, dy)
@@ -445,10 +462,27 @@ function ShipWindow:keypressed(key)
         ContextMenu.close()
         return true
     end
+    -- Quick-open keys for separate windows
+    if key == "tab" then
+        self.cargoWindow = self.cargoWindow or CargoWindow
+        self.cargoWindow.parentShipWindow = self
+        self.cargoWindow:setOpen(not self.cargoWindow.isOpen)
+        return true
+    elseif key == "g" then
+        self.loadoutWindow = self.loadoutWindow or LoadoutWindow
+        self.loadoutWindow.parentShipWindow = self
+        self.loadoutWindow:setOpen(not self.loadoutWindow.isOpen)
+        return true
+    elseif key == "p" then
+        self.skillsWindow = self.skillsWindow or SkillsWindow
+        self.skillsWindow.parentShipWindow = self
+        self.skillsWindow:setOpen(not self.skillsWindow.isOpen)
+        return true
+    end
     if self.activeTab == "cargo" then
-        local CargoPanel = require('src.ui.cargo_panel')
-        if CargoPanel and CargoPanel.keypressed then
-            local consumed = CargoPanel.keypressed(self, key)
+        self.cargoWindow = self.cargoWindow or CargoWindow
+        if self.cargoWindow.keypressedEmbedded then
+            local consumed = self.cargoWindow:keypressedEmbedded(key)
             if consumed then
                 return true
             end
@@ -461,9 +495,9 @@ end
 
 function ShipWindow:textinput(t)
     if self.activeTab == "cargo" then
-        local CargoPanel = require('src.ui.cargo_panel')
-        if CargoPanel and CargoPanel.textinput then
-            local consumed = CargoPanel.textinput(self, t)
+        self.cargoWindow = self.cargoWindow or CargoWindow
+        if self.cargoWindow.textinputEmbedded then
+            local consumed = self.cargoWindow:textinputEmbedded(t)
             if consumed then
                 return true
             end

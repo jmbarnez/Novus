@@ -21,8 +21,16 @@ function TurretRegistry.loadModules(path)
             if not module or type(module) ~= 'table' then
                 print("[TurretRegistry] Warning: module '" .. tostring(moduleName) .. "' did not return a table")
             else
+                -- Default: give all turret modules at least 1 sub-slot unless they explicitly set otherwise
+                if module.subslotCount == nil and module.subSlotCount == nil and module.subSlots == nil and module.maxSubslots == nil and module.maxSubSlots == nil then
+                    module.subslotCount = 1
+                end
                 if not module.skill then
                     print("[TurretRegistry] Note: turret module '" .. tostring(moduleName) .. "' has no 'skill' field; it will not award XP unless provided")
+                end
+                -- levelRequirement is optional - if provided, players must meet the level to equip
+                if module.levelRequirement and (type(module.levelRequirement) ~= 'number' or module.levelRequirement < 1) then
+                    print("[TurretRegistry] Warning: turret module '" .. tostring(moduleName) .. "' has invalid 'levelRequirement' (must be a number >= 1)")
                 end
             end
         end

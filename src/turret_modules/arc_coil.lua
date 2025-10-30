@@ -18,6 +18,7 @@ local ArcCoil = {
     value = 260,
     volume = 0.45,
     skill = "lasers",
+    levelRequirement = 7, -- Requires player level 7
     CONTINUOUS = true,
     HEAT_RATE = 3.5,
     MAX_HEAT = 12.0,

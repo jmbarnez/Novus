@@ -1,125 +1,57 @@
 ---@diagnostic disable: undefined-global
--- UI Cargo Window Module - Handles cargo inventory display and interaction
--- Derives from WindowBase for universal effects (neon border, fade, elasticity)
-
-local ECS = require('src.ecs')
-local Components = require('src.components')
-local Theme = require('src.ui.plasma_theme')
 local WindowBase = require('src.ui.window_base')
-local Scaling = require('src.scaling')
+local CargoPanel = require('src.ui.cargo_panel')
+local ContextMenu = require('src.ui.context_menu')
+local ECS = require('src.ecs')
 
--- Create cargo window instance inheriting from WindowBase
 local CargoWindow = WindowBase:new{
-    width = 650,
-    height = 500,
-    isOpen = false,
-    animAlphaSpeed = 2.5,
-    elasticitySpring = 18,
-    elasticityDamping = 0.7,
-    contextMenu = nil,  -- {itemId, itemDef, x, y, options}
-    hoveredItemSlot = nil,
+    width = 900,
+    height = 650,
+    isOpen = false
 }
 
--- Public interface for toggling
-function CargoWindow:toggle()
-    self:setOpen(not self.isOpen)
+function CargoWindow.drawEmbedded(shipWin, windowX, windowY, width, height, alpha)
+    return CargoPanel.draw(shipWin, windowX, windowY, width, height, alpha)
 end
 
-function CargoWindow:getOpen()
-    return self.isOpen
+function CargoWindow.drawCargoGrid(shipWin, cargoItems, x, y, width, height, alpha)
+    return CargoPanel.drawCargoGrid(shipWin, cargoItems, x, y, width, height, alpha)
 end
 
--- Override draw to add cargo-specific content on top of universal window
----@diagnostic disable-next-line: duplicate-set-field
-function CargoWindow:draw(viewportWidth, viewportHeight)
-    -- Draw base window (background, top/bottom bars, dividers)
-    WindowBase.draw(self)
-
-    if not self.position then return end
-
-    local alpha = self.animAlpha
-    if not alpha or alpha <= 0 then return end
-
-    -- Window variables are in reference/UI space (1920x1080)
-    local x = self.position.x
-    local y = self.position.y
-    local w = self.width
-    local h = self.height
-
-    -- Draw close button
-    self:drawCloseButton(x, y, alpha)
-
-    -- Draw cargo content
-    self:drawCargoContentOnly(x, y, alpha)
+function CargoWindow.getCompatibleSlots(shipWin, itemId)
+    return CargoPanel.getCompatibleSlots(shipWin, itemId)
 end
 
--- Draw only the cargo content without window frame (for tabbed interface)
-function CargoWindow:drawCargoContentOnly(windowX, windowY, alpha)
-    -- Get the player's controlled ship
-    local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
-    if #controllers == 0 then return end
-    local pilotId = controllers[1]
-    local inputComp = ECS.getComponent(pilotId, "InputControlled")
-    local shipId = inputComp and inputComp.targetEntity or nil
-    if not shipId then return end
-
-    local cargo = ECS.getComponent(shipId, "Cargo")
-    if not cargo then return end
-
-    local currency = ECS.getComponent(pilotId, "Currency")
-
-    -- Draw cargo info (bottom bar background provided by WindowBase)
-    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
-    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-    local volumeText = string.format("Cargo: %.2f / %.2f m3", cargo.currentVolume or 0, cargo.capacity or 0)
-    local bottomBarH = Theme.window.bottomBarHeight
-    local bottomY = windowY + self.height - bottomBarH
-    love.graphics.print(volumeText, windowX + Scaling.scaleX(12), bottomY + Scaling.scaleY(5))
-
-    local currencyText = currency and string.format("Credits: %d", currency.amount or 0) or ""
-    love.graphics.print(currencyText, windowX + self.width - Scaling.scaleX(140), bottomY + Scaling.scaleY(5))
-
-    -- Draw items grid
-    self:drawItemsGrid(windowX, windowY, cargo, alpha)
-
-    -- Draw context menu if active
-    if self.contextMenu then
-        self:drawContextMenu(self.contextMenu.x, self.contextMenu.y, alpha)
+function CargoWindow.mousepressedEmbedded(shipWin, x, y, button)
+    if CargoPanel and CargoPanel.mousepressed then
+        return CargoPanel.mousepressed(shipWin, x, y, button)
     end
-
-    -- Draw dragged item icon at mouse position if dragging (use UI coords)
-    if self.draggedItem and self.draggedItem.itemDef then
-        local mx, my
-        if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
-            mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
-        else
-            mx, my = Scaling.toUI(love.mouse.getPosition())
-        end
-        love.graphics.setColor(1, 1, 1, 0.8 * alpha)
-
-        local itemDef = self.draggedItem.itemDef
-        love.graphics.push()
-        love.graphics.translate(mx, my)
-        love.graphics.scale(1, 1)
-        if itemDef.module and itemDef.module.draw then
-            -- If it's a turret, draw from the module
-            itemDef.module.draw(itemDef.module, 0, 0)
-        elseif itemDef.draw then
-            -- For non-turret items, use their itemDef.draw
-            itemDef:draw(0, 0)
-        else
-            -- Fallback if no draw function exists anywhere
-            local color = itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}
-            love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * 0.8 * alpha)
-            love.graphics.circle("fill", 0, 0, 10)
-        end
-        love.graphics.pop()
-        love.graphics.setColor(1, 1, 1, 1) -- reset color
+end
+function CargoWindow.mousereleasedEmbedded(shipWin, x, y, button)
+    if CargoPanel and CargoPanel.mousereleased then
+        return CargoPanel.mousereleased(shipWin, x, y, button)
+    end
+end
+function CargoWindow.mousemovedEmbedded(shipWin, x, y, dx, dy)
+    if CargoPanel and CargoPanel.mousemoved then
+        return CargoPanel.mousemoved(shipWin, x, y, dx, dy)
+    end
+end
+function CargoWindow.keypressedEmbedded(shipWin, key)
+    if CargoPanel and CargoPanel.keypressed then
+        return CargoPanel.keypressed(shipWin, key)
+    end
+end
+function CargoWindow.textinputEmbedded(shipWin, t)
+    if CargoPanel and CargoPanel.textinput then
+        return CargoPanel.textinput(shipWin, t)
     end
 end
 
-
--- Close button is handled by WindowBase:drawCloseButton
+-- Get compatible equipment slots for an item
+function CargoWindow:getCompatibleSlots(itemId)
+    return CargoPanel.getCompatibleSlots(self, itemId)
+end
 
 -- Check if item can be equipped in a specific slot type
 function CargoWindow:canEquipInSlot(itemId, slotType)
@@ -138,25 +70,25 @@ function CargoWindow:canEquipInSlot(itemId, slotType)
     return false
 end
 
--- Get compatible equipment slots for an item
-function CargoWindow:getCompatibleSlots(itemId)
-    local compatibleSlots = {}
-
-    if self:canEquipInSlot(itemId, "Turret Module") then
-        table.insert(compatibleSlots, "Turret Module")
+-- Equip a module (delegates to LoadoutWindow when parented, or uses LoadoutPanel directly)
+function CargoWindow:equipModule(itemId)
+    if self.parentShipWindow and self.parentShipWindow.loadoutWindow then
+        return self.parentShipWindow.loadoutWindow:equipModule(itemId)
+    else
+        -- Standalone mode: use LoadoutPanel directly with self as shipWin
+        local LoadoutPanel = require('src.ui.loadout_panel')
+        return LoadoutPanel.equipModule(self, itemId)
     end
-    if self:canEquipInSlot(itemId, "Defensive Module") then
-        table.insert(compatibleSlots, "Defensive Module")
-    end
-    if self:canEquipInSlot(itemId, "Generator Module") then
-        table.insert(compatibleSlots, "Generator Module")
-    end
-
-    return compatibleSlots
 end
 
 -- Open context menu for cargo items
 function CargoWindow:openContextMenu(itemId, itemDef, x, y)
+    -- If parented, forward to parent
+    if self.parentShipWindow and self.parentShipWindow.openContextMenu then
+        return self.parentShipWindow:openContextMenu(itemId, itemDef, x, y)
+    end
+    
+    -- Standalone mode: implement context menu
     local compatibleSlots = self:getCompatibleSlots(itemId)
     local options = {}
 
@@ -199,404 +131,124 @@ function CargoWindow:openContextMenu(itemId, itemDef, x, y)
         })
     end
 
+    -- If no compatible slots, show a single disabled line
     if #options == 0 then
         table.insert(options, { text = "No compatible slots", action = "noop" })
     end
 
-    local menuFont = Theme.getFont(Theme.fonts.normal)
-    local fontHeight = menuFont:getHeight()
-    local paddingX = 20
-    local paddingY = 12
-    local optionHeight = math.max(fontHeight + 10, 28)
-    local minWidth = 260
-    local maxTextWidth = 0
-    for _, option in ipairs(options) do
-        local text = option.text or ""
-        maxTextWidth = math.max(maxTextWidth, menuFont:getWidth(text))
-    end
-
-    local menuWidth = math.max(minWidth, maxTextWidth + paddingX * 2)
-    local menuHeight = paddingY * 2 + optionHeight * #options
-
-    self.contextMenu = {
+    ContextMenu.open({
         itemId = itemId,
         itemDef = itemDef,
         x = x,
         y = y,
-        options = options,
-        hoveredOption = nil,
-        width = menuWidth,
-        height = menuHeight,
-        paddingX = paddingX,
-        paddingY = paddingY,
-        optionHeight = optionHeight,
-        fontSize = Theme.fonts.normal,
-        fontLineHeight = fontHeight,
-        highlightInset = 4
-    }
+        options = options
+    }, function(option)
+        if option.action == "equip" then
+            self:equipModule(itemId)
+        end
+    end)
 end
 
--- Handle context menu option clicks
 function CargoWindow:handleContextMenuClick(optionIndex)
-    if not self.contextMenu or not self.contextMenu.options[optionIndex] then return end
-
-    local option = self.contextMenu.options[optionIndex]
-    if option.action == "equip" and option.slotType then
-        -- Switch to ship window and trigger equip
-        local ShipWindow = require('src.ui.ship_window')
-        if ShipWindow.getOpen and not ShipWindow:getOpen() then
-            ShipWindow:toggle()  -- Open ship window
-        end
-        -- Set active tab to loadout
-        ShipWindow.activeTab = "loadout"
-        -- Equip the module
-        ShipWindow:equipModule(self.contextMenu.itemId)
+    if self.parentShipWindow and self.parentShipWindow.handleContextMenuClick then
+        return self.parentShipWindow:handleContextMenuClick(optionIndex)
     end
-
-    self.contextMenu = nil
 end
 
--- Draw context menu for cargo items
 function CargoWindow:drawContextMenu(x, y, alpha)
-    if not self.contextMenu then
-        return
-    end
-
-    local menu = self.contextMenu
-    local menuWidth = menu.width or 200
-    local menuHeight = menu.height or ((menu.paddingY or 12) * 2 + (#menu.options * (menu.optionHeight or 24)))
-    local paddingX = menu.paddingX or 20
-    local paddingY = menu.paddingY or 12
-    local optionHeight = menu.optionHeight or 28
-    local highlightInset = menu.highlightInset or 4
-
-    -- Panel background and border (flat, theme-aligned)
-    local bgColor = Theme.colors.surfaceAlt
-    love.graphics.setColor(bgColor[1], bgColor[2], bgColor[3], alpha * 0.94)
-    love.graphics.rectangle("fill", x, y, menuWidth, menuHeight)
-
-    local accent = Theme.colors.hover
-    love.graphics.setColor(accent[1], accent[2], accent[3], (accent[4] or 1) * alpha * 0.35)
-    love.graphics.rectangle("fill", x, y, menuWidth, 2)
-
-    local borderColor = Theme.colors.border
-    love.graphics.setColor(borderColor[1], borderColor[2], borderColor[3], alpha)
-    love.graphics.setLineWidth(1)
-    love.graphics.rectangle("line", x, y, menuWidth, menuHeight)
-
-    -- Draw options
-    local font = Theme.getFont(menu.fontSize or Theme.fonts.normal)
-    love.graphics.setFont(font)
-    local fontHeight = menu.fontLineHeight or font:getHeight()
-
-    for i, option in ipairs(menu.options) do
-        local optionTop = y + paddingY + (i - 1) * optionHeight
-        local isHovered = menu.hoveredOption == i
-
-        if isHovered then
-            love.graphics.setColor(accent[1], accent[2], accent[3], (accent[4] or 1) * alpha * 0.18)
-            love.graphics.rectangle("fill", x + highlightInset, optionTop, menuWidth - highlightInset * 2, optionHeight)
-        end
-
-        local textColor = Theme.colors.text
-        if option.action == "equip" and option.slotType then
-            if option.slotType == "Turret Module" then
-                textColor = Theme.colors.accent
-            elseif option.slotType == "Defensive Module" then
-                textColor = Theme.colors.textSecondary
-            elseif option.slotType == "Generator Module" then
-                textColor = Theme.colors.text
-            end
-        elseif option.action == "noop" then
-            textColor = {
-                Theme.colors.textSecondary[1] * 0.6,
-                Theme.colors.textSecondary[2] * 0.6,
-                Theme.colors.textSecondary[3] * 0.6,
-                Theme.colors.textSecondary[4] or 1
-            }
-        end
-
-        love.graphics.setColor(textColor[1], textColor[2], textColor[3], (textColor[4] or 1) * alpha)
-
-        local textY = optionTop + (optionHeight - fontHeight) / 2
-        love.graphics.print(option.text or "", x + paddingX, textY)
+    if self.parentShipWindow and self.parentShipWindow.drawContextMenu then
+        return self.parentShipWindow:drawContextMenu(x, y, alpha)
     end
 end
 
-function CargoWindow:drawItemsGrid(windowX, windowY, cargo, alpha)
-    local slotSize = Theme.spacing.slotSize  -- Cargo slot size
-    local padding = Theme.spacing.iconGridPadding
-    local gridTop = windowY + Theme.window.topBarHeight + padding
-    local bottomBarH = Theme.window.bottomBarHeight
+function CargoWindow:isSearchFocused()
+    return self.cargoSearchFocused == true
+end
 
-    -- Compute available vertical space (account for top and bottom bars)
-    local availableHeight = self.height - Theme.window.topBarHeight - bottomBarH - padding * 2
-    local labelHeight = 14 -- approximate label height in pixels (small font)
-    local rowSpacing = 12 -- extra space between rows to avoid label overlap
-    local labelOffset = 8 -- vertical offset for label from slot
-    local cellHeight = slotSize + padding + labelHeight + rowSpacing
-
-    -- Collect and sort item keys for deterministic layout
-    local ItemDefs = require('src.items.item_loader')
-    local itemKeys = {}
-    for itemId, _ in pairs(cargo.items) do table.insert(itemKeys, itemId) end
-    table.sort(itemKeys)
-    local totalItems = #itemKeys
-
-    -- Determine how many rows fit vertically, then compute columns needed
-    local maxRows = math.max(1, math.floor(availableHeight / cellHeight))
-    local cols = math.max(1, math.ceil(totalItems / maxRows))
-
-    local mx, my
-    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
-        mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
-    else
-        mx, my = Scaling.toUI(love.mouse.getPosition())
-    end
-    self.hoveredItemSlot = nil
-
-    local i = 0
-    local gridLeftX = windowX + padding
-
-    for _, itemId in ipairs(itemKeys) do
-        local count = cargo.items[itemId]
-        -- Layout column-first so rows fill vertically and nothing gets clipped
-        local col = math.floor(i / maxRows)
-        local row = i % maxRows
-        local iconX = gridLeftX + padding + col * (slotSize + padding)
-        local iconY = gridTop + row * cellHeight
-        love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-
-        local uiIconX, uiIconY = iconX, iconY
-        local uiIconSize = slotSize
-
-        local isHovering = mx >= uiIconX and mx <= uiIconX + uiIconSize and my >= uiIconY and my <= uiIconY + uiIconSize
-
-        local itemDef = ItemDefs[itemId]
-        local TurretModule = nil
-        if itemDef and itemDef.type == "turret" and itemDef.module then
-            TurretModule = itemDef.module
-        end
-
-        if isHovering then
-            self.hoveredItemSlot = {itemId = itemId, itemDef = itemDef, count = count, mouseX = mx, mouseY = my, slotIndex = i}
-        end
-
-        -- Update context menu hover state for this slot
-        if self.contextMenu and isHovering then
-            self.contextMenu.hoveredOption = nil  -- Clear hover when over the item slot
-        end
-
-        -- Draw slot background with subtle compatibility indicator
-        local compatibleSlots = self:getCompatibleSlots(itemId)
-        if #compatibleSlots > 0 then
-            -- Subtle green tint for compatible items
-            love.graphics.setColor(0.1, 0.25, 0.1, alpha * 0.4)
-            love.graphics.rectangle("fill", iconX - 1, iconY - 1, slotSize + 2, slotSize + 2, 5, 5)
-            love.graphics.setColor(Theme.colors.surface[1], Theme.colors.surface[2], Theme.colors.surface[3], alpha * 0.8)
-        else
-            love.graphics.setColor(Theme.colors.surface[1], Theme.colors.surface[2], Theme.colors.surface[3], alpha * 0.8)
-        end
-        love.graphics.rectangle("fill", iconX, iconY, slotSize, slotSize, 4, 4)
-
-        -- Hover highlight (shows over the subtle tint)
-        if isHovering then
-            -- Draw hover highlight
-            local color = (TurretModule and TurretModule.design and TurretModule.design.color) or (itemDef and itemDef.design and itemDef.design.color) or {0.7, 0.7, 0.8, 1}
-            love.graphics.setColor(color[1] * 1.5, color[2] * 1.5, color[3] * 1.5, 0.3 * alpha)
-            love.graphics.rectangle("fill", iconX, iconY, slotSize, slotSize, 4, 4)
-        end
-
-        -- Draw slot border with subtle green for compatible items
-        if #compatibleSlots > 0 then
-            love.graphics.setColor(0.15, 0.35, 0.15, alpha * 0.6)
-        else
-            love.graphics.setColor(Theme.colors.borderAlt[1], Theme.colors.borderAlt[2], Theme.colors.borderAlt[3], alpha * 0.3)
-        end
-        love.graphics.rectangle("line", iconX, iconY, slotSize, slotSize, 4, 4)
-
-        -- Draw item using its draw method, scaled to slot size
-        love.graphics.push()
-        love.graphics.translate(iconX + slotSize / 2, iconY + slotSize / 2)
-            love.graphics.scale(1, 1)  -- Scale icons 1x to fit the smaller slots
-        if TurretModule and TurretModule.draw then
-            love.graphics.setColor(1, 1, 1, alpha)
-            TurretModule.draw(TurretModule, 0, 0)
-        elseif itemDef and itemDef.draw then
-            itemDef:draw(0, 0)
-        else
-            -- Fallback to circle if no draw method
-            local color = (TurretModule and TurretModule.design and TurretModule.design.color) or (itemDef and itemDef.design and itemDef.design.color) or {0.7, 0.7, 0.8, 1}
-            love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha)
-            love.graphics.circle("fill", 0, 0, slotSize / 4)
-        end
-        love.graphics.pop()
-
-        -- Draw item name at bottom center of the slot (helps finding new items like railgun)
-        love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
-        love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-        local label = (itemDef and itemDef.name) or tostring(itemId)
-        -- Center label under the slot and keep within slot width
-        love.graphics.printf(label, uiIconX, uiIconY + uiIconSize + labelOffset, uiIconSize, "center")
-
-        if count > 1 then
-            love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
-            love.graphics.setFont(Theme.getFont(Theme.fonts.small))
-            love.graphics.printf(tostring(count), iconX, iconY + slotSize - 8, slotSize, "center")
-        end
-
-        i = i + 1
+-- Standalone window behaviour
+function CargoWindow:draw(viewportWidth, viewportHeight, uiMx, uiMy)
+    WindowBase.draw(self, viewportWidth, viewportHeight, uiMx, uiMy)
+    if not self.position then return end
+    local alpha = self.animAlpha or 0
+    if alpha <= 0 then return end
+    local x, y = self.position.x, self.position.y
+    -- Draw close button provided by WindowBase
+    self:drawCloseButton(x, y, alpha, uiMx, uiMy)
+    CargoPanel.draw(self, x, y, self.width, self.height, alpha)
+    
+    -- Draw context menu if open
+    if ContextMenu.isOpen() then
+        ContextMenu.draw(alpha)
     end
 end
 
--- Drag and drop logic for cargo items
----@diagnostic disable-next-line: duplicate-set-field
 function CargoWindow:mousepressed(x, y, button)
-    if not self.isOpen or not self.position then return end
-    local mx, my = x, y
-
     -- Close context menu if clicking outside of it (any button)
-    if self.contextMenu then
-        local menu = self.contextMenu
-        local uiX, uiY = Scaling.toUI(mx, my)
+    if ContextMenu.isOpen() then
+        local menu = ContextMenu.getMenu()
         local cmW = menu.width or 200
         local cmH = menu.height or ((menu.paddingY or 12) * 2 + (#menu.options * (menu.optionHeight or 24)))
-        if not (uiX >= menu.x and uiX <= menu.x + cmW and
-                uiY >= menu.y and uiY <= menu.y + cmH) then
-            self.contextMenu = nil
+        if not (x >= menu.x and x <= menu.x + cmW and
+            y >= menu.y and y <= menu.y + cmH) then
+            ContextMenu.close()
             return
         end
     end
-
-    -- WindowBase handles close button clicks
-    -- Start dragging any item from cargo grid
-    if button == 1 and self.hoveredItemSlot then
-        self.draggedItem = {
-            itemId = self.hoveredItemSlot.itemId,
-            itemDef = self.hoveredItemSlot.itemDef,
-            slotIndex = self.hoveredItemSlot.slotIndex,
-            count = self.hoveredItemSlot.count
-        }
-    -- Right click: open context menu for cargo items (only if no existing context menu)
-    elseif button == 2 and self.hoveredItemSlot and not self.contextMenu then
-        self:openContextMenu(self.hoveredItemSlot.itemId, self.hoveredItemSlot.itemDef, Scaling.toUI(mx, my))
-    end
-
+    
+    -- Let base handle close button and dragging first
     WindowBase.mousepressed(self, x, y, button)
-end
+    -- If close button was pressed, WindowBase:setOpen(false) will have been called
+    if not self:getOpen() then return true end
+    -- If user started dragging the window, consume the event
+    if self.isDragging then return true end
 
----@diagnostic disable-next-line: duplicate-set-field
+    if CargoPanel and CargoPanel.mousepressed then
+        return CargoPanel.mousepressed(self, x, y, button)
+    end
+end
 function CargoWindow:mousereleased(x, y, button)
-    if button == 1 then
-        self.isDragging = false
-    end
-
-    -- Handle context menu clicks
-    if self.contextMenu and button == 1 then
-        local mx, my = Scaling.toUI(x, y)
-        local menu = self.contextMenu
-        local cmW = menu.width or 200
-        local cmH = menu.height or ((menu.paddingY or 12) * 2 + (#menu.options * (menu.optionHeight or 24)))
-        if mx >= menu.x and mx <= menu.x + cmW and
-           my >= menu.y and my <= menu.y + cmH then
-            local optionHeight = menu.optionHeight or 28
-            local optionStartY = menu.y + (menu.paddingY or 12)
-            local relativeY = my - optionStartY
-            if relativeY >= 0 then
-                local optionIndex = math.floor(relativeY / optionHeight) + 1
-                if optionIndex >= 1 and optionIndex <= #menu.options then
-                    self:handleContextMenuClick(optionIndex)
-                    return
-                end
-            end
+    if button == 1 and ContextMenu.isOpen() then
+        if ContextMenu.handleClickAt(x, y) then
+            return
         end
-        -- Click outside menu or on empty space inside closes it
-        self.contextMenu = nil
     end
-
-    local mx, my = x, y
-
-    -- Get the player's controlled ship for cargo access
-    local controllers = ECS.getEntitiesWith({"InputControlled", "Player"})
-    if #controllers == 0 then
-        WindowBase.mousereleased(self, x, y, button)
-        return
-    end
-    local pilotId = controllers[1]
-    local inputComp = ECS.getComponent(pilotId, "InputControlled")
-    local shipId = inputComp and inputComp.targetEntity or nil
-    if not shipId then
-        WindowBase.mousereleased(self, x, y, button)
-        return
-    end
-
-    local cargo = ECS.getComponent(shipId, "Cargo")
-    if not cargo then
-        WindowBase.mousereleased(self, x, y, button)
-        return
-    end
-
-        -- If dragging an item and dropped outside cargo window bounds, destroy it permanently
-        if self.isOpen and button == 1 and self.draggedItem then
-            -- Check if mouse is outside cargo window bounds
-            local windowX, windowY = self.position.x, self.position.y
-            local windowW, windowH = self.width, self.height
-            local isOutsideBounds = x < windowX or x > windowX + windowW or y < windowY or y > windowY + windowH
-
-            if isOutsideBounds then
-                -- Remove the item from cargo permanently
-                local itemId = self.draggedItem.itemId
-                if cargo then
-                    cargo:removeItem(itemId, 1)
-                end
-            end
-        end
-
-        self.draggedItem = nil
-
+    
     WindowBase.mousereleased(self, x, y, button)
+    if CargoPanel and CargoPanel.mousereleased then
+        return CargoPanel.mousereleased(self, x, y, button)
+    end
 end
-
----@diagnostic disable-next-line: duplicate-set-field
 function CargoWindow:mousemoved(x, y, dx, dy)
     -- Handle context menu hover detection
-    if self.contextMenu then
-        local mx, my = Scaling.toUI(x, y)
-        local menu = self.contextMenu
-        local cmW = menu.width or 200
-        local cmH = menu.height or ((menu.paddingY or 12) * 2 + (#menu.options * (menu.optionHeight or 24)))
-        if mx >= menu.x and mx <= menu.x + cmW and
-           my >= menu.y and my <= menu.y + cmH then
-            local optionHeight = menu.optionHeight or 28
-            local optionStartY = menu.y + (menu.paddingY or 12)
-            local relativeY = my - optionStartY
-            if relativeY >= 0 then
-                local optionIndex = math.floor(relativeY / optionHeight) + 1
-                if optionIndex >= 1 and optionIndex <= #menu.options then
-                    menu.hoveredOption = optionIndex
-                else
-                    menu.hoveredOption = nil
-                end
-            else
-                menu.hoveredOption = nil
-            end
-        else
-            menu.hoveredOption = nil
-        end
+    if ContextMenu.isOpen() then
+        ContextMenu.mousemoved(x, y)
     end
-
+    
+    -- Let base handle dragging first
     WindowBase.mousemoved(self, x, y, dx, dy)
+    if CargoPanel and CargoPanel.mousemoved then
+        return CargoPanel.mousemoved(self, x, y, dx, dy)
+    end
 end
-
----@diagnostic disable-next-line: duplicate-set-field
 function CargoWindow:keypressed(key)
     -- Close context menu on escape
-    if key == "escape" and self.contextMenu then
-        self.contextMenu = nil
-        return
+    if key == "escape" and ContextMenu.isOpen() then
+        ContextMenu.close()
+        return true
     end
-
-    WindowBase.keypressed(self, key)
+    
+    if CargoPanel and CargoPanel.keypressed then
+        return CargoPanel.keypressed(self, key)
+    end
+    return false
+end
+function CargoWindow:textinput(t)
+    if CargoPanel and CargoPanel.textinput then
+        return CargoPanel.textinput(self, t)
+    end
+    return false
 end
 
 return CargoWindow
+
+

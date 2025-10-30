@@ -13,6 +13,7 @@ local MissileLauncher = {
     value = 200,
     volume = 0.5,
     skill = "missiles", -- Skill awarded for this turret
+    levelRequirement = 3, -- Requires player level 3
     MISSILE_SPEED = 50,
     MISSILE_RADIUS = 2,
     MISSILE_COLOR = {1, 0.3, 0.1, 1}, -- Orange-red

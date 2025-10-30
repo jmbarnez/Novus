@@ -63,9 +63,9 @@ XP_SOURCES.kinetic = {
 -- Draw the skills panel content
 function SkillsPanel.draw(shipWin, x, y, width, height, alpha)
     local contentX = x + 10
-    local contentY = y + Theme.window.topBarHeight + 40 + 10  -- Align with tab area like Cargo panel
+    local contentY = y + Theme.window.topBarHeight + 8
     local contentWidth = (shipWin and shipWin.width or width) - 20
-    local contentHeight = (shipWin and shipWin.height or height) - Theme.window.topBarHeight - Theme.window.bottomBarHeight - 40 - 20
+    local contentHeight = (shipWin and shipWin.height or height) - Theme.window.topBarHeight - Theme.window.bottomBarHeight - 16
 
     -- Get player skills
     local playerEntities = ECS.getEntitiesWith({"Player", "Skills"})

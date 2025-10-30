@@ -84,6 +84,19 @@ function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
         table.insert(lines, "Value: " .. itemDef.value)
     end
     table.insert(lines, "Stackable: " .. (itemDef.stackable and "Yes" or "No"))
+    
+    -- Add level requirement if item has one
+    local levelRequirementLineIndex = nil
+    if module and module.levelRequirement then
+        local LevelUtils = require('src.level_utils')
+        local playerLevelData = LevelUtils.getPlayerLevelData()
+        local playerLevel = playerLevelData and playerLevelData.level or 1
+        local levelReq = module.levelRequirement
+        
+        levelRequirementLineIndex = #lines + 1
+        table.insert(lines, string.format("Level Required: %d", levelReq))
+    end
+    
     table.insert(lines, "")
     table.insert(lines, itemDef.description)
     
@@ -153,6 +166,31 @@ function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
         if i == 1 then
             -- Item name in accent color
             love.graphics.setColor(getRGBA(Theme.colors.accent))
+        elseif i == levelRequirementLineIndex then
+            -- Level requirement with color coding based on player level
+            if module and module.levelRequirement then
+                local LevelUtils = require('src.level_utils')
+                local playerLevelData = LevelUtils.getPlayerLevelData()
+                local playerLevel = playerLevelData and playerLevelData.level or 1
+                local levelReq = module.levelRequirement
+                local levelDiff = levelReq - playerLevel
+                
+                local color
+                if playerLevel >= levelReq then
+                    -- Green if requirement met
+                    color = {0.2, 1.0, 0.2}
+                elseif levelDiff <= 3 then
+                    -- Yellow if within 3 levels (close)
+                    color = {1.0, 1.0, 0.2}
+                else
+                    -- Red if more than 3 levels away (far)
+                    color = {1.0, 0.2, 0.2}
+                end
+                
+                love.graphics.setColor(getRGBA(color))
+            else
+                love.graphics.setColor(getRGBA(Theme.colors.text))
+            end
         elseif line == "" then
             textY = textY + lineHeight
         else

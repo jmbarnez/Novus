@@ -14,7 +14,9 @@ Components.Turret = function(moduleName)
             current = 0,
             cooldownTimer = 0
         },
-        laserSound = nil
+        laserSound = nil,
+        -- Equipped sub-modules affecting turret behavior (array of item/module tables)
+        subModules = {}
     }
 end
 

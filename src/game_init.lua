@@ -247,6 +247,7 @@ function GameInit.setupPlayerShip(pilotId)
         shipCargo:addItem("basic_shield_module", 1)  -- Add starting defensive module
         shipCargo:addItem("mirror_shield_module", 1)  -- Add mirror defensive module to starter cargo
         shipCargo:addItem("basic_generator", 1)  -- Add starting generator module
+        shipCargo:addItem("laser_asteroid_booster", 1)  -- Add laser booster sub-module for testing
     end
 
     -- Debug: print starter cargo contents so we can verify item addition at runtime
@@ -363,6 +364,12 @@ function GameInit.init()
 
     -- Create core entities
     local pilotId = GameInit.createCoreEntities()
+
+    -- Show hotkey reference window on startup
+    local UISystem = require('src.systems.ui')
+    if UISystem and UISystem.setHotkeyWindowOpen then
+        UISystem.setHotkeyWindowOpen(true)
+    end
 
     -- Set up player ship
     GameInit.setupPlayerShip(pilotId)

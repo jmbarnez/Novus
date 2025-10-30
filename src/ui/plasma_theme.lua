@@ -136,9 +136,71 @@ function PlasmaTheme.ensureContrast(fg,bg,minRatio)
     return bg[1] > 0.5 and {0.1,0.1,0.1, fg[4] or 1} or {0.9,0.9,0.9, fg[4] or 1}
 end
 
-PlasmaTheme.variants = { current = "plasma", plasma = { name = "Plasma" } }
-function PlasmaTheme.setVariant(name) if PlasmaTheme.variants[name] then PlasmaTheme.variants.current = name; PlasmaTheme._fontCache = { regular = {}, bold = {}, fallback = {} }; return true end; return false end
-function PlasmaTheme.getCurrentVariant() return PlasmaTheme.variants[PlasmaTheme.variants.current] end
+-- Theme variants (dark/light); defaults to dark values defined above
+PlasmaTheme.variants = {
+    current = "dark",
+    dark = { name = "Dark" },
+    light = { name = "Light" },
+}
+
+local function applyDark()
+    -- Keep existing defined colors for dark; nothing to do here
+end
+
+local function applyLight()
+    -- Light mode palette adjustments
+    PlasmaTheme.colors.bgPureBlack = {0.96,0.96,0.98,1}
+    PlasmaTheme.colors.surface     = {0.94,0.94,0.96,1}
+    PlasmaTheme.colors.surfaceAlt  = {0.98,0.98,1.00,1}
+    PlasmaTheme.colors.border      = {0.80,0.82,0.86,1}
+    PlasmaTheme.colors.borderLight = {0.88,0.90,0.94,1}
+    PlasmaTheme.colors.text        = {0.12,0.12,0.14,1}
+    PlasmaTheme.colors.textSecondary = {0.28,0.28,0.32,1}
+    PlasmaTheme.colors.textMuted   = {0.46,0.46,0.50,1}
+    -- Keep accent/hover consistent
+    PlasmaTheme.colors.outlineBlack = {0,0,0,1}
+end
+
+function PlasmaTheme._recomputeDerivedColors()
+    -- surfaceLight
+    do
+        local s = PlasmaTheme.colors.surface or {0.06,0.06,0.06,1}
+        local amt = 0.12
+        local r = s[1] + (1 - s[1]) * amt
+        local g = s[2] + (1 - s[2]) * amt
+        local b = s[3] + (1 - s[3]) * amt
+        local a = s[4] or 1
+        PlasmaTheme.colors.surfaceLight = {r,g,b,a}
+    end
+    -- success/danger hovers
+    PlasmaTheme.colors.success = PlasmaTheme.colors.success or PlasmaTheme.palette.success
+    PlasmaTheme.colors.danger = PlasmaTheme.colors.danger or {1,0.25,0.25,1}
+    PlasmaTheme.colors.successHover = PlasmaTheme.colors.success and PlasmaTheme.lighten(PlasmaTheme.colors.success, 0.15) or {0.3,0.9,0.3,1}
+    PlasmaTheme.colors.dangerHover = PlasmaTheme.colors.danger and PlasmaTheme.lighten(PlasmaTheme.colors.danger, 0.15) or {1,0.45,0.45,1}
+    PlasmaTheme.colors.accent = PlasmaTheme.palette.accent
+    PlasmaTheme.colors.accentHover = PlasmaTheme.colors.textAccent or PlasmaTheme.palette.accent
+    PlasmaTheme.colors.borderAlt = PlasmaTheme.colors.borderLight
+    PlasmaTheme.colors.overlay = PlasmaTheme.colors.overlay or {0.05, 0.05, 0.05, 0.8}
+end
+
+function PlasmaTheme.setVariant(name)
+    if name == "dark" then
+        PlasmaTheme.variants.current = "dark"
+        applyDark()
+    elseif name == "light" then
+        PlasmaTheme.variants.current = "light"
+        applyLight()
+    else
+        return false
+    end
+    PlasmaTheme._recomputeDerivedColors()
+    PlasmaTheme._fontCache = { regular = {}, bold = {}, fallback = {} }
+    return true
+end
+
+function PlasmaTheme.getCurrentVariant()
+    return PlasmaTheme.variants[PlasmaTheme.variants.current]
+end
 
 function PlasmaTheme.draw3DBorder(x,y,w,h,depth,opts)
     if type(depth)=="table" and opts==nil then opts=depth; depth=opts.depth end

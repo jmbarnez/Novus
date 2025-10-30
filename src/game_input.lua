@@ -38,9 +38,6 @@ function GameInput.keypressed(key)
         if UISystem.isSettingsWindowOpen and UISystem.isSettingsWindowOpen() then
             UISystem.setSettingsWindowOpen(false)
             return
-        elseif UISystem.isShipWindowOpen and UISystem.isShipWindowOpen() then
-            UISystem.setShipWindowOpen(false)
-            return
         elseif UISystem.isMapWindowOpen and UISystem.isMapWindowOpen() then
             UISystem.setMapWindowOpen(false)
             return
@@ -61,7 +58,14 @@ function GameInput.keypressed(key)
     end
 
     if key == HotkeyConfig.getHotkey("cargo_window") then
-        UISystem.toggleShipWindow()
+        -- Toggle the standalone Cargo window via UISystem
+        UISystem.toggleCargoWindow()
+        return
+    elseif key == HotkeyConfig.getHotkey("loadout_window") then
+        UISystem.toggleLoadoutWindow()
+        return
+    elseif key == HotkeyConfig.getHotkey("skills_window") then
+        UISystem.toggleSkillsWindow()
         return
     elseif key == HotkeyConfig.getHotkey("toggle_hud") then
         local HUDSystem = require('src.systems.hud')
@@ -98,10 +102,10 @@ function GameInput.textinput(t)
     if UISystem.isPauseMenuOpen and UISystem.isPauseMenuOpen() then
         return
     end
-    -- Check if ShipWindow is open and wants to consume input (e.g., search bar focused)
-    local ShipWindow = require('src.ui.ship_window')
-    if ShipWindow and ShipWindow:getOpen() then
-        local consumed = ShipWindow:textinput(t)
+    -- Check if any window is open and wants to consume input (e.g., search bar focused)
+    local CargoWindow = require('src.ui.cargo_window')
+    if CargoWindow and CargoWindow:getOpen() then
+        local consumed = CargoWindow:textinput(t)
         if consumed then
             return -- Don't process other input if UI consumed it
         end
