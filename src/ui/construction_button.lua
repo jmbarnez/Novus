@@ -1,5 +1,5 @@
 ---@diagnostic disable: undefined-global
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 local Scaling = require('src.scaling')
 local BatchRenderer = require('src.ui.batch_renderer')
 local HoverSound = require('src.ui.hover_sound')

@@ -17,6 +17,14 @@ function TurretRegistry.loadModules(path)
             local fullPath = requirePath .. "." .. moduleName
             local module = require(fullPath)
             TurretRegistry.modules[moduleName] = module
+            -- Validate module exports for helpful debugging (dev-only)
+            if not module or type(module) ~= 'table' then
+                print("[TurretRegistry] Warning: module '" .. tostring(moduleName) .. "' did not return a table")
+            else
+                if not module.skill then
+                    print("[TurretRegistry] Note: turret module '" .. tostring(moduleName) .. "' has no 'skill' field; it will not award XP unless provided")
+                end
+            end
         end
     end
 end

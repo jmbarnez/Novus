@@ -97,6 +97,24 @@ Components.Skills = function()
                 experience = 0,
                 requiredXp = 100,  -- XP needed for next level
                 totalXp = 0        -- Total XP earned (for history)
+            },
+            lasers = {
+                level = 1,
+                experience = 0,
+                requiredXp = 100,
+                totalXp = 0
+            },
+            missiles = {
+                level = 1,
+                experience = 0,
+                requiredXp = 100,
+                totalXp = 0
+            },
+            kinetic = {
+                level = 1,
+                experience = 0,
+                requiredXp = 100,
+                totalXp = 0
             }
         }
     }

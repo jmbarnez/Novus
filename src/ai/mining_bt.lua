@@ -301,7 +301,9 @@ local function applyMinerDamage(entity, asteroidId, asteroidX, asteroidY, dt)
 
             -- Track that this asteroid is being damaged by an enemy miner
             local EntityHelpers = require('src.entity_helpers')
-            EntityHelpers.recordLastDamager(asteroidId, entity, "continuous_beam")
+            local turret = ECS.getComponent(entity, "Turret")
+            local weaponModuleName = (turret and turret.moduleName) or nil
+            EntityHelpers.recordLastDamager(asteroidId, entity, weaponModuleName)
         end
 
         -- Create debris at impact point

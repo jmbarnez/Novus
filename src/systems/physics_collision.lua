@@ -392,13 +392,28 @@ local function applyProjectileDamage(projectileId, targetId)
     -- Also apply to Durability if present (asteroids and hull)
     local durability = ECS.getComponent(targetId, "Durability")
     if durability then
-        durability.current = durability.current - damage
-        
+        -- Reduce effectiveness against asteroids and wreckage: apply 10% of projectile damage
+        local targetAsteroid = ECS.getComponent(targetId, "Asteroid")
+        local targetWreckage = ECS.getComponent(targetId, "Wreckage")
+        local damageToApply = damage
+        if targetAsteroid or targetWreckage then
+            damageToApply = damage * 0.1
+        end
+        durability.current = durability.current - damageToApply
+
         -- Track who damaged this asteroid for XP/loot purposes (projectiles)
         if proj.ownerId then
             local EntityHelpers = require('src.entity_helpers')
-            EntityHelpers.recordLastDamager(targetId, proj.ownerId, "projectile")
+            local weaponModule = proj.weaponModule or proj.weaponType or nil
+            EntityHelpers.recordLastDamager(targetId, proj.ownerId, weaponModule)
         end
+    end
+
+    -- Also record last damager for hull (ships) so DestructionSystem can award XP
+    if proj.ownerId and hull then
+        local EntityHelpers = require('src.entity_helpers')
+        local weaponModule = proj.weaponModule or proj.weaponType or nil
+        EntityHelpers.recordLastDamager(targetId, proj.ownerId, weaponModule)
     end
     
     -- Trigger aggressive reaction if victim is AI

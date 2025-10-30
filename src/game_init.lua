@@ -18,6 +18,10 @@ local AsteroidClusters = require('src.systems.asteroid_clusters')
 local ShaderManager = require('src.shader_manager')
 local EntityPool = require('src.entity_pool')
 local WorldLoader = require('src.world_loader')
+local PlasmaTheme = require('src.ui.plasma_theme')
+
+-- Expose active theme globally for legacy modules that may prefer a central reference
+rawset(_G, 'ActiveTheme', PlasmaTheme)
 
 -- Initialize entity pools
 function GameInit.initPools()
@@ -99,7 +103,14 @@ function GameInit.registerSystems()
     ECS.registerSystem("PhysicsSystem", Systems.PhysicsSystem)
     ECS.registerSystem("PhysicsCollisionSystem", Systems.PhysicsCollisionSystem)
     ECS.registerSystem("BoundarySystem", Systems.BoundarySystem)
+    -- Event system: ECS-style transient events delivered into inboxes/global list
+    local EventSystem = require('src.systems.event_system')
+    EventSystem.priority = 50
+    ECS.registerSystem("EventSystem", EventSystem)
     ECS.registerSystem("InputSystem", Systems.InputSystem)
+    -- SkillSystem consumes SkillGain events and applies XP
+    local SkillSystem = require('src.systems.skill_system')
+    ECS.registerSystem("SkillSystem", SkillSystem)
     Systems.RenderSystem.priority = 100
     ECS.registerSystem("RenderSystem", Systems.RenderSystem)
     ECS.registerSystem("CameraSystem", Systems.CameraSystem)

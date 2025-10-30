@@ -12,7 +12,7 @@
 
 local Constants = require('src.constants')
 local WindowBase = require('src.ui.window_base')
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 local Scaling = require('src.scaling')
 local TimeManager = require('src.time_manager')
 local HotkeyConfig = require('src.hotkey_config')

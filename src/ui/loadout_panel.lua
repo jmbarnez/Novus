@@ -1,5 +1,5 @@
 ---@diagnostic disable: undefined-global
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 local ECS = require('src.ecs')
 local TurretRegistry = require('src.turret_registry')
 local Scaling = require('src.scaling')
@@ -224,6 +224,12 @@ function LoadoutPanel.drawEquipmentSlot(shipWin, slotName, equippedItemId, x, y,
 
     local activeSubslots = resolveModuleSubslotCount(itemDef)
     LoadoutPanel.drawModuleSubslots(shipWin, slotName, x, y, slotSize, alpha, activeSubslots, LoadoutPanel.MAX_SUBSLOTS_PER_MODULE)
+
+    -- Redraw the main slot border on top so it's always visible when subslots are drawn
+    love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 1)
+    love.graphics.setLineWidth(math.max(2, math.floor(slotSize * 0.08)))
+    love.graphics.rectangle('line', x, y, slotSize, slotSize, 6, 6)
+    love.graphics.setLineWidth(1)
 end
 
 function LoadoutPanel.unequipModule(shipWin, slotType, itemId)
@@ -489,21 +495,23 @@ function LoadoutPanel.drawModuleSubslots(shipWin, slotName, slotX, slotY, slotSi
 
     activeCount = math.max(0, math.min(activeCount or 0, totalCount))
 
-    local innerMargin = math.max(6, slotSize * 0.14)
-    local spacing = math.max(4, slotSize * 0.06)
-    local availableWidth = slotSize - innerMargin * 2
-    local totalSpacing = spacing * (totalCount - 1)
-    local subslotSize = (availableWidth - totalSpacing) / totalCount
+    -- Draw subslots as full-size slots lined up horizontally on the same line as the main slot
+    local spacing = math.max(6, math.floor(slotSize * 0.12))
+    local dashGap = math.max(8, math.floor(slotSize * 0.2))
+    local subslotSize = slotSize
 
-    if subslotSize > 20 then
-        subslotSize = 20
-    elseif subslotSize < 10 then
-        subslotSize = math.max(8, subslotSize)
-    end
+    local totalWidth = subslotSize * totalCount + spacing * (totalCount - 1)
+    local startX = slotX + slotSize + dashGap
+    local startY = slotY
 
-    local actualWidth = subslotSize * totalCount + spacing * (totalCount - 1)
-    local startX = slotX + (slotSize - actualWidth) / 2
-    local subslotY = slotY + slotSize - innerMargin - subslotSize
+    -- Draw a simple dash (short line) between main slot and first subslot area
+    local dashStart = slotX + slotSize + math.floor(dashGap * 0.2)
+    local dashEnd = slotX + slotSize + math.floor(dashGap * 0.8)
+    local centerY = slotY + slotSize / 2
+    love.graphics.setColor(Theme.colors.border[1], Theme.colors.border[2], Theme.colors.border[3], alpha)
+    love.graphics.setLineWidth(math.max(2, math.floor(slotSize * 0.06)))
+    love.graphics.line(dashStart, centerY, dashEnd, centerY)
+    love.graphics.setLineWidth(1)
 
     shipWin.moduleSubslots[slotName] = {}
 
@@ -515,7 +523,7 @@ function LoadoutPanel.drawModuleSubslots(shipWin, slotName, slotX, slotY, slotSi
 
     for index = 1, totalCount do
         local sx = startX + (index - 1) * (subslotSize + spacing)
-        local sy = subslotY
+        local sy = startY
         local isActive = index <= activeCount
 
         if isActive then
@@ -523,17 +531,17 @@ function LoadoutPanel.drawModuleSubslots(shipWin, slotName, slotX, slotY, slotSi
         else
             love.graphics.setColor(disabledFill[1], disabledFill[2], disabledFill[3], (disabledFill[4] or 1) * alpha * 0.6)
         end
-        love.graphics.rectangle('fill', sx, sy, subslotSize, subslotSize, 3, 3)
+        love.graphics.rectangle('fill', sx, sy, subslotSize, subslotSize, 4, 4)
 
         local borderColor = isActive and activeBorder or disabledBorder
         love.graphics.setColor(borderColor[1], borderColor[2], borderColor[3], (borderColor[4] or 1) * alpha)
-        love.graphics.rectangle('line', sx, sy, subslotSize, subslotSize, 3, 3)
+        love.graphics.rectangle('line', sx, sy, subslotSize, subslotSize, 4, 4)
 
         if not isActive then
             love.graphics.setColor(crossColor[1], crossColor[2], crossColor[3], (crossColor[4] or 1) * alpha * 0.6)
             love.graphics.setLineWidth(2)
-            love.graphics.line(sx + 3, sy + 3, sx + subslotSize - 3, sy + subslotSize - 3)
-            love.graphics.line(sx + 3, sy + subslotSize - 3, sx + subslotSize - 3, sy + 3)
+            love.graphics.line(sx + 4, sy + 4, sx + subslotSize - 4, sy + subslotSize - 4)
+            love.graphics.line(sx + 4, sy + subslotSize - 4, sx + subslotSize - 4, sy + 4)
             love.graphics.setLineWidth(1)
         end
 

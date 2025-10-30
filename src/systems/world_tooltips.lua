@@ -3,7 +3,7 @@
 -- Used for warp gates, world objects, and other entities that need tooltips in world coordinates
 
 local ECS = require('src.ecs')
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 local Scaling = require('src.scaling')
 local BatchRenderer = require('src.ui.batch_renderer')
 local QuestSystem = require('src.systems.quest_system')
@@ -495,7 +495,7 @@ function WorldTooltips.drawHUD()
 
         if nearest then
             -- Draw subtle prompt in center of screen and a smaller HUD hint near bottom
-            local Theme = require('src.ui.theme')
+            local Theme = require('src.ui.plasma_theme')
             local Scaling = require('src.scaling')
 
             local centerX = Scaling.REFERENCE_WIDTH / 2
@@ -516,16 +516,7 @@ function WorldTooltips.drawHUD()
             love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], 0.95)
             love.graphics.print(text, centerX - tw/2, centerY - th/2)
 
-            -- Draw a smaller HUD hint lower on the screen
-            love.graphics.setFont(smallFont)
-            local hint = "Docking available"
-            local hw = smallFont:getWidth(hint)
-            local hy = Scaling.REFERENCE_HEIGHT - 120
-            -- subtle background for hint
-            love.graphics.setColor(0, 0, 0, 0.25)
-            love.graphics.rectangle("fill", centerX - hw/2 - 10, hy - smallFont:getHeight()/2 - 6, hw + 20, smallFont:getHeight() + 12, 6, 6)
-            love.graphics.setColor(Theme.colors.textMuted[1], Theme.colors.textMuted[2], Theme.colors.textMuted[3], 0.9)
-            love.graphics.print(hint, centerX - hw/2, hy - smallFont:getHeight()/2)
+            -- (Small HUD hint removed by request)
         end
     end
 

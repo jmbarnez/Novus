@@ -14,6 +14,7 @@ local LaserAudio = require('src.turret_modules.laser_audio')
 local ContinuousBeam = {
     name = "continuous_beam",
     displayName = "Continuous Beam Module",
+    skill = "lasers",
     CONTINUOUS = true,
     HEAT_RATE = 3.0,
     MAX_HEAT = 12.0,
@@ -97,6 +98,8 @@ function ContinuousBeam.fire(ownerId, startX, startY, endX, endY, turretComp)
         laserComp.endPos = {x = endX, y = endY}
         laserComp.color = {0, 0.7, 1, 1}  -- Vibrant cyan blue
         laserComp.ownerId = ownerId
+        -- Record which turret module produced this beam so downstream systems can attribute XP
+        laserComp.weaponModule = (turretComp and turretComp.moduleName) or nil
     end
 
     LaserAudio.start(turretComp)
@@ -243,7 +246,9 @@ function ContinuousBeam.applyBeam(ownerId, startX, startY, endX, endY, dt, turre
                             -- Notify AI system of damage for aggressive reaction
                             EntityHelpers.notifyAIDamage(hitEntityId2, ownerId)
                             
-                            if hull2.current <= 0 then SkillXP.awardXp("combat") end
+                if hull2.current <= 0 then
+                    -- XP awarding handled by DestructionSystem when entity is destroyed
+                end
                         end
                     else
                         DebrisSystem.createDebris(closestIntersection2.x, closestIntersection2.y, 1, ContinuousBeam.design.color)
@@ -282,9 +287,12 @@ function ContinuousBeam.applyBeam(ownerId, startX, startY, endX, endY, dt, turre
                 -- Notify AI system of damage for aggressive reaction
                 EntityHelpers.notifyAIDamage(hitEntityId, ownerId)
 
+                -- Record last damager for ship hull so XP can be awarded by DestructionSystem
+                local weaponModuleName = (turretComp and turretComp.moduleName) or nil
+                EntityHelpers.recordLastDamager(hitEntityId, ownerId, weaponModuleName)
                 -- Only grant XP if ship is destroyed this frame
                 if hull.current <= 0 then
-                    SkillXP.awardXp("combat")
+                    -- XP awarding handled by DestructionSystem when entity is destroyed
                 end
                 
                 -- Create impact debris for hull hits
@@ -295,14 +303,17 @@ function ContinuousBeam.applyBeam(ownerId, startX, startY, endX, endY, dt, turre
         elseif asteroid then
             local durability = ECS.getComponent(hitEntityId, "Durability")
             if durability then
-                local damageApplied = math.min(finalDamage, durability.current)
+                -- Asteroids take 1/10th damage from turret beams
+                local scaledDamage = finalDamage * 0.1
+                local damageApplied = math.min(scaledDamage, durability.current)
                 durability.current = durability.current - damageApplied
 
                 -- Track who is damaging this asteroid
                 local ownerEntity = ECS.getComponent(ownerId, "ControlledBy")
                 if ownerEntity and ownerEntity.pilotId then
                     local EntityHelpers = require('src.entity_helpers')
-                    EntityHelpers.recordLastDamager(hitEntityId, ownerEntity.pilotId, "continuous_beam")
+                    local weaponModuleName = (turretComp and turretComp.moduleName) or nil
+                    EntityHelpers.recordLastDamager(hitEntityId, ownerEntity.pilotId, weaponModuleName)
                 end
                 
                 -- Enhanced visual feedback: More particles as asteroid gets damaged
@@ -315,11 +326,13 @@ function ContinuousBeam.applyBeam(ownerId, startX, startY, endX, endY, dt, turre
         elseif wreckage then
             local durability = ECS.getComponent(hitEntityId, "Durability")
             if durability then
-                local damageApplied = math.min(finalDamage, durability.current)
+                -- Wreckage takes 1/10th damage from turret beams
+                local scaledDamage = finalDamage * 0.1
+                local damageApplied = math.min(scaledDamage, durability.current)
                 durability.current = durability.current - damageApplied
                 -- Only grant XP if wreckage is destroyed this frame
                 if durability.current <= 0 then
-                    SkillXP.awardXp("salvaging")
+                    -- XP awarding handled by DestructionSystem when entity is destroyed
                 end
                 DebrisSystem.createDebris(closestIntersection.x, closestIntersection.y, 1, {0, 0.7, 1, 1})
                 debrisCreated = true

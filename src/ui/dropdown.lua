@@ -5,7 +5,7 @@
 -- A reusable dropdown component for selecting from a list of options.
 -- Supports click-to-open/close and selection callbacks.
 
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 local Scaling = require('src.scaling')
 
 local Dropdown = {}

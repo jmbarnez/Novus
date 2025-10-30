@@ -3,7 +3,7 @@
 
 local ECS = require('src.ecs')
 local PlasmaTheme = require('src.ui.plasma_theme')
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 local RenderEffects = require('src.systems.render.effects')
 
 -- Resolve layered colors from a design-like table or fallback to simple color array
@@ -244,8 +244,9 @@ local function drawDecorativeParts(parts)
     if r ~= 0 then
             love.graphics.rotate(r)
         end
-        -- Use table.unpack to pass color components explicitly for compatibility
-        love.graphics.setColor(table.unpack(part.color or {1,1,1,1}))
+        -- Use explicit indexing to avoid environments missing table.unpack
+        local pc = part.color or {1,1,1,1}
+        love.graphics.setColor(pc[1] or 1, pc[2] or 1, pc[3] or 1, pc[4] or 1)
         if part.type == "circle" then
             love.graphics.circle("fill", 0, 0, part.radius or 10)
         elseif part.type == "ring" then

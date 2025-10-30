@@ -2,7 +2,7 @@
 -- UI Tooltips Module - Handles tooltip rendering with theme support
 -- Displays item information on hover
 
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 local Scaling = require('src.scaling')
 
 local Tooltips = {}

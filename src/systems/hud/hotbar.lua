@@ -7,7 +7,7 @@ local ItemDefs = require('src.items.item_loader')
 local HotkeyConfig = require('src.hotkey_config')
 local TurretRange = require('src.systems.turret_range')
 local BatchRenderer = require('src.ui.batch_renderer')
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 
 local HUDHotbar = {}
 

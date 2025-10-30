@@ -3,7 +3,7 @@
 -- Provides an escape menu with resume, save, settings, and exit options.
 
 local WindowBase = require('src.ui.window_base')
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 local Scaling = require('src.scaling')
 local Notifications = require('src.ui.notifications')
 

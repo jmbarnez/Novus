@@ -12,6 +12,7 @@ local LaserAudio = require('src.turret_modules.laser_audio')
 local ArcCoil = {
     name = "arc_coil",
     displayName = "Arc Coil",
+    skill = "lasers",
     CONTINUOUS = true,
     HEAT_RATE = 3.5,
     MAX_HEAT = 12.0,
@@ -113,7 +114,7 @@ local function applyDamage(entityId, damageAmount)
         local before = hull.current
         hull.current = math.max(0, hull.current - damage)
         if before > 0 and hull.current <= 0 then
-            SkillXP.awardXp("combat")
+            -- XP awarding moved to central DestructionSystem (on actual destruction)
         end
         dealtDamage = true
     end
@@ -240,6 +241,8 @@ function ArcCoil.fire(ownerId, startX, startY, endX, endY, turretComp)
         laserComp.endPos = {x = endX, y = endY}
         laserComp.color = {coilColor[1], coilColor[2], coilColor[3], coilColor[4]}
         laserComp.ownerId = ownerId
+        -- Record which turret module produced this beam for XP attribution
+        laserComp.weaponModule = (turretComp and turretComp.moduleName) or nil
         laserComp.segments = nil
         laserComp.chainSegments = nil
         laserComp.chainColor = nil
@@ -306,11 +309,16 @@ function ArcCoil.applyBeam(ownerId, startX, startY, targetX, targetY, dt, turret
             EntityHelpers.notifyAIDamage(hitId, ownerId)
         end
 
-        if damage > 0 then
+            if damage > 0 then
             local applied = math.min(damage, hull.current)
             hull.current = hull.current - applied
             EntityHelpers.notifyAIDamage(hitId, ownerId)
-            if hull.current <= 0 then SkillXP.awardXp("combat") end
+            -- Record last damager for ship hull so DestructionSystem can award XP
+            local weaponModuleName = (turretComp and turretComp.moduleName) or nil
+            EntityHelpers.recordLastDamager(hitId, ownerId, weaponModuleName)
+                if hull.current <= 0 then
+                    -- XP awarded by DestructionSystem when entity is destroyed
+                end
             debrisCreated = true
         end
 
@@ -324,7 +332,8 @@ function ArcCoil.applyBeam(ownerId, startX, startY, targetX, targetY, dt, turret
 
             local ownerEntity = ECS.getComponent(ownerId, "ControlledBy")
             if ownerEntity and ownerEntity.pilotId then
-                EntityHelpers.recordLastDamager(hitId, ownerEntity.pilotId, "arc_coil")
+                local weaponModuleName = (turretComp and turretComp.moduleName) or nil
+                EntityHelpers.recordLastDamager(hitId, ownerEntity.pilotId, weaponModuleName)
             end
 
             DebrisSystem.createDebris(primaryHit.intersection.x, primaryHit.intersection.y, 1, coilColor)
@@ -338,7 +347,9 @@ function ArcCoil.applyBeam(ownerId, startX, startY, targetX, targetY, dt, turret
             local scaledDamage = baseDamage * 0.1
             local damageApplied = math.min(scaledDamage, durability.current)
             durability.current = durability.current - damageApplied
-            if durability.current <= 0 then SkillXP.awardXp("salvaging") end
+            if durability.current <= 0 then
+                -- XP awarded by DestructionSystem on wreckage destruction
+            end
             DebrisSystem.createDebris(primaryHit.intersection.x, primaryHit.intersection.y, 1, coilColor)
             debrisCreated = true
         end
@@ -380,7 +391,9 @@ function ArcCoil.applyBeam(ownerId, startX, startY, targetX, targetY, dt, turret
                 local applied2 = math.min(damage2, chainHull.current)
                 chainHull.current = chainHull.current - applied2
                 EntityHelpers.notifyAIDamage(chainTargetId, ownerId)
-                if chainHull.current <= 0 then SkillXP.awardXp("combat") end
+                if chainHull.current <= 0 then
+                    -- XP awarded by DestructionSystem when chain target is destroyed
+                end
             end
             if chainPosComp then chainImpactPos = {x = chainPosComp.x, y = chainPosComp.y} end
 
@@ -393,7 +406,8 @@ function ArcCoil.applyBeam(ownerId, startX, startY, targetX, targetY, dt, turret
                 durability2.current = durability2.current - damageApplied2
                 local ownerEntity = ECS.getComponent(ownerId, "ControlledBy")
                 if ownerEntity and ownerEntity.pilotId then
-                    EntityHelpers.recordLastDamager(chainTargetId, ownerEntity.pilotId, "arc_coil")
+                    local weaponModuleName = (turretComp and turretComp.moduleName) or nil
+                    EntityHelpers.recordLastDamager(chainTargetId, ownerEntity.pilotId, weaponModuleName)
                 end
                 if chainPosComp then
                     chainImpactPos = {x = chainPosComp.x, y = chainPosComp.y}
@@ -408,7 +422,9 @@ function ArcCoil.applyBeam(ownerId, startX, startY, targetX, targetY, dt, turret
                 local scaledSecondary = secondaryDamage * 0.1
                 local damageApplied2 = math.min(scaledSecondary, durability2.current)
                 durability2.current = durability2.current - damageApplied2
-                if durability2.current <= 0 then SkillXP.awardXp("salvaging") end
+                if durability2.current <= 0 then
+                    -- XP awarded by DestructionSystem on wreckage destruction
+                end
                 if chainPosComp then
                     chainImpactPos = {x = chainPosComp.x, y = chainPosComp.y}
                     DebrisSystem.createDebris(chainPosComp.x, chainPosComp.y, 1, coilColor)

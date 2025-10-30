@@ -35,10 +35,13 @@ function RenderCanvas.setupCanvas()
     -- Nearly black, but with a hint of blue for space
     local backgroundColor = world and world.theme and world.theme.background or {0.04, 0.06, 0.10}
 
-    love.graphics.clear(table.unpack(backgroundColor))
+    -- Use safe unpacking in environments where table.unpack may be nil
+    local bc = backgroundColor or {0.04, 0.06, 0.10}
+    local br, bg, bb, ba = bc[1] or 0.04, bc[2] or 0.06, bc[3] or 0.10, bc[4] or 1
+    love.graphics.clear(br, bg, bb, ba)
 
     -- Fill background with world-specific space color to avoid residual artifacts
-    love.graphics.setColor(table.unpack(backgroundColor))
+    love.graphics.setColor(br, bg, bb, ba)
     love.graphics.rectangle("fill", 0, 0, canvasComp.width, canvasComp.height)
     love.graphics.setColor(1, 1, 1, 1)
 

@@ -5,7 +5,7 @@
 -- Handles display settings (FPS, resolution, window mode) for settings window
 
 local Constants = require('src.constants')
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 local TimeManager = require('src.time_manager')
 local Dropdown = require('src.ui.dropdown')
 local DisplayManager = require('src.display_manager')

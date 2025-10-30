@@ -3,7 +3,7 @@
 -- Start screen module
 
 local Constants = require('src.constants')
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 local ShaderManager = require('src.shader_manager')
 local HoverSound = require('src.ui.hover_sound')
 local start_screen = {}

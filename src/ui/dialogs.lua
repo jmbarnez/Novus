@@ -1,5 +1,5 @@
 ---@diagnostic disable: undefined-global
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 
 local Dialogs = {}
 Dialogs.confirmDialog = false

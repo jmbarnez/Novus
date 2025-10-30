@@ -9,6 +9,8 @@ local WreckageSystem = require('src.systems.wreckage') -- Import WreckageSystem
 local ItemDefs = require('src.items.item_loader')
 local AsteroidClusters = require('src.systems.asteroid_clusters')
 local SkillXP = require('src.systems.skill_xp')
+local TurretModuleLoader = require('src.turret_module_loader')
+local EventSystem = require('src.systems.event_system')
 local QuestUtils = require('src.quest_utils')
 local DeathOverlay = require('src.ui.death_overlay')
 
@@ -279,15 +281,48 @@ function DestructionSystem.update(dt)
 
             -- Award mining XP ONLY if asteroid was destroyed by player (has LastDamager and not enemy AI)
             if asteroid and lastDamager and not wasDestroyedByEnemy then
-                local xpAmount = asteroid.xpReward
-                SkillXP.awardXp("mining", xpAmount)
-                
+                local xpAmount = asteroid.xpReward or SkillXP.getXpGain("mining")
+                -- Deliver XP to the player who last damaged this asteroid
+                if lastDamager and lastDamager.pilotId then
+                    EventSystem.emitTo("SkillGain", lastDamager.pilotId, { skill = "mining", xp = xpAmount }, lastDamager.pilotId)
+                else
+                    EventSystem.emitGlobal("SkillGain", { skill = "mining", xp = xpAmount }, nil)
+                end
+
                 -- Update quest progress for mining
                 QuestUtils.updateMiningProgress()
             end
             
             -- Update combat quest progress if enemy was destroyed by player
             if ai and wasDestroyedByPlayer then
+                -- Determine skill to award based on weapon type recorded on LastDamager
+                local skillName = nil
+                local weaponType = lastDamager and lastDamager.weaponType or nil
+                if weaponType then
+                    -- Try to map weapon type/module name to a turret module definition
+                    local turretModule = TurretModuleLoader.getTurretModuleByName(weaponType)
+                    if turretModule and turretModule.skill then
+                        skillName = turretModule.skill
+                    end
+                end
+                if skillName then
+                    local xpAmount = SkillXP.getXpGain(skillName)
+                if lastDamager and lastDamager.pilotId then
+                    local skillGainData = { skill = skillName, xp = xpAmount }
+                        if weaponType then
+                            skillGainData.weaponType = weaponType
+                    end
+                    EventSystem.emitTo("SkillGain", lastDamager.pilotId, skillGainData, lastDamager.pilotId)
+                else
+                    EventSystem.emitGlobal("SkillGain", { skill = skillName, xp = xpAmount }, nil)
+                    end
+                end
+                if not skillName then
+                    -- Debug: log unresolved weapon->skill mapping to help diagnose missing XP
+                    local info = "[Destruction] No skill resolved for weaponType=" .. tostring(lastDamager and lastDamager.weaponType) .. " pilot=" .. tostring(lastDamager and lastDamager.pilotId)
+                    print(info)
+                end
+
                 -- Get the enemy type from the Wreckage component (which stores the ship design ID)
                 local wreckage = ECS.getComponent(entityId, "Wreckage")
                 local enemyType = wreckage and wreckage.sourceShip or nil

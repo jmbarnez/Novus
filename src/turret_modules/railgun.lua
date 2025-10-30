@@ -4,6 +4,7 @@ local Components = require('src.components')
 local Railgun = {
 	name = "railgun",
 	displayName = "Railgun Turret",
+	skill = "kinetic", -- Skill awarded for this turret
 	SLUG_SPEED = 2000,  -- Very fast but within CCD detection range
 	SLUG_LENGTH = 16,
 	SLUG_THICKNESS = 0.8,
@@ -85,7 +86,7 @@ function Railgun.fire(ownerId, startX, startY, endX, endY)
 		damageMultiplier = ownerDamageMultiplier.multiplier
 	end
 	
-	ECS.addComponent(slugId, "Projectile", {ownerId = ownerId, damage = Railgun.DPS * damageMultiplier, brittle = true, isMissile = false})
+	ECS.addComponent(slugId, "Projectile", {ownerId = ownerId, damage = Railgun.DPS * damageMultiplier, brittle = true, isMissile = false, weaponModule = Railgun.name})
 	ECS.addComponent(slugId, "ProjectileLifetime", {age = 0, maxAge = Railgun.SLUG_LIFETIME})
 	ECS.addComponent(slugId, "ShatterEffect", {
 		numPieces = 4,

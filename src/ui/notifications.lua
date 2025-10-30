@@ -2,7 +2,7 @@
 -- UI Notifications Module - Displays text notifications for items added to cargo
 -- Simple text popups that fade out over time
 
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 local Scaling = require('src.scaling')
 
 local Notifications = {
@@ -156,7 +156,7 @@ end
 function Notifications.draw()
     if #Notifications.notifications == 0 then return end
     local Scaling = require('src.scaling')
-    local Theme = require('src.ui.theme')
+    local Theme = require('src.ui.plasma_theme')
     local x = Scaling.scaleX(20)
     local notifWidth = Scaling.scaleSize(400)
     local normalFont = Theme.getFont(Scaling.scaleSize(Theme.fonts.normal))

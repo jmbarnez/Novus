@@ -2,7 +2,7 @@
 -- Quest Overlay - Minimal quest tracker positioned near the minimap
 -- Uses QuestSystem for data and HUD minimap layout for positioning
 
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 local BatchRenderer = require('src.ui.batch_renderer')
 local QuestSystem = require('src.systems.quest_system')
 local HUDMinimap = require('src.systems.hud.minimap')

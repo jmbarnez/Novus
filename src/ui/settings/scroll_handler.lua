@@ -4,7 +4,7 @@
 -- ============================================================================
 -- Handles scrolling functionality for settings window content
 
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 
 local ScrollHandler = {}
 

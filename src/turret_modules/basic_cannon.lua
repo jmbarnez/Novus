@@ -10,6 +10,7 @@ local SoundSystem = require('src.systems.sound')
 local BasicCannon = {
     name = "basic_cannon",
     displayName = "Basic Cannon",
+    skill = "kinetic", -- Skill awarded for this turret
     BALL_SPEED = 200,
     BALL_RADIUS = 4,
     BALL_COLOR = {1, 0.9, 0.2, 1},
@@ -88,7 +89,7 @@ function BasicCannon.fire(ownerId, startX, startY, endX, endY)
         damageMultiplier = ownerDamageMultiplier.multiplier
     end
     
-    ECS.addComponent(ballId, "Projectile", {ownerId = ownerId, damage = BasicCannon.DPS * damageMultiplier, brittle = true, isMissile = false})
+    ECS.addComponent(ballId, "Projectile", {ownerId = ownerId, damage = BasicCannon.DPS * damageMultiplier, brittle = true, isMissile = false, weaponModule = BasicCannon.name})
     ECS.addComponent(ballId, "ShatterEffect", {
         numPieces = 8,
         color = BasicCannon.BALL_COLOR

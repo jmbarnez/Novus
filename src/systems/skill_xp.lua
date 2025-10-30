@@ -23,6 +23,20 @@ local SKILL_CONFIG = {
     }
 }
 
+-- Add weapon-related skills
+SKILL_CONFIG.lasers = {
+    baseXp = 4,      -- base per kill or per action
+    scalePerLevel = 1
+}
+SKILL_CONFIG.missiles = {
+    baseXp = 12,
+    scalePerLevel = 3
+}
+SKILL_CONFIG.kinetic = {
+    baseXp = 6,
+    scalePerLevel = 2
+}
+
 -- Get the XP gain for a skill based on player's current level
 -- @param skillName string: The name of the skill ("mining", "salvaging", "combat", etc.)
 -- @return number: The amount of XP to award

@@ -2,7 +2,7 @@
 -- Universal UI Window Base Module
 -- Provides neon border, fade animation, elastic drag, and shared window logic
 
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 local Scaling = require('src.scaling')
 local Timer = love and love.timer or nil
 

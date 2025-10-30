@@ -4,7 +4,7 @@
 -- ============================================================================
 -- A horizontal slider UI component for adjusting numeric values
 
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 local Scaling = require('src.scaling')
 
 local Slider = {}

@@ -2,7 +2,7 @@
 -- Ship Stats Window - Dedicated view for detailed ship statistics
 
 local WindowBase = require('src.ui.window_base')
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 local ECS = require('src.ecs')
 local Constants = require('src.constants')
 local TurretRegistry = require('src.turret_registry')

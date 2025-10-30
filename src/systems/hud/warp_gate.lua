@@ -3,7 +3,7 @@
 -- Draws a screen-space repair UI when the player is near a broken warp gate
 
 local ECS = require('src.ecs')
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 local Scaling = require('src.scaling')
 
 local WarpGateHUD = {}

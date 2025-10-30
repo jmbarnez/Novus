@@ -7,6 +7,7 @@ local Components = require('src.components')
 local MissileLauncher = {
     name = "missile_launcher",
     displayName = "Missile Launcher",
+    skill = "missiles", -- Skill awarded for this turret
     MISSILE_SPEED = 50,
     MISSILE_RADIUS = 2,
     MISSILE_COLOR = {1, 0.3, 0.1, 1}, -- Orange-red
@@ -109,7 +110,7 @@ function MissileLauncher.fire(ownerId, startX, startY, endX, endY)
     end
     
     -- Mark as projectile
-    ECS.addComponent(missileId, "Projectile", {ownerId = ownerId, damage = MissileLauncher.DPS * damageMultiplier, brittle = false, isMissile = true})
+    ECS.addComponent(missileId, "Projectile", {ownerId = ownerId, damage = MissileLauncher.DPS * damageMultiplier, brittle = false, isMissile = true, weaponModule = MissileLauncher.name})
     
     -- Add homing component if target locked - use the player's locked/targeting target
     local homingTarget = preferredTarget

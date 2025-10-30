@@ -3,7 +3,7 @@
 -- Simple loading screen module
 
 local loading_screen = {}
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 
 local loadingText = "Loading..."
 
@@ -12,7 +12,8 @@ function loading_screen.draw()
     local width, height = love.graphics.getDimensions()
     local font = Theme.getFontBold(48)
     love.graphics.setFont(font)
-    love.graphics.setColor(table.unpack(Theme.colors.accent))
+    local c = Theme.colors.accent
+    love.graphics.setColor(c[1], c[2], c[3], c[4])
     love.graphics.printf(loadingText, 0, height/2 - font:getHeight()/2, width, "center")
 end
 

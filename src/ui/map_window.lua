@@ -4,7 +4,7 @@
 
 local ECS = require('src.ecs')
 local WindowBase = require('src.ui.window_base')
-local Theme = require('src.ui.theme')
+local Theme = require('src.ui.plasma_theme')
 local Scaling = require('src.scaling')
 local Constants = require('src.constants')
 
