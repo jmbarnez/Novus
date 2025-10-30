@@ -10,8 +10,13 @@ local EntityPool = require('src.entity_pool')
 local LaserAudio = require('src.turret_modules.laser_audio')
 
 local ArcCoil = {
+    id = "arc_coil_turret",
     name = "arc_coil",
     displayName = "Arc Coil",
+    description = "Emits a continuous lightning beam that chains to a nearby foe.",
+    stackable = false,
+    value = 260,
+    volume = 0.45,
     skill = "lasers",
     CONTINUOUS = true,
     HEAT_RATE = 3.5,

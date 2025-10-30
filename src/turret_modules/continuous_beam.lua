@@ -12,8 +12,13 @@ local EntityHelpers = require('src.entity_helpers')
 local LaserAudio = require('src.turret_modules.laser_audio')
 
 local ContinuousBeam = {
+    id = "continuous_beam_turret",
     name = "continuous_beam",
     displayName = "Continuous Beam Module",
+    description = "A versatile blue beam weapon capable of combat, mining, and salvaging.",
+    stackable = false,
+    value = 200,
+    volume = 0.2,
     skill = "lasers",
     CONTINUOUS = true,
     HEAT_RATE = 3.0,

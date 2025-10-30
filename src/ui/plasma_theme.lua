@@ -23,6 +23,8 @@ PlasmaTheme.colors = {
 }
 
 -- Backwards-compatibility aliases used by existing UI code
+PlasmaTheme.colors.success = PlasmaTheme.colors.success or PlasmaTheme.palette.success
+PlasmaTheme.colors.danger = PlasmaTheme.colors.danger or {1,0.25,0.25,1}
 PlasmaTheme.colors.accent = PlasmaTheme.palette.accent
 PlasmaTheme.colors.accentHover = PlasmaTheme.colors.textAccent or PlasmaTheme.palette.accent
 PlasmaTheme.colors.borderAlt = PlasmaTheme.colors.borderLight
@@ -36,6 +38,11 @@ do
     local a = s[4] or 1
     PlasmaTheme.colors.surfaceLight = PlasmaTheme.colors.surfaceLight or {r,g,b,a}
 end
+-- Color helpers must be defined before they're used below
+function PlasmaTheme.lerpColor(c1,c2,t) local r = c1[1]+(c2[1]-c1[1])*t; local g = c1[2]+(c2[2]-c1[2])*t; local b = c1[3]+(c2[3]-c1[3])*t; local a = c1[4]+(c2[4]-c1[4])*t; return {r,g,b,a} end
+function PlasmaTheme.withAlpha(color, alpha) return {color[1], color[2], color[3], alpha} end
+function PlasmaTheme.darken(color, amount) local factor = 1-amount; return { color[1]*factor, color[2]*factor, color[3]*factor, color[4] or 1 } end
+function PlasmaTheme.lighten(color, amount) return PlasmaTheme.lerpColor(color, {1,1,1, color[4] or 1}, amount) end
 PlasmaTheme.colors.successHover = PlasmaTheme.colors.success and PlasmaTheme.lighten(PlasmaTheme.colors.success, 0.15) or {0.3,0.9,0.3,1}
 PlasmaTheme.colors.dangerHover = PlasmaTheme.colors.danger and PlasmaTheme.lighten(PlasmaTheme.colors.danger, 0.15) or {1,0.45,0.45,1}
 -- Overlay/backdrop used by modal/pause overlays
@@ -106,10 +113,7 @@ end
 function PlasmaTheme.setFontScale(scale) PlasmaTheme.typography.baseScale = scale; PlasmaTheme._fontCache = { regular = {}, bold = {}, fallback = {} } end
 function PlasmaTheme.getFontSize(name) return PlasmaTheme.typography.sizes[name] or PlasmaTheme.typography.sizes.md end
 
-function PlasmaTheme.lerpColor(c1,c2,t) local r = c1[1]+(c2[1]-c1[1])*t; local g = c1[2]+(c2[2]-c1[2])*t; local b = c1[3]+(c2[3]-c1[3])*t; local a = c1[4]+(c2[4]-c1[4])*t; return {r,g,b,a} end
-function PlasmaTheme.withAlpha(color, alpha) return {color[1], color[2], color[3], alpha} end
-function PlasmaTheme.darken(color, amount) local factor = 1-amount; return { color[1]*factor, color[2]*factor, color[3]*factor, color[4] or 1 } end
-function PlasmaTheme.lighten(color, amount) return PlasmaTheme.lerpColor(color, {1,1,1, color[4] or 1}, amount) end
+
 
 function PlasmaTheme.getLuminance(color)
     local r = color[1] <= 0.03928 and color[1]/12.92 or math.pow((color[1]+0.055)/1.055, 2.4)

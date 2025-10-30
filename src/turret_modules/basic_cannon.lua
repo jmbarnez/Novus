@@ -8,8 +8,13 @@ local DebrisSystem = require('src.systems.debris')
 local SoundSystem = require('src.systems.sound')
 
 local BasicCannon = {
+    id = "basic_cannon_turret",
     name = "basic_cannon",
     displayName = "Basic Cannon",
+    description = "A simple kinetic cannon that fires yellow projectiles.",
+    stackable = false,
+    value = 80,
+    volume = 0.3,
     skill = "kinetic", -- Skill awarded for this turret
     BALL_SPEED = 200,
     BALL_RADIUS = 4,

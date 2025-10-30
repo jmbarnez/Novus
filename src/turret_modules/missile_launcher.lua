@@ -5,8 +5,13 @@ local ECS = require('src.ecs')
 local Components = require('src.components')
 
 local MissileLauncher = {
+    id = "missile_launcher_turret",
     name = "missile_launcher",
     displayName = "Missile Launcher",
+    description = "Fires homing missiles that track locked targets. Requires target lock to guide, flies straight otherwise.",
+    stackable = false,
+    value = 200,
+    volume = 0.5,
     skill = "missiles", -- Skill awarded for this turret
     MISSILE_SPEED = 50,
     MISSILE_RADIUS = 2,

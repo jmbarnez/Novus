@@ -1,9 +1,15 @@
 local ECS = require('src.ecs')
 local Components = require('src.components')
 
+
 local Railgun = {
+	id = "railgun",
 	name = "railgun",
 	displayName = "Railgun Turret",
+	description = "A high-velocity railgun turret. Punches through armor.",
+	stackable = false,
+	value = 200,
+	volume = 0.4,
 	skill = "kinetic", -- Skill awarded for this turret
 	SLUG_SPEED = 2000,  -- Very fast but within CCD detection range
 	SLUG_LENGTH = 16,
