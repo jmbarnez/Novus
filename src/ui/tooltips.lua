@@ -7,6 +7,16 @@ local Scaling = require('src.scaling')
 
 local Tooltips = {}
 
+-- Helper: safe RGBA extractor to avoid table.unpack usage across different Lua environments
+local function getRGBA(color, alphaMul)
+    if not color then return 1,1,1,1 end
+    local r = color[1] or 1
+    local g = color[2] or 1
+    local b = color[3] or 1
+    local a = (color[4] or 1) * (alphaMul or 1)
+    return r, g, b, a
+end
+
 -- Draw an item tooltip
 function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
     if not itemDef then return end
@@ -88,6 +98,7 @@ function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
         maxWidth = math.max(maxWidth, width)
     end
     
+    -- Use padding and corner radius from Theme so styling is consistent
     local padding = Scaling.scaleSize(Theme.spacing.sm)
     local tooltipW = maxWidth + padding * 2
     local tooltipH = #lines * lineHeight + padding * 2
@@ -115,28 +126,37 @@ function Tooltips.drawItemTooltip(itemId, itemDef, count, mouseX, mouseY)
             tooltipY = mouseY + 8
     end
     
-    -- Draw background
-    love.graphics.setColor(table.unpack(Theme.colors.surfaceAlt))
-    love.graphics.rectangle("fill", tooltipX - Scaling.scaleX(2), tooltipY - Scaling.scaleY(2), tooltipW + Scaling.scaleX(4), tooltipH + Scaling.scaleY(4))
-    
-    -- Draw thick plasma-style border
-    love.graphics.setColor(table.unpack(Theme.colors.border))
+    -- Draw tiny drop shadow and background box (use explicit RGBA to avoid unpack)
+    local boxX, boxY = tooltipX, tooltipY
+    local boxW, boxH = tooltipW, tooltipH
+    local shadowOffset = Scaling.scaleSize(Theme.elevation and Theme.elevation.low or 2)
+    local shadowR, shadowG, shadowB, shadowA = 0,0,0,0.12
+    love.graphics.setColor(shadowR, shadowG, shadowB, shadowA)
+    local cornerRadius = Scaling.scaleSize(Theme.window and Theme.window.cornerRadius or 0)
+    love.graphics.rectangle("fill", boxX + shadowOffset, boxY + shadowOffset, boxW, boxH, cornerRadius, cornerRadius)
+
+    -- Background
+    love.graphics.setColor(getRGBA(Theme.colors.surfaceAlt))
+    love.graphics.rectangle("fill", boxX, boxY, boxW, boxH, cornerRadius, cornerRadius)
+
+    -- Border
+    love.graphics.setColor(getRGBA(Theme.colors.border))
     love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", tooltipX - Scaling.scaleX(2), tooltipY - Scaling.scaleY(2), tooltipW + Scaling.scaleX(4), tooltipH + Scaling.scaleY(4))
+    love.graphics.rectangle("line", boxX, boxY, boxW, boxH, cornerRadius, cornerRadius)
     love.graphics.setLineWidth(1)
     
     -- Draw text
-    love.graphics.setColor(table.unpack(Theme.colors.text))
+    love.graphics.setColor(getRGBA(Theme.colors.text))
     local textY = tooltipY + padding
     
     for i, line in ipairs(lines) do
         if i == 1 then
             -- Item name in accent color
-            love.graphics.setColor(table.unpack(Theme.colors.accent))
+            love.graphics.setColor(getRGBA(Theme.colors.accent))
         elseif line == "" then
             textY = textY + lineHeight
         else
-            love.graphics.setColor(table.unpack(Theme.colors.text))
+            love.graphics.setColor(getRGBA(Theme.colors.text))
         end
         
         if line ~= "" then

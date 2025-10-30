@@ -402,7 +402,7 @@ local function applyProjectileDamage(projectileId, targetId)
             if proj.weaponModule or proj.weaponType then
                 damageToApply = damage * 4.0
             else
-                damageToApply = damage * 0.1
+            damageToApply = damage * 0.1
             end
         end
         durability.current = durability.current - damageToApply

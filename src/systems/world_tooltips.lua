@@ -555,6 +555,11 @@ function WorldTooltips.drawResources(bx, by, th, boxW, boxH, data)
         
         local buttonX = bx + (boxW - buttonW) / 2
         local buttonY = by + boxH - buttonH - 8
+        -- Stabilize hover sound key by rounding to integers to avoid per-frame drift
+        local iButtonX = math.floor(buttonX + 0.5)
+        local iButtonY = math.floor(buttonY + 0.5)
+        local iButtonW = math.floor(buttonW + 0.5)
+        local iButtonH = math.floor(buttonH + 0.5)
 
         -- Draw using theme button for consistent style and hover
         local mx, my = love.mouse.getPosition()
@@ -563,21 +568,21 @@ function WorldTooltips.drawResources(bx, by, th, boxW, boxH, data)
         local isHovered = false
         if renderMode == "hud" then
             local uiMx, uiMy = Scaling.toUI(mx, my)
-            isHovered = uiMx and uiMy and uiMx >= buttonX and uiMx <= buttonX + buttonW and uiMy >= buttonY and uiMy <= buttonY + buttonH
+            isHovered = uiMx and uiMy and uiMx >= iButtonX and uiMx <= iButtonX + iButtonW and uiMy >= iButtonY and uiMy <= iButtonY + iButtonH
         else
             local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
             if #cameraEntities > 0 then
                 local cameraComp = ECS.getComponent(cameraEntities[1], "Camera")
                 local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
                 local wx, wy = Scaling.toWorld(mx, my, cameraComp, cameraPos)
-                isHovered = mx and my and wx >= buttonX and wx <= buttonX + buttonW and wy >= buttonY and wy <= buttonY + buttonH
+                isHovered = mx and my and wx >= iButtonX and wx <= iButtonX + iButtonW and wy >= iButtonY and wy <= iButtonY + iButtonH
             end
         end
         -- Use red hover for disabled buttons, green for enabled
         local buttonColor = data.buttonEnabled and Theme.colors.success or Theme.colors.surfaceAlt
         local buttonHoverColor = data.buttonEnabled and Theme.colors.successHover or Theme.colors.dangerHover
         Theme.drawButton(
-            buttonX, buttonY, buttonW, buttonH, data.buttonText, isHovered,
+            iButtonX, iButtonY, iButtonW, iButtonH, data.buttonText, isHovered,
             buttonColor,
             buttonHoverColor,
             {textColor = data.buttonEnabled and Theme.colors.text or Theme.colors.textMuted, font = buttonFont}
