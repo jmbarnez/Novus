@@ -488,6 +488,17 @@ function CargoPanel.mousereleased(shipWin, x, y, button)
             return
         end
 
+        -- Check if drop is within cargo window bounds
+        local windowX, windowY = shipWin.position.x, shipWin.position.y
+        local windowW, windowH = shipWin.width, shipWin.height
+        local isInCargoWindow = x >= windowX and x <= windowX + windowW and y >= windowY and y <= windowY + windowH
+
+        -- Only handle drops within cargo window (let loadout handle its own drops)
+        if not isInCargoWindow then
+            -- Not our window, don't handle it - let loadout window handle if it's on that window
+            return
+        end
+
         -- Check if dropped on cargo grid slot (same window or cross-window)
         local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
         if #pilotEntities == 0 then
@@ -508,29 +519,16 @@ function CargoPanel.mousereleased(shipWin, x, y, button)
             return
         end
 
-        -- Check if drop is within cargo window bounds
-        local windowX, windowY = shipWin.position.x, shipWin.position.y
-        local windowW, windowH = shipWin.width, shipWin.height
-        local isInCargoWindow = x >= windowX and x <= windowX + windowW and y >= windowY and y <= windowY + windowH
-
         -- Handle drops from equipment onto cargo window
-        if isInCargoWindow and draggedItem.fromEquipment then
+        if draggedItem.fromEquipment then
             -- If dropped on cargo window, unequip (which already adds to cargo)
             if draggedItem.slotName then
                 local LoadoutPanel = require('src.ui.loadout_panel')
                 LoadoutPanel.unequipModule(shipWin, draggedItem.slotName, draggedItem.itemId)
             end
         elseif draggedItem.fromCargo then
-            -- If dropped outside cargo window, item is discarded
-            if not isInCargoWindow then
-                local itemId = draggedItem.itemId
-                if cargo.items[itemId] and cargo.items[itemId] > 0 then
-                    cargo.items[itemId] = cargo.items[itemId] - 1
-                    if cargo.items[itemId] <= 0 then
-                        cargo.items[itemId] = nil
-                    end
-                end
-            end
+            -- If dropped on cargo window from cargo, do nothing (item stays in cargo)
+            -- Only discard if dropped outside both windows, which loadout will handle
         end
 
         DragState.endDrag()

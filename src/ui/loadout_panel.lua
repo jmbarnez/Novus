@@ -158,15 +158,50 @@ function LoadoutPanel.drawEquipmentSlot(shipWin, slotName, equippedItemId, x, y,
     shipWin.moduleSubslots = shipWin.moduleSubslots or {}
 
     local isDropZone = false
+    local isCompatible = false
+    local isIncompatible = false
     if DragState.hasDrag() then
         local draggedItem = DragState.getDragItem()
         if draggedItem and draggedItem.itemDef then
             local itemDef = draggedItem.itemDef
-            if (slotName == "Turret Module" and itemDef.type == "turret") or
-               (slotName == "Defensive Module" and string.match(draggedItem.itemId, "shield")) or
-               (slotName == "Generator Module" and itemDef.type == "generator") then
-                if mx >= x and mx <= x + width and my >= y and my <= y + slotSize then
-                    isDropZone = true
+            -- Only show compatibility hints when dragging from cargo (not from equipment)
+            if draggedItem.fromCargo then
+                -- Check if this item is compatible with this slot
+                local compatible = false
+                if slotName == "Turret Module" and itemDef.type == "turret" then
+                    compatible = true
+                elseif slotName == "Defensive Module" and (string.match(draggedItem.itemId, "shield") or itemDef.type == "shield") then
+                    compatible = true
+                elseif slotName == "Generator Module" and itemDef.type == "generator" then
+                    compatible = true
+                end
+                
+                -- Check level requirement for turrets
+                if compatible and slotName == "Turret Module" and itemDef.module and itemDef.module.levelRequirement then
+                    local LevelUtils = require('src.level_utils')
+                    local playerLevelData = LevelUtils.getPlayerLevelData()
+                    local playerLevel = playerLevelData and playerLevelData.level or 1
+                    if playerLevel < itemDef.module.levelRequirement then
+                        compatible = false -- Level requirement not met
+                    end
+                end
+                
+                if compatible then
+                    isCompatible = true
+                    if mx >= x and mx <= x + width and my >= y and my <= y + slotSize then
+                        isDropZone = true
+                    end
+                else
+                    isIncompatible = true
+                end
+            elseif draggedItem.fromEquipment then
+                -- When dragging from equipment, only highlight on hover
+                if (slotName == "Turret Module" and itemDef.type == "turret") or
+                   (slotName == "Defensive Module" and string.match(draggedItem.itemId, "shield")) or
+                   (slotName == "Generator Module" and itemDef.type == "generator") then
+                    if mx >= x and mx <= x + width and my >= y and my <= y + slotSize then
+                        isDropZone = true
+                    end
                 end
             end
         end
@@ -184,14 +219,32 @@ function LoadoutPanel.drawEquipmentSlot(shipWin, slotName, equippedItemId, x, y,
         }
     end
 
+    -- Set slot background color based on drag state
     if isDropZone then
+        -- Green highlight when hovering over compatible slot
         love.graphics.setColor(0.3, 0.8, 0.3, alpha * 0.5)
+    elseif isCompatible then
+        -- Green tint for compatible slots
+        love.graphics.setColor(0.2, 0.6, 0.2, alpha * 0.3)
+    elseif isIncompatible then
+        -- Red tint for incompatible slots
+        love.graphics.setColor(0.6, 0.2, 0.2, alpha * 0.3)
     else
         love.graphics.setColor(Theme.colors.surface[1], Theme.colors.surface[2], Theme.colors.surface[3], alpha * 0.8)
     end
     love.graphics.rectangle('fill', x, y, slotSize, slotSize, 4, 4)
 
-    local borderColor = isDropZone and {0.3, 1, 0.3, alpha} or {Theme.colors.borderAlt[1], Theme.colors.borderAlt[2], Theme.colors.borderAlt[3], alpha}
+    -- Set border color based on drag state
+    local borderColor
+    if isDropZone then
+        borderColor = {0.3, 1, 0.3, alpha}
+    elseif isCompatible then
+        borderColor = {0.2, 0.8, 0.2, alpha * 0.8}
+    elseif isIncompatible then
+        borderColor = {0.8, 0.2, 0.2, alpha * 0.8}
+    else
+        borderColor = {Theme.colors.borderAlt[1], Theme.colors.borderAlt[2], Theme.colors.borderAlt[3], alpha}
+    end
     love.graphics.setColor(borderColor)
     love.graphics.rectangle('line', x, y, slotSize, slotSize, 4, 4)
 
@@ -448,6 +501,29 @@ function LoadoutPanel.mousereleased(shipWin, x, y, button)
             return
         end
 
+        -- Check if drop is within loadout window bounds
+        local windowX, windowY = shipWin.position.x, shipWin.position.y
+        local windowW, windowH = shipWin.width, shipWin.height
+        local isInLoadoutWindow = x >= windowX and x <= windowX + windowW and y >= windowY and y <= windowY + windowH
+
+        -- Check if drop is on cargo window (let cargo handle it if so)
+        local CargoWindow = require('src.ui.cargo_window')
+        local cargoWindow = CargoWindow
+        local cargoOpen = cargoWindow:getOpen()
+        local isInCargoWindow = false
+        if cargoOpen then
+            local cargoX, cargoY = cargoWindow.position.x, cargoWindow.position.y
+            local cargoW, cargoH = cargoWindow.width, cargoWindow.height
+            isInCargoWindow = x >= cargoX and x <= cargoX + cargoW and y >= cargoY and y <= cargoY + cargoH
+        end
+
+        -- Only handle drops within loadout window or outside both windows
+        -- If on cargo window, let cargo handle it
+        if isInCargoWindow and not isInLoadoutWindow then
+            -- Drop is on cargo window, let cargo handle it
+            return
+        end
+
         local controllers = ECS.getEntitiesWith({'InputControlled', 'Player'})
         if #controllers == 0 then
             DragState.endDrag()
@@ -538,29 +614,11 @@ function LoadoutPanel.mousereleased(shipWin, x, y, button)
         end
 
         if not equippedToSlot then
-            -- Check if dropped on cargo window (cross-window drag)
-            local CargoWindow = require('src.ui.cargo_window')
-            local cargoWindow = CargoWindow
-            local cargoOpen = cargoWindow:getOpen()
-            local isInCargoWindow = false
-            if cargoOpen then
-                local cargoX, cargoY = cargoWindow.position.x, cargoWindow.position.y
-                local cargoW, cargoH = cargoWindow.width, cargoWindow.height
-                isInCargoWindow = x >= cargoX and x <= cargoX + cargoW and y >= cargoY and y <= cargoY + cargoH
-            end
-
-            local windowX, windowY = shipWin.position.x, shipWin.position.y
-            local windowW, windowH = shipWin.width, shipWin.height
-            local isOutsideLoadoutWindow = x < windowX or x > windowX + windowW or y < windowY or y > windowY + windowH
+            local isOutsideLoadoutWindow = not isInLoadoutWindow
 
             if draggedItem.fromEquipment then
-                -- If dropped on cargo window, unequip and add to cargo
-                if isInCargoWindow then
-                    if draggedItem.slotName then
-                        LoadoutPanel.unequipModule(shipWin, draggedItem.slotName, draggedItem.itemId)
-                        cargo:addItem(draggedItem.itemId, 1)
-                    end
-                elseif not isOutsideLoadoutWindow then
+                -- We already returned early if dropped on cargo window, so handle unequip here
+                if not isOutsideLoadoutWindow then
                     -- Dropped back in loadout window, just unequip
                     if draggedItem.slotName then
                         LoadoutPanel.unequipModule(shipWin, draggedItem.slotName, draggedItem.itemId)
@@ -569,11 +627,22 @@ function LoadoutPanel.mousereleased(shipWin, x, y, button)
                     -- Dropped outside both windows, unequip and discard
                     if draggedItem.slotName then
                         LoadoutPanel.unequipModule(shipWin, draggedItem.slotName, draggedItem.itemId)
+                        -- UnequipModule already adds to cargo, so remove it to discard
+                        local itemId = draggedItem.itemId
+                        if cargo.items[itemId] and cargo.items[itemId] > 0 then
+                            cargo.items[itemId] = cargo.items[itemId] - 1
+                            if cargo.items[itemId] <= 0 then
+                                cargo.items[itemId] = nil
+                            end
+                        end
                     end
                 end
             elseif draggedItem.fromCargo then
-                -- If dropped outside loadout window and not on cargo window, discard from cargo
-                if isOutsideLoadoutWindow and not isInCargoWindow then
+                -- If dropped outside loadout window, discard from cargo
+                -- BUT: Only discard if equipModule actually failed (equippedToSlot is false)
+                -- If equipModule failed but we're still in loadout window, keep item in cargo
+                -- (We already returned early if dropped ONLY on cargo window, so isInCargoWindow check not needed)
+                if isOutsideLoadoutWindow then
                     local itemId = draggedItem.itemId
                     if cargo.items[itemId] and cargo.items[itemId] > 0 then
                         cargo.items[itemId] = cargo.items[itemId] - 1
@@ -582,6 +651,8 @@ function LoadoutPanel.mousereleased(shipWin, x, y, button)
                         end
                     end
                 end
+                -- If equipModule failed but we dropped on the loadout window (even if not on a slot),
+                -- the item should stay in cargo - do nothing
             end
         end
 

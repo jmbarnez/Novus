@@ -144,7 +144,17 @@ PlasmaTheme.variants = {
 }
 
 local function applyDark()
-    -- Keep existing defined colors for dark; nothing to do here
+    -- Reset colors back to dark theme values
+    PlasmaTheme.colors.bgPureBlack = {0.02,0.02,0.1,1}
+    PlasmaTheme.colors.surface     = {0.06,0.06,0.06,1}
+    PlasmaTheme.colors.surfaceAlt  = {0.08,0.08,0.08,1}
+    PlasmaTheme.colors.border      = {0.04,0.04,0.04,1}
+    PlasmaTheme.colors.borderLight = {0.15,0.15,0.15,1}
+    PlasmaTheme.colors.text        = {0.95,0.95,0.95,1}
+    PlasmaTheme.colors.textSecondary = {0.75,0.75,0.75,1}
+    PlasmaTheme.colors.textMuted   = {0.55,0.55,0.55,1}
+    -- Keep accent/hover consistent
+    PlasmaTheme.colors.outlineBlack = {0,0,0,1}
 end
 
 local function applyLight()
