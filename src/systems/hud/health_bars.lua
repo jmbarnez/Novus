@@ -1,0 +1,170 @@
+---@diagnostic disable: undefined-global
+-- Health Bars Module
+-- Shows health (hull/shield) bars above any entity that has Hull or Shield
+
+local ECS = require('src.ecs')
+local Scaling = require('src.scaling')
+local PlasmaTheme = require('src.ui.plasma_theme')
+local BatchRenderer = require('src.ui.batch_renderer')
+
+local HealthBars = {}
+
+-- Cached font for level indicators (create once, reuse forever)
+local levelFont = love.graphics.newFont(8)
+levelFont:setFilter("nearest", "nearest")
+
+function HealthBars.draw(viewportWidth, viewportHeight)
+    local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+    local camera = nil
+    local cameraPos = nil
+    if #cameraEntities > 0 then
+        camera = ECS.getComponent(cameraEntities[1], "Camera")
+        cameraPos = ECS.getComponent(cameraEntities[1], "Position")
+    end
+    
+    if not camera or not cameraPos then return end
+    
+    -- Query all renderable entities with a Position, then filter for Hull or Shield
+    local renderableEntities = ECS.getEntitiesWith({"Position", "Renderable"})
+    
+    -- Extract colors for batching
+    local bgColor = PlasmaTheme.colors.healthBarBg
+    local hullColor = PlasmaTheme.colors.healthBarFill
+    local shieldColor = PlasmaTheme.colors.shieldBarFill
+    local outlineColor = PlasmaTheme.colors.outlineBlack
+    local outlineWidth = PlasmaTheme.colors.outlineThick
+    
+    -- Determine player's level (pilot entity has the Player tag)
+    local playerLevel = 1
+    local playerEntities = ECS.getEntitiesWith({"Player", "Level"})
+    if #playerEntities > 0 then
+        local pl = ECS.getComponent(playerEntities[1], "Level")
+        if pl and pl.level then playerLevel = pl.level end
+    end
+
+    for _, entityId in ipairs(renderableEntities) do
+        -- Skip stations (stations are not enemy ships even if they have Hull)
+        if ECS.hasComponent(entityId, "Station") or ECS.hasComponent(entityId, "StationDetails") then
+            goto continue_ship
+        end
+        -- Skip player drone
+        if ECS.hasComponent(entityId, "ControlledBy") then
+            local controlled = ECS.getComponent(entityId, "ControlledBy")
+            if controlled and controlled.pilotId and ECS.hasComponent(controlled.pilotId, "Player") then
+                goto continue_ship
+            end
+        end
+        -- Skip wreckage pieces - wreckage uses durability bars (via WreckageBars), not health bars
+        -- Ships have Wreckage component for sourceShip storage, but also have AI component
+        -- Actual wreckage pieces have Wreckage but NO AI component
+        local hasWreckage = ECS.hasComponent(entityId, "Wreckage")
+        local hasAI = ECS.hasComponent(entityId, "AI")
+        if hasWreckage and not hasAI then
+            goto continue_ship
+        end
+        
+        local position = ECS.getComponent(entityId, "Position")
+        local hull = ECS.getComponent(entityId, "Hull")
+        local shield = ECS.getComponent(entityId, "Shield")
+        local renderable = ECS.getComponent(entityId, "Renderable")
+        local level = ECS.getComponent(entityId, "Level")
+        -- Only show bars for entities that actually have hull or shield
+        if not (hull or shield) then goto continue_ship end
+
+        -- Only render when either hull or shield is not full
+        local hullNotFull = false
+        if hull and hull.max and hull.max > 0 then
+            hullNotFull = (hull.current or 0) < (hull.max or 0)
+        end
+        local shieldNotFull = false
+        if shield and shield.max and shield.max > 0 then
+            shieldNotFull = (shield.current or 0) < (shield.max or 0)
+        end
+        if not (hullNotFull or shieldNotFull) then
+            goto continue_ship
+        end
+        
+        if position and renderable then
+            local canvasX = (position.x - cameraPos.x) * camera.zoom
+            local canvasY = (position.y - cameraPos.y) * camera.zoom
+
+            -- Calculate Y offset for health bar (in world units, converted to canvas units via zoom)
+            local worldOffsetY = (renderable.radius or 15) + 10  -- world units above entity
+            local canvasOffsetY = worldOffsetY * camera.zoom  -- convert to canvas units
+
+            -- Position bars in canvas coordinates (since we're rendering to canvas)
+            local barWidth = 32
+            local barHeight = 5
+            local levelBoxSize = 12
+            local levelBoxSpacing = 4  -- Space between level box and health bar
+
+            -- Center the health bar at canvasX, then add level box to the left
+            local barX = canvasX - barWidth / 2
+            local barY = canvasY - canvasOffsetY
+            local levelBoxX = barX - levelBoxSpacing - levelBoxSize
+            local levelBoxY = canvasY - canvasOffsetY
+
+            -- Level indicator (always render, default to level 1 if no level component)
+            local currentLevel = level and level.level or 1
+
+            -- Choose level box color relative to player level:
+            -- green if enemy < player, yellow if equal, red if enemy > player
+            local lr, lg, lb, la = 1, 0, 0, 0.9 -- default red
+            if currentLevel < playerLevel then
+                lr, lg, lb = 0, 1, 0 -- green
+            elseif currentLevel == playerLevel then
+                lr, lg, lb = 1, 1, 0 -- yellow
+            else
+                lr, lg, lb = 1, 0, 0 -- red
+            end
+
+            -- Level box background
+            BatchRenderer.queueRect(levelBoxX, levelBoxY, levelBoxSize, levelBoxSize, lr, lg, lb, la, 2)
+
+            -- Red level box outline
+            BatchRenderer.queueRectLine(levelBoxX, levelBoxY, levelBoxSize, levelBoxSize, 0, 0, 0, 1, 2, 2)
+
+            -- Level number text
+            local levelText = tostring(currentLevel)
+            local textWidth = levelFont:getWidth(levelText)
+            local textHeight = levelFont:getHeight()
+            local textX = levelBoxX + (levelBoxSize - textWidth) / 2
+            local textY = levelBoxY + (levelBoxSize - textHeight) / 2
+
+            -- Black text for contrast against colored background
+            BatchRenderer.queueText(levelText, textX, textY, levelFont, 0, 0, 0, 1)
+
+            -- Background
+            BatchRenderer.queueRect(barX, barY, barWidth, barHeight, bgColor[1], bgColor[2], bgColor[3], bgColor[4], 2)
+
+            -- Hull fill with green-to-red gradient based on health
+            local hullRatio = math.max(0, math.min(1, (hull and (hull.current or 0) or 0) / (hull and (hull.max or 1) or 1)))
+            local fillWidth = math.max(0, (barWidth - 2) * hullRatio)
+            if fillWidth > 0 then
+                -- Green to red gradient: green at 100%, red at 0%
+                local r = 1 - hullRatio  -- Red component increases as health decreases
+                local g = hullRatio      -- Green component decreases as health decreases
+                local b = 0              -- No blue component
+                BatchRenderer.queueRect(barX + 1, barY + 1, fillWidth, barHeight - 2, r, g, b, 1, 1)
+            end
+
+            -- Shield overlay (if present) - keep cyan color
+            if shield and shield.max > 0 then
+                local sRatio = math.max(0, math.min(1, (shield.current or 0) / (shield.max or 1)))
+                local shieldWidth = math.max(0, (barWidth - 2) * sRatio)
+                if shieldWidth > 0 then
+                    BatchRenderer.queueRect(barX + 1, barY + 1, shieldWidth, barHeight - 2, shieldColor[1], shieldColor[2], shieldColor[3], shieldColor[4], 1)
+                end
+            end
+
+            -- Outline
+            BatchRenderer.queueRectLine(barX, barY, barWidth, barHeight, outlineColor[1], outlineColor[2], outlineColor[3], outlineColor[4], outlineWidth, 2)
+        end
+        
+        ::continue_ship::
+    end
+end
+
+return HealthBars
+
+

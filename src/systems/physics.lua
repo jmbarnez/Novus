@@ -126,50 +126,19 @@ local PhysicsSystem = {
             polygonShape.rotation = polygonShape.rotation + (angularVelocity.omega or 0) * dt
             ::continue_angular::
         end
-
-        -- Shield regeneration (per-entity)
-        local shieldEntities = ECS.getEntitiesWith({"Shield"})
-        for _, entityId in ipairs(shieldEntities) do
-            local shield = ECS.getComponent(entityId, "Shield")
-            if not shield then goto continue_shield end
-            
-            -- Count down regen delay
-            if shield.regenTimer and shield.regenTimer > 0 then
-                shield.regenTimer = shield.regenTimer - dt
-            else
-                if shield.regen and shield.regen > 0 and shield.current < shield.max then
-                    -- Check if we have energy to regenerate shields
-                    local energy = ECS.getComponent(entityId, "Energy")
-                    local EnergySystem = require('src.systems.energy')
-                    
-                    if energy and EnergySystem.consume(energy, EnergySystem.CONSUMPTION.shield_regen * dt) then
-                        -- Shield regen slows down as it approaches max
-                        -- Scale factor: 1.0 at 0%, ~0.3 at 90%, ~0.1 at 99%
-                        local shieldPercent = shield.current / shield.max
-                        local slowdownFactor = 1.0 - (shieldPercent * shieldPercent * 0.9)  -- Quadratic slowdown
-                        
-                        local regenAmount = shield.regen * dt * slowdownFactor
-                        shield.current = math.min(shield.max, shield.current + regenAmount)
-                    end
-                end
-            end
-            ::continue_shield::
-        end
     end,
 
     takeDamage = function(entityId, amount)
         -- Apply damage to shield first, then hull
-        local shield = ECS.getComponent(entityId, "Shield")
+        local ShieldSystem = require('src.systems.shield')
         local hull = ECS.getComponent(entityId, "Hull")
-        local damage = amount
-        if shield and shield.current > 0 then
-            local remaining = shield.current - damage
-            shield.current = math.max(0, remaining)
-            damage = math.max(0, -remaining)
-            shield.regenTimer = shield.regenDelay or 0
-        end
-        if damage > 0 and hull then
-            hull.current = math.max(0, hull.current - damage)
+        
+        -- Apply damage to shield, get remaining damage
+        local remainingDamage = ShieldSystem.takeDamage(entityId, amount)
+        
+        -- Apply remaining damage to hull
+        if remainingDamage > 0 and hull then
+            hull.current = math.max(0, hull.current - remainingDamage)
         end
     end
 }

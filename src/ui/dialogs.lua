@@ -21,7 +21,7 @@ function Dialogs.drawConfirmDialog()
     if not Dialogs.confirmDialog then return end
     local lg = love.graphics
     local sw, sh = lg.getWidth(), lg.getHeight()
-    local font = Theme.getFontBold(16)
+    local font = Theme.getFontBold(Theme.fonts.normal) -- 14px for dialog text
     lg.setFont(font)
     local padding = Theme.spacing.sm * 2
 

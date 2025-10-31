@@ -23,6 +23,9 @@ local BasicCannon = {
     BALL_LIFETIME = 6, -- Seconds before projectile shatters
     COOLDOWN = 2, -- Time between shots in seconds
     DPS = 40, -- Damage per shot (increased from 10)
+    -- Aim spread (radians): maximum random angular deviation applied to shots
+    -- Small values = accurate; larger values = more inaccuracy
+    AIM_SPREAD = math.rad(3),
     design = {
         shape = "custom",
         size = 16,
@@ -42,6 +45,14 @@ local BasicCannon = {
 local cannonSoundName = "cannon_shot"
 local cannonSoundPath = "assets/sounds/cannon_shot.flac"
 local attemptedSoundLoad = false
+
+-- Impact SFX mapping by surface type (keys: "hull", "rock", "shield", "default")
+BasicCannon.impactSfx = {
+    hull = "cannon_hit_hull",
+    rock = "cannonball_collide",
+    shield = "cannon_hit_shield",
+    default = "cannonball_collide"
+}
 
 local function ensureSoundLoaded()
     if attemptedSoundLoad then
@@ -63,13 +74,19 @@ local function ensureSoundLoaded()
 end
 
 function BasicCannon.fire(ownerId, startX, startY, endX, endY)
-    -- Calculate direction
+    -- Calculate direction with optional aim inaccuracy
     local dx = endX - startX
     local dy = endY - startY
     local dist = math.sqrt(dx * dx + dy * dy)
     if dist == 0 then return end
-    local dirX = dx / dist
-    local dirY = dy / dist
+    -- Base aiming angle
+    local baseAngle = math.atan2(dy, dx)
+    -- Apply random spread (in radians) to introduce inaccuracy
+    local spread = BasicCannon.AIM_SPREAD or 0
+    local angleOffset = (math.random() - 0.5) * spread
+    local aimAngle = baseAngle + angleOffset
+    local dirX = math.cos(aimAngle)
+    local dirY = math.sin(aimAngle)
 
     -- Offset spawn position to barrel end (away from ship center)
     -- Barrel extends from ship center by approximately the ship's radius
@@ -95,7 +112,16 @@ function BasicCannon.fire(ownerId, startX, startY, endX, endY)
         damageMultiplier = ownerDamageMultiplier.multiplier
     end
     
-    ECS.addComponent(ballId, "Projectile", {ownerId = ownerId, damage = BasicCannon.DPS * damageMultiplier, brittle = true, isMissile = false, weaponModule = BasicCannon.name})
+    ECS.addComponent(ballId, "Projectile", {
+        ownerId = ownerId,
+        damage = BasicCannon.DPS * damageMultiplier,
+        brittle = false,
+        isMissile = false,
+        weaponModule = BasicCannon.name,
+        -- Per-projectile SFX mapping (copied from module defaults)
+        impactSfx = BasicCannon.impactSfx,
+        fireSfx = cannonSoundName
+    })
     ECS.addComponent(ballId, "ShatterEffect", {
         numPieces = 8,
         color = BasicCannon.BALL_COLOR

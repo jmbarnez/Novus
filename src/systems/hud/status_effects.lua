@@ -1,10 +1,9 @@
 ---@diagnostic disable: undefined-global
--- HUD Status Effects - renders status effect icons above the hotbar
+-- HUD Status Effects - renders status effect icons under the player's health bars in the top left
 
 local ECS = require('src.ecs')
 local Scaling = require('src.scaling')
 local Theme = require('src.ui.plasma_theme')
-local HUDHotbar = require('src.systems.hud.hotbar')
 
 local StatusEffectsHUD = {}
 
@@ -114,15 +113,22 @@ function StatusEffectsHUD.drawStatusEffects(viewportWidth, viewportHeight)
         return
     end
 
-    local metrics = HUDHotbar.getHotbarMetrics()
-    local scale = math.min(metrics.scaleX, metrics.scaleY)
+    -- Position status effects under the player vitals panel (top left)
+    -- Match the vitals panel positioning from HUDStats.drawPlayerVitals
+    local padding = Scaling.scaleSize(16)
+    local panelHeight = Scaling.scaleSize(72)
+    
+    local vitalsX = Scaling.scaleX(padding)
+    local vitalsY = Scaling.scaleY(padding)
+    
+    local scale = math.min(Scaling.scaleX(1), Scaling.scaleY(1))
     local iconSize = ICON_SIZE * scale
     local spacing = ICON_SPACING * scale
-    local margin = BAR_MARGIN * scale
-
-    local totalWidth = iconSize * #effects + spacing * math.max(0, #effects - 1)
-    local baseX = metrics.x + (metrics.width - totalWidth) / 2
-    local baseY = metrics.y - iconSize - margin
+    local margin = Scaling.scaleSize(12) -- Space between vitals panel and status effects
+    
+    -- Position effects below the vitals panel, aligned to the left
+    local baseX = vitalsX
+    local baseY = vitalsY + panelHeight + margin
 
     local prevR, prevG, prevB, prevA = love.graphics.getColor()
     local prevLineWidth = love.graphics.getLineWidth()

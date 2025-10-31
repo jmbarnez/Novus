@@ -72,13 +72,13 @@ function RenderEffects.drawTrails()
     local ShaderManager = require('src.shader_manager')
     local trailShader = ShaderManager.getTrailShader()
     local trailEntities = ECS.getEntitiesWith({"TrailParticle"})
-    for _, entityId in ipairs(trailEntities) do
-        local particle = ECS.getComponent(entityId, "TrailParticle")
-        if particle and particle.life and particle.maxLife and particle.color and particle.x and particle.y and particle.size then
-            local alpha = particle.life / particle.maxLife
+    
+    -- Early exit if no particles
+    if #trailEntities == 0 then return end
 
-            -- Compute camera transform (to convert world -> screen space for shader)
+    -- Compute camera transform ONCE (outside loop) for screen-space shader calculations
             local camX, camY, camZoom = 0, 0, 1
+    local camWidth, camHeight = 1920, 1080  -- Default viewport size
             local camEntities = ECS.getEntitiesWith({"Camera", "Position"})
             if #camEntities > 0 then
                 local camId = camEntities[1]
@@ -88,10 +88,50 @@ function RenderEffects.drawTrails()
                     camX = camPos.x or 0
                     camY = camPos.y or 0
                     camZoom = (cam.zoom or 1)
-                end
+            camWidth = cam.width or 1920
+            camHeight = cam.height or 1080
+        end
+    end
+    
+    -- Get viewport bounds for culling (with padding for safety)
+    local viewportPadding = 100
+    local viewportLeft = camX - viewportPadding
+    local viewportRight = camX + (camWidth / camZoom) + viewportPadding
+    local viewportTop = camY - viewportPadding
+    local viewportBottom = camY + (camHeight / camZoom) + viewportPadding
+    
+    -- Separate particles by rendering mode for batching
+    local shaderParticles = {}
+    local fallbackParticles = {}
+    
+    -- Collect visible particles
+    for _, entityId in ipairs(trailEntities) do
+        local particle = ECS.getComponent(entityId, "TrailParticle")
+        if particle and particle.life and particle.maxLife and particle.color and particle.x and particle.y and particle.size then
+            -- Simple AABB culling: skip particles outside viewport
+            if particle.x < viewportLeft or particle.x > viewportRight or
+               particle.y < viewportTop or particle.y > viewportBottom then
+                goto continue_particle
             end
 
             if trailShader then
+                table.insert(shaderParticles, particle)
+            else
+                table.insert(fallbackParticles, particle)
+            end
+        end
+        ::continue_particle::
+    end
+    
+    -- Batch render shader particles (minimize state changes)
+    if #shaderParticles > 0 then
+        -- Glow pass (additive) - batch all particles together
+        love.graphics.setShader(trailShader)
+        love.graphics.setBlendMode("add", "alphamultiply")
+        
+        for _, particle in ipairs(shaderParticles) do
+            local alpha = particle.life / particle.maxLife
+            
                 -- Send per-particle uniforms (center in screen coords, scaled size)
                 local centerX = (particle.x - camX) * camZoom
                 local centerY = (particle.y - camY) * camZoom
@@ -100,9 +140,6 @@ function RenderEffects.drawTrails()
                     trailShader:send("size", particle.size * camZoom * 2.0)
                 end)
 
-                -- Glow (additive) pass using shader
-                love.graphics.setShader(trailShader)
-                love.graphics.setBlendMode("add", "alphamultiply")
                 love.graphics.setColor(
                     particle.color[1] or 1,
                     particle.color[2] or 1,
@@ -110,10 +147,14 @@ function RenderEffects.drawTrails()
                     1
                 )
                 love.graphics.circle("fill", particle.x, particle.y, particle.size * 2.2)
+        end
 
-                -- Restore and draw core with normal alpha
+        -- Core pass (normal alpha) - batch all particles together
                 love.graphics.setShader()
                 love.graphics.setBlendMode("alpha", "alphamultiply")
+        
+        for _, particle in ipairs(shaderParticles) do
+            local alpha = particle.life / particle.maxLife
                 love.graphics.setColor(
                     particle.color[1] or 1,
                     particle.color[2] or 1,
@@ -121,8 +162,13 @@ function RenderEffects.drawTrails()
                     (particle.color[4] or 1) * alpha
                 )
                 love.graphics.circle("fill", particle.x, particle.y, particle.size * 0.9)
-            else
-                -- Fallback: previous simple circle drawing
+        end
+    end
+    
+    -- Batch render fallback particles (no shader)
+    if #fallbackParticles > 0 then
+        for _, particle in ipairs(fallbackParticles) do
+            local alpha = particle.life / particle.maxLife
                 love.graphics.setColor(
                     particle.color[1] or 1,
                     particle.color[2] or 1,
@@ -132,7 +178,11 @@ function RenderEffects.drawTrails()
                 love.graphics.circle("fill", particle.x, particle.y, particle.size)
             end
         end
-    end
+    
+    -- Reset graphics state
+    love.graphics.setShader()
+    love.graphics.setBlendMode("alpha", "alphamultiply")
+    love.graphics.setColor(1, 1, 1, 1)
 end
 
 function RenderEffects.drawMagneticField()

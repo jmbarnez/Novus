@@ -92,6 +92,7 @@ function GameInit.initPools()
                 particle.maxLife = 1.0
                 particle.size = 2
                 particle.color = {0.5, 0.8, 1.0, 0.8}
+                particle._owner = nil
             end
         end,
         512  -- maxSize: pool up to 512 trail particles (trails are frequent)
@@ -135,6 +136,8 @@ function GameInit.registerSystems()
     ECS.registerSystem("AsteroidClustersSystem", AsteroidClusters)
     -- CrystalFormationSystem removed
     ECS.registerSystem("EnergySystem", Systems.EnergySystem)
+    -- ShieldSystem: Manages shield regeneration (depends on EnergySystem, priority 4)
+    ECS.registerSystem("ShieldSystem", Systems.ShieldSystem)
     ECS.registerSystem("WorldTooltipsSystem", Systems.WorldTooltipsSystem)
     ECS.registerSystem("QuestSystem", require('src.systems.quest_system'))
     ECS.registerSystem("WreckageSystem", Systems.WreckageSystem)
@@ -190,10 +193,16 @@ function GameInit.createCoreEntities()
         {count = 40, brightness = 0.85, parallaxFactor = 0},      -- Static twinkling stars (much brighter)
         {count = 400, brightness = 0.65, parallaxFactor = 0.01},  -- Very far distant stars (brighter)
         {count = 300, brightness = 0.5, parallaxFactor = 0.03},   -- Far distant stars (brighter)
-        {count = 200, brightness = 0.4, parallaxFactor = 0.08}    -- Medium distant stars (brighter)
+        {count = 200, brightness = 0.4, parallaxFactor = 0.08},    -- Medium distant stars (brighter)
+        {count = 0, brightness = 0.5, parallaxFactor = 0.95}      -- Very close background asteroids layer (no stars, just asteroids)
     }
     local parallaxObject = Parallax.new(starLayers, 10000)
     ECS.addComponent(starFieldId, "StarField", parallaxObject)
+
+    -- Add an extra nebula cloud to layer 2 for visual variety (safe no-op if API unavailable)
+    if Parallax and Parallax.addNebulaCloud then
+        Parallax.addNebulaCloud(parallaxObject, 2, { x = 0, y = -500, scale = 0.7, opacity = 0.45 })
+    end
 
     return pilotId
 end

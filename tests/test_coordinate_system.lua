@@ -1,6 +1,8 @@
 -- Test coordinate system across different resolutions
 -- This file can be used to verify coordinate handling works correctly
 
+local Scaling = require('src.scaling')
+
 local function testCoordinateConversion()
     print("=== Coordinate System Test ===")
     

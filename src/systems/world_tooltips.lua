@@ -498,17 +498,20 @@ function WorldTooltips.drawHUD()
             local Theme = require('src.ui.plasma_theme')
             local Scaling = require('src.scaling')
 
-            local centerX = Scaling.REFERENCE_WIDTH / 2
-            local centerY = Scaling.REFERENCE_HEIGHT / 2
+            -- Position prompt just above the hotbar instead of center screen
+            local HUDHotbar = require('src.systems.hud.hotbar')
+            local metrics = HUDHotbar.getHotbarMetrics()
 
             local font = Theme.getFont(20)
-            local smallFont = Theme.getFont(14)
             love.graphics.setFont(font)
 
-            -- Use muted text color with slight alpha so it's subtle
             local text = "Press [E/Enter] to dock"
             local tw = font:getWidth(text)
             local th = font:getHeight()
+
+            -- Compute target position: centered over hotbar, just above it
+            local centerX = (metrics.x or 0) + (metrics.width or Scaling.getCurrentWidth()) / 2
+            local centerY = (metrics.y or Scaling.getCurrentHeight()) - th - 8
 
             -- Optional faint background to improve readability
             love.graphics.setColor(0, 0, 0, 0.35)

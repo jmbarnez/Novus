@@ -132,8 +132,8 @@ function PauseMenu:_ensureButtons()
 end
 
 function PauseMenu:_refreshFonts()
-    self._titleFont = Theme.getFontBold(24)
-    self._buttonFont = Theme.getFont(16)
+    self._titleFont = Theme.getFontBold("xl") -- 24px for prominent title
+    self._buttonFont = Theme.getFont(Theme.fonts.normal) -- 14px for buttons
 end
 
 function PauseMenu:_updateLayout()

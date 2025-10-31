@@ -7,15 +7,112 @@ local Constants = require('src.constants')
 local Quadtree = require('src.systems.quadtree')
 local CollisionUtils = require('src.collision_utils')
 local EntityHelpers = require('src.entity_helpers')
+local SoundSystem = require('src.systems.sound')
 
 -- Frame counter for optimization
 local frameCounter = 0
+
+-- Try to load a sound by name from assets/sounds using common extensions
+local function tryLoadSoundByName(name)
+    if not name or not SoundSystem or not SoundSystem.load then return false end
+    if SoundSystem.sounds and SoundSystem.sounds[name] then return true end
+    if not (love and love.filesystem and love.filesystem.getInfo) then return false end
+    local exts = {".wav", ".ogg", ".flac", ".mp3"}
+    for _, ext in ipairs(exts) do
+        local path = "assets/sounds/" .. name .. ext
+        if love.filesystem.getInfo(path) then
+            pcall(function() SoundSystem.load(name, path) end)
+            return true
+        end
+    end
+    return false
+end
+
+local function getSurfaceKeyForEntity(targetId)
+    local shield = ECS.getComponent(targetId, "Shield")
+    if shield and shield.current and shield.current > 0 then
+        return "shield"
+    end
+    if ECS.getComponent(targetId, "Hull") then
+        return "hull"
+    end
+    if ECS.getComponent(targetId, "Asteroid") or ECS.getComponent(targetId, "Wreckage") then
+        return "rock"
+    end
+    return "default"
+end
+
+local function playProjectileImpactSfx(projComp, targetId, collisionX, collisionY)
+    if not projComp or not projComp.impactSfx then return end
+    local surfaceKey = getSurfaceKeyForEntity(targetId)
+    local sfxName = projComp.impactSfx[surfaceKey] or projComp.impactSfx.default
+    if not sfxName then return end
+
+    -- Attempt to load if missing
+    tryLoadSoundByName(sfxName)
+
+    if not (SoundSystem and SoundSystem.play and SoundSystem.sounds and SoundSystem.sounds[sfxName]) then
+        return
+    end
+
+    local listenerX, listenerY = 0, 0
+    local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+    if #cameraEntities > 0 then
+        local cameraPos = ECS.getComponent(cameraEntities[1], "Position")
+        listenerX, listenerY = cameraPos.x + 400, cameraPos.y + 300
+    end
+
+    pcall(function()
+        SoundSystem.play(sfxName, {volume = 80, position = {x = collisionX, y = collisionY}, listener = {x = listenerX, y = listenerY}})
+    end)
+end
 
 local function hasRotationChanged(poly1, poly2, rotationThreshold)
     rotationThreshold = rotationThreshold or 0.1  -- ~5.7 degrees
     local rot1Changed = poly1 and math.abs(poly1.rotation - (poly1.prevRotation or 0)) > rotationThreshold or false
     local rot2Changed = poly2 and math.abs(poly2.rotation - (poly2.prevRotation or 0)) > rotationThreshold or false
     return rot1Changed or rot2Changed
+end
+
+-- Specialized collision resolver for projectiles to ensure proper bounce
+local function resolveProjectileCollision(projectileId, otherId, normal, depth)
+    local projPos = ECS.getComponent(projectileId, "Position")
+    local projVel = ECS.getComponent(projectileId, "Velocity")
+    local projPhys = ECS.getComponent(projectileId, "Physics")
+    local otherPos = ECS.getComponent(otherId, "Position")
+    local otherVel = ECS.getComponent(otherId, "Velocity")
+    local otherPhys = ECS.getComponent(otherId, "Physics")
+
+    if not (projPos and projVel and projPhys and otherPos and otherVel and otherPhys) then return end
+
+    -- Relative velocity (other - projectile)
+    local rvx = otherVel.vx - projVel.vx
+    local rvy = otherVel.vy - projVel.vy
+    local velAlongNormal = rvx * normal.x + rvy * normal.y
+
+    -- Only resolve if moving toward each other
+    if velAlongNormal >= 0 then return end
+
+    -- Use a higher restitution for snappy projectile bounces
+    local restitution = 0.6
+    local j = -(1 + restitution) * velAlongNormal
+    j = j / (1 / projPhys.mass + 1 / otherPhys.mass)
+
+    local impulseX = j * normal.x
+    local impulseY = j * normal.y
+
+    -- Apply impulse: primarily affects projectile
+    projVel.vx = projVel.vx - (1 / projPhys.mass) * impulseX
+    projVel.vy = projVel.vy - (1 / projPhys.mass) * impulseY
+    otherVel.vx = otherVel.vx + (1 / otherPhys.mass) * impulseX
+    otherVel.vy = otherVel.vy + (1 / otherPhys.mass) * impulseY
+
+    -- Positional correction: push projectile out of penetration, mostly correct projectile only
+    local percent = 0.9
+    local slop = 0.01
+    local correction = math.max(depth - slop, 0) / (1 / projPhys.mass + 1 / otherPhys.mass) * percent
+    projPos.x = projPos.x - (1 / projPhys.mass) * correction * normal.x
+    projPos.y = projPos.y - (1 / projPhys.mass) * correction * normal.y
 end
 
 local function checkSweptCircleCircle(oldPos, newPos, radius1, staticPos, radius2)
@@ -575,7 +672,8 @@ local PhysicsCollisionSystem = {
                                 local dx = (impactPoint and (impactPoint.x - pos1.x) or (pos2.x - pos1.x))
                                 local dy = (impactPoint and (impactPoint.y - pos1.y) or (pos2.y - pos1.y))
                                 local dist = math.sqrt(dx * dx + dy * dy)
-                                depth = math.max(0.1, coll2.radius + dist)
+                                -- depth is overlap: radius - distance from circle center to closest point
+                                depth = math.max(0.1, coll2.radius - dist)
                                 colliding = true
                                 -- Swap normal direction for entity2 perspective
                                 normal = {x = -normal.x, y = -normal.y}
@@ -589,7 +687,8 @@ local PhysicsCollisionSystem = {
                                 local dx = (impactPoint and (impactPoint.x - pos2.x) or (pos1.x - pos2.x))
                                 local dy = (impactPoint and (impactPoint.y - pos2.y) or (pos1.y - pos2.y))
                                 local dist = math.sqrt(dx * dx + dy * dy)
-                                depth = math.max(0.1, coll1.radius + dist)
+                                -- depth is overlap: radius - distance from circle center to closest point
+                                depth = math.max(0.1, coll1.radius - dist)
                                 colliding = true
                             end
                         else
@@ -638,25 +737,15 @@ local PhysicsCollisionSystem = {
                         local laser1 = ECS.getComponent(entity1Id, "LaserBeam")
                         local laser2 = ECS.getComponent(entity2Id, "LaserBeam")
                         
-                        -- CRITICAL: Prevent projectiles/lasers from colliding with their owner ship
-                        -- Check immunity timer to ensure projectile can't hit its own ship
+                        -- Only prevent projectiles/lasers from immediately hitting their owner ship (self-damage prevention)
                         if (proj1 and proj1.ownerId == entity2Id and proj1.ownerImmunityTime and proj1.ownerImmunityTime > 0) or
                            (proj2 and proj2.ownerId == entity1Id and proj2.ownerImmunityTime and proj2.ownerImmunityTime > 0) or
                            (laser1 and laser1.ownerId == entity2Id) or
-                           (laser2 and laser2.ownerId == entity1Id) or
-                           (proj1 and proj2) then
+                           (laser2 and laser2.ownerId == entity1Id) then
                             goto continue_nearby
                         end
                         
-                        -- CRITICAL: Enemy projectiles should NOT collide with other enemies
-                        -- They should only collide with the player and asteroids/wreckage
-                        if (proj1 and not ECS.getComponent(proj1.ownerId, "ControlledBy") and ECS.getComponent(entity2Id, "AI")) or
-                           (proj2 and not ECS.getComponent(proj2.ownerId, "ControlledBy") and ECS.getComponent(entity1Id, "AI")) then
-                            goto continue_nearby
-                        end
-                        
-                        -- Skip items colliding with player ship
-                        -- Items should ignore player ship collisions
+                        -- Skip items colliding with player ship (collection mechanic, not damage-related)
                         local item1 = ECS.getComponent(entity1Id, "Item")
                         local item2 = ECS.getComponent(entity2Id, "Item")
                         if (item1 and ECS.getComponent(entity2Id, "ControlledBy")) or
@@ -664,27 +753,35 @@ local PhysicsCollisionSystem = {
                             goto continue_nearby
                         end
                         
-                        -- CRITICAL: Missiles should ONLY collide with enemies (Hull component)
-                        -- Skip missiles hitting asteroids, wreckages, or other non-enemy entities
-                        if (proj1 and proj1.isMissile and not ECS.getComponent(entity2Id, "Hull")) or
-                           (proj2 and proj2.isMissile and not ECS.getComponent(entity1Id, "Hull")) then
-                            goto continue_nearby
-                        end
-                        
-                        -- If either entity is a projectile, apply its damage to the other
+                        -- Apply projectile damage (no additional filters - projectiles can damage anything)
                         if proj1 then
                             applyProjectileDamage(entity1Id, entity2Id)
+                            local collisionX = (pos1.x + pos2.x) / 2
+                            local collisionY = (pos1.y + pos2.y) / 2
+                            playProjectileImpactSfx(proj1, entity2Id, collisionX, collisionY)
                         end
                         if proj2 then
                             applyProjectileDamage(entity2Id, entity1Id)
+                            local collisionX = (pos1.x + pos2.x) / 2
+                            local collisionY = (pos1.y + pos2.y) / 2
+                            playProjectileImpactSfx(proj2, entity1Id, collisionX, collisionY)
                         end
 
-                        resolveCollision(
-                            {pos = pos1, vel = vel1, phys = phys1, angularVel = ECS.getComponent(entity1Id, "AngularVelocity"), rotMass = ECS.getComponent(entity1Id, "RotationalMass")},
-                            {pos = pos2, vel = vel2, phys = phys2, angularVel = ECS.getComponent(entity2Id, "AngularVelocity"), rotMass = ECS.getComponent(entity2Id, "RotationalMass")},
-                            normal,
-                            depth
-                        )
+                        -- If either side is a projectile, use specialized resolver so projectiles bounce reliably
+                        if proj1 or proj2 then
+                            if proj1 then
+                                resolveProjectileCollision(entity1Id, entity2Id, normal, depth)
+                            else
+                                resolveProjectileCollision(entity2Id, entity1Id, normal, depth)
+                            end
+                        else
+                            resolveCollision(
+                                {pos = pos1, vel = vel1, phys = phys1, angularVel = ECS.getComponent(entity1Id, "AngularVelocity"), rotMass = ECS.getComponent(entity1Id, "RotationalMass")},
+                                {pos = pos2, vel = vel2, phys = phys2, angularVel = ECS.getComponent(entity2Id, "AngularVelocity"), rotMass = ECS.getComponent(entity2Id, "RotationalMass")},
+                                normal,
+                                depth
+                            )
+                        end
                     end
                 end
                 

@@ -141,6 +141,9 @@ function StationPrefab.generate(spawnData)
         Collidable = Components.Collidable(merged.collidableRadius or hullRadius),
         Renderable = Components.Renderable("polygon", nil, nil, nil, merged.hullColor or color),
         Station = Components.Station(),
+        -- Station core defenses: large hull and shield values for stations
+        Hull = Components.Hull(10000, 10000),
+        Shield = Components.Shield(10000, 10000, 0, 0),
         StationDetails = stationDetails,
         -- Only show a StationLabel when explicitly requested via `showLabel` (defaults to hidden)
         StationLabel = (merged.showLabel and label) and {label} or nil,

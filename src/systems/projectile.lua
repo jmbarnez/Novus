@@ -34,7 +34,7 @@ function ProjectileSystem.update(dt)
             end
         end
 
-        -- Asteroid collision: all non-laser projectiles bounce or break on asteroids
+        -- Asteroid collision: all projectiles damage asteroids
         for _, asteroidId in ipairs(asteroids) do
             local asteroidPos = ECS.getComponent(asteroidId, "Position")
             local asteroidColl = ECS.getComponent(asteroidId, "Collidable")
@@ -46,28 +46,56 @@ function ProjectileSystem.update(dt)
             local radii = asteroidColl.radius + projColl.radius
             
             if distSq < radii * radii then
+                if projectile and projectile.ownerId == asteroidId then goto continue_asteroid end
+                
+                -- Apply damage to asteroid
+                if projectile then
+                    local durability = ECS.getComponent(asteroidId, "Durability")
+                    if durability then
+                        local damage = projectile.damage or 10
+                        local damageToApply = damage
+                        
+                        -- Turret module projectiles deal 4x damage to asteroids
+                        if projectile.weaponModule or projectile.weaponType then
+                            damageToApply = damage * 4.0
+                        else
+                            damageToApply = damage * 0.1
+                        end
+                        
+                        durability.current = math.max(0, durability.current - damageToApply)
+                        
+                        -- Track who damaged this asteroid for XP/loot purposes
+                        if projectile.ownerId then
+                            local weaponModule = projectile.weaponModule or projectile.weaponType or nil
+                            EntityHelpers.recordLastDamager(asteroidId, projectile.ownerId, weaponModule)
+                        end
+                    end
+                end
+                
                 -- Don't let projectiles pass through asteroids
+                local shouldDestroy = false
                 if projectile and projectile.brittle then
-                    -- Brittle projectiles (cannon balls) shatter
+                    -- Brittle projectiles (cannon balls, railgun slugs) shatter
                     local projDur = ECS.getComponent(projId, "Durability")
                     if projDur then projDur.current = 0 end
+                    shouldDestroy = true
                 end
                 -- Non-brittle projectiles (missiles) also destroy on impact
                 if projectile and projectile.isMissile then
                     local projDur = ECS.getComponent(projId, "Durability")
                     if projDur then projDur.current = 0 end
+                    shouldDestroy = true
+                end
+                
+                if shouldDestroy then
+                    break  -- Break for brittle/missile projectiles
                 end
                 -- Non-brittle, non-missile projectiles bounce (handled by physics system)
-                if projectile and not projectile.brittle and not projectile.isMissile then
-                    -- Let physics system handle the bounce - don't destroy
-                else
-                    break  -- Only break for brittle/missile projectiles
-                end
             end
             ::continue_asteroid::
         end
 
-        -- Wreckage collision: projectiles can't pass through
+        -- Wreckage collision: all projectiles damage wreckage
         for _, wreckId in ipairs(wreckages) do
             local wreckPos = ECS.getComponent(wreckId, "Position")
             local wreckColl = ECS.getComponent(wreckId, "Collidable")
@@ -81,22 +109,47 @@ function ProjectileSystem.update(dt)
             if distSq < radii * radii then
                 if projectile and projectile.ownerId == wreckId then goto continue_wreckage end
                 
+                -- Apply damage to wreckage
+                if projectile then
+                    local durability = ECS.getComponent(wreckId, "Durability")
+                    if durability then
+                        local damage = projectile.damage or 10
+                        local damageToApply = damage
+                        
+                        -- Turret module projectiles deal 4x damage to wreckage
+                        if projectile.weaponModule or projectile.weaponType then
+                            damageToApply = damage * 4.0
+                        else
+                            damageToApply = damage * 0.1
+                        end
+                        
+                        durability.current = math.max(0, durability.current - damageToApply)
+                        
+                        -- Track who damaged this wreckage for XP/loot purposes
+                        if projectile.ownerId then
+                            local weaponModule = projectile.weaponModule or projectile.weaponType or nil
+                            EntityHelpers.recordLastDamager(wreckId, projectile.ownerId, weaponModule)
+                        end
+                    end
+                end
+                
                 -- Non-laser projectiles can't pass through wreckage
+                local shouldDestroy = false
                 if projectile and projectile.brittle then
                     local projDur = ECS.getComponent(projId, "Durability")
                     if projDur then projDur.current = 0 end
+                    shouldDestroy = true
                 end
                 if projectile and projectile.isMissile then
                     local projDur = ECS.getComponent(projId, "Durability")
                     if projDur then projDur.current = 0 end
+                    shouldDestroy = true
                 end
                 
-                -- Non-brittle, non-missile projectiles bounce (handled by physics system)
-                if projectile and not projectile.brittle and not projectile.isMissile then
-                    -- Let physics system handle the bounce - don't destroy
-                else
-                    break  -- Only break for brittle/missile projectiles
+                if shouldDestroy then
+                    break  -- Break for brittle/missile projectiles
                 end
+                -- Non-brittle, non-missile projectiles bounce (handled by physics system)
             end
             ::continue_wreckage::
         end

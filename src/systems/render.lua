@@ -98,8 +98,13 @@ local RenderSystem = {
         Profiler.start("entity_rendering")
 
         -- Draw trails and debris first
+        Profiler.start("entity_rendering_trails")
         RenderEffects.drawTrails()
+        Profiler.stop("entity_rendering_trails")
+        
+        Profiler.start("entity_rendering_debris")
         RenderEffects.drawDebris()
+        Profiler.stop("entity_rendering_debris")
 
         -- Get camera for culling calculations
         local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
@@ -111,9 +116,12 @@ local RenderSystem = {
         end
 
         -- Draw entities (items, ships, asteroids, etc.)
+        Profiler.start("entity_rendering_entities")
         renderedItems, culledItems = RenderEntities.drawItems(cullingCameraPos, cullingCamera)
+        Profiler.stop("entity_rendering_entities")
 
         -- Draw turrets for ships
+        Profiler.start("entity_rendering_turrets")
         local renderableEntities = ECS.getEntitiesWith({"Position", "Renderable", "PolygonShape"})
         for _, entityId in ipairs(renderableEntities) do
             local position = ECS.getComponent(entityId, "Position")
@@ -126,8 +134,17 @@ local RenderSystem = {
                 if controlledBy and controlledBy.pilotId and ECS.hasComponent(controlledBy.pilotId, "Player") then
                     isPlayerDrone = true
                 end
-                local isShip = ECS.hasComponent(entityId, "Hull")
-                
+                -- Determine station vs ship: stations may have Hull (for durability)
+                -- but should not render turrets. Treat Station first.
+                local isStation = ECS.hasComponent(entityId, "Station") or ECS.hasComponent(entityId, "StationDetails")
+                -- Wreckage pieces have Hull but should not have turrets rendered
+                -- Ships have Wreckage component for sourceShip storage, but also have AI component
+                -- Actual wreckage pieces have Wreckage but NO AI component
+                local hasWreckage = ECS.hasComponent(entityId, "Wreckage")
+                local hasAI = ECS.hasComponent(entityId, "AI")
+                local isWreckagePiece = hasWreckage and not hasAI
+                local isShip = ECS.hasComponent(entityId, "Hull") and not isStation and not isWreckagePiece
+
                 if isPlayerDrone then
                     RenderTurrets.drawPlayerTurret(entityId, position, polygonShape, renderable)
                 elseif isShip then
@@ -135,21 +152,34 @@ local RenderSystem = {
                 end
             end
         end
+        Profiler.stop("entity_rendering_turrets")
 
         -- Draw shield impact effects
+        Profiler.start("entity_rendering_shield_impact")
         local shieldImpact = getShieldImpactSystem()
         if shieldImpact and shieldImpact.draw then
             shieldImpact.draw()
         end
+        Profiler.stop("entity_rendering_shield_impact")
 
         -- Draw effects
+        Profiler.start("entity_rendering_lasers")
         RenderEffects.drawLasers()
+        Profiler.stop("entity_rendering_lasers")
+        
+        Profiler.start("entity_rendering_magnetic_field")
         RenderEffects.drawMagneticField()
+        Profiler.stop("entity_rendering_magnetic_field")
+        
+        Profiler.start("entity_rendering_targeting_indicator")
         RenderEffects.drawTargetingIndicator()
+        Profiler.stop("entity_rendering_targeting_indicator")
 
         -- Draw target HUD indicator circle (in world space)
+        Profiler.start("entity_rendering_world_indicator")
         local TargetHUD = require('src.systems.hud.target_hud')
         TargetHUD.drawWorldIndicator()
+        Profiler.stop("entity_rendering_world_indicator")
         
         -- World tooltips are now drawn as HUD elements in screen/UI space
 
@@ -180,11 +210,11 @@ local RenderSystem = {
         -- Draw durability bars for asteroids and wreckages (world-space UI)
         -- These render FIRST (behind UI windows) to ensure UI appears on top
         Profiler.start("ui_durability_bars")
-        local EnemyBars = require('src.systems.hud.enemy_bars')
+        local HealthBars = require('src.systems.hud.health_bars')
         local AsteroidBars = require('src.systems.hud.asteroid_bars')
         local WreckageBars = require('src.systems.hud.wreckage_bars')
         local w, h = love.graphics.getDimensions()
-        EnemyBars.draw(w, h)
+        HealthBars.draw(w, h)
         AsteroidBars.draw(w, h)
         WreckageBars.draw(w, h)
         Profiler.stop("ui_durability_bars")

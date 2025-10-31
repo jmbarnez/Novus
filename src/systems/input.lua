@@ -208,13 +208,30 @@ function InputSystem.update(dt)
         if force and physics then
             -- Use thrustForce from Physics component if present, otherwise fall back to input.speed or default
             local thrustMagnitude = (physics.thrustForce) or (input and input.speed) or 300
+
+            -- Boost handling: if player is holding boost, increase thrust and max speed
+            if input and input.boostActive then
+                -- Double thrust magnitude (100% increase)
+                thrustMagnitude = thrustMagnitude * 2.0
+                -- Temporarily increase physics max speed if present
+                if physics.maxSpeed and not physics._boostedMaxSpeed then
+                    physics._boostedMaxSpeed = physics.maxSpeed
+                    physics.maxSpeed = physics.maxSpeed * 2.0
+                end
+            else
+                -- Restore maxSpeed if it was modified by boost
+                if physics._boostedMaxSpeed then
+                    physics.maxSpeed = physics._boostedMaxSpeed
+                    physics._boostedMaxSpeed = nil
+                end
+            end
             
             local thrust_x = 0
             local thrust_y = 0
 
             -- Skip movement if cargo search bar is focused
-            local CargoPanel = require('src.ui.cargo_panel')
-            if CargoPanel and CargoPanel.isSearchFocused and CargoPanel.isSearchFocused() then
+            local CargoWindow = require('src.ui.cargo_window')
+            if CargoWindow and CargoWindow.isSearchFocused and CargoWindow:isSearchFocused() then
                 -- Don't process movement when search bar is focused
             else
                 -- Use configurable movement keys
@@ -252,6 +269,52 @@ function InputSystem.update(dt)
 
             -- Apply thrust force (accumulated with other forces this frame)
             ForceUtils.applyForce(controlledEntity, thrust_x, thrust_y)
+        end
+
+        -- Check if boost key is held (using configurable hotkey)
+        local boostKey = HotkeyConfig.getHotkey("boost")
+        local boostHeld = false
+        if boostKey and boostKey ~= "" then
+            boostHeld = love.keyboard.isDown(boostKey)
+        end
+        if input then
+            input.boostActive = boostHeld
+        end
+
+        -- Drain energy while boosting and handle camera zoom
+        if input and input.boostActive then
+            local energy = ECS.getComponent(controlledEntity, "Energy")
+            local drainPerSecond = 25 -- energy units drained per second while boosting
+            if energy then
+                energy.current = math.max(0, (energy.current or 0) - drainPerSecond * dt)
+                if energy.current <= 0 then
+                    -- Out of energy -> disable boost
+                    input.boostActive = false
+                end
+            end
+
+            -- Apply camera zoom out (2x) while boosting
+            local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+            if #cameraEntities > 0 then
+                local camId = cameraEntities[1]
+                local cam = ECS.getComponent(camId, "Camera")
+                if cam and not input._prevCameraZoom then
+                    input._prevCameraZoom = cam.targetZoom or cam.zoom or 1
+                    -- Zoom out 2x (wider view)
+                    cam.targetZoom = (cam.targetZoom or cam.zoom or 1) * 0.5
+                end
+            end
+        else
+            -- Restore camera zoom if we previously changed it
+            local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+            if #cameraEntities > 0 then
+                local camId = cameraEntities[1]
+                local cam = ECS.getComponent(camId, "Camera")
+                if cam and input and input._prevCameraZoom then
+                    cam.targetZoom = input._prevCameraZoom
+                    input._prevCameraZoom = nil
+                end
+            end
         end
         
         -- Handle cursor-based ship rotation for player ships
@@ -660,10 +723,12 @@ function InputSystem.keypressed(key)
         tryActivateHotbarSlot(slotIndex)
     end
     -- Tab key handling will be done in core.lua to avoid circular dependency
+    -- Boost is now handled in update loop using configurable hotkey
 end
 
 function InputSystem.keyreleased(key)
     -- Placeholder for key released input handling
+    -- Boost is now handled in update loop using configurable hotkey
 end
 
 function InputSystem.mousemoved(x, y, dx, dy, isTouch)

@@ -78,6 +78,7 @@ end
 
 -- Helper function to draw a polygon shape
 local function drawPolygon(x, y, polygonShape, color, texture, entityId)
+    local Profiler = require('src.profiler')
     local vertices = polygonShape.vertices
     if not polygonShape or not color then return end
 
@@ -96,6 +97,7 @@ local function drawPolygon(x, y, polygonShape, color, texture, entityId)
     local wreckage = entityId and ECS.getComponent(entityId, "Wreckage")
 
     if asteroid then
+        Profiler.start("entity_rendering_asteroid")
         -- Enhanced asteroid rendering with depth layers
 
         -- Draw shadow/base layer
@@ -120,6 +122,7 @@ local function drawPolygon(x, y, polygonShape, color, texture, entityId)
 
         -- Special crystal asteroid glow effect
         if asteroid.asteroidType == "crystal" and asteroid.crystalFormation then
+            Profiler.start("entity_rendering_crystal_asteroid")
             local glowIntensity = asteroid.crystalFormation.glowIntensity or 0.5
 
             -- Outer glow
@@ -156,24 +159,31 @@ local function drawPolygon(x, y, polygonShape, color, texture, entityId)
 
                 love.graphics.circle("fill", sparkleX, sparkleY, sparkleSize)
             end
+            Profiler.stop("entity_rendering_crystal_asteroid")
         end
+        Profiler.stop("entity_rendering_asteroid")
 
     elseif wreckage then
+        Profiler.start("entity_rendering_wreckage")
         -- Wreckage rendering (darker, more damaged appearance)
         love.graphics.setColor(colors.shadow[1] * 0.7, colors.shadow[2] * 0.7, colors.shadow[3] * 0.7, colors.shadow[4])
         love.graphics.polygon("fill", worldVertices)
 
         love.graphics.setColor(colors.stripes[1] * 0.8, colors.stripes[2] * 0.8, colors.stripes[3] * 0.8, colors.stripes[4])
         love.graphics.polygon("fill", worldVertices)
+        Profiler.stop("entity_rendering_wreckage")
 
     else
+        Profiler.start("entity_rendering_standard")
         -- Standard entity rendering (ships, stations, etc.)
         love.graphics.setColor(colors.stripes[1], colors.stripes[2], colors.stripes[3], colors.stripes[4])
         love.graphics.polygon("fill", worldVertices)
+        Profiler.stop("entity_rendering_standard")
     end
 
     -- Draw texture shapes (works for all entities)
     if texture then
+        Profiler.start("entity_rendering_texture")
         for field, shapes in pairs(texture) do
             if type(shapes) == "table" and #shapes > 0 then
                 for _, shape in ipairs(shapes) do
@@ -191,6 +201,7 @@ local function drawPolygon(x, y, polygonShape, color, texture, entityId)
                 end
             end
         end
+        Profiler.stop("entity_rendering_texture")
     end
 
     -- Check if this is a projectile - projectiles should not have thick outlines
@@ -388,8 +399,10 @@ function RenderEntities.drawItems(cullingCameraPos, cullingCamera)
                     if controlledBy and controlledBy.pilotId and ECS.hasComponent(controlledBy.pilotId, "Player") then
                         isPlayerDrone = true
                     end
-                    local isShip = ECS.hasComponent(entityId, "Hull")
-                    local isStation = ECS.hasComponent(entityId, "StationDetails")
+                    -- Determine station vs ship: stations may have Hull (for durability)
+                    -- but should be rendered as stations, not ships. Check Station first.
+                    local isStation = ECS.hasComponent(entityId, "StationDetails") or ECS.hasComponent(entityId, "Station")
+                    local isShip = ECS.hasComponent(entityId, "Hull") and not isStation
                     if isPlayerDrone then
                         local playerRotation = polygonShape.rotation or 0
                         love.graphics.push()
@@ -469,7 +482,10 @@ function RenderEntities.drawItems(cullingCameraPos, cullingCamera)
     end
     
     -- Draw main entities first so effects appear above
+    local Profiler = require('src.profiler')
+    Profiler.start("entity_rendering_warp_gates")
     RenderEffects.drawWarpGates()
+    Profiler.stop("entity_rendering_warp_gates")
     
     -- World tooltips are now handled by WorldTooltipsSystem
     return renderedItems, culledItems

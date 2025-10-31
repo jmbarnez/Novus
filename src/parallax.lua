@@ -11,6 +11,7 @@ local nebulaShaderCode = [[
             extern vec2 cameraOffset;
             extern float cloudScale;
             extern float nebulaDim;
+            extern vec3 nebulaColor;
 
             // Simplex-like noise approximation
             vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -71,14 +72,12 @@ local nebulaShaderCode = [[
                 float turbulence = snoise(worldPos * scale * 5.0 + time * 0.01) * 0.15;
                 density += turbulence;
 
-                // Vertical gradient (thinner at top/bottom)
-                float verticalGradient = 1.0 - abs(tc.y - 0.5) * 2.0;
-                verticalGradient = smoothstep(0.2, 0.8, verticalGradient);
+                // Previously we attenuated nebula at top/bottom; allow full-height clouds now
+                float verticalGradient = 1.0; // no vertical attenuation
                 density *= verticalGradient;
 
-                // Pink nebula color only
-                vec3 pink = vec3(1.0, 0.3, 0.7); // RGB for pink
-                vec3 nebulaColor = pink;
+                // Nebula color supplied from host (per-cloud)
+                vec3 nebulaColor = nebulaColor;
 
                 // Final nebula with stronger visibility (scaled by nebulaDim)
                 float alpha = density * 0.12 * nebulaDim; // stronger base alpha
@@ -106,6 +105,7 @@ local function setupNebulaResources(parallax)
             shader:send('cameraOffset', {0, 0})
             shader:send('cloudScale', 1.0)
             shader:send('nebulaDim', 0.55)
+            shader:send('nebulaColor', {1.0, 0.3, 0.7})
         end
     end
 
@@ -134,7 +134,8 @@ function Parallax.new(layers, worldSize)
             parallaxFactor = layer.parallaxFactor or 1.0,
             brightness = layer.brightness or 0.5,
             count = layer.count or 100,
-            nebulaClouds = {}
+            nebulaClouds = {},
+            asteroids = {}
         }
         local isStatic = (parallax.layers[i].parallaxFactor == 0)
         local starXMax = isStatic and (love.graphics.getWidth()) or parallax.worldSize
@@ -236,24 +237,129 @@ function Parallax.new(layers, worldSize)
                 twinklePhase = love.math.random() * (2 * math.pi)
             })
         end
-        -- Generate nebula clouds for non-static layers
-        if not isStatic then
-            local numClouds = love.math.random(2, 4)
+        -- Generate nebula clouds only for far background layers (parallaxFactor <= 0.05)
+        -- Make them further away, brighter, and fewer
+        local pf = parallax.layers[i].parallaxFactor or 1.0
+        if not isStatic and pf <= 0.05 then
+            local numClouds = love.math.random(1, 2) -- Fewer clouds (1-2 instead of 2-4)
+            -- color palettes for nebula clouds
+            local palettes = {
+                {1.0, 0.3, 0.7}, -- pink
+                {0.2, 0.6, 1.0}, -- blue
+                {0.4, 1.0, 0.6}, -- greenish
+                {0.7, 0.4, 1.0}, -- purple
+            }
             for c = 1, numClouds do
                 -- Choose random parallax factor per cloud so clouds land on different layers
                 local cloudScale = love.math.random(40, 90) / 100 -- 0.4 .. 0.9
-                local cloudOpacity = love.math.random(20, 50) / 100 -- 0.2 .. 0.5
+                local cloudOpacity = love.math.random(40, 70) / 100 -- 0.4 .. 0.7 (brighter than before: 0.2-0.5)
+                local palette = palettes[love.math.random(1, #palettes)]
                 table.insert(parallax.layers[i].nebulaClouds, {
                     x = love.math.random(-parallax.worldSize/2, parallax.worldSize/2),
                     y = love.math.random(-parallax.worldSize/2, parallax.worldSize/2),
                     scale = cloudScale,
                     opacity = cloudOpacity,
+                    color = { palette[1], palette[2], palette[3] },
                 })
             end
         end
+        
+        -- Note: Decorative asteroids for close layers are added via Parallax.addAsteroidsNearClusters()
+        -- after asteroid clusters are initialized (since clusters don't exist yet during parallax creation)
     end
     
     return parallax
+end
+
+-- Public API: add a nebula cloud to a specific layer (by index)
+function Parallax.addNebulaCloud(parallax, layerIndex, cloud)
+    if not parallax or not parallax.layers then return false end
+    layerIndex = tonumber(layerIndex) or 1
+    local layer = parallax.layers[layerIndex]
+    if not layer then return false end
+    layer.nebulaClouds = layer.nebulaClouds or {}
+    local newCloud = {
+        x = (cloud and cloud.x) or love.math.random(-parallax.worldSize/2, parallax.worldSize/2),
+        y = (cloud and cloud.y) or love.math.random(-parallax.worldSize/2, parallax.worldSize/2),
+        scale = (cloud and cloud.scale) or (love.math.random(40, 90) / 100),
+        opacity = (cloud and cloud.opacity) or (love.math.random(20, 50) / 100),
+        color = (cloud and cloud.color) or {1.0, 0.3, 0.7},
+    }
+    table.insert(layer.nebulaClouds, newCloud)
+    return true
+end
+
+-- Public API: add decorative asteroids near asteroid clusters
+function Parallax.addAsteroidsNearClusters(parallax)
+    if not parallax or not parallax.layers then return false end
+    
+    -- Find the very close background layer (parallaxFactor around 0.95)
+    local targetLayer = nil
+    for i, layer in ipairs(parallax.layers) do
+        local pf = layer.parallaxFactor or 1.0
+        if pf >= 0.9 and pf <= 0.99 then
+            targetLayer = layer
+            break
+        end
+    end
+    
+    if not targetLayer then return false end
+    targetLayer.asteroids = targetLayer.asteroids or {}
+    
+    -- Get asteroid cluster positions
+    local AsteroidClusters = require('src.systems.asteroid_clusters')
+    local clusters = AsteroidClusters and AsteroidClusters.getClusters and AsteroidClusters.getClusters() or {}
+    local clusterPositions = {}
+    for _, cluster in pairs(clusters) do
+        if cluster.centerX and cluster.centerY then
+            table.insert(clusterPositions, {x = cluster.centerX, y = cluster.centerY, radius = cluster.radius or 750})
+        end
+    end
+    
+    if #clusterPositions == 0 then return false end
+    
+    -- Spawn asteroids around each cluster
+    local Procedural = require('src.procedural')
+    local asteroidsPerCluster = 10 -- Asteroids per cluster (fewer, more subtle)
+    
+    for _, cluster in ipairs(clusterPositions) do
+        for a = 1, asteroidsPerCluster do
+            -- Spawn just outside the cluster radius (around 1.2x to 2.5x the cluster radius)
+            local angle = love.math.random() * 2 * math.pi
+            local distance = love.math.random(cluster.radius * 1.2, cluster.radius * 2.5)
+            local x = cluster.x + math.cos(angle) * distance
+            local y = cluster.y + math.sin(angle) * distance
+            
+            -- Medium size for close background asteroids (15-35 pixels)
+            local size = love.math.random(15, 35)
+            local vertexCount = love.math.random(6, 10)
+            local vertices = Procedural.generatePolygonVertices(vertexCount, size / 2)
+            
+            -- Random rotation
+            local rotation = love.math.random() * 2 * math.pi
+            
+            -- Slightly dimmed colors for background depth (still visible)
+            local brightness = targetLayer.brightness or 0.5
+            local baseGray = 0.4 + love.math.random() * 0.3 -- 0.4-0.7 (brighter since closer)
+            local r = baseGray * brightness
+            local g = baseGray * brightness
+            local b = baseGray * brightness
+            
+            table.insert(targetLayer.asteroids, {
+                x = x,
+                y = y,
+                vertices = vertices,
+                rotation = rotation,
+                size = size,
+                r = r,
+                g = g,
+                b = b,
+                alpha = 0.75 * brightness -- More opaque since closer
+            })
+        end
+    end
+    
+    return true
 end
 
 -- add: procedural HD background generator (1920x1080 blue-green nebula + stars)
@@ -356,16 +462,18 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
             shader:send('resolution', {screenWidth, screenHeight})
             shader:send('time', love.timer.getTime())
             love.graphics.setShader(shader)
-            for _, cloud in ipairs(layer.nebulaClouds) do
+        for _, cloud in ipairs(layer.nebulaClouds) do
                 -- Compute camera offset including cloud world position and parallax
                 local camX = cameraX or 0
                 local camY = cameraY or 0
                 local offsetX = camX * pf + (cloud.x or 0)
                 local offsetY = camY * pf + (cloud.y or 0)
                 shader:send('cameraOffset', {offsetX, offsetY})
-                -- Send per-cloud scale and dim to shader
+                -- Send per-cloud scale, dim, and color to shader
                 shader:send('cloudScale', cloud.scale or 1.0)
                 shader:send('nebulaDim', (cloud.opacity or 0.35) * (layer.brightness or 1.0))
+                local c = cloud.color or {1.0, 0.3, 0.7}
+                shader:send('nebulaColor', {c[1] or 1.0, c[2] or 0.3, c[3] or 0.7})
 
                 -- Draw full-screen quad (shader uses pixel coords) with neutral color
                 love.graphics.setColor(1, 1, 1, 1)
@@ -410,6 +518,48 @@ function Parallax.draw(parallax, cameraX, cameraY, screenWidth, screenHeight)
             love.graphics.points(sx, sy)
             ::star_continue::
         end
+        
+        -- Draw decorative asteroids for this layer
+        if layer.asteroids and #layer.asteroids > 0 then
+            local pf = layer.parallaxFactor or 1.0
+            local worldToScreenX = (screenWidth) / (parallax.worldSize or 1)
+            local worldToScreenY = (screenHeight) / (parallax.worldSize or 1)
+            
+            for _, asteroid in ipairs(layer.asteroids) do
+                -- Transform world position to screen with parallax
+                local sx = (screenWidth * 0.5) + ( (asteroid.x or 0) - ( (cameraX or 0) * pf ) ) * worldToScreenX
+                local sy = (screenHeight * 0.5) + ( (asteroid.y or 0) - ( (cameraY or 0) * pf ) ) * worldToScreenY
+                
+                -- Skip off-screen asteroids
+                if sx < -asteroid.size or sx > screenWidth + asteroid.size or 
+                   sy < -asteroid.size or sy > screenHeight + asteroid.size then
+                    goto asteroid_continue
+                end
+                
+                -- Transform vertices to screen space with rotation
+                local worldVertices = {}
+                local rot = asteroid.rotation or 0
+                for _, v in ipairs(asteroid.vertices or {}) do
+                    local localX = v.x * math.cos(rot) - v.y * math.sin(rot)
+                    local localY = v.x * math.sin(rot) + v.y * math.cos(rot)
+                    table.insert(worldVertices, sx + localX)
+                    table.insert(worldVertices, sy + localY)
+                end
+                
+                -- Draw asteroid with dimmed colors
+                if #worldVertices >= 6 then
+                    love.graphics.setColor(asteroid.r or 0.4, asteroid.g or 0.4, asteroid.b or 0.4, asteroid.alpha or 0.5)
+                    love.graphics.polygon("fill", worldVertices)
+                    
+                    -- Subtle outline for depth
+                    love.graphics.setColor(asteroid.r * 0.5 or 0.2, asteroid.g * 0.5 or 0.2, asteroid.b * 0.5 or 0.2, asteroid.alpha or 0.5)
+                    love.graphics.setLineWidth(1)
+                    love.graphics.polygon("line", worldVertices)
+                end
+                
+                ::asteroid_continue::
+            end
+        end
          ::continue::
     end
     
@@ -432,7 +582,8 @@ function Parallax.serialize(parallax)
             brightness = layer.brightness,
             count = layer.count,
             stars = {},
-            nebulaClouds = {}
+            nebulaClouds = {},
+            asteroids = {}
         }
 
         for _, star in ipairs(layer.stars or {}) do
@@ -457,6 +608,21 @@ function Parallax.serialize(parallax)
                 y = cloud.y,
                 scale = cloud.scale,
                 opacity = cloud.opacity,
+                color = cloud.color,
+            })
+        end
+
+        for _, asteroid in ipairs(layer.asteroids or {}) do
+            table.insert(layerData.asteroids, {
+                x = asteroid.x,
+                y = asteroid.y,
+                vertices = asteroid.vertices,
+                rotation = asteroid.rotation,
+                size = asteroid.size,
+                r = asteroid.r,
+                g = asteroid.g,
+                b = asteroid.b,
+                alpha = asteroid.alpha,
             })
         end
 
@@ -485,6 +651,7 @@ function Parallax.deserialize(data)
             count = layerData.count,
             stars = {},
             nebulaClouds = {},
+            asteroids = {},
         }
 
         for _, star in ipairs(layerData.stars or {}) do
@@ -509,6 +676,21 @@ function Parallax.deserialize(data)
                 y = cloud.y,
                 scale = cloud.scale,
                 opacity = cloud.opacity,
+                color = cloud.color or {1.0, 0.3, 0.7},
+            })
+        end
+
+        for _, asteroid in ipairs(layerData.asteroids or {}) do
+            table.insert(layer.asteroids, {
+                x = asteroid.x,
+                y = asteroid.y,
+                vertices = asteroid.vertices,
+                rotation = asteroid.rotation,
+                size = asteroid.size,
+                r = asteroid.r,
+                g = asteroid.g,
+                b = asteroid.b,
+                alpha = asteroid.alpha,
             })
         end
 

@@ -1,6 +1,8 @@
 ---@diagnostic disable: undefined-global
 local WindowBase = require('src.ui.window_base')
-local SkillsPanel = require('src.ui.skills_panel')
+local Theme = require('src.ui.plasma_theme')
+local ECS = require('src.ecs')
+local Scaling = require('src.scaling')
 
 local SkillsWindow = WindowBase:new{
     width = 750,
@@ -9,16 +11,118 @@ local SkillsWindow = WindowBase:new{
 }
 
 function SkillsWindow.drawEmbedded(shipWin, windowX, windowY, width, height, alpha)
-    return SkillsPanel.draw(shipWin, windowX, windowY, width, height, alpha)
+    return shipWin:drawSkillsContent(windowX, windowY, width, height, alpha)
 end
 
 function SkillsWindow.mousepressedEmbedded(shipWin, x, y, button)
-    if SkillsPanel and SkillsPanel.mousepressed then
-        return SkillsPanel.mousepressed(shipWin, x, y, button)
+    return shipWin:handleSkillsMousepressed(x, y, button)
+end
+function SkillsWindow.mousereleasedEmbedded(shipWin, x, y, button) 
+    return shipWin:handleSkillsMousereleased(x, y, button)
+end
+function SkillsWindow.mousemovedEmbedded(shipWin, x, y, dx, dy) 
+    return shipWin:handleSkillsMousemoved(x, y, dx, dy)
+end
+
+-- Helper methods (full implementations)
+function SkillsWindow:drawSkillsContent(windowX, windowY, width, height, alpha)
+    local contentX = windowX + 10
+    local contentY = windowY + Theme.window.topBarHeight + 8
+    local contentWidth = width - 20
+    
+    -- Get player skills
+    local pilotEntities = ECS.getEntitiesWith({"Player", "Skills"})
+    if #pilotEntities == 0 then return end
+    local pilotId = pilotEntities[1]
+    local skills = ECS.getComponent(pilotId, "Skills")
+    if not skills or not skills.skills then return end
+    
+    -- Draw header
+    love.graphics.setFont(Theme.getFontBold(Theme.fonts.normal))
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+    love.graphics.printf("Skills", contentX, contentY, contentWidth, "center")
+    
+    local skillY = contentY + 40
+    local skillHeight = 60
+    local skillPadding = 10
+    local progressBarHeight = 8
+    local progressBarPadding = 4
+    
+    -- Skill display order
+    local skillOrder = {"mining", "salvaging", "lasers", "missiles", "kinetic"}
+    local skillNames = {
+        mining = "Mining",
+        salvaging = "Salvaging",
+        lasers = "Lasers",
+        missiles = "Missiles",
+        kinetic = "Kinetic"
+    }
+    
+    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
+    
+    for i, skillKey in ipairs(skillOrder) do
+        local skill = skills.skills[skillKey]
+        if skill then
+            local y = skillY + (i - 1) * (skillHeight + skillPadding)
+            
+            -- Draw skill background
+            local bg = Theme.colors.surface
+            love.graphics.setColor(bg[1], bg[2], bg[3], 0.8 * alpha)
+            love.graphics.rectangle("fill", contentX, y, contentWidth, skillHeight, 4, 4)
+            
+            -- Draw skill name and level
+            local skillName = skillNames[skillKey] or skillKey
+            love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+            love.graphics.print(skillName, contentX + 10, y + 8)
+            
+            local levelText = "Level " .. (skill.level or 1)
+            love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
+            love.graphics.print(levelText, contentX + 10, y + 24)
+            
+            -- Draw XP progress bar
+            local progressBarX = contentX + 10
+            local progressBarY = y + skillHeight - progressBarHeight - progressBarPadding
+            local progressBarWidth = contentWidth - 20
+            
+            -- Background
+            love.graphics.setColor(0.2, 0.2, 0.2, alpha)
+            love.graphics.rectangle("fill", progressBarX, progressBarY, progressBarWidth, progressBarHeight, 2, 2)
+            
+            -- Progress
+            local currentXp = skill.experience or 0
+            local requiredXp = skill.requiredXp or 100
+            local progress = math.min(1, currentXp / requiredXp)
+            local filledWidth = progressBarWidth * progress
+            
+            if filledWidth > 0 then
+                local progressColor = Theme.colors.hover or {0.2, 0.6, 0.9, 1}
+                love.graphics.setColor(progressColor[1], progressColor[2], progressColor[3], alpha)
+                love.graphics.rectangle("fill", progressBarX, progressBarY, filledWidth, progressBarHeight, 2, 2)
+            end
+            
+            -- XP text
+            local xpText = string.format("%d / %d XP", currentXp, requiredXp)
+            love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+            love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
+            local textX = progressBarX + progressBarWidth - love.graphics.getFont():getWidth(xpText) - 4
+            love.graphics.print(xpText, textX, progressBarY - 12)
+        end
     end
 end
-function SkillsWindow.mousereleasedEmbedded(shipWin, x, y, button) end
-function SkillsWindow.mousemovedEmbedded(shipWin, x, y, dx, dy) end
+
+function SkillsWindow:handleSkillsMousepressed(x, y, button)
+    -- Skills window doesn't need interaction for now
+    return false
+end
+
+function SkillsWindow:handleSkillsMousereleased(x, y, button)
+    return false
+end
+
+function SkillsWindow:handleSkillsMousemoved(x, y, dx, dy)
+    -- Skills window doesn't need hover interaction for now
+    return false
+end
 
 -- Standalone window behaviour
 function SkillsWindow:draw(viewportWidth, viewportHeight, uiMx, uiMy)
@@ -29,7 +133,7 @@ function SkillsWindow:draw(viewportWidth, viewportHeight, uiMx, uiMy)
     local x, y = self.position.x, self.position.y
     -- Draw close button provided by WindowBase
     self:drawCloseButton(x, y, alpha, uiMx, uiMy)
-    SkillsPanel.draw(self, x, y, self.width, self.height, alpha)
+    self:drawSkillsContent(x, y, self.width, self.height, alpha)
 end
 
 function SkillsWindow:mousepressed(x, y, button)
@@ -40,21 +144,18 @@ function SkillsWindow:mousepressed(x, y, button)
     -- If user started dragging the window, consume the event
     if self.isDragging then return true end
 
-    if SkillsPanel and SkillsPanel.mousepressed then
-        return SkillsPanel.mousepressed(self, x, y, button)
-    end
+    return self:handleSkillsMousepressed(x, y, button)
 end
 
 function SkillsWindow:mousereleased(x, y, button)
     WindowBase.mousereleased(self, x, y, button)
+    return self:handleSkillsMousereleased(x, y, button)
 end
 
 function SkillsWindow:mousemoved(x, y, dx, dy)
     -- Let base handle dragging first
     WindowBase.mousemoved(self, x, y, dx, dy)
-    if SkillsPanel and SkillsPanel.mousemoved then
-        return SkillsPanel.mousemoved(self, x, y, dx, dy)
-    end
+    return self:handleSkillsMousemoved(x, y, dx, dy)
 end
 
 return SkillsWindow

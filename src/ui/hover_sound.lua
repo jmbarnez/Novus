@@ -243,7 +243,9 @@ function HoverSound.onClick(button, screenX, screenY, opts)
             local inside = true
             if state.bounds then
                 if state.space == "ui" then
-                    uiX, uiY = uiX or Scaling.toUI(screenX or 0, screenY or 0)
+                    if not uiX then
+                        uiX, uiY = Scaling.toUI(screenX or 0, screenY or 0)
+                    end
                     inside = pointInRect(uiX, uiY, state.bounds)
                 else
                     inside = pointInRect(screenX or 0, screenY or 0, state.bounds)

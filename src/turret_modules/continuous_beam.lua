@@ -311,8 +311,8 @@ function ContinuousBeam.applyBeam(ownerId, startX, startY, endX, endY, dt, turre
         elseif asteroid then
             local durability = ECS.getComponent(hitEntityId, "Durability")
             if durability then
-                -- Turret beams deal 4x damage to asteroids; apply sub-module bonuses
-                local asteroidMultiplier = 4.0
+                -- Continuous lasers deal normal damage to asteroids (no multiplier)
+                local asteroidMultiplier = 1.0
                 if turretComp and turretComp.subModules and #turretComp.subModules > 0 then
                     for _, sub in ipairs(turretComp.subModules) do
                         local effects = sub and (sub.effects or sub.effect) or nil
@@ -343,8 +343,8 @@ function ContinuousBeam.applyBeam(ownerId, startX, startY, endX, endY, dt, turre
         elseif wreckage then
             local durability = ECS.getComponent(hitEntityId, "Durability")
             if durability then
-                -- Turret beams deal 4x damage to wreckage
-                local scaledDamage = finalDamage * 4.0
+                -- Continuous lasers deal normal damage to wreckage (no multiplier)
+                local scaledDamage = finalDamage * 1.0
                 local damageApplied = math.min(scaledDamage, durability.current)
                 durability.current = durability.current - damageApplied
                 -- Only grant XP if wreckage is destroyed this frame

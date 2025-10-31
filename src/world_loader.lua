@@ -269,6 +269,18 @@ function WorldLoader.initAsteroidClusters(config)
             end
         end
     end
+    
+    -- Add decorative parallax asteroids around clusters (close background layer)
+    local Parallax = require('src.parallax')
+    local ECS = require('src.ecs')
+    local starFieldEntities = ECS.getEntitiesWith({"StarField"})
+    if #starFieldEntities > 0 then
+        local starFieldId = starFieldEntities[1]
+        local starFieldComp = ECS.getComponent(starFieldId, "StarField")
+        if starFieldComp and Parallax.addAsteroidsNearClusters then
+            Parallax.addAsteroidsNearClusters(starFieldComp)
+        end
+    end
 end
 
 -- Spawn enemies based on world configuration

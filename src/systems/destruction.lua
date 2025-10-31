@@ -67,7 +67,10 @@ function DestructionSystem.spawnItems(x, y, params)
                 -- If this item is a turret module, create an instance copy so we can attach per-item modifiers/level
                 local finalDef = itemDef
                 if itemDef.module then
-                    local instanceModule = TurretModuleLoader.createInstance(itemDef.module, {loot = true})
+                    -- Allow caller to request a module instance with a specific level for loot
+                    local moduleOpts = {loot = true}
+                    if params.moduleLevel then moduleOpts.level = params.moduleLevel end
+                    local instanceModule = TurretModuleLoader.createInstance(itemDef.module, moduleOpts)
                     if instanceModule then
                         -- shallow copy itemDef to avoid mutating global defs
                         finalDef = {}
@@ -77,7 +80,9 @@ function DestructionSystem.spawnItems(x, y, params)
                 end
                 ECS.addComponent(itemId, "Item", {id = type_, def = finalDef})
                 ECS.addComponent(itemId, "Stack", Components.Stack(quantity))
-                ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
+                -- Safely get item color, fallback to default gray if no design
+                local itemColor = (itemDef.design and itemDef.design.color) or {0.7, 0.7, 0.8, 1}
+                ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemColor))
                 -- Add polygon shape if supported by item (for precise highlights, but no Collidable)
                 if itemDef.design and (itemDef.design.shape == "polygon" or itemDef.design.shape == "custom") then
                     local sz = (itemDef.design.size or 12)
@@ -127,7 +132,9 @@ function DestructionSystem.spawnItems(x, y, params)
                 end
                 ECS.addComponent(itemId, "Item", {id = type_, def = finalDef})
                 ECS.addComponent(itemId, "Stack", Components.Stack(1))
-                ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
+                -- Safely get item color, fallback to default gray if no design
+                local itemColor = (itemDef.design and itemDef.design.color) or {0.7, 0.7, 0.8, 1}
+                ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemColor))
                 -- Add polygon shape if supported by item (for precise highlights, but no Collidable)
                 if itemDef.design and (itemDef.design.shape == "polygon" or itemDef.design.shape == "custom") then
                     local sz = (itemDef.design.size or 12)
@@ -210,46 +217,20 @@ function DestructionSystem.update(dt)
                     end
 
                     if shouldDrop then
-                        local collidable = ECS.getComponent(entityId, "Collidable")
-                        local parentSize = collidable and collidable.radius or 20
-
-                        -- Determine item type and base count
+                        -- Determine item type based on asteroid type
                         local itemType = "stone"
-                        local baseCount = math.random(8, 15)
-
                         if asteroid.asteroidType == "crystal" then
                             itemType = "crystal"
-                            baseCount = math.random(3, 6)  -- Crystals are rarer, so fewer drop
                         elseif asteroid.asteroidType == "iron" then
                             itemType = "iron"
-                            baseCount = math.random(6, 12)  -- Iron gives good yield
                         end
 
-                        -- Crystal asteroids may also drop some stone fragments
-                        if asteroid.asteroidType == "crystal" and math.random() < 0.3 then
-                            DestructionSystem.spawnItems(pos.x + math.random(-10, 10), pos.y + math.random(-10, 10), {
-                                {itemId = "stone", count = math.random(2, 4)}
-                            })
-                        end
+                        -- Drop 2-4 of the asteroid's resource type
+                        local count = math.random(2, 4)
 
-                        -- Size bonus: Larger asteroids give more resources
-                        local sizeMultiplier = 1.0 + (parentSize / 100)  -- +1% per radius unit
-                        baseCount = math.floor(baseCount * sizeMultiplier)
-
-                        -- Skill bonus: Higher mining skill increases yield
-                        local playerEntities = ECS.getEntitiesWith({"Player", "Skills"})
-                        if #playerEntities > 0 then
-                            local skills = ECS.getComponent(playerEntities[1], "Skills")
-                            if skills and skills.skills.mining then
-                                local miningLevel = skills.skills.mining.level
-                                local skillBonus = 1.0 + (miningLevel * 0.15)  -- +15% per level
-                                baseCount = math.floor(baseCount * skillBonus)
-                            end
-                        end
-
-                        -- Spawn items but tag them so only lastDamager can see/pick them up
-                        local spawned = DestructionSystem.spawnItems(pos.x, pos.y, {
-                            count = baseCount,
+                        -- Spawn items
+                        DestructionSystem.spawnItems(pos.x, pos.y, {
+                            count = count,
                             itemType = itemType,
                             distance = 0,
                             speed = {Constants.bit_spawn_speed_asteroid_min or 40, Constants.bit_spawn_speed_asteroid_max or 120}
@@ -360,47 +341,16 @@ function DestructionSystem.update(dt)
                             -- Get item ID from module (module.id or module.itemId)
                             local itemId = module.id or module.itemId
                             if itemId and ItemDefs[itemId] then
-                                local itemDef = ItemDefs[itemId]
-                                -- Create module instance with enemy's level and loot modifiers
+                                -- Spawn the turret module as a proper item so magnets/cargo can pick it up
                                 local enemyLevelValue = enemyLevel and enemyLevel.level or 1
-                                local instanceModule = TurretModuleLoader.createInstance(module, {
-                                    loot = true,
-                                    level = enemyLevelValue
+                                DestructionSystem.spawnItems(pos.x, pos.y, {
+                                    count = 1,
+                                    itemType = itemId,
+                                    distance = 60, -- spawn between 30 and 60 via spawnItems logic
+                                    speed = {40, 100},
+                                    stackItems = false,
+                                    moduleLevel = enemyLevelValue
                                 })
-                                if instanceModule then
-                                    -- Create item definition copy with the instance
-                                    local finalDef = {}
-                                    for k, v in pairs(itemDef) do finalDef[k] = v end
-                                    finalDef.module = instanceModule
-                                    
-                                    -- Spawn the turret module as an item drop
-                                    local angle = math.random() * 2 * math.pi
-                                    local dist = math.random(30, 60)
-                                    local itemX = pos.x + math.cos(angle) * dist
-                                    local itemY = pos.y + math.sin(angle) * dist
-                                    local spd = 40 + math.random() * 60
-                                    local vx = math.cos(angle) * spd
-                                    local vy = math.sin(angle) * spd
-                                    
-                                    local dropItemId = ECS.createEntity()
-                                    ECS.addComponent(dropItemId, "Position", Components.Position(itemX, itemY))
-                                    ECS.addComponent(dropItemId, "Velocity", Components.Velocity(vx, vy))
-                                    ECS.addComponent(dropItemId, "Physics", Components.Physics(0.95, 0.8, 0.90))
-                                    ECS.addComponent(dropItemId, "Item", {id = itemId, def = finalDef})
-                                    ECS.addComponent(dropItemId, "Stack", Components.Stack(1))
-                                    ECS.addComponent(dropItemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}))
-                                    -- Add polygon shape if supported by item (for precise highlights)
-                                    if itemDef.design and (itemDef.design.shape == "polygon" or itemDef.design.shape == "custom") then
-                                        local sz = (itemDef.design.size or 12)
-                                        local verts = {
-                                            {x = 0, y = -sz/2},
-                                            {x = sz/2, y = 0},
-                                            {x = 0, y = sz/2},
-                                            {x = -sz/2, y = 0}
-                                        }
-                                        ECS.addComponent(dropItemId, "PolygonShape", Components.PolygonShape(verts, 0))
-                                    end
-                                end
                             end
                         end
                     end
@@ -408,7 +358,11 @@ function DestructionSystem.update(dt)
             end
 
             -- Spawn wreckage when ships are destroyed (AI-controlled or with Hull)
-            if (ai or hull) and pos then
+            -- But NOT when wreckage pieces are destroyed - wreckage only spawns scrap
+            -- Ships have Wreckage component for sourceShip storage, but also have AI component
+            -- Actual wreckage pieces have Wreckage but NO AI component
+            -- So: spawn wreckage if (has AI OR has hull) AND (has AI OR doesn't have Wreckage)
+            if (ai or hull) and (ai or not wreckage) and pos then
                 local sourceShip = "unknown"
 
                 -- Try to get ship type from wreckage component if it exists
@@ -423,7 +377,7 @@ function DestructionSystem.update(dt)
                 WreckageSystem.spawnWreckage(pos.x, pos.y, sourceShip, parentSize)
             end
 
-            -- Wreckage shatters into bits
+            -- Wreckage shatters into scrap pieces (not more wreckage)
             if wreckage and pos then
                 local collidable = ECS.getComponent(entityId, "Collidable")
                 local parentSize = collidable and collidable.radius or 15
