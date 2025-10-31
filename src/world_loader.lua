@@ -308,7 +308,9 @@ function WorldLoader.spawnEnemies(config)
                 )
 
                 if success then
-                    shipId = ShipLoader.createShip(enemyType, x, y, "ai")
+                    -- Generate level before creating ship so scaling can use it
+                    local levelValue = math.random(1, 3)
+                    shipId = ShipLoader.createShip(enemyType, x, y, "ai", nil, levelValue)
                     -- Set turret weapon after creation
                     if shipId then
                         local turret = ECS.getComponent(shipId, "Turret")
@@ -398,7 +400,10 @@ function WorldLoader.spawnEnemy(enemyType, config)
         end
     end
 
-    local shipId = ShipLoader.createShip(enemyType, x, y, "ai")
+    -- Generate level before creating ship so scaling can use it
+    local levelValue = math.random(1, 3)
+    
+    local shipId = ShipLoader.createShip(enemyType, x, y, "ai", nil, levelValue)
     if shipId then
         -- Set up turret weapon (random choice if weapons table is a list)
         local turret = ECS.getComponent(shipId, "Turret")
@@ -454,9 +459,7 @@ function WorldLoader.spawnEnemy(enemyType, config)
             wreckage.sourceShip = enemyType
         end
 
-        -- Add level component (random level 1-3 for now)
-        local levelValue = math.random(1, 3)
-        ECS.addComponent(shipId, "Level", Components.Level(levelValue))
+        -- Level component was already added in createShip, so no need to add it again
         
         -- Register enemy in collision system
         local enemyPos = ECS.getComponent(shipId, "Position")

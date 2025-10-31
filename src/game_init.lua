@@ -250,6 +250,29 @@ function GameInit.setupPlayerShip(pilotId)
         shipCargo:addItem("laser_asteroid_booster", 1)  -- Add laser booster sub-module for testing
     end
 
+    -- For testing: ensure starter turret items in cargo use instance copies with default level=1
+    -- and clear levelRequirement so they don't show old hardcoded requirements
+    do
+        local ItemDefs = require('src.items.item_loader')
+        local TurretModuleLoader = require('src.turret_module_loader')
+        local starterModuleIds = {continuousBeamId, basicCannonId, "railgun", missileLauncherId, arcCoilId}
+        for _, iid in ipairs(starterModuleIds) do
+            local def = ItemDefs[iid]
+            if def and def.module then
+                local inst = TurretModuleLoader.createInstance(def.module, {loot = false})
+                if inst then
+                    -- Clear levelRequirement for testing (or set to 1 to match level)
+                    inst.levelRequirement = nil
+                    -- shallow-copy item def so we don't break other references
+                    local newDef = {}
+                    for k, v in pairs(def) do newDef[k] = v end
+                    newDef.module = inst
+                    ItemDefs[iid] = newDef
+                end
+            end
+        end
+    end
+
     -- Debug: print starter cargo contents so we can verify item addition at runtime
     if shipCargo then
     end
@@ -321,7 +344,9 @@ function GameInit.spawnEnemies()
         local distance = 600 + math.random() * 400
         local x = math.cos(angle) * distance
         local y = math.sin(angle) * distance
-        local shipId = ShipLoader.createShip("red_scout", x, y, "ai")
+        -- Generate level before creating ship so scaling can use it
+        local levelValue = math.random(1, 3)
+        local shipId = ShipLoader.createShip("red_scout", x, y, "ai", nil, levelValue)
         if shipId then
             local turret = ECS.getComponent(shipId, "Turret")
             if turret then

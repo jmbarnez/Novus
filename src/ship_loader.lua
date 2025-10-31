@@ -47,7 +47,7 @@ function ShipLoader.loadAllDesigns(directory)
 end
 
 -- Create a ship entity from a design
-function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
+function ShipLoader.createShip(designId, x, y, controllerType, controllerId, level)
     local design = ShipLoader.designs[designId]
     if not design then
         -- Unknown ship design
@@ -56,6 +56,11 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
     
     -- Create entity
     local shipId = ECS.createEntity()
+    
+    -- Add Level component early if provided (so scaling can use it)
+    if level and controllerType == "ai" then
+        ECS.addComponent(shipId, "Level", Components.Level(level))
+    end
     
     -- Core components
     ECS.addComponent(shipId, "Position", Components.Position(x or 0, y or 0))
@@ -125,17 +130,20 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId)
     end
     
     -- Hull/Shield (scale for AI by level)
-    local level = 1
+    local shipLevel = 1
     if controllerType == "ai" then
         local levelComp = ECS.getComponent(shipId, "Level")
         if levelComp and levelComp.level then
-            level = levelComp.level
+            shipLevel = levelComp.level
+        elseif level then
+            -- Use provided level parameter if component wasn't found
+            shipLevel = level
         end
     end
     local hullCurrent, hullMax = design.hull and design.hull.current or 0, design.hull and design.hull.max or 0
     local shieldCurrent, shieldMax = design.shield and design.shield.current or 0, design.shield and design.shield.max or 0
     -- Example scaling: +20% per level above 1
-    local scale = 1 + 0.2 * (level - 1)
+    local scale = 1 + 0.2 * (shipLevel - 1)
     if design.hull then
         ECS.addComponent(shipId, "Hull", Components.Hull(math.floor(hullCurrent * scale), math.floor(hullMax * scale)))
     end

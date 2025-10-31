@@ -25,6 +25,10 @@ function TurretRegistry.loadModules(path)
                 if module.subslotCount == nil and module.subSlotCount == nil and module.subSlots == nil and module.maxSubslots == nil and module.maxSubSlots == nil then
                     module.subslotCount = 1
                 end
+                -- Default: ensure turret modules have a base level of 1 unless explicitly provided
+                if module.level == nil then
+                    module.level = 1
+                end
                 if not module.skill then
                     print("[TurretRegistry] Note: turret module '" .. tostring(moduleName) .. "' has no 'skill' field; it will not award XP unless provided")
                 end

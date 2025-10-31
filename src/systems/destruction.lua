@@ -50,7 +50,7 @@ function DestructionSystem.spawnItems(x, y, params)
         
         for type_, quantity in pairs(itemsByType) do
             local itemDef = ItemDefs[type_]
-            if itemDef then
+                if itemDef then
                 local angle = math.random() * 2 * math.pi
                 local dist = distance > 0 and math.random(distance * 0.5, distance) or 0
                 local itemX = x + math.cos(angle) * dist
@@ -64,7 +64,18 @@ function DestructionSystem.spawnItems(x, y, params)
                 ECS.addComponent(itemId, "Position", Components.Position(itemX, itemY))
                 ECS.addComponent(itemId, "Velocity", Components.Velocity(vx, vy))
                 ECS.addComponent(itemId, "Physics", Components.Physics(0.95, 0.8, 0.90)) -- Item drops: light mass, high damping
-                ECS.addComponent(itemId, "Item", {id = type_, def = itemDef})
+                -- If this item is a turret module, create an instance copy so we can attach per-item modifiers/level
+                local finalDef = itemDef
+                if itemDef.module then
+                    local instanceModule = TurretModuleLoader.createInstance(itemDef.module, {loot = true})
+                    if instanceModule then
+                        -- shallow copy itemDef to avoid mutating global defs
+                        finalDef = {}
+                        for k, v in pairs(itemDef) do finalDef[k] = v end
+                        finalDef.module = instanceModule
+                    end
+                end
+                ECS.addComponent(itemId, "Item", {id = type_, def = finalDef})
                 ECS.addComponent(itemId, "Stack", Components.Stack(quantity))
                 ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
                 -- Add polygon shape if supported by item (for precise highlights, but no Collidable)
@@ -90,7 +101,7 @@ function DestructionSystem.spawnItems(x, y, params)
             end
             
             local itemDef = ItemDefs[type_]
-            if itemDef then
+                if itemDef then
                 local angle = math.random() * 2 * math.pi
                 local dist = distance > 0 and math.random(distance * 0.5, distance) or 0
                 local itemX = x + math.cos(angle) * dist
@@ -104,7 +115,17 @@ function DestructionSystem.spawnItems(x, y, params)
                 ECS.addComponent(itemId, "Position", Components.Position(itemX, itemY))
                 ECS.addComponent(itemId, "Velocity", Components.Velocity(vx, vy))
                 ECS.addComponent(itemId, "Physics", Components.Physics(0.95, 0.8, 0.90)) -- Item drops: light mass, high damping
-                ECS.addComponent(itemId, "Item", {id = type_, def = itemDef})
+                -- If this item is a turret module, attach an instance with randomized modifiers for looted modules
+                local finalDef = itemDef
+                if itemDef.module then
+                    local instanceModule = TurretModuleLoader.createInstance(itemDef.module, {loot = true})
+                    if instanceModule then
+                        finalDef = {}
+                        for k, v in pairs(itemDef) do finalDef[k] = v end
+                        finalDef.module = instanceModule
+                    end
+                end
+                ECS.addComponent(itemId, "Item", {id = type_, def = finalDef})
                 ECS.addComponent(itemId, "Stack", Components.Stack(1))
                 ECS.addComponent(itemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design.color))
                 -- Add polygon shape if supported by item (for precise highlights, but no Collidable)
