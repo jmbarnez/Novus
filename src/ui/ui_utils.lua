@@ -189,5 +189,75 @@ function UIUtils.iterateWindows(windows, windowOrder, callback, reverse, filterF
     end
 end
 
+-- Slot component helper functions
+-- These provide reusable access to equipment slot components
+
+-- Get the item ID from a slot type on a drone
+-- @param droneId: entity ID of the drone
+-- @param slotType: "Turret Module", "Defensive Module", or "Generator Module"
+-- @return itemId or nil if slot is empty or doesn't exist
+function UIUtils.getSlotItem(droneId, slotType)
+    local ECS = require('src.ecs')
+    if slotType == "Turret Module" then
+        local turretSlots = ECS.getComponent(droneId, "TurretSlots")
+        if turretSlots and turretSlots.slots and turretSlots.slots[1] then
+            return turretSlots.slots[1]
+        end
+    elseif slotType == "Defensive Module" then
+        local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
+        if defensiveSlots and defensiveSlots.slots and defensiveSlots.slots[1] then
+            return defensiveSlots.slots[1]
+        end
+    elseif slotType == "Generator Module" then
+        local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
+        if generatorSlots and generatorSlots.slots and generatorSlots.slots[1] then
+            return generatorSlots.slots[1]
+        end
+    end
+    return nil
+end
+
+-- Set the item ID in a slot type on a drone
+-- @param droneId: entity ID of the drone
+-- @param slotType: "Turret Module", "Defensive Module", or "Generator Module"
+-- @param itemId: item ID to equip (nil to clear)
+-- @return boolean: true if successful
+function UIUtils.setSlotItem(droneId, slotType, itemId)
+    local ECS = require('src.ecs')
+    if slotType == "Turret Module" then
+        local turretSlots = ECS.getComponent(droneId, "TurretSlots")
+        if turretSlots and turretSlots.slots then
+            turretSlots.slots[1] = itemId
+            -- Also update the Turret component moduleName
+            local turret = ECS.getComponent(droneId, "Turret")
+            if turret then
+                turret.moduleName = itemId
+            end
+            return true
+        end
+    elseif slotType == "Defensive Module" then
+        local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
+        if defensiveSlots and defensiveSlots.slots then
+            defensiveSlots.slots[1] = itemId
+            return true
+        end
+    elseif slotType == "Generator Module" then
+        local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
+        if generatorSlots and generatorSlots.slots then
+            generatorSlots.slots[1] = itemId
+            return true
+        end
+    end
+    return false
+end
+
+-- Check if a slot type is occupied on a drone
+-- @param droneId: entity ID of the drone
+-- @param slotType: "Turret Module", "Defensive Module", or "Generator Module"
+-- @return boolean: true if slot is occupied
+function UIUtils.isSlotOccupied(droneId, slotType)
+    return UIUtils.getSlotItem(droneId, slotType) ~= nil
+end
+
 return UIUtils
 

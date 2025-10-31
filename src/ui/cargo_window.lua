@@ -57,13 +57,9 @@ function CargoWindow:equipModule(itemId)
         return self.parentShipWindow.loadoutWindow:equipModule(itemId)
     else
         -- Standalone mode: use shared helper
-        local ECS = require('src.ecs')
-        local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-        if #pilotEntities == 0 then return false end
-        local pilotId = pilotEntities[1]
-        local input = ECS.getComponent(pilotId, "InputControlled")
-        if not input or not input.targetEntity then return false end
-        local droneId = input.targetEntity
+        local EntityHelpers = require('src.entity_helpers')
+        local droneId = EntityHelpers.getPlayerShip()
+        if not droneId then return false end
         
         -- Use shared helper from loadout_window
         local LoadoutWindow = require('src.ui.loadout_window')
@@ -83,28 +79,11 @@ function CargoWindow:openContextMenu(itemId, itemDef, x, y)
     local options = {}
 
     -- Determine drone and slot occupancy so we can show "Swap" when occupied
-    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-    local droneId = nil
-    if #pilotEntities > 0 then
-        local pilotId = pilotEntities[1]
-        local input = ECS.getComponent(pilotId, "InputControlled")
-        if input and input.targetEntity then droneId = input.targetEntity end
-    end
+    local EntityHelpers = require('src.entity_helpers')
+    local droneId = EntityHelpers.getPlayerShip()
 
     for _, slotType in ipairs(compatibleSlots) do
-        local occupied = false
-        if droneId then
-            if slotType == "Turret Module" then
-                local turretSlots = ECS.getComponent(droneId, "TurretSlots")
-                occupied = (turretSlots and turretSlots.slots and turretSlots.slots[1]) ~= nil
-            elseif slotType == "Defensive Module" then
-                local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
-                occupied = (defensiveSlots and defensiveSlots.slots and defensiveSlots.slots[1]) ~= nil
-            elseif slotType == "Generator Module" then
-                local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
-                occupied = (generatorSlots and generatorSlots.slots and generatorSlots.slots[1]) ~= nil
-            end
-        end
+        local occupied = droneId and UIUtils.isSlotOccupied(droneId, slotType) or false
 
         local itemName = (itemDef and itemDef.name) or tostring(itemId)
         local optionText
@@ -162,12 +141,11 @@ function CargoWindow:drawCargoContent(windowX, windowY, width, height, alpha)
     local contentWidth = width - 20
     local bottomBarH = Theme.window.bottomBarHeight or 0
     
-    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-    if #pilotEntities == 0 then return end
-    local pilotId = pilotEntities[1]
-    local input = ECS.getComponent(pilotId, "InputControlled")
-    if not input or not input.targetEntity then return end
-    local droneId = input.targetEntity
+    -- Get player and drone using EntityHelpers
+    local EntityHelpers = require('src.entity_helpers')
+    local droneId = EntityHelpers.getPlayerShip()
+    if not droneId then return end
+    local pilotId = EntityHelpers.getPlayerPilot()
     local cargo = ECS.getComponent(droneId, "Cargo")
     if not cargo then return end
 

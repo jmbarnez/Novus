@@ -162,13 +162,11 @@ function ShipWindow:drawBottomBar(windowX, windowY, alpha)
     local h = Theme.window.bottomBarHeight
     local padding = Theme.spacing.sm
 
-    -- Get player and ship data
-    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-    if #pilotEntities == 0 then return end
-    local pilotId = pilotEntities[1]
-    local input = ECS.getComponent(pilotId, "InputControlled")
-    if not input or not input.targetEntity then return end
-    local droneId = input.targetEntity
+    -- Get player and ship data using EntityHelpers
+    local EntityHelpers = require('src.entity_helpers')
+    local droneId = EntityHelpers.getPlayerShip()
+    if not droneId then return end
+    local pilotId = EntityHelpers.getPlayerPilot()
 
     local wallet = ECS.getComponent(pilotId, "Wallet")
     local cargo = ECS.getComponent(droneId, "Cargo")
@@ -256,28 +254,12 @@ function ShipWindow:openContextMenu(itemId, itemDef, x, y)
     local options = {}
 
     -- Determine drone and slot occupancy so we can show "Swap" when occupied
-    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-    local droneId = nil
-    if #pilotEntities > 0 then
-        local pilotId = pilotEntities[1]
-        local input = ECS.getComponent(pilotId, "InputControlled")
-        if input and input.targetEntity then droneId = input.targetEntity end
-    end
+    local EntityHelpers = require('src.entity_helpers')
+    local UIUtils = require('src.ui.ui_utils')
+    local droneId = EntityHelpers.getPlayerShip()
 
     for _, slotType in ipairs(compatibleSlots) do
-        local occupied = false
-        if droneId then
-            if slotType == "Turret Module" then
-                local turretSlots = ECS.getComponent(droneId, "TurretSlots")
-                occupied = (turretSlots and turretSlots.slots and turretSlots.slots[1]) ~= nil
-            elseif slotType == "Defensive Module" then
-                local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
-                occupied = (defensiveSlots and defensiveSlots.slots and defensiveSlots.slots[1]) ~= nil
-            elseif slotType == "Generator Module" then
-                local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
-                occupied = (generatorSlots and generatorSlots.slots and generatorSlots.slots[1]) ~= nil
-            end
-        end
+        local occupied = droneId and UIUtils.isSlotOccupied(droneId, slotType) or false
 
         local itemName = (itemDef and itemDef.name) or tostring(itemId)
         local optionText

@@ -30,10 +30,10 @@ function SkillsWindow:drawSkillsContent(windowX, windowY, width, height, alpha)
     local contentY = windowY + Theme.window.topBarHeight + 8
     local contentWidth = width - 20
     
-    -- Get player skills
-    local pilotEntities = ECS.getEntitiesWith({"Player", "Skills"})
-    if #pilotEntities == 0 then return end
-    local pilotId = pilotEntities[1]
+    -- Get player skills using EntityHelpers
+    local EntityHelpers = require('src.entity_helpers')
+    local pilotId = EntityHelpers.getPlayerPilot()
+    if not pilotId then return end
     local skills = ECS.getComponent(pilotId, "Skills")
     if not skills or not skills.skills then return end
     

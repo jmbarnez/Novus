@@ -178,13 +178,9 @@ end
 
 -- Proxy useful APIs so ship code can keep calling the same names
 function LoadoutWindow.equipModule(shipWin, itemId)
-    local ECS = require('src.ecs')
-    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-    if #pilotEntities == 0 then return false end
-    local pilotId = pilotEntities[1]
-    local input = ECS.getComponent(pilotId, "InputControlled")
-    if not input or not input.targetEntity then return false end
-    local droneId = input.targetEntity
+    local EntityHelpers = require('src.entity_helpers')
+    local droneId = EntityHelpers.getPlayerShip()
+    if not droneId then return false end
     
     return ModuleEquipHelpers.equipModule(droneId, itemId)
 end
@@ -225,18 +221,10 @@ function LoadoutWindow:drawLoadoutContent(windowX, windowY, width, height, alpha
     local contentWidth = width - 20
     local contentHeight = height - Theme.window.topBarHeight - (Theme.window.bottomBarHeight or 0) - 16
     
-    -- Get player and drone
-    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-    if #pilotEntities == 0 then return end
-    local pilotId = pilotEntities[1]
-    local input = ECS.getComponent(pilotId, "InputControlled")
-    if not input or not input.targetEntity then return end
-    local droneId = input.targetEntity
-    
-    -- Get equipment slots
-    local turretSlots = ECS.getComponent(droneId, "TurretSlots")
-    local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
-    local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
+    -- Get player and drone using EntityHelpers
+    local EntityHelpers = require('src.entity_helpers')
+    local droneId = EntityHelpers.getPlayerShip()
+    if not droneId then return end
     
     local slotSize = 120
     local slotPadding = 20
@@ -247,33 +235,29 @@ function LoadoutWindow:drawLoadoutContent(windowX, windowY, width, height, alpha
     love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
     love.graphics.printf("Equipment", contentX, contentY, contentWidth, "center")
     
-    -- Draw equipment slots in a row
+    -- Draw equipment slots in a row using UIUtils slot helpers
     local slotX = contentX + (contentWidth - (slotSize * 3 + slotPadding * 2)) / 2
     local slotY = slotsStartY
     
     -- Turret Module slot
-    local turretItemId = turretSlots and turretSlots.slots and turretSlots.slots[1]
+    local turretItemId = UIUtils.getSlotItem(droneId, "Turret Module")
     self:drawEquipmentSlotInternal("Turret Module", turretItemId, slotX, slotY, slotSize, alpha, droneId)
     slotX = slotX + slotSize + slotPadding
     
     -- Defensive Module slot
-    local defensiveItemId = defensiveSlots and defensiveSlots.slots and defensiveSlots.slots[1]
+    local defensiveItemId = UIUtils.getSlotItem(droneId, "Defensive Module")
     self:drawEquipmentSlotInternal("Defensive Module", defensiveItemId, slotX, slotY, slotSize, alpha, droneId)
     slotX = slotX + slotSize + slotPadding
     
     -- Generator Module slot
-    local generatorItemId = generatorSlots and generatorSlots.slots and generatorSlots.slots[1]
+    local generatorItemId = UIUtils.getSlotItem(droneId, "Generator Module")
     self:drawEquipmentSlotInternal("Generator Module", generatorItemId, slotX, slotY, slotSize, alpha, droneId)
 end
 
 function LoadoutWindow:unequipModuleInternal(slotType, itemId)
-    local ECS = require('src.ecs')
-    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-    if #pilotEntities == 0 then return false end
-    local pilotId = pilotEntities[1]
-    local input = ECS.getComponent(pilotId, "InputControlled")
-    if not input or not input.targetEntity then return false end
-    local droneId = input.targetEntity
+    local EntityHelpers = require('src.entity_helpers')
+    local droneId = EntityHelpers.getPlayerShip()
+    if not droneId then return false end
     local cargo = ECS.getComponent(droneId, "Cargo")
     if not cargo then return false end
     
@@ -389,39 +373,7 @@ function LoadoutWindow:handleLoadoutMousereleased(x, y, button)
         local dragged = DragState.getDragItem()
         if not dragged then return false end
 
-        -- Helper accessors for slot components
-        local function get_slot(droneId, slotType)
-            if slotType == "Turret Module" then
-                local s = ECS.getComponent(droneId, "TurretSlots")
-                return s and s.slots and s.slots[1]
-            elseif slotType == "Defensive Module" then
-                local s = ECS.getComponent(droneId, "DefensiveSlots")
-                return s and s.slots and s.slots[1]
-            elseif slotType == "Generator Module" then
-                local s = ECS.getComponent(droneId, "GeneratorSlots")
-                return s and s.slots and s.slots[1]
-            end
-            return nil
-        end
-
-        local function set_slot(droneId, slotType, itemId)
-            if slotType == "Turret Module" then
-                local s = ECS.getComponent(droneId, "TurretSlots")
-                if s and s.slots then
-                    s.slots[1] = itemId
-                end
-                local turret = ECS.getComponent(droneId, "Turret")
-                if turret then
-                    turret.moduleName = itemId
-                end
-            elseif slotType == "Defensive Module" then
-                local s = ECS.getComponent(droneId, "DefensiveSlots")
-                if s and s.slots then s.slots[1] = itemId end
-            elseif slotType == "Generator Module" then
-                local s = ECS.getComponent(droneId, "GeneratorSlots")
-                if s and s.slots then s.slots[1] = itemId end
-            end
-        end
+        -- Use UIUtils slot helpers instead of local functions
 
         -- Cargo -> Loadout
         if dragged.origin == "cargo" then
@@ -447,19 +399,13 @@ function LoadoutWindow:handleLoadoutMousereleased(x, y, button)
         elseif dragged.origin == "loadout" then
             local srcSlot = dragged.slotName
 
-            -- Find drone id
-            local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-            if #pilotEntities == 0 then
+            -- Get drone id using EntityHelpers
+            local EntityHelpers = require('src.entity_helpers')
+            local droneId = EntityHelpers.getPlayerShip()
+            if not droneId then
                 DragState.endDrag()
                 return true
             end
-            local pilotId = pilotEntities[1]
-            local input = ECS.getComponent(pilotId, "InputControlled")
-            if not input or not input.targetEntity then
-                DragState.endDrag()
-                return true
-            end
-            local droneId = input.targetEntity
 
             if self.hoveredSlot and self.hoveredSlot.slotName then
                 local targetSlot = self.hoveredSlot.slotName
@@ -470,12 +416,12 @@ function LoadoutWindow:handleLoadoutMousereleased(x, y, button)
                 end
 
                 if self:canEquipInSlotInternal(dragged.itemId, targetSlot) then
-                    -- Swap items between srcSlot and targetSlot
-                    local targetOld = get_slot(droneId, targetSlot)
+                    -- Swap items between srcSlot and targetSlot using UIUtils
+                    local targetOld = UIUtils.getSlotItem(droneId, targetSlot)
                     -- Place dragged item into target
-                    set_slot(droneId, targetSlot, dragged.itemId)
+                    UIUtils.setSlotItem(droneId, targetSlot, dragged.itemId)
                     -- Put previous occupant (if any) into source slot
-                    set_slot(droneId, srcSlot, targetOld)
+                    UIUtils.setSlotItem(droneId, srcSlot, targetOld)
                     DragState.endDrag()
                     return true
                 else

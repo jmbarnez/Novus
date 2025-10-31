@@ -52,22 +52,15 @@ function StatsWindow:mousemoved(mx, my, dx, dy)
 end
 
 local function gatherShipData()
-    local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
-    if #pilotEntities == 0 then
+    local EntityHelpers = require('src.entity_helpers')
+    local pilotId = EntityHelpers.getPlayerPilot()
+    local droneId = EntityHelpers.getPlayerShip()
+    
+    if not pilotId or not droneId then
         return nil, {
-            { title = "Status", lines = {"No active pilot detected."} }
+            { title = "Status", lines = {not pilotId and "No active pilot detected." or "No ship linked to pilot."} }
         }
     end
-
-    local pilotId = pilotEntities[1]
-    local input = ECS.getComponent(pilotId, "InputControlled")
-    if not input or not input.targetEntity then
-        return nil, {
-            { title = "Status", lines = {"No ship linked to pilot."} }
-        }
-    end
-
-    local droneId = input.targetEntity
 
     local hull = ECS.getComponent(droneId, "Hull")
     local shield = ECS.getComponent(droneId, "Shield")
