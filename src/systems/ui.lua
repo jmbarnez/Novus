@@ -232,9 +232,6 @@ function UISystem.draw(viewportWidth, viewportHeight, uiMx, uiMy)
     
     -- Quest overlay moved to HUD system for batched rendering
     
-    -- Draw pause menu overlay/panel before other windows so pop-out windows can appear in front
-    PauseMenu:draw()
-
     -- Draw windows in focus order (background to foreground)
     local windows = {
         map_window = MapWindow,
@@ -274,7 +271,10 @@ function UISystem.draw(viewportWidth, viewportHeight, uiMx, uiMy)
         ::skip_window::
     end
 
-    -- Draw confirmation dialog if active (highest priority)
+    -- Draw pause menu overlay/panel after other windows so it appears on top
+    PauseMenu:draw()
+
+    -- Draw confirmation dialog if active (highest priority - appears above pause menu)
     if Dialogs.confirmDialog then
         Dialogs.drawConfirmDialog()
     end
