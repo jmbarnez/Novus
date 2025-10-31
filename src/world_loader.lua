@@ -107,55 +107,97 @@ function WorldLoader.initWorld(worldId)
         WorldLoader.spawnEnemies(world.enemies)
     end
     
-    -- Spawn warp gate near the center (keep it accessible / visible for demo)
-    local gateX = 200
-    local gateY = 0
-    local gateComponents = require('src.procedural').generateEntity('warp_gate', {x = gateX, y = gateY, active = false})
-    local ecs = require('src.ecs')
-    local gateId = ecs.createEntity()
-    for componentType, componentData in pairs(gateComponents) do
-        ecs.addComponent(gateId, componentType, componentData)
+    -- Spawn warp gate randomly within sector bounds, avoiding overlaps
+    local SpawnCollisionUtils = require('src.spawn_collision_utils')
+    local ECS = require('src.ecs')
+    
+    -- Register existing entities (enemies, asteroids) in collision system
+    SpawnCollisionUtils.clearRegistry()
+    local existingEntities = ECS.getEntitiesWith({"Position", "Collidable"})
+    for _, entityId in ipairs(existingEntities) do
+        local pos = ECS.getComponent(entityId, "Position")
+        local coll = ECS.getComponent(entityId, "Collidable")
+        if pos and coll then
+            SpawnCollisionUtils.registerEntity(entityId, pos.x, pos.y, coll.radius, "existing")
+        end
     end
+    
+    -- Find safe position for warp gate within world bounds
+    -- Reserve space at center (0, 0) for station - don't spawn warpgate too close
+    local gateRadius = 80  -- Warpgate collision radius
+    local stationRadius = 120  -- Station collision radius
+    local minDistanceFromCenter = stationRadius + gateRadius + 200  -- Keep warpgate away from center
+    
+    local gateX, gateY, gateFound
+    local maxAttempts = 150
+    
+    -- Try to find a position that's not too close to center (where station will be)
+    for attempt = 1, maxAttempts do
+        gateX, gateY, gateFound = SpawnCollisionUtils.findSafePositionInWorld(
+            gateRadius,
+            200,  -- minDistance from other entities
+            1,    -- 1 attempt per iteration
+            {}    -- no excluded types
+        )
+        
+        if gateFound then
+            -- Check if position is far enough from center (where station will be)
+            local distFromCenter = math.sqrt(gateX * gateX + gateY * gateY)
+            if distFromCenter >= minDistanceFromCenter then
+                break  -- Found good position
+            end
+            -- Otherwise continue searching
+        end
+    end
+    
+    -- Fallback if no safe position found (should be rare)
+    if not gateFound then
+        gateX = 1000
+        gateY = 1000
+    end
+    
+    local gateComponents = require('src.procedural').generateEntity('warp_gate', {x = gateX, y = gateY, active = false})
+    local gateId = ECS.createEntity()
+    for componentType, componentData in pairs(gateComponents) do
+        ECS.addComponent(gateId, componentType, componentData)
+    end
+    
+    -- Register warpgate in collision system
+    local gatePos = ECS.getComponent(gateId, "Position")
+    local gateColl = ECS.getComponent(gateId, "Collidable")
+    if gatePos and gateColl then
+        SpawnCollisionUtils.registerEntity(gateId, gatePos.x, gatePos.y, gateColl.radius, "warpgate")
+    end
+    
     QuestSystem.registerMainQuestTarget(gateId)
     
     -- Spawn stations if specified in world
     if world.stations then
-        local SpawnCollisionUtils = require('src.spawn_collision_utils')
-        
-        -- Clear collision registry for fresh start
-        SpawnCollisionUtils.clearRegistry()
-        
-        -- Register existing entities in collision system
-        local existingEntities = ECS.getEntitiesWith({"Position", "Collidable"})
-        for _, entityId in ipairs(existingEntities) do
-            local pos = ECS.getComponent(entityId, "Position")
-            local coll = ECS.getComponent(entityId, "Collidable")
-            if pos and coll then
-                SpawnCollisionUtils.registerEntity(entityId, pos.x, pos.y, coll.radius, "existing")
-            end
-        end
-        
-        -- Find safe position for station using universal collision detection
-        -- Prefer positions near the world center so stations are close to the player start
         local stationDef = world.stations[1]  -- Only one station for now
         local stationRadius = 120  -- Station collision radius
-        local minDistance = 350   -- Minimum distance from other objects
-
-        -- Try to find a position near the world center (search radius small)
-        local x, y, success = SpawnCollisionUtils.findSafePosition(
-            0, 0,         -- centerX, centerY -> bias toward world center
-            800,          -- searchRadius: 800 units around center
-            stationRadius, 
-            minDistance, 
-            100,  -- max attempts
-            {}    -- no excluded types
-        )
-
-        if success then
-            stationDef.x, stationDef.y = x, y
-        else
-            -- fallback: place at world center if no safe position found
+        
+        -- Station always spawns at world center (0, 0)
+        -- Check if center is safe (should be since we kept warpgate away)
+        local centerSafe = SpawnCollisionUtils.isPositionSafe(0, 0, stationRadius, 200, {})
+        
+        if centerSafe then
             stationDef.x, stationDef.y = 0, 0
+        else
+            -- Fallback: try small area around center if center is blocked
+            local x, y, success = SpawnCollisionUtils.findSafePosition(
+                0, 0,         -- centerX, centerY -> world center
+                100,          -- searchRadius: very small radius around center
+                stationRadius, 
+                200,          -- minDistance
+                50,              -- max attempts
+                {}             -- no excluded types
+            )
+            if success then
+                stationDef.x, stationDef.y = x, y
+            else
+                -- Last resort: place at center anyway
+                stationDef.x, stationDef.y = 0, 0
+            end
         end
         
         local stationComponents

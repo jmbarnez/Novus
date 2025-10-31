@@ -222,22 +222,55 @@ function GameInit.setupPlayerShip(pilotId)
     ShipLoader.loadAllDesigns("src.ship_designs")
 
     -- Create player's starter drone using modular system (will be blue)
-    -- Find a collision-safe spawn position near world center so player doesn't overlap station/gate
+    -- Find a collision-safe spawn position around the station (not inside it)
     local SpawnCollisionUtils = require('src.spawn_collision_utils')
+    local ECS = require('src.ecs')
+    
+    -- Find the station position
+    local stationX, stationY = 0, 0  -- Default to center if no station found
+    local stations = ECS.getEntitiesWith({"Station", "Position", "Collidable"})
+    if #stations > 0 then
+        local stationPos = ECS.getComponent(stations[1], "Position")
+        if stationPos then
+            stationX, stationY = stationPos.x, stationPos.y
+        end
+    end
+    
     local playerRadius = 40 -- approximate collision radius for starter drone
-    local minDistance = 220 -- keep some buffer from other objects
-    local spawnSearchRadius = 300 -- search radius around center for player spawn
-    local px, py, pfound = SpawnCollisionUtils.findSafePosition(
-        0, 0,               -- centerX, centerY (world center)
-        spawnSearchRadius,  -- searchRadius
-        playerRadius,       -- entityRadius
-        minDistance,        -- minDistance
-        50,                 -- maxAttempts
-        {}                  -- excludeTypes
-    )
+    local stationRadius = 120 -- station collision radius
+    local minDistanceFromStation = stationRadius + playerRadius + 100 -- Spawn outside station
+    local spawnSearchRadius = 400 -- search radius around station for player spawn
+    
+    -- Spawn player around station, ensuring minimum distance from station
+    local px, py, pfound
+    local maxAttempts = 100
+    
+    for attempt = 1, maxAttempts do
+        px, py, pfound = SpawnCollisionUtils.findSafePosition(
+            stationX, stationY,  -- centerX, centerY (station position)
+            spawnSearchRadius,    -- searchRadius
+            playerRadius,         -- entityRadius
+            150,                  -- minDistance from other objects
+            1,                    -- 1 attempt per iteration
+            {}                    -- excludeTypes
+        )
+        
+        if pfound then
+            -- Check if position is far enough from station
+            local dx = px - stationX
+            local dy = py - stationY
+            local distFromStation = math.sqrt(dx * dx + dy * dy)
+            if distFromStation >= minDistanceFromStation then
+                break  -- Found good position
+            end
+            -- Otherwise continue searching
+        end
+    end
 
     if not pfound then
-        px, py = 0, 0
+        -- Fallback: spawn at a fixed distance from station
+        px = stationX + minDistanceFromStation
+        py = stationY
     end
 
     local droneId = ShipLoader.createShip("starter_drone", px, py, "player", pilotId)

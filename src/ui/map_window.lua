@@ -240,6 +240,81 @@ function MapWindow:draw(viewportWidth, viewportHeight)
             end
         end
     end
+
+    -- Draw warpgates (as pink circles)
+    local warpgates = ECS.getEntitiesWith({'WarpGate', 'Position', 'Collidable'})
+    love.graphics.setColor(1, 0.4, 0.8, 1 * alpha)  -- Pink color
+    for _, id in ipairs(warpgates) do
+        local pos = ECS.getComponent(id, 'Position')
+        local coll = ECS.getComponent(id, 'Collidable')
+        if pos and coll then
+            local mx, my = worldToMap(pos.x, pos.y)
+            if mx >= mapX and mx <= mapX + mapW and my >= mapY and my <= mapY + mapH then
+                local radius = math.max(3, (coll.radius or 80) * scale * 0.1)  -- Scale down but keep visible
+                love.graphics.circle('fill', mx, my, radius)
+            end
+        end
+    end
+
+    -- Draw legend in top left of content area
+    local legendX = mapX + 8
+    local legendY = mapY + 8
+    local legendItemHeight = 16
+    local legendPadding = 4
+    
+    -- Legend background (semi-transparent)
+    local legendWidth = 120
+    local legendHeight = (legendItemHeight + legendPadding) * 6 - legendPadding  -- 6 items
+    love.graphics.setColor(0, 0, 0, 0.6 * alpha)
+    love.graphics.rectangle('fill', legendX, legendY, legendWidth, legendHeight, 2, 2)
+    love.graphics.setColor(Theme.colors.borderLight[1], Theme.colors.borderLight[2], Theme.colors.borderLight[3], alpha)
+    love.graphics.rectangle('line', legendX, legendY, legendWidth, legendHeight, 2, 2)
+    
+    local currentY = legendY + legendPadding
+    local dotSize = 6
+    local textX = legendX + dotSize + 8
+    
+    -- Player (blue)
+    love.graphics.setColor(0.2, 0.6, 1, 1 * alpha)
+    love.graphics.circle('fill', legendX + dotSize/2, currentY + dotSize/2, dotSize/2)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+    love.graphics.setFont(Theme.getFont(Theme.fonts.small))
+    love.graphics.printf('Player', textX, currentY, legendWidth - textX + legendX, 'left')
+    currentY = currentY + legendItemHeight
+    
+    -- Stations (green)
+    love.graphics.setColor(0.15, 1, 0.35, 1 * alpha)
+    love.graphics.circle('fill', legendX + dotSize/2, currentY + dotSize/2, dotSize/2)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+    love.graphics.printf('Station', textX, currentY, legendWidth - textX + legendX, 'left')
+    currentY = currentY + legendItemHeight
+    
+    -- Warpgates (pink)
+    love.graphics.setColor(1, 0.4, 0.8, 1 * alpha)
+    love.graphics.circle('fill', legendX + dotSize/2, currentY + dotSize/2, dotSize/2)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+    love.graphics.printf('Warpgate', textX, currentY, legendWidth - textX + legendX, 'left')
+    currentY = currentY + legendItemHeight
+    
+    -- Enemies (red)
+    love.graphics.setColor(1, 0.2, 0.2, 1 * alpha)
+    love.graphics.circle('fill', legendX + dotSize/2, currentY + dotSize/2, dotSize/2)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+    love.graphics.printf('Enemies', textX, currentY, legendWidth - textX + legendX, 'left')
+    currentY = currentY + legendItemHeight
+    
+    -- Items (green)
+    love.graphics.setColor(0.2, 0.8, 0.2, 1 * alpha)
+    love.graphics.circle('fill', legendX + dotSize/2, currentY + dotSize/2, dotSize/2)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+    love.graphics.printf('Items', textX, currentY, legendWidth - textX + legendX, 'left')
+    currentY = currentY + legendItemHeight
+    
+    -- Asteroids (gray)
+    love.graphics.setColor(0.7, 0.7, 0.7, 1 * alpha)
+    love.graphics.circle('fill', legendX + dotSize/2, currentY + dotSize/2, dotSize/2)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+    love.graphics.printf('Asteroids', textX, currentY, legendWidth - textX + legendX, 'left')
 end
 
 -- Input handling for panning
