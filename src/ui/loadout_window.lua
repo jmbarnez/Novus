@@ -98,11 +98,23 @@ function LoadoutWindow.equipModule(shipWin, itemId)
         end
     elseif slotType == "Generator Module" then
         local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
-        if generatorSlots and generatorSlots.slots and generatorSlots.slots[1] then
+        if not generatorSlots then return false end
+        
+        -- Unequip old generator module if present
+        if generatorSlots.slots and generatorSlots.slots[1] then
             local oldItemId = generatorSlots.slots[1]
+            local oldItemDef = ItemDefs[oldItemId]
+            if oldItemDef and oldItemDef.module and oldItemDef.module.unequip then
+                oldItemDef.module.unequip(droneId)
+            end
             cargo:addItem(oldItemId, 1)
         end
+        
+        -- Equip new generator module
         generatorSlots.slots[1] = itemId
+        if itemDef.module and itemDef.module.equip then
+            itemDef.module.equip(droneId)
+        end
     end
     
     -- Remove item from cargo
@@ -235,7 +247,13 @@ function LoadoutWindow:unequipModuleInternal(slotType, itemId)
     elseif slotType == "Generator Module" then
         local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
         if generatorSlots and generatorSlots.slots and generatorSlots.slots[1] then
-            cargo:addItem(generatorSlots.slots[1], 1)
+            local oldItemId = generatorSlots.slots[1]
+            local ItemDefs = require('src.items.item_loader')
+            local oldItemDef = ItemDefs[oldItemId]
+            if oldItemDef and oldItemDef.module and oldItemDef.module.unequip then
+                oldItemDef.module.unequip(droneId)
+            end
+            cargo:addItem(oldItemId, 1)
             generatorSlots.slots[1] = nil
         end
     end
