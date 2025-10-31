@@ -207,8 +207,17 @@ end
 function WindowBase:mousemoved(x, y, dx, dy)
     if self.isDragging and self.position then
         -- x, y are already in UI coordinates when called from UI system
-        self.position.x = x - self.dragOffset.x
-        self.position.y = y - self.dragOffset.y
+        local newX = x - self.dragOffset.x
+        local newY = y - self.dragOffset.y
+        
+        -- Clamp position to keep window on screen
+        local uiWidth = Scaling.getCurrentWidth()
+        local uiHeight = Scaling.getCurrentHeight()
+        local maxX = math.max(0, uiWidth - (self.width or 0))
+        local maxY = math.max(0, uiHeight - (self.height or 0))
+        
+        self.position.x = math.max(0, math.min(newX, maxX))
+        self.position.y = math.max(0, math.min(newY, maxY))
         self.userMoved = true
     end
 end
