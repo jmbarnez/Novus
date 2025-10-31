@@ -348,6 +348,63 @@ function DestructionSystem.update(dt)
                 local wreckage = ECS.getComponent(entityId, "Wreckage")
                 local enemyType = wreckage and wreckage.sourceShip or nil
                 QuestUtils.updateCombatProgress(enemyType)
+                
+                -- 50% chance to drop the enemy's turret module as loot
+                if pos and math.random() < 0.5 then
+                    local turret = ECS.getComponent(entityId, "Turret")
+                    local enemyLevel = ECS.getComponent(entityId, "Level")
+                    if turret and turret.moduleName then
+                        local TurretRegistry = require('src.turret_registry')
+                        local module = TurretRegistry.getModule(turret.moduleName)
+                        if module then
+                            -- Get item ID from module (module.id or module.itemId)
+                            local itemId = module.id or module.itemId
+                            if itemId and ItemDefs[itemId] then
+                                local itemDef = ItemDefs[itemId]
+                                -- Create module instance with enemy's level and loot modifiers
+                                local enemyLevelValue = enemyLevel and enemyLevel.level or 1
+                                local instanceModule = TurretModuleLoader.createInstance(module, {
+                                    loot = true,
+                                    level = enemyLevelValue
+                                })
+                                if instanceModule then
+                                    -- Create item definition copy with the instance
+                                    local finalDef = {}
+                                    for k, v in pairs(itemDef) do finalDef[k] = v end
+                                    finalDef.module = instanceModule
+                                    
+                                    -- Spawn the turret module as an item drop
+                                    local angle = math.random() * 2 * math.pi
+                                    local dist = math.random(30, 60)
+                                    local itemX = pos.x + math.cos(angle) * dist
+                                    local itemY = pos.y + math.sin(angle) * dist
+                                    local spd = 40 + math.random() * 60
+                                    local vx = math.cos(angle) * spd
+                                    local vy = math.sin(angle) * spd
+                                    
+                                    local dropItemId = ECS.createEntity()
+                                    ECS.addComponent(dropItemId, "Position", Components.Position(itemX, itemY))
+                                    ECS.addComponent(dropItemId, "Velocity", Components.Velocity(vx, vy))
+                                    ECS.addComponent(dropItemId, "Physics", Components.Physics(0.95, 0.8, 0.90))
+                                    ECS.addComponent(dropItemId, "Item", {id = itemId, def = finalDef})
+                                    ECS.addComponent(dropItemId, "Stack", Components.Stack(1))
+                                    ECS.addComponent(dropItemId, "Renderable", Components.Renderable("item", nil, nil, nil, itemDef.design and itemDef.design.color or {0.7, 0.7, 0.8, 1}))
+                                    -- Add polygon shape if supported by item (for precise highlights)
+                                    if itemDef.design and (itemDef.design.shape == "polygon" or itemDef.design.shape == "custom") then
+                                        local sz = (itemDef.design.size or 12)
+                                        local verts = {
+                                            {x = 0, y = -sz/2},
+                                            {x = sz/2, y = 0},
+                                            {x = 0, y = sz/2},
+                                            {x = -sz/2, y = 0}
+                                        }
+                                        ECS.addComponent(dropItemId, "PolygonShape", Components.PolygonShape(verts, 0))
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
             end
 
             -- Spawn wreckage when ships are destroyed (AI-controlled or with Hull)

@@ -25,8 +25,18 @@ function M.createInstance(moduleOrName, opts)
     local instance = {}
     for k, v in pairs(base) do instance[k] = v end
 
-    -- Ensure a default level of 1 if not provided by external systems
-    instance.level = instance.level or 1
+    -- Set level: use provided level, or keep existing, or default to 1
+    if opts.level then
+        instance.level = opts.level
+    else
+        instance.level = instance.level or 1
+    end
+    
+    -- For non-loot instances, clear levelRequirement (testing/default behavior)
+    -- Looted items can keep requirements if they want
+    if not opts.loot then
+        instance.levelRequirement = nil
+    end
 
     -- Optionally randomize modifiers for looted modules
     if opts.loot and instance.allowModifiers ~= false then

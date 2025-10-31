@@ -209,8 +209,17 @@ end
 function CargoWindow:mousereleased(x, y, button)
     if button == 1 and ContextMenu.isOpen() then
         if ContextMenu.handleClickAt(x, y) then
+            -- Prevent drag from starting immediately after context menu action
+            -- Items may have shifted and mouse is still at the same position
+            -- Clear the flag on the next mouse release that's not a context menu action
+            self._blockDragUntilRelease = true
             return
         end
+    end
+    
+    -- Clear drag block flag when mouse is released (after context menu action)
+    if button == 1 and self._blockDragUntilRelease then
+        self._blockDragUntilRelease = false
     end
     
     WindowBase.mousereleased(self, x, y, button)

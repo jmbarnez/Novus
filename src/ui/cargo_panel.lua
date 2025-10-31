@@ -455,7 +455,18 @@ function CargoPanel.mousepressed(shipWin, x, y, button)
     end
 
     -- Start dragging from cargo (left-click on item)
+    -- Don't start drag if context menu is open (user might be clicking a menu option)
     if button == 1 and shipWin.hoveredItemSlot then
+        local ContextMenu = require('src.ui.context_menu')
+        if ContextMenu.isOpen() then
+            -- Context menu is open, don't start drag - let context menu handle the click
+            return
+        end
+        -- Don't start drag if we just performed a context menu action
+        -- (prevents picking up item that moved into the slot after equipping)
+        if shipWin._blockDragUntilRelease then
+            return
+        end
         DragState.startDrag({
             itemId = shipWin.hoveredItemSlot.itemId,
             itemDef = shipWin.hoveredItemSlot.itemDef,

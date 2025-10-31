@@ -259,16 +259,27 @@ function GameInit.setupPlayerShip(pilotId)
         for _, iid in ipairs(starterModuleIds) do
             local def = ItemDefs[iid]
             if def and def.module then
+                local oldReq = def.module.levelRequirement
                 local inst = TurretModuleLoader.createInstance(def.module, {loot = false})
                 if inst then
-                    -- Clear levelRequirement for testing (or set to 1 to match level)
-                    inst.levelRequirement = nil
+                    -- Instance already has levelRequirement cleared by createInstance
                     -- shallow-copy item def so we don't break other references
                     local newDef = {}
                     for k, v in pairs(def) do newDef[k] = v end
                     newDef.module = inst
                     ItemDefs[iid] = newDef
+                    -- Debug: verify the change
+                    if oldReq and ItemDefs[iid].module.levelRequirement then
+                        print(string.format("[GameInit] WARNING: Failed to clear levelRequirement for %s (was %d, still %d)", 
+                            iid, oldReq, ItemDefs[iid].module.levelRequirement))
+                    elseif oldReq then
+                        print(string.format("[GameInit] Cleared levelRequirement for %s (was %d, now nil)", iid, oldReq))
+                    end
+                else
+                    print(string.format("[GameInit] WARNING: Failed to create instance for %s", iid))
                 end
+            else
+                print(string.format("[GameInit] WARNING: Item %s not found or has no module", iid))
             end
         end
     end
