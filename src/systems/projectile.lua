@@ -4,6 +4,7 @@ local ECS = require('src.ecs')
 local Components = require('src.components')
 local EntityHelpers = require('src.entity_helpers')
 local CollisionUtils = require('src.collision_utils')
+local DebrisSystem = require('src.systems.debris')
 
 local ProjectileSystem = {
     name = "ProjectileSystem",
@@ -82,6 +83,8 @@ function ProjectileSystem.update(dt)
                 end
                 -- Non-brittle projectiles (missiles) also destroy on impact
                 if projectile and projectile.isMissile then
+                    -- Create explosion effect on impact
+                    DebrisSystem.createDebris(projPos.x, projPos.y, 20, {1.0, 0.5, 0.1, 1}) -- Orange-red explosion
                     local projDur = ECS.getComponent(projId, "Durability")
                     if projDur then projDur.current = 0 end
                     shouldDestroy = true
@@ -141,6 +144,8 @@ function ProjectileSystem.update(dt)
                     shouldDestroy = true
                 end
                 if projectile and projectile.isMissile then
+                    -- Create explosion effect on impact
+                    DebrisSystem.createDebris(projPos.x, projPos.y, 20, {1.0, 0.5, 0.1, 1}) -- Orange-red explosion
                     local projDur = ECS.getComponent(projId, "Durability")
                     if projDur then projDur.current = 0 end
                     shouldDestroy = true
@@ -201,6 +206,8 @@ function ProjectileSystem.update(dt)
                     if projDur then projDur.current = 0 end
                 end
                 if projectile and projectile.isMissile then
+                    -- Create explosion effect on impact
+                    DebrisSystem.createDebris(projPos.x, projPos.y, 20, {1.0, 0.5, 0.1, 1}) -- Orange-red explosion
                     local projDur = ECS.getComponent(projId, "Durability")
                     if projDur then projDur.current = 0 end
                 end
@@ -260,6 +267,8 @@ function ProjectileSystem.update(dt)
                     
                     -- Destroy missile on impact
                     if projectile.isMissile then
+                        -- Create explosion effect on impact
+                        DebrisSystem.createDebris(projPos.x, projPos.y, 20, {1.0, 0.5, 0.1, 1}) -- Orange-red explosion
                         local projDur = ECS.getComponent(projId, "Durability")
                         if projDur then projDur.current = 0 end
                     end
