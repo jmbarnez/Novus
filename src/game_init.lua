@@ -283,13 +283,11 @@ function GameInit.setupPlayerShip(pilotId)
     if shipCargo then
         shipCargo:addItem(continuousBeamId, 1)  -- Unified laser that can do combat, mining, and salvaging
         shipCargo:addItem(basicCannonId, 1)
-        shipCargo:addItem("railgun", 1) -- Add a railgun to starter cargo (powerful but slow)
         shipCargo:addItem(missileLauncherId, 1)
         shipCargo:addItem(arcCoilId, 1)  -- Add arc coil to starter cargo
         shipCargo:addItem("basic_shield_module", 1)  -- Add starting defensive module
         shipCargo:addItem("mirror_shield_module", 1)  -- Add mirror defensive module to starter cargo
         shipCargo:addItem("basic_generator", 1)  -- Add starting generator module
-        shipCargo:addItem("laser_asteroid_booster", 1)  -- Add laser booster sub-module for testing
     end
 
     -- For testing: ensure starter turret items in cargo use instance copies with default level=1
@@ -297,7 +295,7 @@ function GameInit.setupPlayerShip(pilotId)
     do
         local ItemDefs = require('src.items.item_loader')
         local TurretModuleLoader = require('src.turret_module_loader')
-        local starterModuleIds = {continuousBeamId, basicCannonId, "railgun", missileLauncherId, arcCoilId}
+        local starterModuleIds = {continuousBeamId, basicCannonId, missileLauncherId, arcCoilId}
         for _, iid in ipairs(starterModuleIds) do
             local def = ItemDefs[iid]
             if def and def.module then
