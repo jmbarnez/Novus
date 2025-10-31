@@ -330,31 +330,7 @@ function DestructionSystem.update(dt)
                 local enemyType = wreckage and wreckage.sourceShip or nil
                 QuestUtils.updateCombatProgress(enemyType)
                 
-                -- 50% chance to drop the enemy's turret module as loot
-                if pos and math.random() < 0.5 then
-                    local turret = ECS.getComponent(entityId, "Turret")
-                    local enemyLevel = ECS.getComponent(entityId, "Level")
-                    if turret and turret.moduleName then
-                        local TurretRegistry = require('src.turret_registry')
-                        local module = TurretRegistry.getModule(turret.moduleName)
-                        if module then
-                            -- Get item ID from module (module.id or module.itemId)
-                            local itemId = module.id or module.itemId
-                            if itemId and ItemDefs[itemId] then
-                                -- Spawn the turret module as a proper item so magnets/cargo can pick it up
-                                local enemyLevelValue = enemyLevel and enemyLevel.level or 1
-                                DestructionSystem.spawnItems(pos.x, pos.y, {
-                                    count = 1,
-                                    itemType = itemId,
-                                    distance = 60, -- spawn between 30 and 60 via spawnItems logic
-                                    speed = {40, 100},
-                                    stackItems = false,
-                                    moduleLevel = enemyLevelValue
-                                })
-                            end
-                        end
-                    end
-                end
+                -- (Turret drop handled separately for all destroyed ships)
             end
 
             -- Spawn wreckage when ships are destroyed (AI-controlled or with Hull)
@@ -375,10 +351,35 @@ function DestructionSystem.update(dt)
                 local parentColl = ECS.getComponent(entityId, "Collidable")
                 local parentSize = parentColl and parentColl.radius or 16
                 WreckageSystem.spawnWreckage(pos.x, pos.y, sourceShip, parentSize)
+
+                -- Ship loot: 50% chance to drop turret module (if this entity had one)
+                do
+                    local turret = ECS.getComponent(entityId, "Turret")
+                    if turret and turret.moduleName and pos and math.random() < 0.5 then
+                        local TurretRegistry = require('src.turret_registry')
+                        local module = TurretRegistry.getModule(turret.moduleName)
+                        if module then
+                            local itemId = module.id or module.itemId
+                            if itemId and ItemDefs[itemId] then
+                                local enemyLevel = ECS.getComponent(entityId, "Level")
+                                local enemyLevelValue = enemyLevel and enemyLevel.level or 1
+                                DestructionSystem.spawnItems(pos.x, pos.y, {
+                                    count = 1,
+                                    itemType = itemId,
+                                    distance = 60,
+                                    speed = {40, 100},
+                                    stackItems = false,
+                                    moduleLevel = enemyLevelValue
+                                })
+                            end
+                        end
+                    end
+                end
             end
 
-            -- Wreckage shatters into scrap pieces (not more wreckage)
-            if wreckage and pos then
+            -- Wreckage shatters into scrap pieces (only when an actual wreckage piece is destroyed)
+            -- Skip spawning scrap for ship entities (ships spawn wreckage pieces instead)
+            if wreckage and not ai and not hull and pos then
                 local collidable = ECS.getComponent(entityId, "Collidable")
                 local parentSize = collidable and collidable.radius or 15
                 DestructionSystem.spawnItems(pos.x, pos.y, {
