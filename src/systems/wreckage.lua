@@ -62,11 +62,10 @@ function WreckageSystem.spawnWreckage(x, y, sourceShip, parentRadius)
         -- Collision and durability
         local collRadius = math.max(6, size * 0.6)
         ECS.addComponent(wreckageId, "Collidable", Components.Collidable(collRadius))
-        -- Give wreckage a durability component. Initialize current slightly below max
-        -- so damaged wreckage shows its durability bar by default.
+        -- Give wreckage a durability component with full durability
         local durMax = size * 1.2
         local durabilityComp = Components.Durability(durMax, durMax)
-        durabilityComp.current = math.max(1, math.floor(durMax * (0.5 + math.random() * 0.4)))
+        durabilityComp.current = durMax
         ECS.addComponent(wreckageId, "Durability", durabilityComp)
         -- Wreckage uses Durability (not Hull) so HUD and damage logic remain consistent
 

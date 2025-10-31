@@ -59,12 +59,8 @@ function MissileLauncher.fire(ownerId, startX, startY, endX, endY)
     local controlledBy = ECS.getComponent(ownerId, "ControlledBy")
     local pilotId = controlledBy and controlledBy.pilotId
     local inputComp = pilotId and ECS.getComponent(pilotId, "InputControlled")
+    -- Only use locked target - missiles only home when target is fully locked
     local targetedEnemy = inputComp and inputComp.targetedEnemy
-    -- Also check if player is currently targeting (not yet locked)
-    local targetingTarget = inputComp and inputComp.targetingTarget
-    
-    -- Use locked target if available, otherwise use target being aimed at
-    local preferredTarget = targetedEnemy or targetingTarget
     
     -- Create missile entity
     local missileId = ECS.createEntity()
@@ -118,8 +114,8 @@ function MissileLauncher.fire(ownerId, startX, startY, endX, endY)
     -- Mark as projectile
     ECS.addComponent(missileId, "Projectile", {ownerId = ownerId, damage = MissileLauncher.DPS * damageMultiplier, brittle = false, isMissile = true, weaponModule = MissileLauncher.name})
     
-    -- Add homing component if target locked - use the player's locked/targeting target
-    local homingTarget = preferredTarget
+    -- Add homing component only if target is locked (not just being targeted)
+    local homingTarget = targetedEnemy
     
     if homingTarget then
         ECS.addComponent(missileId, "MissileHoming", {
