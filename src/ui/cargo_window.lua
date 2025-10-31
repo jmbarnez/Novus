@@ -5,17 +5,13 @@ local ECS = require('src.ecs')
 local Theme = require('src.ui.plasma_theme')
 local Scaling = require('src.scaling')
 local DragState = require('src.ui.drag_state')
+local UIUtils = require('src.ui.ui_utils')
 
 local CargoWindow = WindowBase:new{
     width = 900,
     height = 650,
     isOpen = false
 }
-
--- Helper function for point-in-rectangle test
-local function pointInRect(px, py, rx, ry, rw, rh)
-    return px >= rx and px <= rx + rw and py >= ry and py <= ry + rh
-end
 
 function CargoWindow.drawEmbedded(shipWin, windowX, windowY, width, height, alpha)
     return shipWin:drawCargoContent(windowX, windowY, width, height, alpha)
@@ -52,19 +48,7 @@ end
 
 -- Check if item can be equipped in a specific slot type
 function CargoWindow:canEquipInSlot(itemId, slotType)
-    local ItemDefs = require('src.items.item_loader')
-    local itemDef = ItemDefs[itemId]
-    if not itemDef then return false end
-
-    if slotType == "Turret Module" then
-        return itemDef.type == "turret"
-    elseif slotType == "Defensive Module" then
-        return string.match(itemId, "shield") or itemDef.type == "shield"
-    elseif slotType == "Generator Module" then
-        return itemDef.type == "generator"
-    end
-
-    return false
+    return UIUtils.canEquipInSlot(itemId, slotType)
 end
 
 -- Equip a module (delegates to LoadoutWindow when parented, or implements directly)
@@ -72,7 +56,8 @@ function CargoWindow:equipModule(itemId)
     if self.parentShipWindow and self.parentShipWindow.loadoutWindow then
         return self.parentShipWindow.loadoutWindow:equipModule(itemId)
     else
-        -- Standalone mode: implement equip logic directly
+        -- Standalone mode: use shared helper
+        local ECS = require('src.ecs')
         local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
         if #pilotEntities == 0 then return false end
         local pilotId = pilotEntities[1]
@@ -80,88 +65,9 @@ function CargoWindow:equipModule(itemId)
         if not input or not input.targetEntity then return false end
         local droneId = input.targetEntity
         
-        local ItemDefs = require('src.items.item_loader')
-        local itemDef = ItemDefs[itemId]
-        if not itemDef then return false end
-        
-        -- Determine slot type based on item type
-        local slotType = nil
-        if itemDef.type == "turret" then
-            slotType = "Turret Module"
-        elseif itemDef.type == "shield" or string.match(itemId, "shield") then
-            slotType = "Defensive Module"
-        elseif itemDef.type == "generator" then
-            slotType = "Generator Module"
-        else
-            return false -- Can't equip this item
-        end
-        
-        -- Get cargo to remove item from
-        local cargo = ECS.getComponent(droneId, "Cargo")
-        if not cargo then return false end
-        
-        -- Check if item exists in cargo
-        if not cargo.items[itemId] or cargo.items[itemId] < 1 then
-            return false
-        end
-        
-        -- Handle unequipping existing item if slot is occupied
-        if slotType == "Turret Module" then
-            local turretSlots = ECS.getComponent(droneId, "TurretSlots")
-            if turretSlots and turretSlots.slots and turretSlots.slots[1] then
-                local oldItemId = turretSlots.slots[1]
-                cargo:addItem(oldItemId, 1) -- Add old item back to cargo
-            end
-            turretSlots.slots[1] = itemId
-            -- Also update Turret component
-            local turret = ECS.getComponent(droneId, "Turret")
-            if turret then
-                turret.moduleName = itemId
-            end
-        elseif slotType == "Defensive Module" then
-            local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
-            if not defensiveSlots then return false end
-            
-            -- Unequip old defensive module if present
-            if defensiveSlots.slots and defensiveSlots.slots[1] then
-                local oldItemId = defensiveSlots.slots[1]
-                local oldItemDef = ItemDefs[oldItemId]
-                if oldItemDef and oldItemDef.module and oldItemDef.module.unequip then
-                    oldItemDef.module.unequip(droneId)
-                end
-                cargo:addItem(oldItemId, 1)
-            end
-            
-            -- Equip new defensive module
-            defensiveSlots.slots[1] = itemId
-            if itemDef.module and itemDef.module.equip then
-                itemDef.module.equip(droneId)
-            end
-        elseif slotType == "Generator Module" then
-            local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
-            if not generatorSlots then return false end
-            
-            -- Unequip old generator module if present
-            if generatorSlots.slots and generatorSlots.slots[1] then
-                local oldItemId = generatorSlots.slots[1]
-                local oldItemDef = ItemDefs[oldItemId]
-                if oldItemDef and oldItemDef.module and oldItemDef.module.unequip then
-                    oldItemDef.module.unequip(droneId)
-                end
-                cargo:addItem(oldItemId, 1)
-            end
-            
-            -- Equip new generator module
-            generatorSlots.slots[1] = itemId
-            if itemDef.module and itemDef.module.equip then
-                itemDef.module.equip(droneId)
-            end
-        end
-        
-        -- Remove item from cargo
-        cargo:removeItem(itemId, 1)
-        
-        return true
+        -- Use shared helper from loadout_window
+        local LoadoutWindow = require('src.ui.loadout_window')
+        return LoadoutWindow.ModuleEquipHelpers.equipModule(droneId, itemId)
     end
 end
 
@@ -288,38 +194,8 @@ function CargoWindow:drawCargoContent(windowX, windowY, width, height, alpha)
     if DragState.hasDrag() then
         local draggedItem = DragState.getDragItem()
         if draggedItem and draggedItem.itemDef then
-            local mx, my
-            if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
-                mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
-            else
-                mx, my = Scaling.toUI(love.mouse.getPosition())
-            end
-            local itemDef = draggedItem.itemDef
-            local iconSize = 32
-            love.graphics.push()
-            love.graphics.translate(mx, my)
-            love.graphics.setColor(1, 1, 1, 0.9)
-            
-            -- Check if this is a turret/module item (module is stored in itemDef.module)
-            local module = itemDef.module
-            local design = itemDef.design or (module and module.design)
-            local drawFunc = itemDef.draw or (module and module.draw)
-            
-            if drawFunc and type(drawFunc) == "function" then
-                if module and module.draw then
-                    module.draw(module, 0, 0)
-                else
-                    drawFunc(itemDef, 0, 0)
-                end
-            elseif design and design.color then
-                local color = design.color
-                love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * 0.9)
-                local size = (design.size or 16) * 1.5
-                love.graphics.circle("fill", 0, 0, size)
-            else
-                love.graphics.rectangle("fill", -iconSize/2, -iconSize/2, iconSize, iconSize)
-            end
-            love.graphics.pop()
+            local mx, my = UIUtils.getMousePosition()
+            UIUtils.drawItemIcon(draggedItem.itemDef, mx, my, 0.9, 1.0)
         end
     end
 end
@@ -512,33 +388,11 @@ function CargoWindow:drawBottomBar(windowX, windowY, width, height, alpha, pilot
 end
 
 function CargoWindow:canEquipInSlotInternal(itemId, slotType)
-    local ItemDefs = require('src.items.item_loader')
-    local itemDef = ItemDefs[itemId]
-    if not itemDef then return false end
-
-    if slotType == "Turret Module" then
-        return itemDef.type == "turret"
-    elseif slotType == "Defensive Module" then
-        return string.match(itemId, "shield") or itemDef.type == "shield"
-    elseif slotType == "Generator Module" then
-        return itemDef.type == "generator"
-    end
-
-    return false
+    return UIUtils.canEquipInSlot(itemId, slotType)
 end
 
 function CargoWindow:getCompatibleSlotsInternal(itemId)
-    local compatibleSlots = {}
-    if self:canEquipInSlotInternal(itemId, "Turret Module") then
-        table.insert(compatibleSlots, "Turret Module")
-    end
-    if self:canEquipInSlotInternal(itemId, "Defensive Module") then
-        table.insert(compatibleSlots, "Defensive Module")
-    end
-    if self:canEquipInSlotInternal(itemId, "Generator Module") then
-        table.insert(compatibleSlots, "Generator Module")
-    end
-    return compatibleSlots
+    return UIUtils.getCompatibleSlots(itemId)
 end
 
 function CargoWindow:drawCargoGridInternal(cargoItems, x, y, width, height, alpha)
@@ -552,12 +406,7 @@ function CargoWindow:drawCargoGridInternal(cargoItems, x, y, width, height, alph
     local slotsPerRow = math.floor(width / (slotSize + slotPadding))
     if slotsPerRow < 1 then slotsPerRow = 1 end
     
-    local mx, my
-    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
-        mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
-    else
-        mx, my = Scaling.toUI(love.mouse.getPosition())
-    end
+    local mx, my = UIUtils.getMousePosition()
     
     for i, item in ipairs(cargoItems) do
         local row = math.floor((i - 1) / slotsPerRow)
@@ -565,7 +414,7 @@ function CargoWindow:drawCargoGridInternal(cargoItems, x, y, width, height, alph
         local slotX = x + col * (slotSize + slotPadding)
         local slotY = y + row * (slotSize + slotPadding)
         
-        local isHovered = pointInRect(mx, my, slotX, slotY, slotSize, slotSize)
+        local isHovered = UIUtils.pointInRect(mx, my, slotX, slotY, slotSize, slotSize)
         if isHovered then
             self.hoveredItemSlot = {
                 itemId = item.itemId,
@@ -584,38 +433,11 @@ function CargoWindow:drawCargoGridInternal(cargoItems, x, y, width, height, alph
         love.graphics.setColor(border[1], border[2], border[3], 0.6 * alpha)
         love.graphics.rectangle("line", slotX, slotY, slotSize, slotSize, 4, 4)
         
-        -- Draw item icon using item's draw method or fallback
+        -- Draw item icon using shared utility
         if item.itemDef then
             local centerX = slotX + slotSize / 2
             local centerY = slotY + slotSize / 2
-            love.graphics.push()
-            love.graphics.translate(centerX, centerY)
-            love.graphics.setColor(1, 1, 1, alpha)
-            
-            -- Check if this is a turret/module item (module is stored in itemDef.module)
-            local module = item.itemDef.module
-            local design = item.itemDef.design or (module and module.design)
-            local drawFunc = item.itemDef.draw or (module and module.draw)
-            
-            if drawFunc and type(drawFunc) == "function" then
-                -- Use the module's draw function if available, otherwise item's draw
-                if module and module.draw then
-                    module.draw(module, 0, 0)
-                else
-                    drawFunc(item.itemDef, 0, 0)
-                end
-            elseif design and design.color then
-                -- Fallback: draw a colored circle/square based on design
-                local color = design.color
-                love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha)
-                local size = (design.size or 16) * 1.5
-                love.graphics.circle("fill", 0, 0, size)
-            else
-                -- Ultimate fallback: simple colored square
-                love.graphics.setColor(0.7, 0.7, 0.7, alpha)
-                love.graphics.rectangle("fill", -12, -12, 24, 24, 2, 2)
-            end
-            love.graphics.pop()
+            UIUtils.drawItemIcon(item.itemDef, centerX, centerY, alpha, 1.0)
         end
         
         -- Draw count
@@ -631,7 +453,7 @@ function CargoWindow:handleCargoMousepressed(x, y, button)
     -- Handle clicks on control buttons
     if self.cargoControlButtons then
         for id, rect in pairs(self.cargoControlButtons) do
-            if pointInRect(x, y, rect.x, rect.y, rect.w, rect.h) then
+            if UIUtils.pointInRect(x, y, rect.x, rect.y, rect.w, rect.h) then
                 if id == "sort_name" then
                     self.cargoSortMode = "name"
                     return true
@@ -653,7 +475,7 @@ function CargoWindow:handleCargoMousepressed(x, y, button)
     end
     
     -- Handle search box click
-    if self.cargoSearchRect and pointInRect(x, y, self.cargoSearchRect.x, self.cargoSearchRect.y, self.cargoSearchRect.w, self.cargoSearchRect.h) then
+    if self.cargoSearchRect and UIUtils.pointInRect(x, y, self.cargoSearchRect.x, self.cargoSearchRect.y, self.cargoSearchRect.w, self.cargoSearchRect.h) then
         self.cargoSearchFocused = true
         return true
     else
@@ -743,10 +565,7 @@ function CargoWindow:mousepressed(x, y, button)
     -- Close context menu if clicking outside of it (any button)
     if ContextMenu.isOpen() then
         local menu = ContextMenu.getMenu()
-        local cmW = menu.width or 200
-        local cmH = menu.height or ((menu.paddingY or 12) * 2 + (#menu.options * (menu.optionHeight or 24)))
-        if not (x >= menu.x and x <= menu.x + cmW and
-            y >= menu.y and y <= menu.y + cmH) then
+        if UIUtils.shouldCloseContextMenu(menu, x, y) then
             ContextMenu.close()
             return
         end

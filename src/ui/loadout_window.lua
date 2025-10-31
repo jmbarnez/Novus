@@ -5,12 +5,160 @@ local Theme = require('src.ui.plasma_theme')
 local Scaling = require('src.scaling')
 local ContextMenu = require('src.ui.context_menu')
 local DragState = require('src.ui.drag_state')
+local UIUtils = require('src.ui.ui_utils')
+
+-- Shared helper module for equip/unequip logic
+local ModuleEquipHelpers = {}
+
+-- Determine slot type from item definition
+function ModuleEquipHelpers.getSlotType(itemDef, itemId)
+    if itemDef.type == "turret" then
+        return "Turret Module"
+    elseif itemDef.type == "shield" or string.match(itemId or "", "shield") then
+        return "Defensive Module"
+    elseif itemDef.type == "generator" then
+        return "Generator Module"
+    end
+    return nil
+end
+
+-- Unequip a module from a slot (calls module.unequip if available)
+function ModuleEquipHelpers.unequipModuleFromSlot(droneId, slotType, ItemDefs)
+    local ECS = require('src.ecs')
+    
+    if slotType == "Turret Module" then
+        local turretSlots = ECS.getComponent(droneId, "TurretSlots")
+        if turretSlots and turretSlots.slots and turretSlots.slots[1] then
+            return turretSlots.slots[1]
+        end
+    elseif slotType == "Defensive Module" then
+        local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
+        if defensiveSlots and defensiveSlots.slots and defensiveSlots.slots[1] then
+            local oldItemId = defensiveSlots.slots[1]
+            local oldItemDef = ItemDefs[oldItemId]
+            if oldItemDef and oldItemDef.module and oldItemDef.module.unequip then
+                oldItemDef.module.unequip(droneId)
+            end
+            return oldItemId
+        end
+    elseif slotType == "Generator Module" then
+        local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
+        if generatorSlots and generatorSlots.slots and generatorSlots.slots[1] then
+            local oldItemId = generatorSlots.slots[1]
+            local oldItemDef = ItemDefs[oldItemId]
+            if oldItemDef and oldItemDef.module and oldItemDef.module.unequip then
+                oldItemDef.module.unequip(droneId)
+            end
+            return oldItemId
+        end
+    end
+    return nil
+end
+
+-- Equip a module to a slot (calls module.equip if available)
+function ModuleEquipHelpers.equipModuleToSlot(droneId, slotType, itemId, itemDef)
+    local ECS = require('src.ecs')
+    
+    if slotType == "Turret Module" then
+        local turretSlots = ECS.getComponent(droneId, "TurretSlots")
+        if not turretSlots then return false end
+        turretSlots.slots[1] = itemId
+        local turret = ECS.getComponent(droneId, "Turret")
+        if turret then
+            turret.moduleName = itemId
+        end
+        return true
+    elseif slotType == "Defensive Module" then
+        local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
+        if not defensiveSlots then return false end
+        defensiveSlots.slots[1] = itemId
+        if itemDef.module and itemDef.module.equip then
+            itemDef.module.equip(droneId)
+        end
+        return true
+    elseif slotType == "Generator Module" then
+        local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
+        if not generatorSlots then return false end
+        generatorSlots.slots[1] = itemId
+        if itemDef.module and itemDef.module.equip then
+            itemDef.module.equip(droneId)
+        end
+        return true
+    end
+    return false
+end
+
+-- Main equip function - handles common logic for equipping modules
+function ModuleEquipHelpers.equipModule(droneId, itemId)
+    local ECS = require('src.ecs')
+    local ItemDefs = require('src.items.item_loader')
+    
+    local itemDef = ItemDefs[itemId]
+    if not itemDef then return false end
+    
+    local slotType = ModuleEquipHelpers.getSlotType(itemDef, itemId)
+    if not slotType then return false end
+    
+    local cargo = ECS.getComponent(droneId, "Cargo")
+    if not cargo then return false end
+    
+    if not cargo.items[itemId] or cargo.items[itemId] < 1 then
+        return false
+    end
+    
+    -- Unequip old module if present
+    local oldItemId = ModuleEquipHelpers.unequipModuleFromSlot(droneId, slotType, ItemDefs)
+    if oldItemId then
+        cargo:addItem(oldItemId, 1)
+    end
+    
+    -- Equip new module
+    if not ModuleEquipHelpers.equipModuleToSlot(droneId, slotType, itemId, itemDef) then
+        return false
+    end
+    
+    -- Remove item from cargo
+    cargo:removeItem(itemId, 1)
+    return true
+end
+
+-- Unequip module from slot (returns itemId if successful)
+function ModuleEquipHelpers.unequipModule(droneId, slotType)
+    local ECS = require('src.ecs')
+    local ItemDefs = require('src.items.item_loader')
+    
+    local oldItemId = ModuleEquipHelpers.unequipModuleFromSlot(droneId, slotType, ItemDefs)
+    if not oldItemId then return nil end
+    
+    -- Clear the slot
+    if slotType == "Turret Module" then
+        local turretSlots = ECS.getComponent(droneId, "TurretSlots")
+        if turretSlots and turretSlots.slots then
+            turretSlots.slots[1] = nil
+        end
+    elseif slotType == "Defensive Module" then
+        local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
+        if defensiveSlots and defensiveSlots.slots then
+            defensiveSlots.slots[1] = nil
+        end
+    elseif slotType == "Generator Module" then
+        local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
+        if generatorSlots and generatorSlots.slots then
+            generatorSlots.slots[1] = nil
+        end
+    end
+    
+    return oldItemId
+end
 
 local LoadoutWindow = WindowBase:new{
     width = 850,
     height = 600,
     isOpen = false
 }
+
+-- Expose helpers for other modules to use
+LoadoutWindow.ModuleEquipHelpers = ModuleEquipHelpers
 
 -- Draw the panel inside an existing ship window (embedded mode)
 function LoadoutWindow.drawEmbedded(shipWin, windowX, windowY, width, height, alpha)
@@ -30,7 +178,6 @@ end
 
 -- Proxy useful APIs so ship code can keep calling the same names
 function LoadoutWindow.equipModule(shipWin, itemId)
-    -- Implement equip logic directly to avoid circular dependency with LoadoutPanel stub
     local ECS = require('src.ecs')
     local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
     if #pilotEntities == 0 then return false end
@@ -39,88 +186,7 @@ function LoadoutWindow.equipModule(shipWin, itemId)
     if not input or not input.targetEntity then return false end
     local droneId = input.targetEntity
     
-    local ItemDefs = require('src.items.item_loader')
-    local itemDef = ItemDefs[itemId]
-    if not itemDef then return false end
-    
-    -- Determine slot type based on item type
-    local slotType = nil
-    if itemDef.type == "turret" then
-        slotType = "Turret Module"
-    elseif itemDef.type == "shield" or string.match(itemId, "shield") then
-        slotType = "Defensive Module"
-    elseif itemDef.type == "generator" then
-        slotType = "Generator Module"
-    else
-        return false -- Can't equip this item
-    end
-    
-    -- Get cargo to remove item from
-    local cargo = ECS.getComponent(droneId, "Cargo")
-    if not cargo then return false end
-    
-    -- Check if item exists in cargo
-    if not cargo.items[itemId] or cargo.items[itemId] < 1 then
-        return false
-    end
-    
-    -- Handle unequipping existing item if slot is occupied
-    if slotType == "Turret Module" then
-        local turretSlots = ECS.getComponent(droneId, "TurretSlots")
-        if turretSlots and turretSlots.slots and turretSlots.slots[1] then
-            local oldItemId = turretSlots.slots[1]
-            cargo:addItem(oldItemId, 1) -- Add old item back to cargo
-        end
-        turretSlots.slots[1] = itemId
-        -- Also update Turret component
-        local turret = ECS.getComponent(droneId, "Turret")
-        if turret then
-            turret.moduleName = itemId
-        end
-    elseif slotType == "Defensive Module" then
-        local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
-        if not defensiveSlots then return false end
-        
-        -- Unequip old defensive module if present
-        if defensiveSlots.slots and defensiveSlots.slots[1] then
-            local oldItemId = defensiveSlots.slots[1]
-            local oldItemDef = ItemDefs[oldItemId]
-            if oldItemDef and oldItemDef.module and oldItemDef.module.unequip then
-                oldItemDef.module.unequip(droneId)
-            end
-            cargo:addItem(oldItemId, 1)
-        end
-        
-        -- Equip new defensive module
-        defensiveSlots.slots[1] = itemId
-        if itemDef.module and itemDef.module.equip then
-            itemDef.module.equip(droneId)
-        end
-    elseif slotType == "Generator Module" then
-        local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
-        if not generatorSlots then return false end
-        
-        -- Unequip old generator module if present
-        if generatorSlots.slots and generatorSlots.slots[1] then
-            local oldItemId = generatorSlots.slots[1]
-            local oldItemDef = ItemDefs[oldItemId]
-            if oldItemDef and oldItemDef.module and oldItemDef.module.unequip then
-                oldItemDef.module.unequip(droneId)
-            end
-            cargo:addItem(oldItemId, 1)
-        end
-        
-        -- Equip new generator module
-        generatorSlots.slots[1] = itemId
-        if itemDef.module and itemDef.module.equip then
-            itemDef.module.equip(droneId)
-        end
-    end
-    
-    -- Remove item from cargo
-    cargo:removeItem(itemId, 1)
-    
-    return true
+    return ModuleEquipHelpers.equipModule(droneId, itemId)
 end
 function LoadoutWindow.unequipModule(shipWin, slotType, itemId)
     return shipWin:unequipModuleInternal(slotType, itemId)
@@ -147,25 +213,9 @@ function LoadoutWindow:equipModule(itemId)
     return _equipModule_impl(self, itemId)
 end
 
--- Helper function for point-in-rectangle test
-local function pointInRect(px, py, rx, ry, rw, rh)
-    return px >= rx and px <= rx + rw and py >= ry and py <= ry + rh
-end
 
 function LoadoutWindow:canEquipInSlotInternal(itemId, slotType)
-    local ItemDefs = require('src.items.item_loader')
-    local itemDef = ItemDefs[itemId]
-    if not itemDef then return false end
-
-    if slotType == "Turret Module" then
-        return itemDef.type == "turret"
-    elseif slotType == "Defensive Module" then
-        return string.match(itemId, "shield") or itemDef.type == "shield"
-    elseif slotType == "Generator Module" then
-        return itemDef.type == "generator"
-    end
-
-    return false
+    return UIUtils.canEquipInSlot(itemId, slotType)
 end
 
 -- Helper methods (full implementations)
@@ -217,6 +267,7 @@ function LoadoutWindow:drawLoadoutContent(windowX, windowY, width, height, alpha
 end
 
 function LoadoutWindow:unequipModuleInternal(slotType, itemId)
+    local ECS = require('src.ecs')
     local pilotEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
     if #pilotEntities == 0 then return false end
     local pilotId = pilotEntities[1]
@@ -226,36 +277,9 @@ function LoadoutWindow:unequipModuleInternal(slotType, itemId)
     local cargo = ECS.getComponent(droneId, "Cargo")
     if not cargo then return false end
     
-    if slotType == "Turret Module" then
-        local turretSlots = ECS.getComponent(droneId, "TurretSlots")
-        if turretSlots and turretSlots.slots and turretSlots.slots[1] then
-            cargo:addItem(turretSlots.slots[1], 1)
-            turretSlots.slots[1] = nil
-        end
-    elseif slotType == "Defensive Module" then
-        local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
-        if defensiveSlots and defensiveSlots.slots and defensiveSlots.slots[1] then
-            local oldItemId = defensiveSlots.slots[1]
-            local ItemDefs = require('src.items.item_loader')
-            local oldItemDef = ItemDefs[oldItemId]
-            if oldItemDef and oldItemDef.module and oldItemDef.module.unequip then
-                oldItemDef.module.unequip(droneId)
-            end
-            cargo:addItem(oldItemId, 1)
-            defensiveSlots.slots[1] = nil
-        end
-    elseif slotType == "Generator Module" then
-        local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
-        if generatorSlots and generatorSlots.slots and generatorSlots.slots[1] then
-            local oldItemId = generatorSlots.slots[1]
-            local ItemDefs = require('src.items.item_loader')
-            local oldItemDef = ItemDefs[oldItemId]
-            if oldItemDef and oldItemDef.module and oldItemDef.module.unequip then
-                oldItemDef.module.unequip(droneId)
-            end
-            cargo:addItem(oldItemId, 1)
-            generatorSlots.slots[1] = nil
-        end
+    local oldItemId = ModuleEquipHelpers.unequipModule(droneId, slotType)
+    if oldItemId then
+        cargo:addItem(oldItemId, 1)
     end
     return true
 end
@@ -264,14 +288,9 @@ function LoadoutWindow:drawEquipmentSlotInternal(slotName, equippedItemId, x, y,
     local ItemDefs = require('src.items.item_loader')
     
     -- Get mouse position for hover detection
-    local mx, my
-    if Scaling._lastMouseUI and Scaling._lastMouseUI[1] then
-        mx, my = Scaling._lastMouseUI[1], Scaling._lastMouseUI[2]
-    else
-        mx, my = Scaling.toUI(love.mouse.getPosition())
-    end
+    local mx, my = UIUtils.getMousePosition()
     
-    local isHovered = pointInRect(mx, my, x, y, slotSize, slotSize)
+    local isHovered = UIUtils.pointInRect(mx, my, x, y, slotSize, slotSize)
     if isHovered then
         self.hoveredSlot = {
             slotName = slotName,
@@ -303,34 +322,7 @@ function LoadoutWindow:drawEquipmentSlotInternal(slotName, equippedItemId, x, y,
         if itemDef then
             local centerX = x + slotSize / 2
             local centerY = y + slotSize / 2 - 10
-            love.graphics.push()
-            love.graphics.translate(centerX, centerY)
-            love.graphics.setColor(1, 1, 1, alpha)
-            
-            -- Check if this is a turret/module item (module is stored in itemDef.module)
-            local module = itemDef.module
-            local design = itemDef.design or (module and module.design)
-            local drawFunc = itemDef.draw or (module and module.draw)
-            
-            if drawFunc and type(drawFunc) == "function" then
-                -- Use the module's draw function if available, otherwise item's draw
-                if module and module.draw then
-                    module.draw(module, 0, 0)
-                else
-                    drawFunc(itemDef, 0, 0)
-                end
-            elseif design and design.color then
-                -- Fallback: draw a colored circle/square based on design
-                local color = design.color
-                love.graphics.setColor(color[1], color[2], color[3], (color[4] or 1) * alpha)
-                local size = (design.size or 16) * 2
-                love.graphics.circle("fill", 0, 0, size)
-            else
-                -- Ultimate fallback: simple colored square
-                love.graphics.setColor(0.7, 0.7, 0.7, alpha)
-                love.graphics.rectangle("fill", -16, -16, 32, 32, 2, 2)
-            end
-            love.graphics.pop()
+            UIUtils.drawItemIcon(itemDef, centerX, centerY, alpha, 1.33)
             
             -- Draw item name below icon
             local itemName = itemDef.name or equippedItemId
@@ -529,10 +521,7 @@ function LoadoutWindow:mousepressed(x, y, button)
     -- Close context menu if clicking outside of it
     if ContextMenu.isOpen() then
         local menu = ContextMenu.getMenu()
-        local cmW = menu.width or 200
-        local cmH = menu.height or ((menu.paddingY or 12) * 2 + (#menu.options * (menu.optionHeight or 24)))
-        if not (x >= menu.x and x <= menu.x + cmW and
-            y >= menu.y and y <= menu.y + cmH) then
+        if UIUtils.shouldCloseContextMenu(menu, x, y) then
             ContextMenu.close()
             return
         end
