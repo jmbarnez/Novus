@@ -352,12 +352,11 @@ function PauseMenu:_activate(index)
     end
 end
 
-function PauseMenu:draw()
+-- Draw the overlay background (dims the screen)
+function PauseMenu:drawOverlay()
     if (not self.isOpen) and self._alpha <= 0 then
         return
     end
-
-    self:_updateLayout()
 
     local alpha = self._alpha
     if alpha <= 0 then
@@ -369,6 +368,20 @@ function PauseMenu:draw()
     love.graphics.setColor(overlayColor[1] or 0, overlayColor[2] or 0, overlayColor[3] or 0, alpha * (overlayColor[4] or 1))
     love.graphics.rectangle('fill', 0, 0, Scaling.getCurrentWidth(), Scaling.getCurrentHeight())
     love.graphics.pop()
+end
+
+-- Draw the pause menu panel (window and buttons) only
+function PauseMenu:_drawPanelOnly()
+    if (not self.isOpen) and self._alpha <= 0 then
+        return
+    end
+
+    self:_updateLayout()
+
+    local alpha = self._alpha
+    if alpha <= 0 then
+        return
+    end
 
     if not self.position then
         return
@@ -396,6 +409,12 @@ function PauseMenu:draw()
     end
 
     love.graphics.pop()
+end
+
+-- Draw the full pause menu (overlay + panel) - for backward compatibility
+function PauseMenu:draw()
+    self:drawOverlay()
+    self:_drawPanelOnly()
 end
 
 return PauseMenu

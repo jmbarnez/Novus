@@ -155,6 +155,11 @@ local buttonX = nil -- will be set in draw
 local buttonHovered = false
 local loadButtonHovered = false
 
+-- Exit button (top left)
+local exitButtonSize = 30
+local exitButtonPadding = 10
+local exitButtonHovered = false
+
 -- Twinkling stars
 local starCount = 150
 local stars = {}
@@ -319,8 +324,13 @@ function start_screen.draw()
     -- Load Game button layout
     local loadButtonY = topY + buttonHeight + buttonSpacing
 
-    -- Check hover for both buttons
+    -- Check hover for exit button (top left)
+    local exitButtonX = exitButtonPadding
+    local exitButtonY = exitButtonPadding
     local mx, my = love.mouse.getPosition()
+    exitButtonHovered = mx >= exitButtonX and mx <= exitButtonX + exitButtonSize and my >= exitButtonY and my <= exitButtonY + exitButtonSize
+
+    -- Check hover for both buttons
     buttonHovered = mx >= buttonX and mx <= buttonX + buttonWidth and my >= buttonY and my <= buttonY + buttonHeight
     loadButtonHovered = mx >= buttonX and mx <= buttonX + buttonWidth and my >= loadButtonY and my <= loadButtonY + buttonHeight
 
@@ -330,6 +340,10 @@ function start_screen.draw()
     })
     HoverSound.update("start_screen:load_game", loadButtonHovered, {
         bounds = {x = buttonX, y = loadButtonY, w = buttonWidth, h = buttonHeight},
+        space = "screen",
+    })
+    HoverSound.update("start_screen:exit", exitButtonHovered, {
+        bounds = {x = exitButtonX, y = exitButtonY, w = exitButtonSize, h = exitButtonSize},
         space = "screen",
     })
 
@@ -358,11 +372,37 @@ function start_screen.draw()
 
     drawButton(buttonX, buttonY, buttonWidth, buttonHeight, buttonHovered, buttonText)
     drawButton(buttonX, loadButtonY, buttonWidth, buttonHeight, loadButtonHovered, loadButtonText)
+
+    -- Draw exit button (top left)
+    local exitBtnColor = exitButtonHovered and hoverColor or baseColor
+    love.graphics.setColor(exitBtnColor[1], exitBtnColor[2], exitBtnColor[3], exitBtnColor[4])
+    love.graphics.rectangle("fill", exitButtonX, exitButtonY, exitButtonSize, exitButtonSize)
+    love.graphics.setColor((table.unpack or unpack)(Theme.colors.border))
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", exitButtonX, exitButtonY, exitButtonSize, exitButtonSize)
+    love.graphics.setLineWidth(1)
+    
+    -- Draw X icon
+    local xColor = exitButtonHovered and Theme.colors.closeHover or Theme.colors.text
+    love.graphics.setColor((table.unpack or unpack)(xColor))
+    local font = Theme.getFontBold("lg")
+    love.graphics.setFont(font)
+    local textHeight = font:getHeight()
+    local textYOffset = (exitButtonSize - textHeight) / 2
+    love.graphics.printf("X", exitButtonX, exitButtonY + textYOffset, exitButtonSize, "center")
 end
 
 function start_screen.mousepressed(x, y, button)
     if button ~= 1 then
         return
+    end
+
+    -- Check exit button (top left)
+    local exitButtonX = exitButtonPadding
+    local exitButtonY = exitButtonPadding
+    if x >= exitButtonX and x <= exitButtonX + exitButtonSize and y >= exitButtonY and y <= exitButtonY + exitButtonSize then
+        love.event.quit()
+        return true
     end
 
     -- If New Game clicked, signal to enter loading state

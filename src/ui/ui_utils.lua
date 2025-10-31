@@ -115,5 +115,79 @@ function UIUtils.shouldCloseContextMenu(menu, x, y)
     return not (x >= menu.x and x <= menu.x + cmW and y >= menu.y and y <= menu.y + cmH)
 end
 
+-- Create a hit test function for a window
+-- @param window: window object with position, width, and height properties
+-- @param getOpenFn: function that returns whether window is open
+-- @return function: hit test function for use with registerInteractive
+function UIUtils.createWindowHitTest(window, getOpenFn)
+    -- Ensure getOpenFn properly binds self for method calls
+    if not getOpenFn then
+        if window and window.getOpen then
+            -- Bind the method call to window so self is correctly set
+            getOpenFn = function() return window:getOpen() end
+        elseif window then
+            getOpenFn = function() return window.isOpen end
+        else
+            getOpenFn = function() return false end
+        end
+    end
+    return function(x, y, button)
+        if not getOpenFn() or not window or not window.position then return false end
+        return UIUtils.pointInRect(x, y, window.position.x, window.position.y, window.width, window.height)
+    end
+end
+
+-- Create a click handler function for a window
+-- @param window: window object with mousepressed method
+-- @param windowName: name of the window for focus management
+-- @param setWindowFocusFn: function to set window focus
+-- @return function: click handler function for use with registerInteractive
+function UIUtils.createWindowClickHandler(window, windowName, setWindowFocusFn)
+    return function(x, y, button)
+        if setWindowFocusFn and windowName then
+            setWindowFocusFn(windowName)
+        end
+        if window and window.mousepressed then
+            window:mousepressed(x, y, button)
+        end
+        return true
+    end
+end
+
+-- Iterate over windows in focus order, calling a function on each
+-- @param windows: table mapping window names to window objects
+-- @param windowOrder: array of window names in focus order
+-- @param callback: function(windowName, window) called for each window
+-- @param reverse: if true, iterate in reverse order (most focused first)
+-- @param filterFn: optional function(windowName, window) -> boolean to filter windows
+function UIUtils.iterateWindows(windows, windowOrder, callback, reverse, filterFn)
+    local order = reverse and #windowOrder or 1
+    local step = reverse and -1 or 1
+    local endIndex = reverse and 1 or #windowOrder
+    
+    -- Iterate windows in focus order
+    for i = order, endIndex, step do
+        local windowName = windowOrder[i]
+        local window = windows[windowName]
+        if window and (not filterFn or filterFn(windowName, window)) then
+            callback(windowName, window)
+        end
+    end
+    
+    -- Iterate windows not in focus order
+    for windowName, window in pairs(windows) do
+        local inOrder = false
+        for _, orderedName in ipairs(windowOrder) do
+            if orderedName == windowName then
+                inOrder = true
+                break
+            end
+        end
+        if not inOrder and (not filterFn or filterFn(windowName, window)) then
+            callback(windowName, window)
+        end
+    end
+end
+
 return UIUtils
 

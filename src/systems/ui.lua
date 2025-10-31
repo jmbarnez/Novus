@@ -23,6 +23,7 @@ local Dialogs = require('src.ui.dialogs')
 local ConstructionButton = require('src.ui.construction_button')
 local HUDSystem = require('src.systems.hud')
 local ContextMenu = require('src.ui.context_menu')
+local UIUtils = require('src.ui.ui_utils')
 -- QuestOverlay moved to HUD system for batched rendering
 -- Hotbar removed
 -- CargoWindow removed - now integrated into ShipWindow
@@ -112,80 +113,46 @@ end
 -- They are now available as independent windows (`CargoWindow`, `SkillsWindow`) and
 -- can be opened directly. ShipWindow still embeds panels for tabbed mode.
 
--- Map window
-UISystem.registerInteractive('map_window', function(x, y, button)
-    return MapWindow.isOpen and MapWindow.position and x >= MapWindow.position.x and x <= MapWindow.position.x + MapWindow.width
-           and y >= MapWindow.position.y and y <= MapWindow.position.y + MapWindow.height
-end, function(x, y, button)
-    -- Map window captures input (no context menu for now)
-    MapWindow:mousepressed(x, y, button)
-    return true
-end)
+-- Helper function to register a standard window with consistent behavior
+local function registerWindow(name, window, useFocus)
+    -- Create a properly bound getOpen function
+    local getOpenFn
+    if window.getOpen then
+        -- Bind method call to window so self is correctly set
+        getOpenFn = function() return window:getOpen() end
+    else
+        getOpenFn = function() return window.isOpen end
+    end
+    
+    local hitTest = UIUtils.createWindowHitTest(window, getOpenFn)
+    local clickHandler = useFocus 
+        and UIUtils.createWindowClickHandler(window, name, UISystem.setWindowFocus)
+        or (function(x, y, button)
+            if window.mousepressed then window:mousepressed(x, y, button) end
+            return true
+        end)
+    UISystem.registerInteractive(name, hitTest, clickHandler)
+end
 
--- ShipWindow removed - use LoadoutWindow, CargoWindow, or SkillsWindow instead
+-- Central windows registry for iteration
+local windows = {
+    map_window = MapWindow,
+    cargo_window = CargoWindow,
+    loadout_window = LoadoutWindow,
+    skills_window = SkillsWindow,
+    stats_window = StatsWindow,
+    quest_window = QuestWindow,
+    settings_window = SettingsWindow
+}
 
--- Cargo window (standalone)
-UISystem.registerInteractive('cargo_window', function(x, y, button)
-    return CargoWindow:getOpen() and CargoWindow.position and x >= CargoWindow.position.x and x <= CargoWindow.position.x + CargoWindow.width
-           and y >= CargoWindow.position.y and y <= CargoWindow.position.y + CargoWindow.height
-end, function(x, y, button)
-    UISystem.setWindowFocus('cargo_window')
-    if CargoWindow.mousepressed then CargoWindow:mousepressed(x, y, button) end
-    return true
-end)
-
--- Loadout window (standalone)
-UISystem.registerInteractive('loadout_window', function(x, y, button)
-    return LoadoutWindow:getOpen() and LoadoutWindow.position and x >= LoadoutWindow.position.x and x <= LoadoutWindow.position.x + LoadoutWindow.width
-           and y >= LoadoutWindow.position.y and y <= LoadoutWindow.position.y + LoadoutWindow.height
-end, function(x, y, button)
-    UISystem.setWindowFocus('loadout_window')
-    if LoadoutWindow.mousepressed then LoadoutWindow:mousepressed(x, y, button) end
-    return true
-end)
-
--- Skills window (standalone)
-UISystem.registerInteractive('skills_window', function(x, y, button)
-    return SkillsWindow:getOpen() and SkillsWindow.position and x >= SkillsWindow.position.x and x <= SkillsWindow.position.x + SkillsWindow.width
-           and y >= SkillsWindow.position.y and y <= SkillsWindow.position.y + SkillsWindow.height
-end, function(x, y, button)
-    UISystem.setWindowFocus('skills_window')
-    if SkillsWindow.mousepressed then SkillsWindow:mousepressed(x, y, button) end
-    return true
-end)
-
-
--- Stats window
-UISystem.registerInteractive('stats_window', function(x, y, button)
-    return StatsWindow:getOpen() and StatsWindow.position and x >= StatsWindow.position.x and x <= StatsWindow.position.x + StatsWindow.width
-           and y >= StatsWindow.position.y and y <= StatsWindow.position.y + StatsWindow.height
-end, function(x, y, button)
-    UISystem.setWindowFocus('stats_window')
-    if StatsWindow.mousepressed then StatsWindow:mousepressed(x, y, button) end
-    return true
-end)
-
-
--- Quest window
-UISystem.registerInteractive('quest_window', function(x, y, button)
-    return QuestWindow.isOpen and QuestWindow.position and x >= QuestWindow.position.x and x <= QuestWindow.position.x + QuestWindow.width
-           and y >= QuestWindow.position.y and y <= QuestWindow.position.y + QuestWindow.height
-end, function(x, y, button)
-    QuestWindow:mousepressed(x, y, button)
-    return true
-end)
-
--- Ship window (contains loadout, inventory, and skills panels)
--- Ship window integration removed; handled by ShipWindow module itself if needed
-
--- Register settings window
-UISystem.registerInteractive('settings_window', function(x, y, button)
-    return SettingsWindow.isOpen and SettingsWindow.position and x >= SettingsWindow.position.x and x <= SettingsWindow.position.x + SettingsWindow.width
-           and y >= SettingsWindow.position.y and y <= SettingsWindow.position.y + SettingsWindow.height
-end, function(x, y, button)
-    SettingsWindow:mousepressed(x, y, button)
-    return true
-end)
+-- Register windows using helper function
+registerWindow('map_window', MapWindow, false)  -- Map window doesn't use focus system
+registerWindow('cargo_window', CargoWindow, true)
+registerWindow('loadout_window', LoadoutWindow, true)
+registerWindow('skills_window', SkillsWindow, true)
+registerWindow('stats_window', StatsWindow, true)
+registerWindow('quest_window', QuestWindow, false)  -- Quest window doesn't use focus system
+registerWindow('settings_window', SettingsWindow, false)  -- Settings window doesn't use focus system
 
 -- Minimap input capture is now handled by HUD, but we still want UI to eat clicks over minimap
 local Minimap = require('src.systems.hud.minimap')
@@ -232,47 +199,25 @@ function UISystem.draw(viewportWidth, viewportHeight, uiMx, uiMy)
     
     -- Quest overlay moved to HUD system for batched rendering
     
-    -- Draw windows in focus order (background to foreground)
-    local windows = {
-        map_window = MapWindow,
-        cargo_window = CargoWindow,
-        loadout_window = LoadoutWindow,
-        skills_window = SkillsWindow,
-        stats_window = StatsWindow,
-        quest_window = QuestWindow,
-        settings_window = SettingsWindow
-    }
-
+    -- Check if pause menu is open - if so, draw overlay and panel first (before windows)
+    -- Windows opened from pause menu (like settings) should render on top
+    local pauseOpen = PauseMenu:getOpen()
+    if pauseOpen then
+        -- Draw pause menu overlay background (dims the screen) before everything
+        PauseMenu:drawOverlay()
+        -- Draw pause menu panel before windows so focused windows appear on top
+        PauseMenu:_drawPanelOnly()
+    end
+    
     -- Draw windows in focus order (least focused first, most focused last)
-    for _, windowName in ipairs(windowOrder) do
-        local window = windows[windowName]
-        if window and window:isVisible() then
+    -- Windows opened from pause menu will appear on top of the pause overlay and panel
+    UIUtils.iterateWindows(windows, windowOrder, function(windowName, window)
+        if window:isVisible() then
             window:draw(viewportWidth, viewportHeight, uiMx, uiMy)
         end
-    end
-
-    -- Draw any windows not yet in the order (newly opened windows)
-    for windowName, window in pairs(windows) do
-        if not window:isVisible() then
-            goto skip_window
-        end
-
-        local inOrder = false
-        for _, orderedName in ipairs(windowOrder) do
-            if orderedName == windowName then
-                inOrder = true
-                break
-            end
-        end
-        if not inOrder then
-            window:draw(viewportWidth, viewportHeight, uiMx, uiMy)
-        end
-
-        ::skip_window::
-    end
-
-    -- Draw pause menu overlay/panel after other windows so it appears on top
-    PauseMenu:draw()
+    end, false, function(windowName, window)
+        return window:isVisible()
+    end)
 
     -- Draw confirmation dialog if active (highest priority - appears above pause menu)
     if Dialogs.confirmDialog then
@@ -349,14 +294,13 @@ end
 function UISystem.update(dt)
     Notifications.update(dt)
     PauseMenu:update(dt)
-    MapWindow:update(dt)
-    CargoWindow:update(dt)
-    LoadoutWindow:update(dt)
-    SkillsWindow:update(dt)
-    StatsWindow:update(dt)
-    QuestWindow:update(dt)
-    SettingsWindow:update(dt)
-    -- CargoWindow removed - now integrated into ShipWindow
+    
+    -- Update all windows
+    for windowName, window in pairs(windows) do
+        if window and window.update then
+            window:update(dt)
+        end
+    end
 end
 
 -- Key pressed handler
@@ -368,18 +312,12 @@ function UISystem.keypressed(key)
         return true
     end
 
-    -- Check if CargoWindow, LoadoutWindow, or SkillsWindow want to consume input
-    if CargoWindow:getOpen() then
-        local consumed = CargoWindow:keypressed(key)
-        if consumed then return true end
-    end
-    if LoadoutWindow:getOpen() then
-        local consumed = LoadoutWindow:keypressed(key)
-        if consumed then return true end
-    end
-    if SkillsWindow:getOpen() then
-        local consumed = SkillsWindow:keypressed(key)
-        if consumed then return true end
+    -- Check if any open window wants to consume input
+    for windowName, window in pairs(windows) do
+        if window:getOpen() and window.keypressed then
+            local consumed = window:keypressed(key)
+            if consumed then return true end
+        end
     end
 
     -- Tab key is now handled in core.lua to toggle ShipWindow
@@ -551,44 +489,13 @@ function UISystem.mousereleased(x, y, button)
     end
 
     -- Forward to windows in focus order (most focused first) - only if open
-    local windows = {
-        map_window = MapWindow,
-        cargo_window = CargoWindow,
-        loadout_window = LoadoutWindow,
-        skills_window = SkillsWindow,
-        stats_window = StatsWindow
-    }
-
-    for i = #windowOrder, 1, -1 do
-        local windowName = windowOrder[i]
-        local window = windows[windowName]
-        if window and window:getOpen() and window.mousereleased then
+    UIUtils.iterateWindows(windows, windowOrder, function(windowName, window)
+        if window.mousereleased then
             window:mousereleased(mx, my, button)
         end
-    end
-
-    -- Forward to any windows not in the order - only if open
-    for windowName, window in pairs(windows) do
-        local inOrder = false
-        for _, orderedName in ipairs(windowOrder) do
-            if orderedName == windowName then
-                inOrder = true
-                break
-            end
-        end
-        if not inOrder and window:getOpen() and window.mousereleased then
-            window:mousereleased(mx, my, button)
-        end
-    end
-
-    if SettingsWindow and SettingsWindow:getOpen() and SettingsWindow.mousereleased then
-        SettingsWindow:mousereleased(mx, my, button)
-    end
-
-    -- Forward to quest window - only if open
-    if QuestWindow and QuestWindow:getOpen() and QuestWindow.mousereleased then
-        QuestWindow:mousereleased(mx, my, button)
-    end
+    end, true, function(windowName, window)
+        return window:getOpen() and window.mousereleased ~= nil
+    end)
 
     -- Release capture on mouse release (assumes left click)
     if button == 1 then
@@ -617,46 +524,13 @@ function UISystem.mousemoved(x, y, dx, dy, isTouch)
     end
 
     -- Forward to windows in focus order (most focused first) - only if open
-    local windows = {
-        map_window = MapWindow,
-        ship_window = ShipWindow,
-        cargo_window = CargoWindow,
-        loadout_window = LoadoutWindow,
-        skills_window = SkillsWindow,
-        stats_window = StatsWindow,
-        quest_window = QuestWindow
-    }
-
-    for i = #windowOrder, 1, -1 do
-        local windowName = windowOrder[i]
-        local window = windows[windowName]
-        if window and window:getOpen() and window.mousemoved then
+    UIUtils.iterateWindows(windows, windowOrder, function(windowName, window)
+        if window.mousemoved then
             window:mousemoved(mx, my, dx, dy)
         end
-    end
-
-    -- Forward to any windows not in the order - only if open
-    for windowName, window in pairs(windows) do
-        local inOrder = false
-        for _, orderedName in ipairs(windowOrder) do
-            if orderedName == windowName then
-                inOrder = true
-                break
-            end
-        end
-        if not inOrder and window:getOpen() and window.mousemoved then
-            window:mousemoved(mx, my, dx, dy)
-        end
-    end
-
-    if SettingsWindow and SettingsWindow:getOpen() and SettingsWindow.mousemoved then
-        SettingsWindow:mousemoved(mx, my, dx, dy)
-    end
-
-    -- Forward to quest window - only if open
-    if QuestWindow and QuestWindow:getOpen() and QuestWindow.mousemoved then
-        QuestWindow:mousemoved(mx, my, dx, dy)
-    end
+    end, true, function(windowName, window)
+        return window:getOpen() and window.mousemoved ~= nil
+    end)
 
     if pauseOpen then
         return
@@ -680,22 +554,18 @@ function UISystem.wheelmoved(x, y)
     end
 
     -- Forward to other windows - only if open
-    local windows = {
-        map_window = MapWindow,
-        cargo_window = CargoWindow,
-        loadout_window = LoadoutWindow,
-        skills_window = SkillsWindow,
-        stats_window = StatsWindow
-    }
-
-    for i = #windowOrder, 1, -1 do
-        local windowName = windowOrder[i]
-        local window = windows[windowName]
-        if window and window:getOpen() and window.wheelmoved then
+    local consumed = false
+    UIUtils.iterateWindows(windows, windowOrder, function(windowName, window)
+        if window.wheelmoved then
             if window:wheelmoved(x, y) then
-                return true -- Consumed by window
+                consumed = true
             end
         end
+    end, true, function(windowName, window)
+        return window:getOpen() and window.wheelmoved ~= nil
+    end)
+    if consumed then
+        return true
     end
 
     if pauseOpen then
@@ -705,125 +575,41 @@ function UISystem.wheelmoved(x, y)
     return false -- Not consumed
 end
 
--- Public API functions
--- CargoWindow has been integrated into ShipWindow
-function UISystem.setCargoWindowOpen(state)
-    CargoWindow:setOpen(state)
-    if state then
-        UISystem.setWindowFocus('cargo_window')
+-- Helper function to generate window API functions (setOpen, toggle, isOpen)
+local function createWindowAPI(windowName, window, useFocus)
+    local nameBase = windowName:gsub("_window", ""):gsub("_", "")
+    local capName = nameBase:sub(1,1):upper() .. nameBase:sub(2)
+    
+    UISystem["set" .. capName .. "WindowOpen"] = function(state)
+        window:setOpen(state)
+        if state and useFocus then
+            UISystem.setWindowFocus(windowName)
+        end
+    end
+    
+    UISystem["toggle" .. capName .. "Window"] = function()
+        window:toggle()
+        if window:getOpen() and useFocus then
+            UISystem.setWindowFocus(windowName)
+        end
+    end
+    
+    UISystem["is" .. capName .. "WindowOpen"] = function()
+        return window:getOpen()
     end
 end
 
-function UISystem.toggleCargoWindow()
-    CargoWindow:setOpen(not CargoWindow.isOpen)
-    if CargoWindow:getOpen() then
-        UISystem.setWindowFocus('cargo_window')
-    end
-end
-
-function UISystem.isCargoWindowOpen()
-    return CargoWindow:getOpen()
-end
-
-function UISystem.setLoadoutWindowOpen(state)
-    LoadoutWindow:setOpen(state)
-    if state then
-        UISystem.setWindowFocus('loadout_window')
-    end
-end
-
-function UISystem.toggleLoadoutWindow()
-    LoadoutWindow:setOpen(not LoadoutWindow.isOpen)
-    if LoadoutWindow:getOpen() then
-        UISystem.setWindowFocus('loadout_window')
-    end
-end
-
-function UISystem.isLoadoutWindowOpen()
-    return LoadoutWindow:getOpen()
-end
-
-function UISystem.setSkillsWindowOpen(state)
-    SkillsWindow:setOpen(state)
-    if state then
-        UISystem.setWindowFocus('skills_window')
-    end
-end
-
-function UISystem.toggleSkillsWindow()
-    SkillsWindow:setOpen(not SkillsWindow.isOpen)
-    if SkillsWindow:getOpen() then
-        UISystem.setWindowFocus('skills_window')
-    end
-end
-
-function UISystem.isSkillsWindowOpen()
-    return SkillsWindow:getOpen()
-end
-
-function UISystem.setMapWindowOpen(state)
-    MapWindow:setOpen(state)
-    if state then
-        UISystem.setWindowFocus('map_window')
-    end
-end
-
-function UISystem.toggleMapWindow()
-    MapWindow:toggle()
-    if MapWindow:getOpen() then
-        UISystem.setWindowFocus('map_window')
-    end
-end
-
-function UISystem.isMapWindowOpen()
-    return MapWindow:getOpen()
-end
-
-
--- Quest window functions
-function UISystem.setQuestWindowOpen(state)
-    QuestWindow:setOpen(state)
-    if state then
-        UISystem.setWindowFocus('quest_window')
-    end
-end
-
-function UISystem.toggleQuestWindow()
-    QuestWindow:toggle()
-    if QuestWindow:getOpen() then
-        UISystem.setWindowFocus('quest_window')
-    end
-end
-
-function UISystem.isQuestWindowOpen()
-    return QuestWindow:getOpen()
-end
-
--- Skills panel is now integrated into ShipWindow
--- No separate API functions needed
-
--- ShipWindow removed - use individual windows instead
+-- Generate API functions for windows
+createWindowAPI('cargo_window', CargoWindow, true)
+createWindowAPI('loadout_window', LoadoutWindow, true)
+createWindowAPI('skills_window', SkillsWindow, true)
+createWindowAPI('map_window', MapWindow, true)
+createWindowAPI('quest_window', QuestWindow, false)  -- Quest window doesn't use focus system
+createWindowAPI('settings_window', SettingsWindow, false)  -- Settings window doesn't use focus system
 
 -- Public API for adding skill experience
 function UISystem.addSkillExperience(skillName, xpGain)
     SkillUtils.addSkillExperience(skillName, xpGain)
-end
-
--- Settings Window API
-function UISystem.setSettingsWindowOpen(state)
-    SettingsWindow:setOpen(state)
-    if state then
-        UISystem.setWindowFocus('settings_window')
-    end
-end
-function UISystem.toggleSettingsWindow()
-    SettingsWindow:toggle()
-    if SettingsWindow:getOpen() then
-        UISystem.setWindowFocus('settings_window')
-    end
-end
-function UISystem.isSettingsWindowOpen()
-    return SettingsWindow:getOpen()
 end
 
 -- Pause menu controls
@@ -842,13 +628,17 @@ end
 function UISystem.onResize(screenW, screenH)
     screenW = screenW or love.graphics.getWidth()
     screenH = screenH or love.graphics.getHeight()
-    if CargoWindow and CargoWindow.onResize then CargoWindow:onResize(screenW, screenH) end
-    if LoadoutWindow and LoadoutWindow.onResize then LoadoutWindow:onResize(screenW, screenH) end
-    if SkillsWindow and SkillsWindow.onResize then SkillsWindow:onResize(screenW, screenH) end
-    if QuestWindow and QuestWindow.onResize then QuestWindow:onResize(screenW, screenH) end
-    if SettingsWindow and SettingsWindow.onResize then SettingsWindow:onResize(screenW, screenH) end
-    if MapWindow and MapWindow.onResize then MapWindow:onResize(screenW, screenH) end
-    if PauseMenu and PauseMenu.onResize then PauseMenu:onResize(screenW, screenH) end
+    
+    -- Forward resize to all windows
+    for windowName, window in pairs(windows) do
+        if window and window.onResize then
+            window:onResize(screenW, screenH)
+        end
+    end
+    
+    if PauseMenu and PauseMenu.onResize then
+        PauseMenu:onResize(screenW, screenH)
+    end
 end
 
 PauseMenu:setCallbacks({
@@ -876,3 +666,4 @@ PauseMenu:setCallbacks({
 })
 
 return UISystem
+
