@@ -19,10 +19,10 @@ local MINING_RANGE = 150
 local cleanupLaser
 local function buildDesignData(entity)
     local physics = ECS.getComponent(entity, "Physics")
-    local wreck = ECS.getComponent(entity, "Wreckage")
+    local shipDesign = ECS.getComponent(entity, "ShipDesign")
     local baseDesign = nil
-    if wreck and wreck.sourceShip then
-        baseDesign = ShipLoader.getDesign(wreck.sourceShip)
+    if shipDesign and shipDesign.designId then
+        baseDesign = ShipLoader.getDesign(shipDesign.designId)
     end
 
     local thrust = (baseDesign and baseDesign.thrustForce)
@@ -232,8 +232,9 @@ local function moveToAsteroid(entity, dt)
     -- Use steering-aware chase to approach asteroid (prevents instant direction changes)
     local aiComp = ECS.getComponent(entity, "AI")
     local turret = ECS.getComponent(entity, "Turret")
-    local wreck = ECS.getComponent(entity, "Wreckage")
-    local design = wreck and ShipLoader.getDesign(wreck.sourceShip)
+    local shipDesign = ECS.getComponent(entity, "ShipDesign")
+    local ShipLoader = require('src.ship_loader')
+    local design = shipDesign and ShipLoader.getDesign(shipDesign.designId) or {}
 
     Behaviors.Chase.update(entity, aiComp or {}, pos, vel, turret, design or {}, asteroidPos, dt)
     return BehaviorTree.RUNNING
@@ -325,9 +326,9 @@ local function maintainMiningPosition(entity, dt)
     if not asteroidPos then return end
 
     -- Get ship design for thrustForce
-    local wreckage = ECS.getComponent(entity, "Wreckage")
+    local shipDesign = ECS.getComponent(entity, "ShipDesign")
     local ShipLoader = require('src.ship_loader')
-    local design = wreckage and ShipLoader.getDesign(wreckage.sourceShip)
+    local design = shipDesign and ShipLoader.getDesign(shipDesign.designId)
     local thrustForce = design and design.thrustForce or 100
 
     -- Move toward asteroid to stay in mining range (orbit behavior)

@@ -55,15 +55,11 @@ end
 local function getBaseStats(droneId)
     -- Get base stats from ship design (without modules)
     local ShipLoader = require('src.ship_loader')
-    local wreckage = ECS.getComponent(droneId, "Wreckage")
-    if not wreckage then
+    local shipDesign = ECS.getComponent(droneId, "ShipDesign")
+    if not shipDesign or not shipDesign.designId then
         return nil
     end
-    -- Wreckage component historically stores the design id in different fields
-    local designId = wreckage.designId or wreckage.sourceShip or wreckage.source or wreckage.sourceShipId
-    if not designId then
-        return nil
-    end
+    local designId = shipDesign.designId
     
     local design = ShipLoader.getDesign(designId)
     if not design then

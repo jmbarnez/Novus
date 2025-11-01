@@ -184,9 +184,15 @@ function DestructionSystem.update(dt)
                      -- show the death overlay. Do NOT skip destruction here so the ship
                      -- entity is actually removed and the player cannot keep flying.
                      local shipDesignId = "starter_drone"
-                     local wreckComp = ECS.getComponent(entityId, "Wreckage")
-                     if wreckComp and wreckComp.sourceShip then
-                         shipDesignId = wreckComp.sourceShip
+                     local shipDesign = ECS.getComponent(entityId, "ShipDesign")
+                     if shipDesign and shipDesign.designId then
+                         shipDesignId = shipDesign.designId
+                     else
+                         -- Fallback to Wreckage for backward compatibility
+                         local wreckComp = ECS.getComponent(entityId, "Wreckage")
+                         if wreckComp and wreckComp.sourceShip then
+                             shipDesignId = wreckComp.sourceShip
+                         end
                      end
 
                     DeathOverlay.show(
@@ -332,9 +338,16 @@ function DestructionSystem.update(dt)
                     print(info)
                 end
 
-                -- Get the enemy type from the Wreckage component (which stores the ship design ID)
-                local wreckage = ECS.getComponent(entityId, "Wreckage")
-                local enemyType = wreckage and wreckage.sourceShip or nil
+                -- Get the enemy type from the ShipDesign component (preferred) or Wreckage (fallback)
+                local shipDesign = ECS.getComponent(entityId, "ShipDesign")
+                local enemyType = nil
+                if shipDesign and shipDesign.designId then
+                    enemyType = shipDesign.designId
+                else
+                    -- Fallback to Wreckage for backward compatibility
+                    local wreckage = ECS.getComponent(entityId, "Wreckage")
+                    enemyType = wreckage and wreckage.sourceShip or nil
+                end
                 QuestUtils.updateCombatProgress(enemyType)
                 
                 -- (Turret drop handled separately for all destroyed ships)
@@ -342,16 +355,22 @@ function DestructionSystem.update(dt)
 
             -- Spawn wreckage when ships are destroyed (any ship with Hull component)
             -- But NOT when wreckage pieces are destroyed - wreckage only spawns scrap
-            -- Ships have both Hull and Wreckage components (Wreckage stores sourceShip)
+            -- Ships have ShipDesign component (stores designId) and Wreckage component
             -- Actual wreckage pieces have Wreckage but NO Hull component
             -- So: spawn wreckage if has Hull (includes both AI and player ships)
             if hull and pos then
                 local sourceShip = "unknown"
 
-                -- Try to get ship type from wreckage component if it exists
-                local existingWreckage = ECS.getComponent(entityId, "Wreckage")
-                if existingWreckage and existingWreckage.sourceShip then
-                    sourceShip = existingWreckage.sourceShip
+                -- Try to get ship type from ShipDesign component (preferred) or Wreckage (fallback)
+                local shipDesign = ECS.getComponent(entityId, "ShipDesign")
+                if shipDesign and shipDesign.designId then
+                    sourceShip = shipDesign.designId
+                else
+                    -- Fallback to Wreckage for backward compatibility
+                    local existingWreckage = ECS.getComponent(entityId, "Wreckage")
+                    if existingWreckage and existingWreckage.sourceShip then
+                        sourceShip = existingWreckage.sourceShip
+                    end
                 end
 
                 -- Calculate ship's total surface area from polygon shape

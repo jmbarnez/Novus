@@ -55,6 +55,14 @@ Components.CrystalFormation = function(size, shardCount, color)
     }
 end
 
+-- ShipDesign component - Stores the design ID for ship entities
+-- @field designId string: The ship design ID (e.g., "red_scout", "starter_drone")
+Components.ShipDesign = function(designId)
+    return {
+        designId = designId or "unknown"
+    }
+end
+
 -- Wreckage component - Marks entity as salvageable wreckage from destroyed ships
 -- @field sourceShip string: Type or name of the source ship
 Components.Wreckage = function(sourceShip)

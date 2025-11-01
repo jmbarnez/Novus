@@ -405,14 +405,14 @@ function TargetHUD.drawPopup()
         if isTargeted then
             content.type = "enemy-targeted"
 
-            local wreck = ECS.getComponent(TargetHUD.hoveredEnemy, "Wreckage")
+            local shipDesign = ECS.getComponent(TargetHUD.hoveredEnemy, "ShipDesign")
             local name = "ENEMY"
-            if wreck and wreck.sourceShip then
-                local design = ShipLoader.getDesign(wreck.sourceShip)
+            if shipDesign and shipDesign.designId then
+                local design = ShipLoader.getDesign(shipDesign.designId)
                 if design and design.name then
                     name = string.upper(design.name)
                 else
-                    name = string.upper(wreck.sourceShip)
+                    name = string.upper(shipDesign.designId)
                 end
             end
             content.title = name

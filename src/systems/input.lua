@@ -341,11 +341,11 @@ function InputSystem.update(dt)
                 
                 if distance > 10 then -- Only rotate if cursor is far enough from ship
                     -- Get ship design to account for front direction
-                    local wreckage = ECS.getComponent(controlledEntity, "Wreckage")
+                    local shipDesignComp = ECS.getComponent(controlledEntity, "ShipDesign")
                     local frontDirection = 0
-                    if wreckage and wreckage.sourceShip then
+                    if shipDesignComp and shipDesignComp.designId then
                         local ShipLoader = require('src.ship_loader')
-                        local shipDesign = ShipLoader.getDesign(wreckage.sourceShip)
+                        local shipDesign = ShipLoader.getDesign(shipDesignComp.designId)
                         if shipDesign and shipDesign.frontDirection then
                             frontDirection = shipDesign.frontDirection
                         end
@@ -535,13 +535,13 @@ function InputSystem.update(dt)
             local turretAimX, turretAimY = mouseX, mouseY -- Default to cursor
             
             -- Get ship design for cone constraints
-            local wreckage = ECS.getComponent(turretOwner, "Wreckage")
+            local shipDesignComp = ECS.getComponent(turretOwner, "ShipDesign")
             local frontDirection = 0
             local turretConeAngle = math.pi -- Default to 180 degrees (no constraint)
             
-            if wreckage and wreckage.sourceShip then
+            if shipDesignComp and shipDesignComp.designId then
                 local ShipLoader = require('src.ship_loader')
-                local shipDesign = ShipLoader.getDesign(wreckage.sourceShip)
+                local shipDesign = ShipLoader.getDesign(shipDesignComp.designId)
                 if shipDesign then
                     if shipDesign.frontDirection then
                         frontDirection = shipDesign.frontDirection
@@ -658,9 +658,10 @@ function InputSystem.update(dt)
                 -- Calculate constrained aim angle (same as rendering)
                 local frontDirection = 0
                 local turretConeAngle = math.pi
-                if wreckage and wreckage.sourceShip then
+                local shipDesignComp = ECS.getComponent(entityId, "ShipDesign")
+                if shipDesignComp and shipDesignComp.designId then
                     local ShipLoader = require('src.ship_loader')
-                    local shipDesign = ShipLoader.getDesign(wreckage.sourceShip)
+                    local shipDesign = ShipLoader.getDesign(shipDesignComp.designId)
                     if shipDesign then
                         if shipDesign.frontDirection then frontDirection = shipDesign.frontDirection end
                         if shipDesign.turretConeAngle then turretConeAngle = shipDesign.turretConeAngle end

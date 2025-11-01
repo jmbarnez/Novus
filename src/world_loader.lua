@@ -460,17 +460,11 @@ function WorldLoader.spawnEnemies(config)
                         success = SpawnCollisionUtils.isPositionSafe(x, y, enemyRadius, minDistance, {})
                         attempts = attempts + 1
                     end
-                    
-                    if not success then
-                        print("[WorldLoader] Failed to find safe position for " .. enemyType .. " after " .. attempts .. " attempts")
-                    end
 
                     if success then
                         -- Generate level before creating ship so scaling can use it
                         local levelValue = math.random(1, 3)
-                        print("[WorldLoader] Attempting to spawn " .. enemyType .. " at (" .. x .. ", " .. y .. ")")
                         shipId = ShipLoader.createShip(enemyType, x, y, "ai", nil, levelValue)
-                        print("[WorldLoader] ShipLoader.createShip returned: " .. tostring(shipId))
                         -- Set turret weapon after creation
                         if shipId then
                             local turret = ECS.getComponent(shipId, "Turret")

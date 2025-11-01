@@ -30,9 +30,9 @@ local function findTarget(entity, dt)
             detectionRadius = aiComp.detectionRadius
         else
             -- Try design fallback
-            local wreck = ECS.getComponent(entity, "Wreckage")
+            local shipDesign = ECS.getComponent(entity, "ShipDesign")
             local ShipLoader = require('src.ship_loader')
-            local design = wreck and ShipLoader.getDesign(wreck.sourceShip)
+            local design = shipDesign and ShipLoader.getDesign(shipDesign.designId)
             detectionRadius = design and (design.combatDetectionRange or design.detectionRange) or nil
         end
 
@@ -80,9 +80,9 @@ local function moveToTarget(entity, dt)
     local Behaviors = require('src.systems.ai_behaviors')
     local aiComp = ECS.getComponent(entity, "AI")
     local turret = ECS.getComponent(entity, "Turret")
-    local wreck = ECS.getComponent(entity, "Wreckage")
+    local shipDesign = ECS.getComponent(entity, "ShipDesign")
     local ShipLoader = require('src.ship_loader')
-    local design = wreck and ShipLoader.getDesign(wreck.sourceShip)
+    local design = shipDesign and ShipLoader.getDesign(shipDesign.designId) or {}
 
     -- Delegate movement to the Chase behavior which respects steeringResponsiveness
     Behaviors.Chase.update(entity, aiComp or {}, pos, vel, turret, design or {}, targetPos, dt)
@@ -98,11 +98,43 @@ local function attackTarget(entity, dt)
     return BehaviorTree.RUNNING
 end
 
--- Build the combat behavior tree
-local combatTree = BehaviorTree.sequence({
-    BehaviorTree.action(findTarget),
-    BehaviorTree.action(moveToTarget),
-    BehaviorTree.action(attackTarget)
+-- Patrol behavior - fallback when no target is detected
+local function patrol(entity, dt)
+    local ai = ECS.getComponent(entity, "AI")
+    local pos = ECS.getComponent(entity, "Position")
+    local vel = ECS.getComponent(entity, "Velocity")
+    local turret = ECS.getComponent(entity, "Turret")
+    
+    if not (ai and pos and vel) then return BehaviorTree.FAILURE end
+    
+    -- Get ship design for movement parameters (via ShipDesign component)
+    local shipDesign = ECS.getComponent(entity, "ShipDesign")
+    local ShipLoader = require('src.ship_loader')
+    local design = shipDesign and ShipLoader.getDesign(shipDesign.designId) or {}
+    
+    -- Initialize spawn position if not set
+    if not ai.spawnX or not ai.spawnY then
+        ai.spawnX = pos.x
+        ai.spawnY = pos.y
+    end
+    
+    -- Use the Patrol behavior from ai_behaviors
+    local Behaviors = require('src.systems.ai_behaviors')
+    Behaviors.Patrol.update(entity, ai, pos, vel, turret, design, dt)
+    return BehaviorTree.RUNNING
+end
+
+-- Build the combat behavior tree with patrol fallback
+-- Uses selector: try combat sequence, if it fails fall back to patrol
+local combatTree = BehaviorTree.selector({
+    -- Try to find target and engage
+    BehaviorTree.sequence({
+        BehaviorTree.action(findTarget),
+        BehaviorTree.action(moveToTarget),
+        BehaviorTree.action(attackTarget)
+    }),
+    -- Fall back to patrol if no target found
+    BehaviorTree.action(patrol)
 })
 
 return combatTree

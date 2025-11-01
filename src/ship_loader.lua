@@ -226,6 +226,8 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId, lev
     -- All ships get cargo and wreckage components
     ECS.addComponent(shipId, "Cargo", Components.Cargo({}, design.cargoCapacity or 3.0))
     ECS.addComponent(shipId, "Wreckage", Components.Wreckage(designId))
+    -- ShipDesign component stores the design ID for easy lookup
+    ECS.addComponent(shipId, "ShipDesign", Components.ShipDesign(designId))
     
     -- Controller setup
     if controllerType == "player" and controllerId then
@@ -270,7 +272,9 @@ function ShipLoader.createShip(designId, x, y, controllerType, controllerId, lev
                 type = aiType,
                 state = aiType == "mining" and "mining" or "patrol",
                 detectionRadius = design.detectionRange or 1200,
-                patrolPoints = relativePatrolPoints
+                patrolPoints = relativePatrolPoints,
+                spawnX = x,
+                spawnY = y
             }))
         end
     end

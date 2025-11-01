@@ -55,13 +55,13 @@ local DEBUG_TURRET_AIM = false
 
 function RenderTurrets.drawPlayerTurret(entityId, position, polygonShape, renderable)
     -- Get ship design to access frontDirection and turretConeAngle
-    local wreckage = ECS.getComponent(entityId, "Wreckage")
+    local shipDesignComp = ECS.getComponent(entityId, "ShipDesign")
     local frontDirection = 0 -- Default to 0 if no design found
     local turretConeAngle = math.pi -- Default to 180 degrees (no constraint)
     
-    if wreckage and wreckage.sourceShip then
+    if shipDesignComp and shipDesignComp.designId then
         local ShipLoader = require('src.ship_loader')
-        local shipDesign = ShipLoader.getDesign(wreckage.sourceShip)
+        local shipDesign = ShipLoader.getDesign(shipDesignComp.designId)
         if shipDesign then
             if shipDesign.frontDirection then
                 frontDirection = shipDesign.frontDirection
