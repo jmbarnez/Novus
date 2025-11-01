@@ -153,6 +153,11 @@ Components.Station = function()
     return {}
 end
 
+-- TurretWorldObject component - Marks entity as a defensive turret (stationary, can't move)
+Components.TurretWorldObject = function()
+    return {}
+end
+
 -- Level component - Tracks global progression for entities that can level up
 -- @field level number: Current level (starts at 1)
 -- @field experience number: Current XP towards next level

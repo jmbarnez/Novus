@@ -129,6 +129,8 @@ function GameInit.registerSystems()
     -- EnemyMiningSystem removed - mining logic now integrated into behavior tree
     ECS.registerSystem("DestructionSystem", Systems.DestructionSystem)
     ECS.registerSystem("DebrisSystem", Systems.DebrisSystem)
+    ECS.registerSystem("AISystem", require('src.systems.ai'))
+    ECS.registerSystem("TurretAISystem", require('src.systems.turret_ai'))
     ECS.registerSystem("TurretSystem", Systems.TurretSystem)
     ECS.registerSystem("HomingMissileSystem", Systems.MissileSystem)
     ECS.registerSystem("ProjectileSystem", Systems.ProjectileSystem)

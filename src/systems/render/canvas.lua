@@ -8,6 +8,21 @@ local DisplayManager = require('src.display_manager')
 
 local RenderCanvas = {}
 
+-- Background swirl shader (lazy-loaded)
+local backgroundShader = nil
+local function getBackgroundShader()
+    if not backgroundShader then
+        local shaderCode = love.filesystem.read('src/shaders/background_swirl.frag')
+        if shaderCode then
+            local ok, shader = pcall(love.graphics.newShader, shaderCode)
+            if ok and shader then
+                backgroundShader = shader
+            end
+        end
+    end
+    return backgroundShader
+end
+
 local function ensureCanvasComponent()
     local canvasEntities = ECS.getEntitiesWith({"Canvas"})
     if #canvasEntities == 0 then return nil end
@@ -29,20 +44,44 @@ function RenderCanvas.setupCanvas()
 
     love.graphics.setCanvas(canvasComp.canvas)
 
-    -- Get current world background color (default to navy blue if no world)
-    local WorldLoader = require('src.world_loader')
-    local world = WorldLoader.getCurrentWorld and WorldLoader.getCurrentWorld()
-    -- Nearly black, with a very subtle blue tint for space
-    local backgroundColor = world and world.theme and world.theme.background or {0.01, 0.012, 0.016}
+    -- Get camera position for parallax effect
+    local cameraX, cameraY = 0, 0
+    local cameraEntities = ECS.getEntitiesWith({"Camera", "Position"})
+    if #cameraEntities > 0 then
+        local cameraId = cameraEntities[1]
+        local cameraPos = ECS.getComponent(cameraId, "Position")
+        if cameraPos then
+            cameraX = cameraPos.x or 0
+            cameraY = cameraPos.y or 0
+        end
+    end
 
-    -- Use safe unpacking in environments where table.unpack may be nil
-    local bc = backgroundColor or {0.01, 0.012, 0.016}
-    local br, bg, bb, ba = bc[1] or 0.01, bc[2] or 0.012, bc[3] or 0.016, bc[4] or 1
-    love.graphics.clear(br, bg, bb, ba)
-
-    -- Fill background with world-specific space color to avoid residual artifacts
-    love.graphics.setColor(br, bg, bb, ba)
-    love.graphics.rectangle("fill", 0, 0, canvasComp.width, canvasComp.height)
+    -- Try to draw colorful swirl background with shader
+    local shader = getBackgroundShader()
+    if shader then
+        -- Set shader uniforms
+        local renderW, renderH = DisplayManager.getRenderDimensions()
+        shader:send('resolution', {renderW, renderH})
+        shader:send('time', love.timer.getTime())
+        shader:send('cameraOffset', {cameraX, cameraY})
+        
+        -- Draw full-screen background with shader
+        love.graphics.setShader(shader)
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.rectangle("fill", 0, 0, canvasComp.width, canvasComp.height)
+        love.graphics.setShader()
+    else
+        -- Fallback to solid color if shader fails
+        local WorldLoader = require('src.world_loader')
+        local world = WorldLoader.getCurrentWorld and WorldLoader.getCurrentWorld()
+        local backgroundColor = world and world.theme and world.theme.background or {0.1, 0.3, 0.5}
+        local bc = backgroundColor or {0.1, 0.3, 0.5}
+        local br, bg, bb, ba = bc[1] or 0.1, bc[2] or 0.3, bc[3] or 0.5, bc[4] or 1
+        love.graphics.clear(br, bg, bb, ba)
+        love.graphics.setColor(br, bg, bb, ba)
+        love.graphics.rectangle("fill", 0, 0, canvasComp.width, canvasComp.height)
+    end
+    
     love.graphics.setColor(1, 1, 1, 1)
 
     return canvasComp
@@ -83,8 +122,8 @@ function RenderCanvas.finalizeCanvas(canvasComp)
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.setCanvas()
 
-    -- Clear the screen to near-black (subtle blue) before drawing the canvas (handles letterboxing)
-    love.graphics.clear(0.01, 0.012, 0.016, 1)
+    -- Clear the screen to blue-green tint before drawing the canvas (handles letterboxing)
+    love.graphics.clear(0.1, 0.25, 0.35, 1)
 
     local windowW, windowH = DisplayManager.getWindowSize()
     local scaleX, scaleY, offsetX, offsetY = DisplayManager.computeDrawParameters(canvasComp.width, canvasComp.height)

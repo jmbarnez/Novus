@@ -1,7 +1,9 @@
 local Station = require('src.world_objects.station')
+local Turret = require('src.world_objects.turret')
 
 local prefabs = {
     station = Station,
+    turret = Turret,
 }
 
 local WorldObjects = {}
