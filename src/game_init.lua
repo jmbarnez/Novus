@@ -201,10 +201,11 @@ function GameInit.createCoreEntities()
     local parallaxObject = Parallax.new(starLayers, 10000)
     ECS.addComponent(starFieldId, "StarField", parallaxObject)
 
-    -- Add an extra nebula cloud to layer 2 for visual variety (safe no-op if API unavailable)
-    if Parallax and Parallax.addNebulaCloud then
-        Parallax.addNebulaCloud(parallaxObject, 2, { x = 0, y = -500, scale = 0.7, opacity = 0.45 })
-    end
+    -- Nebula clouds disabled
+    -- Previously added an extra nebula cloud to layer 2 for visual variety
+    -- if Parallax and Parallax.addNebulaCloud then
+    --     Parallax.addNebulaCloud(parallaxObject, 2, { x = 0, y = -500, scale = 0.7, opacity = 0.45 })
+    -- end
 
     return pilotId
 end

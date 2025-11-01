@@ -122,8 +122,8 @@ function Parallax.new(layers, worldSize)
         layers = {},
         nebula = {},
         worldSize = worldSize or 10000,
-        -- Allow caller to opt-out of nebula rendering (default: enabled)
-        nebulaEnabled = true
+        -- Nebula rendering disabled by default
+        nebulaEnabled = false
     }
     
     setupNebulaResources(parallax)
@@ -237,32 +237,11 @@ function Parallax.new(layers, worldSize)
                 twinklePhase = love.math.random() * (2 * math.pi)
             })
         end
-        -- Generate nebula clouds only for far background layers (parallaxFactor <= 0.05)
-        -- Make them further away, brighter, and fewer
-        local pf = parallax.layers[i].parallaxFactor or 1.0
-        if not isStatic and pf <= 0.05 then
-            local numClouds = love.math.random(1, 2) -- Fewer clouds (1-2 instead of 2-4)
-            -- color palettes for nebula clouds
-            local palettes = {
-                {1.0, 0.3, 0.7}, -- pink
-                {0.2, 0.6, 1.0}, -- blue
-                {0.4, 1.0, 0.6}, -- greenish
-                {0.7, 0.4, 1.0}, -- purple
-            }
-            for c = 1, numClouds do
-                -- Choose random parallax factor per cloud so clouds land on different layers
-                local cloudScale = love.math.random(40, 90) / 100 -- 0.4 .. 0.9
-                local cloudOpacity = love.math.random(40, 70) / 100 -- 0.4 .. 0.7 (brighter than before: 0.2-0.5)
-                local palette = palettes[love.math.random(1, #palettes)]
-                table.insert(parallax.layers[i].nebulaClouds, {
-                    x = love.math.random(-parallax.worldSize/2, parallax.worldSize/2),
-                    y = love.math.random(-parallax.worldSize/2, parallax.worldSize/2),
-                    scale = cloudScale,
-                    opacity = cloudOpacity,
-                    color = { palette[1], palette[2], palette[3] },
-                })
-            end
-        end
+        -- Nebula clouds generation disabled
+        -- Previously generated nebula clouds for far background layers (parallaxFactor <= 0.05)
+        -- if not isStatic and pf <= 0.05 then
+        --     ...nebula cloud generation code...
+        -- end
         
         -- Note: Decorative asteroids for close layers are added via Parallax.addAsteroidsNearClusters()
         -- after asteroid clusters are initialized (since clusters don't exist yet during parallax creation)
