@@ -1,0 +1,35 @@
+{
+  "runtime": {
+    "version": "Lua 5.2"
+  },
+  "diagnostics": {
+    "disable": [
+      "undefined-global",
+      "unknown-field",
+      "duplicate-set-field",
+      "trailing-space",
+      "deprecated",
+      "redundant-parameter",
+      "duplicate-doc-field"
+    ],
+    "globals": [
+      "love"
+    ],
+    "unusedLocalExclude": []
+  },
+  "workspace": {
+    "library": [],
+    "ignoreDir": [
+      ".git",
+      "dist",
+      "tests/love_runner"
+    ],
+    "checkThirdParty": false
+  },
+  "completion": {
+    "enable": true,
+    "callSnippet": "Disable",
+    "keywordSnippet": "Disable"
+  }
+}
+

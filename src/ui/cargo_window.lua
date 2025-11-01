@@ -296,23 +296,23 @@ function CargoWindow:drawTopControls(x, y, width, alpha)
 end
 
 function CargoWindow:drawBottomBar(windowX, windowY, width, height, alpha, pilotId, droneId)
-	local bottomBarH = Theme.window.bottomBarHeight or 0
-	if bottomBarH <= 0 then return end
-	
-	local x = windowX
-	local y = windowY + height - bottomBarH
-	local w = width
-	local h = bottomBarH
-	local padding = Theme.spacing.sm
+    local bottomBarH = Theme.window.bottomBarHeight or 0
+    if bottomBarH <= 0 then return end
+    
+    local x = windowX
+    local y = windowY + height - bottomBarH
+    local w = width
+    local h = bottomBarH
+    local padding = Theme.spacing.sm
 
-	local wallet = ECS.getComponent(pilotId, "Wallet")
-	local cargo = ECS.getComponent(droneId, "Cargo")
-	local currentVolume = cargo and cargo.currentVolume or 0
-	local maxCapacity = cargo and cargo.capacity or 0
+    local wallet = ECS.getComponent(pilotId, "Wallet")
+    local cargo = ECS.getComponent(droneId, "Cargo")
+    local currentVolume = cargo and cargo.currentVolume or 0
+    local maxCapacity = cargo and cargo.capacity or 0
 
-	love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-	local fontHeight = love.graphics.getFont():getHeight()
-	local textY = y + (h - fontHeight) / 2
+    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
+    local fontHeight = love.graphics.getFont():getHeight()
+    local textY = y + (h - fontHeight) / 2
 
 	-- Draw left side: Credits (with coin icon)
 	local creditsAmount = wallet and wallet.credits or 0
@@ -337,53 +337,53 @@ function CargoWindow:drawBottomBar(windowX, windowY, width, height, alpha, pilot
 
 	-- Draw credits amount next to coin
 	local creditsText = string.format("%d", creditsAmount)
-	love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
 	love.graphics.print(creditsText, x + padding + coinSize + 8, textY)
 
-	-- Draw center: Cargo capacity
-	local cargoText = string.format("Cargo: %.2f/%.2f m3", currentVolume, maxCapacity)
-	love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
-	love.graphics.printf(cargoText, x + padding, textY, w - padding * 2, "center")
+    -- Draw center: Cargo capacity
+    local cargoText = string.format("Cargo: %.2f/%.2f m3", currentVolume, maxCapacity)
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+    love.graphics.printf(cargoText, x + padding, textY, w - padding * 2, "center")
 
-	-- Draw right side: Search box
-	local searchW = 220
-	local searchH = 26
-	local searchX = x + w - searchW - padding
-	local searchY = y + (h - searchH) / 2
-	self.cargoSearchRect = { x = searchX, y = searchY, w = searchW, h = searchH }
+    -- Draw right side: Search box
+    local searchW = 220
+    local searchH = 26
+    local searchX = x + w - searchW - padding
+    local searchY = y + (h - searchH) / 2
+    self.cargoSearchRect = { x = searchX, y = searchY, w = searchW, h = searchH }
 
-	local bg = Theme.colors.surface
-	local border = Theme.colors.border
-	local text = Theme.colors.text
-	if self.cargoSearchFocused then
-		love.graphics.setColor(0.2, 0.4, 0.6, 0.28 * alpha)
-		love.graphics.rectangle("fill", searchX - 1, searchY - 1, searchW + 2, searchH + 2, 6, 6)
-	end
-	love.graphics.setColor(bg[1], bg[2], bg[3], 0.95 * alpha)
-	love.graphics.rectangle("fill", searchX, searchY, searchW, searchH, 6, 6)
-	love.graphics.setColor(border[1], border[2], border[3], 0.5 * alpha)
-	love.graphics.rectangle("line", searchX, searchY, searchW, searchH, 6, 6)
+    local bg = Theme.colors.surface
+    local border = Theme.colors.border
+    local text = Theme.colors.text
+    if self.cargoSearchFocused then
+        love.graphics.setColor(0.2, 0.4, 0.6, 0.28 * alpha)
+        love.graphics.rectangle("fill", searchX - 1, searchY - 1, searchW + 2, searchH + 2, 6, 6)
+    end
+    love.graphics.setColor(bg[1], bg[2], bg[3], 0.95 * alpha)
+    love.graphics.rectangle("fill", searchX, searchY, searchW, searchH, 6, 6)
+    love.graphics.setColor(border[1], border[2], border[3], 0.5 * alpha)
+    love.graphics.rectangle("line", searchX, searchY, searchW, searchH, 6, 6)
 
-	local placeholder = "Search..."
-	local query = self.cargoSearchQuery or ""
-	local showPlaceholder = query == "" and not self.cargoSearchFocused
-	love.graphics.setScissor(searchX + 8, searchY, searchW - 16, searchH)
-	if showPlaceholder then
-		local tc = Theme.colors.textSecondary
-		love.graphics.setColor(tc[1], tc[2], tc[3], (tc[4] or 1) * alpha)
-		love.graphics.printf(placeholder, searchX + 8, searchY + 5, searchW - 16, "left")
-	else
-		love.graphics.setColor(text[1], text[2], text[3], alpha)
-		love.graphics.printf(query, searchX + 8, searchY + 5, searchW - 16, "left")
-		-- Caret
-		if self.cargoSearchFocused then
-			local font = love.graphics.getFont()
-			local caretX = searchX + 8 + font:getWidth(query)
-			love.graphics.setColor(text[1], text[2], text[3], 0.6 * alpha)
-			love.graphics.line(caretX, searchY + 6, caretX, searchY + searchH - 6)
-		end
-	end
-	love.graphics.setScissor()
+    local placeholder = "Search..."
+    local query = self.cargoSearchQuery or ""
+    local showPlaceholder = query == "" and not self.cargoSearchFocused
+    love.graphics.setScissor(searchX + 8, searchY, searchW - 16, searchH)
+    if showPlaceholder then
+        local tc = Theme.colors.textSecondary
+        love.graphics.setColor(tc[1], tc[2], tc[3], (tc[4] or 1) * alpha)
+        love.graphics.printf(placeholder, searchX + 8, searchY + 5, searchW - 16, "left")
+    else
+        love.graphics.setColor(text[1], text[2], text[3], alpha)
+        love.graphics.printf(query, searchX + 8, searchY + 5, searchW - 16, "left")
+        -- Caret
+        if self.cargoSearchFocused then
+            local font = love.graphics.getFont()
+            local caretX = searchX + 8 + font:getWidth(query)
+            love.graphics.setColor(text[1], text[2], text[3], 0.6 * alpha)
+            love.graphics.line(caretX, searchY + 6, caretX, searchY + searchH - 6)
+        end
+    end
+    love.graphics.setScissor()
 end
 
 function CargoWindow:canEquipInSlotInternal(itemId, slotType)
@@ -518,6 +518,13 @@ function CargoWindow:handleCargoMousereleased(x, y, button)
             end
             DragState.endDrag()
             return true
+        elseif dragged and dragged.origin == "cargo" then
+            -- If dragging from cargo and released, cancel the drag (item stays in cargo)
+            -- Only cancel if this is a left mouse button release (button 1)
+            if button == 1 then
+                DragState.endDrag()
+                return true
+            end
         end
     end
 
