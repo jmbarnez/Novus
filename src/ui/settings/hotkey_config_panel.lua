@@ -131,13 +131,14 @@ function HotkeyConfigPanel:draw(alpha)
                                      Theme.colors.surfaceAlt[3], alpha * 0.6)
             end
             
-            love.graphics.rectangle("fill", button.x, button.y, button.width, button.height, 4, 4)
+            local cornerRadius = Theme.window.cornerRadius or 0
+            love.graphics.rectangle("fill", button.x, button.y, button.width, button.height, cornerRadius, cornerRadius)
             
             -- Button border
             love.graphics.setColor(Theme.colors.borderAlt[1], Theme.colors.borderAlt[2],
                                  Theme.colors.borderAlt[3], alpha)
             love.graphics.setLineWidth(1)
-            love.graphics.rectangle("line", button.x, button.y, button.width, button.height, 4, 4)
+            love.graphics.rectangle("line", button.x, button.y, button.width, button.height, cornerRadius, cornerRadius)
             
             -- Button text
             love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2],

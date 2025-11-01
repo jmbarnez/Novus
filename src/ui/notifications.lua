@@ -182,33 +182,38 @@ function Notifications.draw()
         local notifWidth = math.min(maxNotifWidth, textWidth + textPadding * 2)
 
         if notif.type == 'level' then
-            local radius = Scaling.scaleSize(12)
-            love.graphics.setColor(0.08, 0.12, 0.22, alpha * 0.95)
-            love.graphics.rectangle('fill', x, y, notifWidth, notifHeight, radius, radius)
-            love.graphics.setColor(0.32, 0.68, 1.0, alpha)
+            local cornerRadius = 0  -- Use sharp corners for plasma theme
+            local bgColor = Theme.colors.surfaceAlt or Theme.colors.surface
+            love.graphics.setColor(bgColor[1], bgColor[2], bgColor[3], alpha * 0.95)
+            love.graphics.rectangle('fill', x, y, notifWidth, notifHeight, cornerRadius, cornerRadius)
+            local accentColor = Theme.colors.textAccent or Theme.palette.accent
+            love.graphics.setColor(accentColor[1], accentColor[2], accentColor[3], alpha)
             love.graphics.setLineWidth(2)
-            love.graphics.rectangle('line', x, y, notifWidth, notifHeight, radius, radius)
+            love.graphics.rectangle('line', x, y, notifWidth, notifHeight, cornerRadius, cornerRadius)
             love.graphics.setLineWidth(1)
-            love.graphics.setColor(0.9, 0.96, 1.0, alpha)
+            love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
             love.graphics.printf(notif.text, x + Scaling.scaleX(16), y + Scaling.scaleY(12), notifWidth - Scaling.scaleX(32), "left")
 
             local barX = x + Scaling.scaleX(16)
             local barWidth = notifWidth - Scaling.scaleX(32)
             local barHeight = Scaling.scaleSize(4)
             local barY = y + notifHeight - Scaling.scaleY(14)
-            love.graphics.setColor(0.18, 0.45, 0.85, alpha * 0.6)
+            local barBg = Theme.colors.surface or Theme.colors.surfaceAlt
+            love.graphics.setColor(barBg[1], barBg[2], barBg[3], alpha * 0.6)
             love.graphics.rectangle('fill', barX, barY, barWidth, barHeight)
-            love.graphics.setColor(0.4, 0.75, 1.0, alpha * 0.9)
+            love.graphics.setColor(accentColor[1], accentColor[2], accentColor[3], alpha * 0.9)
             love.graphics.rectangle('fill', barX, barY, barWidth, math.max(1, barHeight * 0.45))
         else
+            local cornerRadius = 0  -- Use sharp corners for plasma theme
             love.graphics.setColor(Theme.colors.surface[1], Theme.colors.surface[2], Theme.colors.surface[3], alpha * 0.92)
-            love.graphics.rectangle('fill', x, y, notifWidth, notifHeight, Scaling.scaleSize(8), Scaling.scaleSize(8))
+            love.graphics.rectangle('fill', x, y, notifWidth, notifHeight, cornerRadius, cornerRadius)
             love.graphics.setColor(Theme.colors.borderLight[1], Theme.colors.borderLight[2], Theme.colors.borderLight[3], alpha)
             love.graphics.setLineWidth(1)
-            love.graphics.rectangle('line', x, y, notifWidth, notifHeight, Scaling.scaleSize(8), Scaling.scaleSize(8))
+            love.graphics.rectangle('line', x, y, notifWidth, notifHeight, cornerRadius, cornerRadius)
 
             if notif.type == 'skill' and notif.text:find('LVL UP!') then
-                love.graphics.setColor(0.2, 1, 0.2, alpha)
+                local successColor = Theme.colors.success or {0.1, 1.0, 0.2, 1}
+                love.graphics.setColor(successColor[1], successColor[2], successColor[3], alpha)
             else
                 love.graphics.setColor(Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], alpha)
             end
@@ -219,12 +224,16 @@ function Notifications.draw()
                 local barY = y + Scaling.scaleY(28)
                 local barWidth = notifWidth - textPadding * 2
                 local barHeight = Scaling.scaleSize(8)
-                love.graphics.setColor(0.1, 0.1, 0.1, alpha)
+                love.graphics.setColor(Theme.colors.surfaceAlt[1], Theme.colors.surfaceAlt[2], Theme.colors.surfaceAlt[3], alpha)
                 love.graphics.rectangle('fill', barX, barY, barWidth, barHeight)
                 love.graphics.setColor(Theme.colors.borderAlt[1], Theme.colors.borderAlt[2], Theme.colors.borderAlt[3], alpha)
                 love.graphics.rectangle('line', barX, barY, barWidth, barHeight)
-                local barColor = {0.2, 0.6, 1.0}
-                if notif.text:find('SALVAGING') then barColor = {0.2, 1.0, 0.2} end
+                local accentColor = Theme.colors.textAccent or Theme.palette.accent
+                local barColor = {accentColor[1], accentColor[2], accentColor[3]}
+                if notif.text:find('SALVAGING') then 
+                    local successColor = Theme.colors.success or {0.1, 1.0, 0.2, 1}
+                    barColor = {successColor[1], successColor[2], successColor[3]}
+                end
                 local xpRatio = math.min(1, notif.skillData.experience / notif.skillData.requiredXp)
                 local fillWidth = math.max(0, math.min(barWidth - 2, (barWidth - 2) * xpRatio))
                 love.graphics.setColor(barColor[1], barColor[2], barColor[3], alpha)

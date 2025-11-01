@@ -164,11 +164,12 @@ local function drawSection(sectionX, sectionY, sectionW, title, lines, alpha)
     local sectionH = baseHeight + lineCount * lineSpacing
 
     love.graphics.setColor(Theme.colors.surfaceAlt[1], Theme.colors.surfaceAlt[2], Theme.colors.surfaceAlt[3], alpha * 0.9)
-    love.graphics.rectangle('fill', sectionX, sectionY, sectionW, sectionH, 6, 6)
+    local cornerRadius = Theme.window.cornerRadius or 0
+    love.graphics.rectangle('fill', sectionX, sectionY, sectionW, sectionH, cornerRadius, cornerRadius)
 
     love.graphics.setColor(Theme.colors.borderAlt[1], Theme.colors.borderAlt[2], Theme.colors.borderAlt[3], alpha)
     love.graphics.setLineWidth(2)
-    love.graphics.rectangle('line', sectionX, sectionY, sectionW, sectionH, 6, 6)
+    love.graphics.rectangle('line', sectionX, sectionY, sectionW, sectionH, cornerRadius, cornerRadius)
     love.graphics.setLineWidth(1)
 
     love.graphics.setFont(Theme.getFontBold(Theme.fonts.title))

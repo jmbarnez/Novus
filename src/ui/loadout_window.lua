@@ -266,17 +266,19 @@ function LoadoutWindow:drawLoadoutContent(windowX, windowY, width, height, alpha
     local mx, my = UIUtils.getMousePosition()
     local isButtonHovered = UIUtils.pointInRect(mx, my, btnX, btnY, btnW, btnH)
     
-    -- Draw button
+    -- Draw button using plasma theme
     local bg = Theme.colors.surface
     local border = isButtonHovered and Theme.colors.hover or Theme.colors.border
+    local cornerRadius = Theme.window.cornerRadius or 0
     if isButtonHovered then
-        love.graphics.setColor(0.2, 0.4, 0.6, 0.28 * alpha)
-        love.graphics.rectangle("fill", btnX - 1, btnY - 1, btnW + 2, btnH + 2, 6, 6)
+        local hoverBg = Theme.colors.surfaceAlt or Theme.colors.surface
+        love.graphics.setColor(hoverBg[1], hoverBg[2], hoverBg[3], 0.95 * alpha)
+        love.graphics.rectangle("fill", btnX - 1, btnY - 1, btnW + 2, btnH + 2, cornerRadius, cornerRadius)
     end
     love.graphics.setColor(bg[1], bg[2], bg[3], 0.9 * alpha)
-    love.graphics.rectangle("fill", btnX, btnY, btnW, btnH, 6, 6)
+    love.graphics.rectangle("fill", btnX, btnY, btnW, btnH, cornerRadius, cornerRadius)
     love.graphics.setColor(border[1], border[2], border[3], 0.5 * alpha)
-    love.graphics.rectangle("line", btnX, btnY, btnW, btnH, 6, 6)
+    love.graphics.rectangle("line", btnX, btnY, btnW, btnH, cornerRadius, cornerRadius)
     
     -- Draw button text
     love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
@@ -320,10 +322,11 @@ function LoadoutWindow:drawEquipmentSlotInternal(slotName, equippedItemId, x, y,
     -- Draw slot background
     local bg = Theme.colors.surface
     local border = isHovered and Theme.colors.hover or Theme.colors.border
+    local cornerRadius = Theme.window.cornerRadius or 0
     love.graphics.setColor(bg[1], bg[2], bg[3], 0.8 * alpha)
-    love.graphics.rectangle("fill", x, y, slotSize, slotSize, 6, 6)
+    love.graphics.rectangle("fill", x, y, slotSize, slotSize, cornerRadius, cornerRadius)
     love.graphics.setColor(border[1], border[2], border[3], 0.6 * alpha)
-    love.graphics.rectangle("line", x, y, slotSize, slotSize, 6, 6)
+    love.graphics.rectangle("line", x, y, slotSize, slotSize, cornerRadius, cornerRadius)
     
     -- Draw slot label
     love.graphics.setFont(Theme.getFont(Theme.fonts.small))

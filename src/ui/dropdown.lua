@@ -71,8 +71,9 @@ function Dropdown:drawClosed(alpha)
     end
     
     -- Draw closed dropdown button
+    local cornerRadius = Theme.window.cornerRadius or 0
     do local c = Theme.colors.surfaceAlt or {0.08,0.08,0.08,1} love.graphics.setColor(c[1], c[2], c[3], c[4]) end
-    love.graphics.rectangle('fill', self.x, self.y, self.width, self.height, 4, 4)
+    love.graphics.rectangle('fill', self.x, self.y, self.width, self.height, cornerRadius, cornerRadius)
     
     -- Highlight if hovering
     local isHovering = mx >= self.x and mx <= self.x + self.width and 
@@ -80,11 +81,11 @@ function Dropdown:drawClosed(alpha)
     if isHovering then
         local c = Theme.colors.surfaceLight or Theme.colors.surfaceAlt or {0.10,0.10,0.10,1}
         love.graphics.setColor(c[1], c[2], c[3], c[4])
-        love.graphics.rectangle('fill', self.x, self.y, self.width, self.height, 4, 4)
+        love.graphics.rectangle('fill', self.x, self.y, self.width, self.height, cornerRadius, cornerRadius)
     end
     
     do local c = Theme.colors.borderAlt or Theme.colors.border or {0.06,0.06,0.06,1} love.graphics.setColor(c[1], c[2], c[3], c[4]) end
-    love.graphics.rectangle('line', self.x, self.y, self.width, self.height, 4, 4)
+    love.graphics.rectangle('line', self.x, self.y, self.width, self.height, cornerRadius, cornerRadius)
     
     -- Draw selected text
     do local c = Theme.colors.text or {1,1,1,1} love.graphics.setColor(c[1], c[2], c[3], c[4]) end
@@ -128,11 +129,12 @@ function Dropdown:drawOpen(alpha)
     local visibleCount = math.min(total, self.maxVisible)
     local dropdownHeight = visibleCount * self.itemHeight
 
+        local cornerRadius = Theme.window.cornerRadius or 0
         do local c = Theme.colors.surface or {0.06,0.06,0.06,1} love.graphics.setColor(c[1], c[2], c[3], c[4]) end
-    love.graphics.rectangle('fill', self.x, self.y + self.height, self.width, dropdownHeight, 0, 0, 4, 4)
+    love.graphics.rectangle('fill', self.x, self.y + self.height, self.width, dropdownHeight, 0, 0, cornerRadius, cornerRadius)
 
     do local c = Theme.colors.borderAlt or Theme.colors.border or {0.06,0.06,0.06,1} love.graphics.setColor(c[1], c[2], c[3], c[4]) end
-    love.graphics.rectangle('line', self.x, self.y + self.height, self.width, dropdownHeight, 0, 0, 4, 4)
+    love.graphics.rectangle('line', self.x, self.y + self.height, self.width, dropdownHeight, 0, 0, cornerRadius, cornerRadius)
 
     -- Use full width for option rendering
     local contentWidth = self.width

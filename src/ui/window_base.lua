@@ -282,7 +282,8 @@ function WindowBase:draw(viewportWidth, viewportHeight, uiMx, uiMy)
             local mul = (1 - (i - 1) / (elev + 1)) * 0.6
             local inset = i
             local a = baseAlpha * mul * alpha
-            love.graphics.setColor(0, 0, 0, a)
+            local shadowColor = Theme.colors.outlineBlack or {0, 0, 0, 1}
+            love.graphics.setColor(shadowColor[1], shadowColor[2], shadowColor[3], a)
             love.graphics.rectangle('fill', px - inset, py - inset, pw + inset * 2, ph + inset * 2, (pr or 0) + inset, (pr or 0) + inset)
         end
     end

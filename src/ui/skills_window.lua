@@ -67,8 +67,9 @@ function SkillsWindow:drawSkillsContent(windowX, windowY, width, height, alpha)
             
             -- Draw skill background
             local bg = Theme.colors.surface
+            local cornerRadius = Theme.window.cornerRadius or 0
             love.graphics.setColor(bg[1], bg[2], bg[3], 0.8 * alpha)
-            love.graphics.rectangle("fill", contentX, y, contentWidth, skillHeight, 4, 4)
+            love.graphics.rectangle("fill", contentX, y, contentWidth, skillHeight, cornerRadius, cornerRadius)
             
             -- Draw skill name and level
             local skillName = skillNames[skillKey] or skillKey
@@ -84,9 +85,10 @@ function SkillsWindow:drawSkillsContent(windowX, windowY, width, height, alpha)
             local progressBarY = y + skillHeight - progressBarHeight - progressBarPadding
             local progressBarWidth = contentWidth - 20
             
-            -- Background
-            love.graphics.setColor(0.2, 0.2, 0.2, alpha)
-            love.graphics.rectangle("fill", progressBarX, progressBarY, progressBarWidth, progressBarHeight, 2, 2)
+            -- Background using plasma theme
+            local cornerRadius = Theme.window.cornerRadius or 0
+            love.graphics.setColor(Theme.colors.surfaceAlt[1], Theme.colors.surfaceAlt[2], Theme.colors.surfaceAlt[3], alpha)
+            love.graphics.rectangle("fill", progressBarX, progressBarY, progressBarWidth, progressBarHeight, cornerRadius, cornerRadius)
             
             -- Progress
             local currentXp = skill.experience or 0
@@ -95,9 +97,9 @@ function SkillsWindow:drawSkillsContent(windowX, windowY, width, height, alpha)
             local filledWidth = progressBarWidth * progress
             
             if filledWidth > 0 then
-                local progressColor = Theme.colors.hover or {0.2, 0.6, 0.9, 1}
+                local progressColor = Theme.colors.hover or Theme.palette.accent
                 love.graphics.setColor(progressColor[1], progressColor[2], progressColor[3], alpha)
-                love.graphics.rectangle("fill", progressBarX, progressBarY, filledWidth, progressBarHeight, 2, 2)
+                love.graphics.rectangle("fill", progressBarX, progressBarY, filledWidth, progressBarHeight, cornerRadius, cornerRadius)
             end
             
             -- XP text

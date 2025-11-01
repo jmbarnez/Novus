@@ -308,14 +308,16 @@ function CargoWindow:drawTopControls(x, y, width, alpha)
         local bg = Theme.colors.surface
         local border = Theme.colors.borderAlt
         local text = Theme.colors.text
+        local cornerRadius = Theme.window.cornerRadius or 0
         if active then
-            love.graphics.setColor(0.2, 0.5, 0.3, 0.35 * alpha)
-            love.graphics.rectangle("fill", bx - 1, by - 1, btnW + 2, btnH + 2, 6, 6)
+            local activeBg = Theme.colors.surfaceAlt or Theme.colors.surface
+            love.graphics.setColor(activeBg[1], activeBg[2], activeBg[3], 0.95 * alpha)
+            love.graphics.rectangle("fill", bx - 1, by - 1, btnW + 2, btnH + 2, cornerRadius, cornerRadius)
         end
         love.graphics.setColor(bg[1], bg[2], bg[3], 0.9 * alpha)
-        love.graphics.rectangle("fill", bx, by, btnW, btnH, 6, 6)
+        love.graphics.rectangle("fill", bx, by, btnW, btnH, cornerRadius, cornerRadius)
         love.graphics.setColor(border[1], border[2], border[3], 0.4 * alpha)
-        love.graphics.rectangle("line", bx, by, btnW, btnH, 6, 6)
+        love.graphics.rectangle("line", bx, by, btnW, btnH, cornerRadius, cornerRadius)
         love.graphics.setColor(text[1], text[2], text[3], alpha)
         love.graphics.printf(label, bx, by + 5, btnW, "center")
         self.cargoControlButtons[id] = { x = bx, y = by, w = btnW, h = btnH }
@@ -365,11 +367,13 @@ function CargoWindow:drawBottomBar(windowX, windowY, width, height, alpha, pilot
 	local coinCenterX = x + padding + coinSize / 2
 	local coinCenterY = y + h / 2
 
-	-- Draw coin (sky blue fill)
-	love.graphics.setColor(0.53, 0.81, 0.98, alpha)
+	-- Draw coin using plasma theme accent color
+	local coinColor = Theme.colors.textAccent or Theme.palette.accent
+	love.graphics.setColor(coinColor[1], coinColor[2], coinColor[3], alpha)
 	love.graphics.circle("fill", coinCenterX, coinCenterY, coinSize / 2)
-	-- coin border
-	love.graphics.setColor(0.2, 0.45, 0.7, alpha)
+	-- coin border using hover color
+	local coinBorder = Theme.colors.hover or Theme.colors.borderLight
+	love.graphics.setColor(coinBorder[1], coinBorder[2], coinBorder[3], alpha)
 	love.graphics.setLineWidth(1)
 	love.graphics.circle("line", coinCenterX, coinCenterY, coinSize / 2)
 	-- draw 'c' in center of coin
@@ -400,14 +404,16 @@ function CargoWindow:drawBottomBar(windowX, windowY, width, height, alpha, pilot
     local bg = Theme.colors.surface
     local border = Theme.colors.border
     local text = Theme.colors.text
+    local cornerRadius = Theme.window.cornerRadius or 0
     if self.cargoSearchFocused then
-        love.graphics.setColor(0.2, 0.4, 0.6, 0.28 * alpha)
-        love.graphics.rectangle("fill", searchX - 1, searchY - 1, searchW + 2, searchH + 2, 6, 6)
+        local focusBg = Theme.colors.surfaceAlt or Theme.colors.surface
+        love.graphics.setColor(focusBg[1], focusBg[2], focusBg[3], 0.95 * alpha)
+        love.graphics.rectangle("fill", searchX - 1, searchY - 1, searchW + 2, searchH + 2, cornerRadius, cornerRadius)
     end
     love.graphics.setColor(bg[1], bg[2], bg[3], 0.95 * alpha)
-    love.graphics.rectangle("fill", searchX, searchY, searchW, searchH, 6, 6)
+    love.graphics.rectangle("fill", searchX, searchY, searchW, searchH, cornerRadius, cornerRadius)
     love.graphics.setColor(border[1], border[2], border[3], 0.5 * alpha)
-    love.graphics.rectangle("line", searchX, searchY, searchW, searchH, 6, 6)
+    love.graphics.rectangle("line", searchX, searchY, searchW, searchH, cornerRadius, cornerRadius)
 
     local placeholder = "Search..."
     local query = self.cargoSearchQuery or ""
@@ -472,10 +478,11 @@ function CargoWindow:drawCargoGridInternal(cargoItems, x, y, width, height, alph
         -- Draw slot background
         local bg = Theme.colors.surface
         local border = isHovered and Theme.colors.hover or Theme.colors.border
+        local cornerRadius = Theme.window.cornerRadius or 0
         love.graphics.setColor(bg[1], bg[2], bg[3], 0.8 * alpha)
-        love.graphics.rectangle("fill", slotX, slotY, slotSize, slotSize, 4, 4)
+        love.graphics.rectangle("fill", slotX, slotY, slotSize, slotSize, cornerRadius, cornerRadius)
         love.graphics.setColor(border[1], border[2], border[3], 0.6 * alpha)
-        love.graphics.rectangle("line", slotX, slotY, slotSize, slotSize, 4, 4)
+        love.graphics.rectangle("line", slotX, slotY, slotSize, slotSize, cornerRadius, cornerRadius)
         
         -- Draw item icon using shared utility
         if item.itemDef then

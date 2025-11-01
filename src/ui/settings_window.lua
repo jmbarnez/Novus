@@ -144,13 +144,14 @@ function SettingsWindow:drawHotkeyButtons(alpha)
                                  Theme.colors.surfaceAlt[3], alpha * 0.6)
         end
         
-        love.graphics.rectangle("fill", button.x, button.y, button.width, button.height, 4, 4)
+        local cornerRadius = Theme.window.cornerRadius or 0
+        love.graphics.rectangle("fill", button.x, button.y, button.width, button.height, cornerRadius, cornerRadius)
         
         -- Button border
         love.graphics.setColor(Theme.colors.borderAlt[1], Theme.colors.borderAlt[2],
                              Theme.colors.borderAlt[3], alpha)
         love.graphics.setLineWidth(1)
-        love.graphics.rectangle("line", button.x, button.y, button.width, button.height, 4, 4)
+        love.graphics.rectangle("line", button.x, button.y, button.width, button.height, cornerRadius, cornerRadius)
         
         -- Button text
         love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2],
@@ -204,13 +205,14 @@ function SettingsWindow:drawScrollBar(alpha)
     -- Always draw scroll bar background
     love.graphics.setColor(Theme.colors.surface[1], Theme.colors.surface[2],
                           Theme.colors.surface[3], alpha * 0.8)
-    love.graphics.rectangle("fill", sb.x, sb.y, sb.width, sb.height, 2, 2)
+    local cornerRadius = Theme.window.cornerRadius or 0
+    love.graphics.rectangle("fill", sb.x, sb.y, sb.width, sb.height, cornerRadius, cornerRadius)
     
     -- Scroll bar border
     love.graphics.setColor(Theme.colors.borderAlt[1], Theme.colors.borderAlt[2],
                           Theme.colors.borderAlt[3], alpha)
     love.graphics.setLineWidth(1)
-    love.graphics.rectangle("line", sb.x, sb.y, sb.width, sb.height, 2, 2)
+    love.graphics.rectangle("line", sb.x, sb.y, sb.width, sb.height, cornerRadius, cornerRadius)
     
     -- Only draw thumb if there's scrollable content
     if self.maxScrollY > 0 then
@@ -231,7 +233,7 @@ function SettingsWindow:drawScrollBar(alpha)
             love.graphics.setColor(Theme.colors.borderLight[1], Theme.colors.borderLight[2], 
                                  Theme.colors.borderLight[3], alpha)
         end
-        love.graphics.rectangle("fill", sb.x + 1, sb.thumbY, sb.width - 2, sb.thumbHeight, 2, 2)
+        love.graphics.rectangle("fill", sb.x + 1, sb.thumbY, sb.width - 2, sb.thumbHeight, cornerRadius, cornerRadius)
     end
 end
 
@@ -475,8 +477,9 @@ function SettingsWindow:draw()
     local alpha = self.animAlpha or 0
     if alpha <= 0 then return end
 
-    -- Draw semi-transparent background overlay
-    love.graphics.setColor(0, 0, 0, 0.3 * alpha)
+    -- Draw semi-transparent background overlay using plasma theme
+    local overlayColor = Theme.colors.overlay or {0.05, 0.05, 0.05, 0.8}
+    love.graphics.setColor(overlayColor[1], overlayColor[2], overlayColor[3], overlayColor[4] * alpha * 0.375)
     love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
 
     WindowBase.draw(self)

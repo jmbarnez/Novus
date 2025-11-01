@@ -97,16 +97,17 @@ function MapWindow:draw(viewportWidth, viewportHeight)
         return centerX + (wx - self.panX) * scale, centerY + (wy - self.panY) * scale
     end
 
-    -- Background rectangle (map area) - use black background
-    love.graphics.setColor(0, 0, 0, alpha)
+    -- Background rectangle (map area) - use plasma theme background
+    love.graphics.setColor(Theme.colors.bgPureBlack[1], Theme.colors.bgPureBlack[2], Theme.colors.bgPureBlack[3], alpha)
     love.graphics.rectangle('fill', mapX, mapY, mapW, mapH)
     love.graphics.setColor(Theme.colors.borderLight[1], Theme.colors.borderLight[2], Theme.colors.borderLight[3], alpha)
     love.graphics.setLineWidth(2)
     love.graphics.rectangle('line', mapX, mapY, mapW, mapH)
     love.graphics.setLineWidth(1)
 
-    -- Draw boundary rectangle (clipped into map area)
-    love.graphics.setColor(1, 0.2, 0.2, 0.9 * alpha)
+    -- Draw boundary rectangle (clipped into map area) using plasma theme danger color
+    local dangerColor = Theme.colors.danger or {1, 0.25, 0.25, 1}
+    love.graphics.setColor(dangerColor[1], dangerColor[2], dangerColor[3], 0.9 * alpha)
     local bx1, by1 = worldToMap(minX, minY)
     local bx2, by2 = worldToMap(maxX, maxY)
     love.graphics.rectangle('line', bx1, by1, bx2 - bx1, by2 - by1)
@@ -114,9 +115,9 @@ function MapWindow:draw(viewportWidth, viewportHeight)
     -- Store world bounds for input handlers
     self._minX, self._minY, self._maxX, self._maxY = minX, minY, maxX, maxY
 
-    -- Draw asteroids
+    -- Draw asteroids using plasma theme text secondary color
     local asteroids = ECS.getEntitiesWith({'Asteroid', 'Position', 'PolygonShape'})
-    love.graphics.setColor(0.7, 0.7, 0.7, 1 * alpha)
+    love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
     for _, id in ipairs(asteroids) do
         local pos = ECS.getComponent(id, 'Position')
         local poly = ECS.getComponent(id, 'PolygonShape')
@@ -149,9 +150,10 @@ function MapWindow:draw(viewportWidth, viewportHeight)
         end
     end
 
-    -- Draw items
+    -- Draw items using plasma theme success color
     local items = ECS.getEntitiesWith({'Item', 'Position'})
-    love.graphics.setColor(0.2, 0.8, 0.2, 1 * alpha)
+    local successColor = Theme.colors.success or {0.1, 1.0, 0.2, 1}
+    love.graphics.setColor(successColor[1], successColor[2], successColor[3], alpha)
     for _, id in ipairs(items) do
         local pos = ECS.getComponent(id, 'Position')
         if pos then
@@ -162,9 +164,10 @@ function MapWindow:draw(viewportWidth, viewportHeight)
         end
     end
 
-    -- Draw enemies
+    -- Draw enemies using plasma theme danger color
     local enemies = ECS.getEntitiesWith({'Hull', 'Position'})
-    love.graphics.setColor(1, 0.2, 0.2, 1 * alpha)
+    local dangerColor = Theme.colors.danger or {1, 0.25, 0.25, 1}
+    love.graphics.setColor(dangerColor[1], dangerColor[2], dangerColor[3], alpha)
     for _, id in ipairs(enemies) do
         local pos = ECS.getComponent(id, 'Position')
         local controlledBy = ECS.getComponent(id, 'ControlledBy')
@@ -190,7 +193,8 @@ function MapWindow:draw(viewportWidth, viewportHeight)
         local pos = ECS.getComponent(tracked, 'Position')
         if pos then
             local mx, my = worldToMap(pos.x, pos.y)
-            love.graphics.setColor(0.2, 0.6, 1, 1 * alpha)
+            local accentColor = Theme.colors.textAccent or Theme.palette.accent
+            love.graphics.setColor(accentColor[1], accentColor[2], accentColor[3], alpha)
             if mx >= mapX and mx <= mapX + mapW and my >= mapY and my <= mapY + mapH then
                 love.graphics.circle('fill', mx, my, 4)
             end
@@ -204,10 +208,11 @@ function MapWindow:draw(viewportWidth, viewportHeight)
     local btnSize = 30
     local btnX = mapX + mapW / 2 - btnSize / 2
     local btnY = mapY + mapH - btnSize - 10  -- 10 pixels padding from bottom
+    local cornerRadius = Theme.window.cornerRadius or 0
     love.graphics.setColor(Theme.colors.surfaceLight[1], Theme.colors.surfaceLight[2], Theme.colors.surfaceLight[3], alpha)
-    love.graphics.rectangle('fill', btnX, btnY, btnSize, btnSize, 4, 4)
+    love.graphics.rectangle('fill', btnX, btnY, btnSize, btnSize, cornerRadius, cornerRadius)
     love.graphics.setColor(Theme.colors.border[1], Theme.colors.border[2], Theme.colors.border[3], alpha)
-    love.graphics.rectangle('line', btnX, btnY, btnSize, btnSize, 4, 4)
+    love.graphics.rectangle('line', btnX, btnY, btnSize, btnSize, cornerRadius, cornerRadius)
     love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
     love.graphics.setFont(Theme.getFontBold(Theme.fonts.normal))
     love.graphics.printf('R', btnX, btnY + 6, btnSize, 'center')
@@ -218,9 +223,10 @@ function MapWindow:draw(viewportWidth, viewportHeight)
     love.graphics.setFont(Theme.getFontBold(Theme.fonts.title))
     love.graphics.printf("Map", x + 8, y + 4, w - 16, 'left')
 
-    -- Draw stations (as green polygons for clarity)
+    -- Draw stations using plasma theme success color
     local stations = ECS.getEntitiesWith({'StationDetails', 'Position', 'PolygonShape'})
-    love.graphics.setColor(0.15, 1, 0.35, 1 * alpha)
+    local successColor = Theme.colors.success or {0.1, 1.0, 0.2, 1}
+    love.graphics.setColor(successColor[1], successColor[2], successColor[3], alpha)
     for _, id in ipairs(stations) do
         local pos = ECS.getComponent(id, 'Position')
         local poly = ECS.getComponent(id, 'PolygonShape')
@@ -241,9 +247,10 @@ function MapWindow:draw(viewportWidth, viewportHeight)
         end
     end
 
-    -- Draw warpgates (as pink circles)
+    -- Draw warpgates using plasma theme primary color
     local warpgates = ECS.getEntitiesWith({'WarpGate', 'Position', 'Collidable'})
-    love.graphics.setColor(1, 0.4, 0.8, 1 * alpha)  -- Pink color
+    local primaryColor = Theme.palette.primary or {1.0, 0.2, 0.5, 1}
+    love.graphics.setColor(primaryColor[1], primaryColor[2], primaryColor[3], alpha)
     for _, id in ipairs(warpgates) do
         local pos = ECS.getComponent(id, 'Position')
         local coll = ECS.getComponent(id, 'Collidable')
@@ -262,56 +269,62 @@ function MapWindow:draw(viewportWidth, viewportHeight)
     local legendItemHeight = 16
     local legendPadding = 4
     
-    -- Legend background (semi-transparent)
+    -- Legend background (semi-transparent) using plasma theme overlay
     local legendWidth = 120
     local legendHeight = (legendItemHeight + legendPadding) * 6 - legendPadding  -- 6 items
-    love.graphics.setColor(0, 0, 0, 0.6 * alpha)
-    love.graphics.rectangle('fill', legendX, legendY, legendWidth, legendHeight, 2, 2)
+    local overlayColor = Theme.colors.overlay or {0.05, 0.05, 0.05, 0.8}
+    local cornerRadius = Theme.window.cornerRadius or 0
+    love.graphics.setColor(overlayColor[1], overlayColor[2], overlayColor[3], overlayColor[4] * alpha)
+    love.graphics.rectangle('fill', legendX, legendY, legendWidth, legendHeight, cornerRadius, cornerRadius)
     love.graphics.setColor(Theme.colors.borderLight[1], Theme.colors.borderLight[2], Theme.colors.borderLight[3], alpha)
-    love.graphics.rectangle('line', legendX, legendY, legendWidth, legendHeight, 2, 2)
+    love.graphics.rectangle('line', legendX, legendY, legendWidth, legendHeight, cornerRadius, cornerRadius)
     
     local currentY = legendY + legendPadding
     local dotSize = 6
     local textX = legendX + dotSize + 8
     
-    -- Player (blue)
-    love.graphics.setColor(0.2, 0.6, 1, 1 * alpha)
+    -- Player (accent color)
+    local accentColor = Theme.colors.textAccent or Theme.palette.accent
+    love.graphics.setColor(accentColor[1], accentColor[2], accentColor[3], alpha)
     love.graphics.circle('fill', legendX + dotSize/2, currentY + dotSize/2, dotSize/2)
     love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
     love.graphics.setFont(Theme.getFont(Theme.fonts.small))
     love.graphics.printf('Player', textX, currentY, legendWidth - textX + legendX, 'left')
     currentY = currentY + legendItemHeight
     
-    -- Stations (green)
-    love.graphics.setColor(0.15, 1, 0.35, 1 * alpha)
+    -- Stations (success color)
+    local successColor = Theme.colors.success or {0.1, 1.0, 0.2, 1}
+    love.graphics.setColor(successColor[1], successColor[2], successColor[3], alpha)
     love.graphics.circle('fill', legendX + dotSize/2, currentY + dotSize/2, dotSize/2)
     love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
     love.graphics.printf('Station', textX, currentY, legendWidth - textX + legendX, 'left')
     currentY = currentY + legendItemHeight
     
-    -- Warpgates (pink)
-    love.graphics.setColor(1, 0.4, 0.8, 1 * alpha)
+    -- Warpgates (primary color)
+    local primaryColor = Theme.palette.primary or {1.0, 0.2, 0.5, 1}
+    love.graphics.setColor(primaryColor[1], primaryColor[2], primaryColor[3], alpha)
     love.graphics.circle('fill', legendX + dotSize/2, currentY + dotSize/2, dotSize/2)
     love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
     love.graphics.printf('Warpgate', textX, currentY, legendWidth - textX + legendX, 'left')
     currentY = currentY + legendItemHeight
     
-    -- Enemies (red)
-    love.graphics.setColor(1, 0.2, 0.2, 1 * alpha)
+    -- Enemies (danger color)
+    local dangerColor = Theme.colors.danger or {1, 0.25, 0.25, 1}
+    love.graphics.setColor(dangerColor[1], dangerColor[2], dangerColor[3], alpha)
     love.graphics.circle('fill', legendX + dotSize/2, currentY + dotSize/2, dotSize/2)
     love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
     love.graphics.printf('Enemies', textX, currentY, legendWidth - textX + legendX, 'left')
     currentY = currentY + legendItemHeight
     
-    -- Items (green)
-    love.graphics.setColor(0.2, 0.8, 0.2, 1 * alpha)
+    -- Items (success color)
+    love.graphics.setColor(successColor[1], successColor[2], successColor[3], alpha)
     love.graphics.circle('fill', legendX + dotSize/2, currentY + dotSize/2, dotSize/2)
     love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
     love.graphics.printf('Items', textX, currentY, legendWidth - textX + legendX, 'left')
     currentY = currentY + legendItemHeight
     
-    -- Asteroids (gray)
-    love.graphics.setColor(0.7, 0.7, 0.7, 1 * alpha)
+    -- Asteroids (text secondary color)
+    love.graphics.setColor(Theme.colors.textSecondary[1], Theme.colors.textSecondary[2], Theme.colors.textSecondary[3], alpha)
     love.graphics.circle('fill', legendX + dotSize/2, currentY + dotSize/2, dotSize/2)
     love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
     love.graphics.printf('Asteroids', textX, currentY, legendWidth - textX + legendX, 'left')

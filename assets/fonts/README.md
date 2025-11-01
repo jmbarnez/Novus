@@ -4,12 +4,11 @@ This directory contains sci-fi fonts used in the Space Drone Adventure game.
 
 ## Required Fonts
 
-Place the following fonts in this directory:
+Place the following font in this directory:
 
 ### Orbitron Font
-- **Files needed:**
-  - `Orbitron-Regular.ttf` - Regular weight font
-  - `Orbitron-Bold.ttf` - Bold weight font
+- **File needed:**
+  - `Orbitron-Bold.ttf` - Bold weight font (used as the default and only font)
 
 - **Download from:**
   - Google Fonts: https://fonts.google.com/specimen/Orbitron
@@ -19,9 +18,9 @@ Place the following fonts in this directory:
 
 ## Installation
 
-1. Download Orbitron font files from Google Fonts or Font Squirrel
-2. Place both `Orbitron-Regular.ttf` and `Orbitron-Bold.ttf` in this directory
-3. The game will automatically use these fonts for all UI elements
+1. Download Orbitron-Bold.ttf from Google Fonts or Font Squirrel
+2. Place `Orbitron-Bold.ttf` in this directory
+3. The game will automatically use this font for all UI elements
 
 ## Alternative Sci-Fi Fonts
 

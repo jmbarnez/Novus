@@ -48,7 +48,7 @@ PlasmaTheme.colors.dangerHover = PlasmaTheme.colors.danger and PlasmaTheme.light
 -- Overlay/backdrop used by modal/pause overlays
 PlasmaTheme.colors.overlay = PlasmaTheme.colors.overlay or {0.05, 0.05, 0.05, 0.8}
 
-PlasmaTheme.typography = { baseScale=1.0, sizes = { xs=10, sm=12, md=14, lg=18, xl=24, xxl=32, huge=48 }, fonts = { regular = "assets/fonts/Orbitron-Regular.ttf", bold = "assets/fonts/Orbitron-Bold.ttf" } }
+PlasmaTheme.typography = { baseScale=1.0, sizes = { xs=10, sm=12, md=14, lg=18, xl=24, xxl=32, huge=48 }, fonts = { regular = "assets/fonts/Orbitron-Bold.ttf", bold = "assets/fonts/Orbitron-Bold.ttf" } }
 
 -- Backwards compatibility: provide legacy font tokens used across UI modules
 PlasmaTheme.fonts = {
@@ -56,7 +56,7 @@ PlasmaTheme.fonts = {
     small = 12,                              -- maps to typography.sizes.sm
     normal = 14,                             -- maps to typography.sizes.md
     title = 18,                              -- maps to typography.sizes.lg
-    fontPath = "assets/fonts/Orbitron-Regular.ttf",
+    fontPath = "assets/fonts/Orbitron-Bold.ttf",
     fontPathBold = "assets/fonts/Orbitron-Bold.ttf",
 }
 PlasmaTheme.spacing = { xs=4, sm=6, md=8, lg=12, xl=16, xxl=24, windowBorder=1, slotSize=72, iconSize=48, iconGridPadding=12 }

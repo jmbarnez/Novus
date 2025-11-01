@@ -344,6 +344,7 @@ end
 local function computeSystemOrder()
     local systemList = {}
     for name, sys in pairs(systems) do
+        sys.name = name
         table.insert(systemList, sys)
     end
     table.sort(systemList, function(a, b)

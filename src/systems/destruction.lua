@@ -316,14 +316,14 @@ function DestructionSystem.update(dt)
                 end
                 if skillName then
                     local xpAmount = SkillXP.getXpGain(skillName)
-                if lastDamager and lastDamager.pilotId then
-                    local skillGainData = { skill = skillName, xp = xpAmount }
+                    if lastDamager and lastDamager.pilotId then
+                        local skillGainData = { skill = skillName, xp = xpAmount }
                         if weaponType then
                             skillGainData.weaponType = weaponType
-                    end
-                    EventSystem.emitTo("SkillGain", lastDamager.pilotId, skillGainData, lastDamager.pilotId)
-                else
-                    EventSystem.emitGlobal("SkillGain", { skill = skillName, xp = xpAmount }, nil)
+                        end
+                        EventSystem.emitTo("SkillGain", lastDamager.pilotId, skillGainData, lastDamager.pilotId)
+                    else
+                        EventSystem.emitGlobal("SkillGain", { skill = skillName, xp = xpAmount }, nil)
                     end
                 end
                 if not skillName then

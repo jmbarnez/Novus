@@ -125,15 +125,16 @@ function Slider:draw(alpha)
     local hovered = self:isMouseOver(mx, my)
     
     -- Draw track background
+    local cornerRadius = Theme.window.cornerRadius or 0
     love.graphics.setColor(Theme.colors.surfaceAlt[1], Theme.colors.surfaceAlt[2],
                           Theme.colors.surfaceAlt[3], alpha * 0.6)
-    love.graphics.rectangle("fill", self.x, self.y + self.height/2 - 2, self.width, 4, 2, 2)
+    love.graphics.rectangle("fill", self.x, self.y + self.height/2 - 2, self.width, 4, cornerRadius, cornerRadius)
     
     -- Draw track border
     love.graphics.setColor(Theme.colors.borderAlt[1], Theme.colors.borderAlt[2],
                           Theme.colors.borderAlt[3], alpha)
     love.graphics.setLineWidth(1)
-    love.graphics.rectangle("line", self.x, self.y + self.height/2 - 2, self.width, 4, 2, 2)
+    love.graphics.rectangle("line", self.x, self.y + self.height/2 - 2, self.width, 4, cornerRadius, cornerRadius)
     
     -- Draw filled portion
     local thumbX = self:getThumbPosition()
@@ -141,19 +142,19 @@ function Slider:draw(alpha)
     if fillWidth > 0 then
         love.graphics.setColor(Theme.colors.hover[1], Theme.colors.hover[2],
                               Theme.colors.hover[3], alpha * 0.8)
-        love.graphics.rectangle("fill", self.x, self.y + self.height/2 - 2, fillWidth, 4, 2, 2)
+        love.graphics.rectangle("fill", self.x, self.y + self.height/2 - 2, fillWidth, 4, cornerRadius, cornerRadius)
     end
     
     -- Draw thumb
     local thumbColor = (hovered or self.isDragging) and Theme.colors.hover or Theme.colors.borderLight
     love.graphics.setColor(thumbColor[1], thumbColor[2], thumbColor[3], alpha)
-    love.graphics.rectangle("fill", thumbX, self.y + self.height/2 - 8, 16, 16, 3, 3)
+    love.graphics.rectangle("fill", thumbX, self.y + self.height/2 - 8, 16, 16, cornerRadius, cornerRadius)
     
     -- Draw thumb border
     love.graphics.setColor(Theme.colors.borderAlt[1], Theme.colors.borderAlt[2],
                           Theme.colors.borderAlt[3], alpha)
     love.graphics.setLineWidth(1)
-    love.graphics.rectangle("line", thumbX, self.y + self.height/2 - 8, 16, 16, 3, 3)
+    love.graphics.rectangle("line", thumbX, self.y + self.height/2 - 8, 16, 16, cornerRadius, cornerRadius)
     
     -- Draw value text
     love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2],
