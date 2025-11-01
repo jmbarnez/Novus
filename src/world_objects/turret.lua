@@ -30,19 +30,24 @@ function TurretPrefab.generate(spawnData)
     local verts = regularPolygon(hullSides, hullRadius)
     local inertia = Components.calculatePolygonInertia(verts, mass)
     
+    -- Create polygon shape with turret offset (centered at origin for circular turret)
+    local polygonShape = Components.PolygonShape(verts, spawnData.hullRotation or 0)
+    polygonShape.turretOffsetX = 0  -- Turret is at center of circular base
+    polygonShape.turretOffsetY = 0
+    
     -- Components for the turret
     local components = {
         Position = Components.Position(x, y),
         Velocity = Components.Velocity(0, 0),
         Physics = Components.Physics(0.999, mass, 0.999),  -- High friction to prevent movement
-        PolygonShape = Components.PolygonShape(verts, spawnData.hullRotation or 0),
+        PolygonShape = polygonShape,
         RotationalMass = Components.RotationalMass(inertia),
         Collidable = Components.Collidable(spawnData.collidableRadius or hullRadius),
         Renderable = Components.Renderable("polygon", nil, nil, nil, color),
         TurretWorldObject = Components.TurretWorldObject(),
         Hull = Components.Hull(hullValue, hullValue),
         Shield = Components.Shield(shieldValue, shieldValue, 0, 0),
-        Energy = Components.Energy(1000, 1000, 0),  -- Turrets need energy for their weapons
+        Energy = Components.Energy(1000, 1000, 50),  -- Turrets need energy and regen for their weapons
     }
     
     -- Add turret slots and turret component for module support

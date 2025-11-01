@@ -140,9 +140,15 @@ local function updateTurret(turretId, dt)
     -- Find target
     local targetPos, targetId = findTarget(turretId, pos, ai)
     
-    if targetPos and turret and turret.moduleName then
+    if targetPos and turret and turret.moduleName and turret.moduleName ~= "" then
         -- Target found - aim and fire
         local turretModule = TurretRegistry.getModule(turret.moduleName)
+        
+        -- Try alternative module names if first lookup fails
+        if not turretModule and turret.moduleName == "continuous_beam" then
+            turretModule = TurretRegistry.getModule("continuous_beam_turret")
+        end
+        
         if turretModule then
             local dx = targetPos.x - pos.x
             local dy = targetPos.y - pos.y

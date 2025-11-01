@@ -278,6 +278,73 @@ function WorldLoader.initWorld(worldId)
                 WorldChunkManager.registerEntityToChunk(stationId, cx, cy)
             end
         end
+        
+        -- Spawn turrets near the station
+        if world.turrets and stationPos then
+            for _, turretDef in ipairs(world.turrets) do
+                local turretRadius = 30  -- Turret collision radius
+                local stationRadius = stationColl and stationColl.radius or 120
+                local offsetDistance = stationRadius + turretRadius + 80  -- Distance from station edge
+                
+                -- Try multiple positions around the station (starting at right side)
+                local angles = {0, math.pi/4, math.pi/2, 3*math.pi/4, math.pi, 5*math.pi/4, 3*math.pi/2, 7*math.pi/4}
+                local turretX, turretY, turretFound
+                
+                for _, angle in ipairs(angles) do
+                    local testX = stationPos.x + math.cos(angle) * offsetDistance
+                    local testY = stationPos.y + math.sin(angle) * offsetDistance
+                    
+                    if SpawnCollisionUtils.isPositionSafe(testX, testY, turretRadius, 100, {"station"}) then
+                        turretX, turretY = testX, testY
+                        turretFound = true
+                        break
+                    end
+                end
+                
+                -- Fallback: find any safe position near station
+                if not turretFound then
+                    turretX, turretY, turretFound = SpawnCollisionUtils.findSafePosition(
+                        stationPos.x, stationPos.y,
+                        300,  -- search radius
+                        turretRadius,
+                        100,  -- min distance
+                        50,   -- max attempts
+                        {"station"}
+                    )
+                end
+                
+                if turretFound then
+                    turretDef.x = turretX
+                    turretDef.y = turretY
+                    
+                    local turretComponents
+                    if turretDef.prefab and WorldObjects and WorldObjects.getPrefab then
+                        local prefab = WorldObjects.getPrefab(turretDef.prefab)
+                        if prefab and prefab.generate then
+                            turretComponents = prefab.generate(turretDef)
+                        end
+                    end
+                    
+                    if turretComponents then
+                        local turretId = ECS.createEntity()
+                        for compType, compData in pairs(turretComponents) do
+                            ECS.addComponent(turretId, compType, compData)
+                        end
+                        
+                        -- Register the turret in collision system
+                        local turretPos = ECS.getComponent(turretId, "Position")
+                        local turretColl = ECS.getComponent(turretId, "Collidable")
+                        if turretPos and turretColl then
+                            SpawnCollisionUtils.registerEntity(turretId, turretPos.x, turretPos.y, turretColl.radius, "turret")
+                            if WorldChunkManager and WorldChunkManager.registerEntityToChunk then
+                                local cx, cy = WorldChunkManager.worldToChunk(turretPos.x, turretPos.y)
+                                WorldChunkManager.registerEntityToChunk(turretId, cx, cy)
+                            end
+                        end
+                    end
+                end
+            end
+        end
     end
 end
 

@@ -78,6 +78,19 @@ return {
             mass = 1200,
             color = {0.79, 0.85, 1, 1},
         }
+    },
+    
+    -- Turrets (defensive stationary turrets)
+    turrets = {
+        {
+            prefab = "turret",
+            owner = "enemy",  -- Enemy turret
+            defaultTurret = "continuous_beam_turret",  -- Equip continuous laser (use module ID)
+            size = 40,
+            detectionRadius = 1500,
+            hull = 2000,
+            shield = 500,
+        }
     }
 }
 

@@ -658,7 +658,7 @@ function InputSystem.update(dt)
                 -- Calculate constrained aim angle (same as rendering)
                 local frontDirection = 0
                 local turretConeAngle = math.pi
-                local shipDesignComp = ECS.getComponent(entityId, "ShipDesign")
+                local shipDesignComp = ECS.getComponent(turretOwner, "ShipDesign")
                 if shipDesignComp and shipDesignComp.designId then
                     local ShipLoader = require('src.ship_loader')
                     local shipDesign = ShipLoader.getDesign(shipDesignComp.designId)

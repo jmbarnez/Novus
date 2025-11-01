@@ -137,6 +137,7 @@ local RenderSystem = {
                 -- Determine station vs ship: stations may have Hull (for durability)
                 -- but should not render turrets. Treat Station first.
                 local isStation = ECS.hasComponent(entityId, "Station") or ECS.hasComponent(entityId, "StationDetails")
+                local isTurret = ECS.hasComponent(entityId, "TurretWorldObject")
                 -- Wreckage pieces have Hull but should not have turrets rendered
                 -- Ships have Wreckage component for sourceShip storage, but also have AI component
                 -- Actual wreckage pieces have Wreckage but NO AI component
@@ -147,7 +148,8 @@ local RenderSystem = {
 
                 if isPlayerDrone then
                     RenderTurrets.drawPlayerTurret(entityId, position, polygonShape, renderable)
-                elseif isShip then
+                elseif isShip or isTurret then
+                    -- Draw enemy turrets (or turret world objects)
                     RenderTurrets.drawEnemyTurret(entityId, position, polygonShape, renderable)
                 end
             end
