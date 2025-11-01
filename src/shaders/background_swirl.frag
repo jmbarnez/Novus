@@ -68,28 +68,37 @@ vec4 effect(vec4 color, Image texture, vec2 tex_coords, vec2 screen_coords) {
     float density = n1 * 0.5 + n2 * 0.3 + n3 * 0.2;
     density = smoothstep(0.2, 0.8, density);
     
-    // Create green-blue gradient based on position and noise
-    vec3 blueColor = vec3(0.1, 0.3, 0.6);  // Rich blue
-    vec3 greenColor = vec3(0.1, 0.6, 0.4); // Rich green
+    // Create blue-cyan gradient, minimizing green
+    vec3 blueColor = vec3(0.1, 0.3, 0.65);   // Rich blue
+    vec3 cyanColor = vec3(0.1, 0.65, 0.8);    // Vibrant cyan (less green)
+    vec3 tealColor = vec3(0.1, 0.5, 0.6);   // Teal (blue-cyan, minimal green)
     
-    // Mix colors based on swirl position and noise
+    // Mix colors based on swirl position and noise, favoring blue and cyan
     float colorMix = (swirlPos.y * 0.3 + n1 * 0.5 + 0.5);
     colorMix = smoothstep(0.0, 1.0, colorMix);
     
-    vec3 baseColor = mix(blueColor, greenColor, colorMix);
+    // Three-way mix: blue->cyan->teal (avoid pure green)
+    vec3 baseColor;
+    if (colorMix < 0.6) {
+        // Mix blue to cyan (most of the range)
+        baseColor = mix(blueColor, cyanColor, colorMix / 0.6);
+    } else {
+        // Mix cyan to teal (minimal green in teal)
+        baseColor = mix(cyanColor, tealColor, (colorMix - 0.6) / 0.4);
+    }
     
-    // Add variation with second noise layer
+    // Add blue-cyan tinted variation, reduce green component
     float variation = n2 * 0.3;
-    vec3 finalColor = baseColor + variation * vec3(0.1, 0.15, 0.1);
+    vec3 finalColor = baseColor + variation * vec3(0.1, 0.15, 0.2);  // More blue/cyan, less green
     
     // Apply density for smooth fade
     finalColor *= (0.3 + density * 0.7);
     
-    // Ensure minimum brightness so it's not too dark
-    finalColor = max(finalColor, vec3(0.15, 0.2, 0.25));
+    // Ensure minimum brightness so it's not too dark (blue-cyan tinted minimum)
+    finalColor = max(finalColor, vec3(0.12, 0.18, 0.25));
     
-    // Clamp to reasonable values
-    finalColor = clamp(finalColor, vec3(0.1, 0.15, 0.2), vec3(0.6, 0.8, 0.7));
+    // Clamp to reasonable values (limit green channel to reduce green appearance)
+    finalColor = clamp(finalColor, vec3(0.1, 0.15, 0.2), vec3(0.5, 0.65, 0.8));
     
     return vec4(finalColor, 1.0) * color;
 }
