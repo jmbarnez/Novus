@@ -16,6 +16,7 @@ local WorldLoader = {
     currentWorld = nil,
     currentWorldId = nil
 }
+local WorldChunkManager = require('src.world_chunk_manager')
 
 -- Load a single world definition file
 function WorldLoader.loadWorld(worldId, filepath)
@@ -96,6 +97,40 @@ function WorldLoader.initWorld(worldId)
     if world.seed then
         math.randomseed(world.seed)
     end
+    -- Initialize chunk manager for this world
+    if WorldChunkManager and WorldChunkManager.init then
+        WorldChunkManager.init(world)
+        -- Preload chunks around world center (station)
+        local centerX = (Constants.world_min_x + Constants.world_max_x) / 2
+        local centerY = (Constants.world_min_y + Constants.world_max_y) / 2
+        WorldChunkManager.ensureLoadedAround(centerX, centerY, 1)
+    end
+
+    -- Backwards-compatibility: convert legacy world coordinates (centered at 0) to new 0..world_width range
+    -- Only run once per world definition
+    if not world._coordsConverted then
+        local offsetX = Constants.world_width / 2
+        local offsetY = Constants.world_height / 2
+
+        -- Convert asteroid cluster centers if present
+        if world.asteroidClusters and world.asteroidClusters.clusters then
+            for _, c in ipairs(world.asteroidClusters.clusters) do
+                if c.x then c.x = c.x + offsetX end
+                if c.y then c.y = c.y + offsetY end
+            end
+        end
+
+        -- Convert station coordinates if present
+        if world.stations then
+            for _, s in ipairs(world.stations) do
+                if s.x then s.x = s.x + offsetX end
+                if s.y then s.y = s.y + offsetY end
+            end
+        end
+
+        -- Mark converted so we don't shift twice
+        world._coordsConverted = true
+    end
     
     -- Initialize asteroid clusters
     if world.asteroidClusters then
@@ -123,7 +158,7 @@ function WorldLoader.initWorld(worldId)
     end
     
     -- Find safe position for warp gate within world bounds
-    -- Reserve space at center (0, 0) for station - don't spawn warpgate too close
+    -- Reserve space at world center for station - don't spawn warpgate too close
     local gateRadius = 80  -- Warpgate collision radius
     local stationRadius = 120  -- Station collision radius
     local minDistanceFromCenter = stationRadius + gateRadius + 200  -- Keep warpgate away from center
@@ -141,8 +176,12 @@ function WorldLoader.initWorld(worldId)
         )
         
         if gateFound then
-            -- Check if position is far enough from center (where station will be)
-            local distFromCenter = math.sqrt(gateX * gateX + gateY * gateY)
+            -- Check if position is far enough from world center (where station will be)
+            local centerX = (Constants.world_min_x + Constants.world_max_x) / 2
+            local centerY = (Constants.world_min_y + Constants.world_max_y) / 2
+            local dx = gateX - centerX
+            local dy = gateY - centerY
+            local distFromCenter = math.sqrt(dx * dx + dy * dy)
             if distFromCenter >= minDistanceFromCenter then
                 break  -- Found good position
             end
@@ -152,8 +191,11 @@ function WorldLoader.initWorld(worldId)
     
     -- Fallback if no safe position found (should be rare)
     if not gateFound then
-        gateX = 1000
-        gateY = 1000
+        -- Place fallback gate offset from world center
+        local centerX = (Constants.world_min_x + Constants.world_max_x) / 2
+        local centerY = (Constants.world_min_y + Constants.world_max_y) / 2
+        gateX = centerX + 1000
+        gateY = centerY + 1000
     end
     
     local gateComponents = require('src.procedural').generateEntity('warp_gate', {x = gateX, y = gateY, active = false})
@@ -167,6 +209,11 @@ function WorldLoader.initWorld(worldId)
     local gateColl = ECS.getComponent(gateId, "Collidable")
     if gatePos and gateColl then
         SpawnCollisionUtils.registerEntity(gateId, gatePos.x, gatePos.y, gateColl.radius, "warpgate")
+        -- Register ownership to chunk manager
+        if WorldChunkManager and WorldChunkManager.registerEntityToChunk then
+            local cx, cy = WorldChunkManager.worldToChunk(gatePos.x, gatePos.y)
+            WorldChunkManager.registerEntityToChunk(gateId, cx, cy)
+        end
     end
     
     QuestSystem.registerMainQuestTarget(gateId)
@@ -176,16 +223,18 @@ function WorldLoader.initWorld(worldId)
         local stationDef = world.stations[1]  -- Only one station for now
         local stationRadius = 120  -- Station collision radius
         
-        -- Station always spawns at world center (0, 0)
+        -- Station always spawns at world center
+        local centerX = (Constants.world_min_x + Constants.world_max_x) / 2
+        local centerY = (Constants.world_min_y + Constants.world_max_y) / 2
         -- Check if center is safe (should be since we kept warpgate away)
-        local centerSafe = SpawnCollisionUtils.isPositionSafe(0, 0, stationRadius, 200, {})
+        local centerSafe = SpawnCollisionUtils.isPositionSafe(centerX, centerY, stationRadius, 200, {})
         
         if centerSafe then
-            stationDef.x, stationDef.y = 0, 0
+            stationDef.x, stationDef.y = centerX, centerY
         else
             -- Fallback: try small area around center if center is blocked
             local x, y, success = SpawnCollisionUtils.findSafePosition(
-                0, 0,         -- centerX, centerY -> world center
+                centerX, centerY,         -- centerX, centerY -> world center
                 100,          -- searchRadius: very small radius around center
                 stationRadius, 
                 200,          -- minDistance
@@ -196,7 +245,7 @@ function WorldLoader.initWorld(worldId)
                 stationDef.x, stationDef.y = x, y
             else
                 -- Last resort: place at center anyway
-                stationDef.x, stationDef.y = 0, 0
+                stationDef.x, stationDef.y = centerX, centerY
             end
         end
         
@@ -224,6 +273,10 @@ function WorldLoader.initWorld(worldId)
         local stationColl = ECS.getComponent(stationId, "Collidable")
         if stationPos and stationColl then
             SpawnCollisionUtils.registerEntity(stationId, stationPos.x, stationPos.y, stationColl.radius, "station")
+            if WorldChunkManager and WorldChunkManager.registerEntityToChunk then
+                local cx, cy = WorldChunkManager.worldToChunk(stationPos.x, stationPos.y)
+                WorldChunkManager.registerEntityToChunk(stationId, cx, cy)
+            end
         end
     end
 end
@@ -253,6 +306,8 @@ function WorldLoader.initAsteroidClusters(config)
     
     local nextClusterId = 1
     
+    print("[WorldLoader] Initializing", config.count, "asteroid cluster(s)")
+    
     -- Create clusters based on world configuration
     for i = 1, config.count do
         local clusterConfig = config.clusters[i] or {}
@@ -260,9 +315,21 @@ function WorldLoader.initAsteroidClusters(config)
         local clusterId = nextClusterId
         nextClusterId = nextClusterId + 1
         
-        -- Use configured position or random position
-        local clusterX = clusterConfig.x or (Constants.world_min_x + math.random() * (Constants.world_max_x - Constants.world_min_x))
-        local clusterY = clusterConfig.y or (Constants.world_min_y + math.random() * (Constants.world_max_y - Constants.world_min_y))
+        -- Use configured position or random position, but clamp to world bounds so clusters don't sit outside the world
+        local proposedX = clusterConfig.x
+        local proposedY = clusterConfig.y
+        local maxRadius = clusterConfig.radius or Constants.asteroid_cluster_radius
+        -- If no explicit coords, pick randomly but keep entire cluster inside world bounds
+        if not proposedX then
+            proposedX = Constants.world_min_x + maxRadius + math.random() * (Constants.world_max_x - Constants.world_min_x - 2 * maxRadius)
+        end
+        if not proposedY then
+            proposedY = Constants.world_min_y + maxRadius + math.random() * (Constants.world_max_y - Constants.world_min_y - 2 * maxRadius)
+        end
+
+        -- Clamp to ensure cluster circle (center +/- radius) stays inside world bounds
+        local clusterX = math.max(Constants.world_min_x + maxRadius, math.min(proposedX, Constants.world_max_x - maxRadius))
+        local clusterY = math.max(Constants.world_min_y + maxRadius, math.min(proposedY, Constants.world_max_y - maxRadius))
         
         local cluster = {
             id = clusterId,
@@ -276,6 +343,9 @@ function WorldLoader.initAsteroidClusters(config)
         }
         
         clusters[clusterId] = cluster
+        
+        print(string.format("[WorldLoader] Created cluster %d at (%.0f, %.0f) with radius %.0f", 
+            clusterId, clusterX, clusterY, cluster.radius))
         
         -- Spawn initial asteroids in cluster using universal collision detection
         local count = cluster.maxAsteroids
@@ -330,12 +400,29 @@ function WorldLoader.spawnEnemies(config)
     local spawnCount = 0
     local SpawnCollisionUtils = require('src.spawn_collision_utils')
 
-    -- Prefer spawning enemies near asteroid clusters when possible
+    -- Get asteroid clusters for enemy spawning
     local clusters = AsteroidClusters.getClusters()
     local clusterList = {}
-    for _, c in pairs(clusters) do
-        table.insert(clusterList, c)
+    if clusters then
+        for _, c in pairs(clusters) do
+            if c and c.centerX and c.centerY then
+                table.insert(clusterList, c)
+            end
+        end
     end
+    
+    -- Debug: warn if no clusters found
+    if #clusterList == 0 then
+        local clusterCount = 0
+        if clusters then
+            for _ in pairs(clusters) do clusterCount = clusterCount + 1 end
+        end
+        print("[WorldLoader] WARNING: No asteroid clusters found for enemy spawning. Enemies will not spawn.")
+        print("[WorldLoader] Total clusters in table:", clusterCount)
+        return 0  -- Early return if no clusters
+    end
+    
+    print("[WorldLoader] Found", #clusterList, "asteroid cluster(s) for enemy spawning")
 
     -- Support both old single-group format and new multi-group format
     local enemyGroups = config.groups or {config}
@@ -343,187 +430,121 @@ function WorldLoader.spawnEnemies(config)
     for _, groupConfig in ipairs(enemyGroups) do
         for enemyType, count in pairs(groupConfig.types or {}) do
             for i = 1, count do
-            local shipId = nil
-            local enemyRadius = 25
-            local minDistance = 200
+                local shipId = nil
+                local enemyRadius = 25
+                -- Reduce minDistance - clusters are dense, we need enemies close to asteroids but not overlapping
+                local minDistance = 50  -- Reduced from 150 to allow enemies to spawn closer together
 
-            -- Try cluster-based spawn first
-            if #clusterList > 0 then
-                local cluster = clusterList[math.random(1, #clusterList)]
-                local radius = cluster.radius or Constants.asteroid_cluster_radius
-                local x, y, success = SpawnCollisionUtils.findSafePosition(
-                    cluster.centerX,
-                    cluster.centerY,
-                    math.max(200, radius),
-                    enemyRadius,
-                    minDistance,
-                    30,
-                    {}
-                )
+                -- Try cluster-based spawn first (prefer spawning near asteroid clusters)
+                if #clusterList > 0 then
+                    local cluster = clusterList[math.random(1, #clusterList)]
+                    local radius = cluster.radius or Constants.asteroid_cluster_radius
+                    -- Spawn enemies in a ring around clusters (outside dense asteroid area but nearby)
+                    -- Use radius + 300 to 500 range for enemy spawn ring
+                    local innerRadius = radius + 300
+                    local outerRadius = radius + 500
+                    
+                    -- Try multiple attempts to find a position in the ring
+                    local maxAttempts = 30
+                    local attempts = 0
+                    local x, y, success = nil, nil, false
+                    
+                    while attempts < maxAttempts and not success do
+                        -- Random position in the ring
+                        local angle = math.random() * 2 * math.pi
+                        local distance = innerRadius + math.random() * (outerRadius - innerRadius)
+                        x = cluster.centerX + math.cos(angle) * distance
+                        y = cluster.centerY + math.sin(angle) * distance
+                        
+                        -- Check if position is safe
+                        success = SpawnCollisionUtils.isPositionSafe(x, y, enemyRadius, minDistance, {})
+                        attempts = attempts + 1
+                    end
+                    
+                    if not success then
+                        print("[WorldLoader] Failed to find safe position for " .. enemyType .. " after " .. attempts .. " attempts")
+                    end
 
-                if success then
-                    -- Generate level before creating ship so scaling can use it
-                    local levelValue = math.random(1, 3)
-                    shipId = ShipLoader.createShip(enemyType, x, y, "ai", nil, levelValue)
-                    -- Set turret weapon after creation
-                    if shipId then
-                        local turret = ECS.getComponent(shipId, "Turret")
-                        local weapon = "basic_cannon"
-                        if turret then
-                            local weaponConf = groupConfig.weapons and groupConfig.weapons[enemyType]
-                            if type(weaponConf) == "table" then
-                                weapon = weaponConf[math.random(1, #weaponConf)] or "basic_cannon"
-                            elseif type(weaponConf) == "string" then
-                                weapon = weaponConf
-                            end
-                            turret.moduleName = weapon
-                            -- Ensure AI type/state and behavior tree are set according to group config
-                            local ai = ECS.getComponent(shipId, "AI")
-                            if ai then
-                                -- Determine mining weapon special-case (legacy)
-                                local isMiningWeapon = (weapon == "continuous_beam")
-                                if isMiningWeapon then
-                                    ai.type = "mining"
-                                    ai.state = "mining"
-                                else
-                                    ai.type = groupConfig.aiType or ai.type or "combat"
-                                    ai.state = groupConfig.aiState or ai.state or "patrol"
+                    if success then
+                        -- Generate level before creating ship so scaling can use it
+                        local levelValue = math.random(1, 3)
+                        print("[WorldLoader] Attempting to spawn " .. enemyType .. " at (" .. x .. ", " .. y .. ")")
+                        shipId = ShipLoader.createShip(enemyType, x, y, "ai", nil, levelValue)
+                        print("[WorldLoader] ShipLoader.createShip returned: " .. tostring(shipId))
+                        -- Set turret weapon after creation
+                        if shipId then
+                            local turret = ECS.getComponent(shipId, "Turret")
+                            local weapon = "basic_cannon"
+                            if turret then
+                                local weaponConf = groupConfig.weapons and groupConfig.weapons[enemyType]
+                                if type(weaponConf) == "table" then
+                                    weapon = weaponConf[math.random(1, #weaponConf)] or "basic_cannon"
+                                elseif type(weaponConf) == "string" then
+                                    weapon = weaponConf
                                 end
+                                turret.moduleName = weapon
+                                -- Ensure AI type/state and behavior tree are set according to group config
+                                local ai = ECS.getComponent(shipId, "AI")
+                                if ai then
+                                    -- Determine mining weapon special-case (legacy)
+                                    local isMiningWeapon = (weapon == "continuous_beam")
+                                    if isMiningWeapon then
+                                        ai.type = "mining"
+                                        ai.state = "mining"
+                                    else
+                                        ai.type = groupConfig.aiType or ai.type or "combat"
+                                        ai.state = groupConfig.aiState or ai.state or "patrol"
+                                    end
 
-                                -- Set detection range based on AI type from design
-                                local design = ShipLoader.getDesign(enemyType)
-                                if design then
-                                    if ai.type == "mining" and design.miningDetectionRange then
-                                        ai.detectionRadius = design.miningDetectionRange
-                                    elseif ai.type == "combat" and design.combatDetectionRange then
-                                        ai.detectionRadius = design.combatDetectionRange
+                                    -- Set detection range based on AI type from design
+                                    local design = ShipLoader.getDesign(enemyType)
+                                    if design then
+                                        if ai.type == "mining" and design.miningDetectionRange then
+                                            ai.detectionRadius = design.miningDetectionRange
+                                        elseif ai.type == "combat" and design.combatDetectionRange then
+                                            ai.detectionRadius = design.combatDetectionRange
+                                        end
                                     end
                                 end
+
+                                -- Attach the appropriate behavior tree component
+                                local trees = require('src.ai.trees')
+                                if groupConfig.aiType == "mining" then
+                                    ECS.addComponent(shipId, "BehaviorTree", { root = trees.mining })
+                                elseif groupConfig.aiType == "combat" then
+                                    ECS.addComponent(shipId, "BehaviorTree", { root = trees.combat })
+                                end
                             end
 
-                            -- Attach the appropriate behavior tree component
-                            local trees = require('src.ai.trees')
-                            if groupConfig.aiType == "mining" then
-                                ECS.addComponent(shipId, "BehaviorTree", { root = trees.mining })
-                            elseif groupConfig.aiType == "combat" then
-                                ECS.addComponent(shipId, "BehaviorTree", { root = trees.combat })
+                            -- Register enemy ship in collision system so other enemies don't spawn on top of it
+                            local shipPos = ECS.getComponent(shipId, "Position")
+                            local shipColl = ECS.getComponent(shipId, "Collidable")
+                            if shipPos and shipColl then
+                                SpawnCollisionUtils.registerEntity(shipId, shipPos.x, shipPos.y, shipColl.radius, "enemy")
+                                -- Register ownership to chunk manager
+                                if WorldChunkManager and WorldChunkManager.registerEntityToChunk then
+                                    local cx, cy = WorldChunkManager.worldToChunk(shipPos.x, shipPos.y)
+                                    WorldChunkManager.registerEntityToChunk(shipId, cx, cy)
+                                end
                             end
                         end
+                    else
+                        -- Debug: findSafePosition failed
+                        -- This happens when no valid position can be found within the cluster
                     end
                 end
-            end
 
-            -- Fallback to world-wide spawn if cluster spawn failed
-            if not shipId then
-                shipId = WorldLoader.spawnEnemy(enemyType, groupConfig)
-            end
-
-            if shipId then
-                spawnCount = spawnCount + 1
-            end
-        end
-    end
-end
-end
-
--- Spawn a single enemy
-function WorldLoader.spawnEnemy(enemyType, config)
-    local SpawnCollisionUtils = require('src.spawn_collision_utils')
-    local enemyRadius = 25  -- Typical enemy ship collision radius
-    local minDistance = 200  -- Minimum distance from other objects
-    
-    -- Find safe position using universal collision detection
-    local x, y, success = SpawnCollisionUtils.findSafePositionInWorld(
-        enemyRadius, 
-        minDistance, 
-        50,  -- max attempts
-        {}   -- no excluded types
-    )
-    
-    -- If no safe position found, use fallback with distance check from spawn
-    if not success then
-        x = Constants.world_min_x + math.random() * (Constants.world_max_x - Constants.world_min_x)
-        y = Constants.world_min_y + math.random() * (Constants.world_max_y - Constants.world_min_y)
-        
-        -- Make sure not too close to spawn point
-        local distanceFromSpawn = math.sqrt(x * x + y * y)
-        if distanceFromSpawn < 500 then
-            local angle = math.atan2(y, x)
-            x = math.cos(angle) * 500
-            y = math.sin(angle) * 500
-        end
-    end
-
-    -- Generate level before creating ship so scaling can use it
-    local levelValue = math.random(1, 3)
-    
-    local shipId = ShipLoader.createShip(enemyType, x, y, "ai", nil, levelValue)
-    if shipId then
-        -- Set up turret weapon (random choice if weapons table is a list)
-        local turret = ECS.getComponent(shipId, "Turret")
-        local weapon = "basic_cannon"
-
-        if turret then
-            local weaponConf = config.weapons and config.weapons[enemyType]
-            if type(weaponConf) == "table" then
-                -- Table of options; randomly choose
-                weapon = weaponConf[math.random(1, #weaponConf)] or "basic_cannon"
-            elseif type(weaponConf) == "string" then
-                weapon = weaponConf
-            end
-            turret.moduleName = weapon
-        end
-
-        -- Set AI type explicitly from world config (weapon type doesn't determine AI type)
-        local ai = ECS.getComponent(shipId, "AI")
-        if ai then
-            -- Old mining-specific weapons get forced to mining AI
-            local isMiningWeapon = (weapon == "continuous_beam")
-            if isMiningWeapon then
-                ai.type = "mining"
-                ai.state = "mining"
-            else
-                -- For all other weapons (including continuous_beam), use world config AI type
-                ai.type = config.aiType or "combat"
-                ai.state = config.aiState or "patrol"
-            end
-            
-            -- Set detection range based on AI type from design
-            local design = ShipLoader.getDesign(enemyType)
-            if design then
-                if ai.type == "mining" and design.miningDetectionRange then
-                    ai.detectionRadius = design.miningDetectionRange
-                elseif ai.type == "combat" and design.combatDetectionRange then
-                    ai.detectionRadius = design.combatDetectionRange
+                -- Only spawn enemies within asteroid clusters
+                -- If cluster spawn failed, skip this enemy (no world-wide spawning)
+                if shipId then
+                    spawnCount = spawnCount + 1
                 end
             end
         end
-
-        -- Add BehaviorTree component based on group config AI type
-        local trees = require('src.ai.trees')
-        if config.aiType == "mining" then
-            ECS.addComponent(shipId, "BehaviorTree", { root = trees.mining })
-        elseif config.aiType == "combat" then
-            ECS.addComponent(shipId, "BehaviorTree", { root = trees.combat })
-        end
-
-        -- Ensure Wreckage sourceShip is assigned (enables design lookup in AI)
-        local wreckage = ECS.getComponent(shipId, "Wreckage")
-        if wreckage then
-            wreckage.sourceShip = enemyType
-        end
-
-        -- Level component was already added in createShip, so no need to add it again
-        
-        -- Register enemy in collision system
-        local enemyPos = ECS.getComponent(shipId, "Position")
-        local enemyColl = ECS.getComponent(shipId, "Collidable")
-        if enemyPos and enemyColl then
-            SpawnCollisionUtils.registerEntity(shipId, enemyPos.x, enemyPos.y, enemyColl.radius, "enemy")
-        end
     end
-
-    return shipId
+    
+    print("[WorldLoader] Spawned", spawnCount, "enemy ship(s)")
+    return spawnCount
 end
 
 -- Get the current world

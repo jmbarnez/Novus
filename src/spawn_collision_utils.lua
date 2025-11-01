@@ -5,11 +5,12 @@
 local ECS = require('src.ecs')
 local Constants = require('src.constants')
 local CollisionUtils = require('src.collision_utils')
+local WorldChunkManager = require('src.world_chunk_manager')
 
 local SpawnCollisionUtils = {}
 
 -- Global registry of all spawned positions and their collision data
--- This tracks all entities that have been spawned to prevent overlaps
+-- Each record now stores chunk coords to allow chunk-scoped queries
 local spawnedEntities = {}
 
 -- Clear the spawn registry (call when starting a new world)
@@ -24,12 +25,15 @@ end
 -- @param radius number: Collision radius
 -- @param entityType string: Type of entity ("asteroid", "enemy", "station", "item", etc.)
 function SpawnCollisionUtils.registerEntity(entityId, x, y, radius, entityType)
+    local cx, cy = WorldChunkManager.worldToChunk(x, y)
     table.insert(spawnedEntities, {
         id = entityId,
         x = x,
         y = y,
         radius = radius,
-        type = entityType or "unknown"
+        type = entityType or "unknown",
+        cx = cx,
+        cy = cy,
     })
 end
 
@@ -44,8 +48,17 @@ function SpawnCollisionUtils.isPositionSafe(x, y, radius, minDistance, excludeTy
     minDistance = minDistance or 150
     excludeTypes = excludeTypes or {}
     
-    -- Check against all registered spawned entities
+    -- Limit checks to nearby chunks to avoid scanning entire world
+    local baseCx, baseCy = WorldChunkManager.worldToChunk(x, y)
+    local radiusInChunks = math.ceil((minDistance + radius) / Constants.CHUNK_SIZE) + 1
+
+    -- Check against registered spawned entities (chunk-filtered)
     for _, entity in ipairs(spawnedEntities) do
+        local dxChunk = math.abs(entity.cx - baseCx)
+        local dyChunk = math.abs(entity.cy - baseCy)
+        if dxChunk > radiusInChunks or dyChunk > radiusInChunks then
+            goto continue_spawn
+        end
         -- Skip excluded entity types
         local shouldExclude = false
         for _, excludeType in ipairs(excludeTypes) do
@@ -70,11 +83,22 @@ function SpawnCollisionUtils.isPositionSafe(x, y, radius, minDistance, excludeTy
         end
         
         ::continue::
+        ::continue_spawn::
     end
     
     -- Also check against existing ECS entities with Position and Collidable components
     local existingEntities = ECS.getEntitiesWith({"Position", "Collidable"})
     for _, entityId in ipairs(existingEntities) do
+        -- If entity has a Chunk component, skip it if it's outside nearby chunks
+        local chunkComp = ECS.getComponent(entityId, "Chunk")
+        if chunkComp then
+            local dxChunk = math.abs(chunkComp.cx - baseCx)
+            local dyChunk = math.abs(chunkComp.cy - baseCy)
+            if dxChunk > radiusInChunks or dyChunk > radiusInChunks then
+                goto continue_existing
+            end
+        end
+
         local pos = ECS.getComponent(entityId, "Position")
         local coll = ECS.getComponent(entityId, "Collidable")
         
@@ -88,6 +112,7 @@ function SpawnCollisionUtils.isPositionSafe(x, y, radius, minDistance, excludeTy
                 return false
             end
         end
+        ::continue_existing::
     end
     
     return true
@@ -113,7 +138,7 @@ function SpawnCollisionUtils.findSafePosition(centerX, centerY, searchRadius, en
         local x = centerX + math.cos(angle) * distance
         local y = centerY + math.sin(angle) * distance
         
-        -- Check if position is safe
+        -- Check if position is safe (chunk-aware)
         if SpawnCollisionUtils.isPositionSafe(x, y, entityRadius, minDistance, excludeTypes) then
             return x, y, true
         end

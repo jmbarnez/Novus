@@ -6,6 +6,7 @@ local ECS = require('src.ecs')
 local TimeManager = require('src.time_manager')
 local AsteroidClusters = require('src.systems.asteroid_clusters')
 local WorldLoader = require('src.world_loader')
+local WorldChunkManager = require('src.world_chunk_manager')
 
 local SaveLoad = {}
 
@@ -115,6 +116,25 @@ function SaveLoad.captureSnapshot()
         }
     }
 
+    -- Record loaded chunk keys and chunk manager seed so we can reconstruct chunk map on load
+    snapshot.world.loadedChunks = {}
+    if WorldChunkManager and WorldChunkManager.chunks then
+        for k, _ in pairs(WorldChunkManager.chunks) do
+            table.insert(snapshot.world.loadedChunks, k)
+        end
+        snapshot.world.chunkManagerSeed = WorldChunkManager.seed
+    end
+
+    -- Persist per-chunk saved entity data so unloaded chunks can be restored
+    snapshot.world.chunkData = {}
+    if WorldChunkManager and WorldChunkManager.chunks then
+        for key, chunk in pairs(WorldChunkManager.chunks) do
+            if chunk and chunk.savedEntities and #chunk.savedEntities > 0 then
+                snapshot.world.chunkData[key] = chunk.savedEntities
+            end
+        end
+    end
+
     return snapshot
 end
 
@@ -137,6 +157,40 @@ function SaveLoad.applySnapshot(snapshot)
         WorldLoader.setCurrentWorld(snapshot.world.id)
     else
         WorldLoader.setCurrentWorld(nil)
+    end
+
+    -- Initialize chunk manager and reconstruct chunk map from entities that have Chunk components
+    if WorldChunkManager and WorldChunkManager.init then
+        WorldChunkManager.init({ seed = snapshot.world and snapshot.world.chunkManagerSeed })
+        -- Rebuild chunk tables based on entities that have Chunk component
+        local chunkEntities = ECS.getEntitiesWith({ 'Chunk' })
+        for _, eid in ipairs(chunkEntities) do
+            local chunkComp = ECS.getComponent(eid, 'Chunk')
+            if chunkComp then
+                local cx, cy = chunkComp.cx, chunkComp.cy
+                local key = WorldChunkManager.chunkKey(cx, cy)
+                local chunk = WorldChunkManager.chunks[key] or WorldChunkManager.createEmptyChunk(cx, cy)
+                -- ensure chunk.entities contains this eid
+                table.insert(chunk.entities, eid)
+                chunk.generated = true
+            end
+        end
+        -- Restore saved per-chunk entity data (for chunks that were unloaded at save time)
+        if snapshot.world and snapshot.world.chunkData then
+            for key, savedEntities in pairs(snapshot.world.chunkData) do
+                -- parse key "cx,cy"
+                local comma = key:find(',')
+                if comma then
+                    local cx = tonumber(key:sub(1, comma-1))
+                    local cy = tonumber(key:sub(comma+1))
+                    if cx and cy then
+                        local chunk = WorldChunkManager.chunks[key] or WorldChunkManager.createEmptyChunk(cx, cy)
+                        chunk.savedEntities = savedEntities
+                        chunk.generated = false
+                    end
+                end
+            end
+        end
     end
 end
 

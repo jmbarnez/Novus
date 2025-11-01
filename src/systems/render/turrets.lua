@@ -133,7 +133,7 @@ function RenderTurrets.drawEnemyTurret(entityId, position, polygonShape, rendera
     local cosE = math.cos(enemyRotation)
     local sinE = math.sin(enemyRotation)
     local turretWorldX = position.x + (toffX * cosE - toffY * sinE)
-    local turretWorldY = position.y + (toffX * sinE + toffY * sinE)
+    local turretWorldY = position.y + (toffX * sinE + toffY * cosE)
     local baseRadius = estimateBaseRadius(entityId, polygonShape, renderable)
     drawTurret(entityId, turretWorldX, turretWorldY, renderable.color, turretAimAngle, baseRadius)
 end

@@ -106,6 +106,30 @@ function CargoWindow:equipModuleToSlot(itemId, slotType)
     
     -- Remove item from cargo
     cargo:removeItem(itemId, 1)
+    
+    -- Show notification
+    local Notifications = require('src.ui.notifications')
+    if Notifications then
+        local newItemName = itemDef.name or itemId
+        if oldItemId then
+            -- Swapped modules
+            local oldItemDef = ItemDefs[oldItemId]
+            local oldItemName = (oldItemDef and oldItemDef.name) or oldItemId
+            Notifications.addNotification({
+                type = 'equipment',
+                text = string.format("Swapped %s → %s", oldItemName, newItemName),
+                timer = 3.0
+            })
+        else
+            -- New equipment
+            Notifications.addNotification({
+                type = 'equipment',
+                text = string.format("Equipped: %s", newItemName),
+                timer = 3.0
+            })
+        end
+    end
+    
     return true
 end
 
@@ -367,22 +391,8 @@ function CargoWindow:drawBottomBar(windowX, windowY, width, height, alpha, pilot
 	local coinCenterX = x + padding + coinSize / 2
 	local coinCenterY = y + h / 2
 
-	-- Draw coin using plasma theme accent color
-	local coinColor = Theme.colors.textAccent or Theme.palette.accent
-	love.graphics.setColor(coinColor[1], coinColor[2], coinColor[3], alpha)
-	love.graphics.circle("fill", coinCenterX, coinCenterY, coinSize / 2)
-	-- coin border using hover color
-	local coinBorder = Theme.colors.hover or Theme.colors.borderLight
-	love.graphics.setColor(coinBorder[1], coinBorder[2], coinBorder[3], alpha)
-	love.graphics.setLineWidth(1)
-	love.graphics.circle("line", coinCenterX, coinCenterY, coinSize / 2)
-	-- draw 'c' in center of coin
-	local font = love.graphics.getFont()
-	local cText = "c"
-	local cW = font:getWidth(cText)
-	local cH = font:getHeight()
-	love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
-	love.graphics.print(cText, coinCenterX - cW / 2, coinCenterY - cH / 2)
+	-- Draw universal credit icon
+	UIUtils.drawCreditIcon(coinCenterX, coinCenterY, coinSize, alpha)
 
 	-- Draw credits amount next to coin
 	local creditsText = string.format("%d", creditsAmount)

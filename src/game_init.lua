@@ -217,9 +217,6 @@ function GameInit.setupPlayerShip(pilotId)
     
     -- Load turret modules (including basic cannon)
     Systems.TurretSystem.loadTurretModules("src/turret_modules")
-    
-    -- Load ship designs
-    ShipLoader.loadAllDesigns("src.ship_designs")
 
     -- Create player's starter drone using modular system (will be blue)
     -- Find a collision-safe spawn position around the station (not inside it)
@@ -371,48 +368,6 @@ function GameInit.loadSounds()
     end
 end
 
--- Spawn enemy ships in asteroid clusters
-function GameInit.spawnEnemies()
-    local function spawnEnemyInCluster(clusterX, clusterY, clusterRadius)
-        -- Random position within cluster area. Prefer clusterRadius if provided.
-        local radius = clusterRadius or Constants.asteroid_cluster_radius
-        local angle = math.random() * 2 * math.pi
-        local distance = math.random() * (radius * 0.8)
-        local x = clusterX + math.cos(angle) * distance
-        local y = clusterY + math.sin(angle) * distance
-
-        return x, y
-    end
-    
-    -- Simplified: spawn 20 red_scouts with combat AI and continuous beam modules
-    local ShipLoader = require('src.ship_loader')
-    local ECS = require('src.ecs')
-    local Components = require('src.components')
-    local combatTree = require('src.ai.trees').combat
-    for i = 1, 20 do
-        -- Random position in a circle around (0,0)
-        local angle = math.random() * 2 * math.pi
-        local distance = 600 + math.random() * 400
-        local x = math.cos(angle) * distance
-        local y = math.sin(angle) * distance
-        -- Generate level before creating ship so scaling can use it
-        local levelValue = math.random(1, 3)
-        local shipId = ShipLoader.createShip("red_scout", x, y, "ai", nil, levelValue)
-        if shipId then
-            local turret = ECS.getComponent(shipId, "Turret")
-            if turret then
-                turret.moduleName = "continuous_beam"
-            end
-            local ai = ECS.getComponent(shipId, "AI")
-            if ai then
-                ai.type = "combat"
-                ai.state = "patrol"
-            end
-            ECS.addComponent(shipId, "BehaviorTree", { root = combatTree })
-        end
-    end
-end
-
 -- Main initialization function
 function GameInit.bootstrapEnvironment(options)
     options = options or {}
@@ -424,12 +379,10 @@ function GameInit.bootstrapEnvironment(options)
     GameInit.registerSystems()
     WorldLoader.loadAllWorlds("src.worlds")
 
-    if options.skipAsteroidInit then
-        if AsteroidClusters.clear then
-            AsteroidClusters.clear()
-        end
-    else
-        AsteroidClusters.init()
+    -- Asteroid clusters are now initialized via WorldLoader.initWorld() from world configuration
+    -- No random cluster initialization - clusters are defined in world files
+    if AsteroidClusters.clear then
+        AsteroidClusters.clear()
     end
 end
 
@@ -438,7 +391,15 @@ function GameInit.init()
 
     GameInit.bootstrapEnvironment()
 
-    -- Create core entities
+    -- Load ship designs early so enemies can spawn with valid designs
+    ShipLoader.loadAllDesigns("src.ship_designs")
+
+    -- Initialize world/sector (loads asteroids, stations and enemies)
+    -- Change this to any world name to load different sectors:
+    -- "default_sector", "asteroid_field", "mining_zone", "combat_sector"
+    WorldLoader.initWorld("default_sector")
+
+    -- Create core entities AFTER world initialization so station and world objects exist
     local pilotId = GameInit.createCoreEntities()
 
     -- Show hotkey reference window on startup
@@ -447,16 +408,11 @@ function GameInit.init()
         UISystem.setHotkeyWindowOpen(true)
     end
 
-    -- Set up player ship
+    -- Set up player ship (will spawn near station now that world is initialized)
     GameInit.setupPlayerShip(pilotId)
 
     -- Load sounds
     GameInit.loadSounds()
-
-    -- Initialize world/sector (loads asteroids and enemies)
-    -- Change this to any world name to load different sectors:
-    -- "default_sector", "asteroid_field", "mining_zone", "combat_sector"
-    WorldLoader.initWorld("default_sector")
 end
 
 return GameInit

@@ -18,6 +18,13 @@ function BasicGenerator.equip(shipId)
         -- Add bonus regeneration to the ship's base regen rate
         energy.regenRate = energy.regenRate + BasicGenerator.ENERGY_REGEN_BONUS
     end
+    -- Update explicit stat modifiers for UI
+    local statMods = ECS.getComponent(shipId, "StatModifiers")
+    if not statMods then
+        ECS.addComponent(shipId, "StatModifiers", Components.StatModifiers())
+        statMods = ECS.getComponent(shipId, "StatModifiers")
+    end
+    statMods.energyRegen = (statMods.energyRegen or 0) + BasicGenerator.ENERGY_REGEN_BONUS
 end
 
 -- Called when module is unequipped
@@ -27,6 +34,11 @@ function BasicGenerator.unequip(shipId)
     if energy then
         -- Remove bonus regeneration
         energy.regenRate = math.max(0, energy.regenRate - BasicGenerator.ENERGY_REGEN_BONUS)
+    end
+    -- Remove explicit stat modifiers
+    local statMods = ECS.getComponent(shipId, "StatModifiers")
+    if statMods then
+        statMods.energyRegen = math.max(0, (statMods.energyRegen or 0) - BasicGenerator.ENERGY_REGEN_BONUS)
     end
 end
 

@@ -57,6 +57,32 @@ function GameInput.keypressed(key)
         return
     end
 
+    -- Check if search bars are focused - if so, consume input and don't process hotkeys
+    local CargoWindow = require('src.ui.cargo_window')
+    local StationWindow = require('src.ui.station_window')
+    local ShopWindow = require('src.ui.shop_window')
+    
+    local searchFocused = false
+    if CargoWindow and CargoWindow:getOpen() and CargoWindow:isSearchFocused() then
+        searchFocused = true
+    elseif StationWindow and StationWindow:getOpen() and StationWindow.activeTab == "shop" and ShopWindow.searchFocused then
+        searchFocused = true
+    end
+    
+    -- If search is focused, check UI system first to let it handle the key
+    -- But always block hotkeys when search is focused, even if UI doesn't handle the key
+    if searchFocused then
+        UISystem.keypressed = UISystem.keypressed or function(_) end
+        local consumed = UISystem.keypressed(key)
+        if consumed then
+            return -- Don't process hotkeys or input system if UI consumed it
+        end
+        -- Even if UI didn't handle the key, don't process hotkeys when search is focused
+        -- This prevents accidental window toggling while typing
+        return
+    end
+
+    -- Only process hotkeys if search is not focused
     if key == HotkeyConfig.getHotkey("cargo_window") then
         -- Toggle the standalone Cargo window via UISystem
         UISystem.toggleCargoWindow()
@@ -102,10 +128,30 @@ function GameInput.textinput(t)
     if UISystem.isPauseMenuOpen and UISystem.isPauseMenuOpen() then
         return
     end
-    -- Check if any window is open and wants to consume input (e.g., search bar focused)
+    -- Check if any search bar is focused and wants to consume input
     local CargoWindow = require('src.ui.cargo_window')
+    local StationWindow = require('src.ui.station_window')
+    local ShopWindow = require('src.ui.shop_window')
+    
+    -- Check cargo window search
     if CargoWindow and CargoWindow:getOpen() then
         local consumed = CargoWindow:textinput(t)
+        if consumed then
+            return -- Don't process other input if UI consumed it
+        end
+    end
+    
+    -- Check station window shop search
+    if StationWindow and StationWindow:getOpen() and StationWindow.activeTab == "shop" then
+        local consumed = StationWindow:textinput(t)
+        if consumed then
+            return -- Don't process other input if UI consumed it
+        end
+    end
+    
+    -- Also check standalone shop window if it exists
+    if ShopWindow and ShopWindow:getOpen() then
+        local consumed = ShopWindow:textinput(t)
         if consumed then
             return -- Don't process other input if UI consumed it
         end

@@ -144,12 +144,12 @@ function WorldTooltips.handleKeyPress(key)
             end
         end
         
-        -- Open quest window if near a station
+        -- Open station window (with quest and shop tabs) if near a station
         if closestStationId then
             local UISystem = require('src.systems.ui')
-            local QuestWindow = require('src.ui.quest_window')
-            QuestWindow.currentStationId = closestStationId
-            UISystem.setQuestWindowOpen(true)
+            local StationWindow = require('src.ui.station_window')
+            StationWindow.currentStationId = closestStationId
+            UISystem.setStationWindowOpen(true)
         end
         -- If not interacting with a station, check nearby interactables (warp gates)
         -- Use the nearbyInteractables table populated during draw

@@ -104,6 +104,37 @@ function UIUtils.getCompatibleSlots(itemId)
     return compatibleSlots
 end
 
+-- Draw universal credit icon (coin with 'c' text)
+-- @param centerX, centerY: center position to draw at
+-- @param coinSize: size of the coin (radius will be coinSize / 2)
+-- @param alpha: alpha multiplier for drawing (default 1.0)
+function UIUtils.drawCreditIcon(centerX, centerY, coinSize, alpha)
+    alpha = alpha or 1.0
+    
+    love.graphics.push()
+    
+    -- Draw coin using plasma theme accent color
+    local coinColor = Theme.colors.textAccent or Theme.palette.accent
+    love.graphics.setColor(coinColor[1], coinColor[2], coinColor[3], alpha)
+    love.graphics.circle("fill", centerX, centerY, coinSize / 2)
+    
+    -- Coin border using hover color
+    local coinBorder = Theme.colors.hover or Theme.colors.borderLight
+    love.graphics.setColor(coinBorder[1], coinBorder[2], coinBorder[3], alpha)
+    love.graphics.setLineWidth(1)
+    love.graphics.circle("line", centerX, centerY, coinSize / 2)
+    
+    -- Draw 'c' in center of coin
+    local font = love.graphics.getFont()
+    local cText = "c"
+    local cW = font:getWidth(cText)
+    local cH = font:getHeight()
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+    love.graphics.print(cText, centerX - cW / 2, centerY - cH / 2)
+    
+    love.graphics.pop()
+end
+
 -- Check if context menu should be closed (clicked outside)
 -- @param menu: context menu object (from ContextMenu.getMenu())
 -- @param x, y: click coordinates

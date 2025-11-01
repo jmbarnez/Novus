@@ -25,13 +25,38 @@ Constants.screen_height = 1080
 
 -- World dimensions (much larger than screen for exploration)
 -- NOTE: Reduced world size to half of previous value for tighter play area
+-- World origin moved to (0,0) for easier chunk indexing and reasoning
 Constants.world_width = 20000
 Constants.world_height = 20000
-Constants.world_min_x = -10000
-Constants.world_max_x = 10000
-Constants.world_min_y = -10000
-Constants.world_max_y = 10000
-Constants.WORLD_RADIUS = Constants.world_width / 2 -- Assuming world_width is the diameter
+Constants.world_min_x = 0
+Constants.world_max_x = Constants.world_min_x + Constants.world_width
+Constants.world_min_y = 0
+Constants.world_max_y = Constants.world_min_y + Constants.world_height
+Constants.WORLD_RADIUS = Constants.world_width / 2 -- half width
+
+-- Chunking settings
+-- Size of each world chunk in world units. Chunks are square (CHUNK_SIZE x CHUNK_SIZE).
+-- Increase chunk size to 10,000 so a 20,000x20,000 world is 2x2 chunks
+Constants.CHUNK_SIZE = 10000
+
+-- Convert world coordinates to chunk coordinates (integer chunk indices)
+function Constants.worldToChunk(x, y)
+    -- Convert coordinates into 0-based chunk indices using world_min as origin and clamp to valid range
+    local cx = math.floor((x - Constants.world_min_x) / Constants.CHUNK_SIZE)
+    local cy = math.floor((y - Constants.world_min_y) / Constants.CHUNK_SIZE)
+    local maxCx = math.floor(Constants.world_width / Constants.CHUNK_SIZE) - 1
+    local maxCy = math.floor(Constants.world_height / Constants.CHUNK_SIZE) - 1
+    if cx < 0 then cx = 0 end
+    if cy < 0 then cy = 0 end
+    if cx > maxCx then cx = maxCx end
+    if cy > maxCy then cy = maxCy end
+    return cx, cy
+end
+
+-- Helper to create a stable chunk key for table indexing
+function Constants.chunkKey(cx, cy)
+    return tostring(cx) .. "," .. tostring(cy)
+end
 
 -- Player physics
 Constants.player_friction = 0.9999  -- Near-zero friction for space (nearly no deceleration)

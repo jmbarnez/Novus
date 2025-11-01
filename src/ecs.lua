@@ -21,6 +21,9 @@ local components = {}
 -- Enables O(n) queries instead of O(nm)
 local componentIndex = {}
 
+-- Newly created entities that received a Position component this frame
+local newPositionEntities = {}
+
 -- Recycled entity ID pool (to prevent overflow in long-running games)
 local recycledEntityIds = {}
 
@@ -150,7 +153,20 @@ function ECS.addComponent(entityId, componentType, componentData)
     entities[entityId][componentType] = true
     componentIndex[componentType][entityId] = true
 
+    -- Track newly positioned entities for efficient chunk registration
+    if componentType == "Position" then
+        table.insert(newPositionEntities, entityId)
+    end
+
     -- print("Component added - Entity: " .. entityId .. ", Type: " .. componentType)
+end
+
+-- Consume and return entities that recently received a Position component
+-- Clears the internal list so callers get only new entries since last call
+function ECS.consumeNewPositionEntities()
+    local list = newPositionEntities
+    newPositionEntities = {}
+    return list
 end
 
 -- Remove a component from an entity

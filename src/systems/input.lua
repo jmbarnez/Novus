@@ -417,6 +417,45 @@ function InputSystem.update(dt)
         end
         return
     end
+    
+    -- Prevent firing when modifier keys are held (Ctrl, Alt, Shift)
+    -- This prevents accidentally firing when using Ctrl+Click for targeting
+    if love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl") or
+       love.keyboard.isDown("lalt") or love.keyboard.isDown("ralt") or
+       love.keyboard.isDown("lshift") or love.keyboard.isDown("rshift") then
+        -- Stop any current firing
+        local controllersList = ECS.getEntitiesWith({"InputControlled"})
+        local controllerId = controllersList[1]
+        local turretOwner = nil
+        if controllerId then
+            local input = ECS.getComponent(controllerId, "InputControlled")
+            if input and input.targetEntity then
+                turretOwner = input.targetEntity
+            end
+        end
+        if not turretOwner then
+            local turretEntities = ECS.getEntitiesWith({"Turret", "Position"})
+            if #turretEntities > 0 then
+                turretOwner = turretEntities[1]
+            end
+        end
+        if turretOwner then
+            local turret = ECS.getComponent(turretOwner, "Turret")
+            if turret then
+                local turretModule = turret.moduleName and TurretRegistry.getModule(turret.moduleName) or nil
+                if turretModule and turretModule.stopFiring then
+                    turretModule.stopFiring(turret)
+                elseif turret.laserEntity then
+                    local laserBeam = ECS.getComponent(turret.laserEntity, "LaserBeam")
+                    if laserBeam then
+                        ECS.destroyEntity(turret.laserEntity)
+                    end
+                    turret.laserEntity = nil
+                end
+            end
+        end
+        return
+    end
     -- Find the pilot/controller entity to determine which turret to fire
     local controllersList = ECS.getEntitiesWith({"InputControlled"})
     local controllerId = controllersList[1]
@@ -729,6 +768,12 @@ function InputSystem.keypressed(key)
     local slotIndex = resolveHotbarSlotForKey(key)
     if slotIndex then
         tryActivateHotbarSlot(slotIndex)
+    end
+    -- Toggle chunk debug overlay with F1
+    if key == 'f1' then
+        local WorldChunkManager = require('src.world_chunk_manager')
+        WorldChunkManager.debugOverlayEnabled = not WorldChunkManager.debugOverlayEnabled
+        return
     end
     -- Tab key handling will be done in core.lua to avoid circular dependency
     -- Boost is now handled in update loop using configurable hotkey

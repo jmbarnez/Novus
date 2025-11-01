@@ -31,6 +31,15 @@ function BasicShield.equip(shipId)
         shield.regen = math.max(shield.regen or 0, BasicShield.REGEN_RATE)
         shield.regenDelay = math.min(shield.regenDelay or math.huge, BasicShield.REGEN_DELAY)
     end
+    -- Update explicit stat modifiers for UI
+    local statMods = ECS.getComponent(shipId, "StatModifiers")
+    if not statMods then
+        ECS.addComponent(shipId, "StatModifiers", Components.StatModifiers())
+        statMods = ECS.getComponent(shipId, "StatModifiers")
+    end
+    statMods.shield = (statMods.shield or 0) + BasicShield.SHIELD_AMOUNT
+    statMods.shieldRegen = (statMods.shieldRegen or 0) + BasicShield.REGEN_RATE
+
     -- Shield equipped
 end
 
@@ -41,6 +50,13 @@ function BasicShield.unequip(shipId)
         -- For now, just remove it entirely
         ECS.removeComponent(shipId, "Shield")
     end
+    -- Remove explicit stat modifiers
+    local statMods = ECS.getComponent(shipId, "StatModifiers")
+    if statMods then
+        statMods.shield = math.max(0, (statMods.shield or 0) - BasicShield.SHIELD_AMOUNT)
+        statMods.shieldRegen = math.max(0, (statMods.shieldRegen or 0) - BasicShield.REGEN_RATE)
+    end
+
     -- Shield unequipped
 end
 

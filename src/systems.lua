@@ -30,5 +30,7 @@ Systems.ShieldSystem = require('src.systems.shield')
 Systems.EnergySystem = require('src.systems.energy')
 Systems.WorldTooltipsSystem = require('src.systems.world_tooltips')
 Systems.ItemCleanupSystem = require('src.systems.item_cleanup')
+Systems.ChunkLoader = require('src.systems.chunk_loader')
+Systems.ChunkRegistry = require('src.systems.chunk_registry')
 
 return Systems

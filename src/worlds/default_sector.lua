@@ -11,24 +11,22 @@ return {
     
     -- Asteroid clusters configuration
     -- Multiple clusters placed around the sector so enemies spawn around them
+    -- Cluster centers are generated procedurally (x and y are omitted for random placement)
     asteroidClusters = {
         count = 3,
         clusters = {
             {
-                x = 2500,            -- Cluster center X (scaled for smaller world)
-                y = 0,               -- Cluster center Y
+                -- x and y omitted - will be generated procedurally
                 radius = 1500,       -- Cluster radius (scaled)
                 maxAsteroids = 40    -- Asteroids per cluster
             },
             {
-                x = -3500,           -- Cluster center X (scaled)
-                y = 2000,            -- Cluster center Y (scaled)
+                -- x and y omitted - will be generated procedurally
                 radius = 1250,       -- Cluster radius (scaled)
                 maxAsteroids = 30
             },
             {
-                x = 6000,            -- Cluster center X (scaled)
-                y = -2500,           -- Cluster center Y (scaled)
+                -- x and y omitted - will be generated procedurally
                 radius = 1750,       -- Cluster radius (scaled)
                 maxAsteroids = 50
             }
@@ -74,7 +72,7 @@ return {
     stations = {
         {
             prefab = "station",
-            x = 0, y = 0,
+            x = 10000, y = 10000,
             design = "quest_kiosk",
             size = 100,
             mass = 1200,

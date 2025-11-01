@@ -15,6 +15,8 @@ local SkillsWindow = require('src.ui/skills_window')
 local QuestWindow = require('src.ui.quest_window')
 local Tooltips = require('src.ui.tooltips')
 local Notifications = require('src.ui.notifications')
+local ShopWindow = require('src.ui.shop_window')
+local StationWindow = require('src.ui.station_window')
 local Scaling = require('src.scaling')
 local SettingsWindow = require('src.ui.settings_window')
 local PauseMenu = require('src.ui.pause_menu')
@@ -142,6 +144,8 @@ local windows = {
     skills_window = SkillsWindow,
     stats_window = StatsWindow,
     quest_window = QuestWindow,
+    shop_window = ShopWindow,
+    station_window = StationWindow,
     settings_window = SettingsWindow
 }
 
@@ -153,6 +157,8 @@ registerWindow('skills_window', SkillsWindow, true)
 registerWindow('stats_window', StatsWindow, true)
 registerWindow('quest_window', QuestWindow, false)  -- Quest window doesn't use focus system
 registerWindow('settings_window', SettingsWindow, false)  -- Settings window doesn't use focus system
+registerWindow('shop_window', ShopWindow, true)
+registerWindow('station_window', StationWindow, true)
 
 -- Minimap input capture is now handled by HUD, but we still want UI to eat clicks over minimap
 local Minimap = require('src.systems.hud.minimap')
@@ -233,7 +239,7 @@ function UISystem.draw(viewportWidth, viewportHeight, uiMx, uiMy)
         return false
     end
     
-    -- Check for hovered items in priority order (CargoWindow first, then LoadoutWindow, then ShipWindow)
+    -- Check for hovered items in priority order (CargoWindow first, then LoadoutWindow, then StationWindow shop)
     local hoveredSlot = nil
     local hoveredEquipmentSlot = nil
     local contextMenuOpen = false
@@ -257,6 +263,13 @@ function UISystem.draw(viewportWidth, viewportHeight, uiMx, uiMy)
             hoveredEquipmentSlot = LoadoutWindow.hoveredEquipmentSlot
         end
         contextMenuOpen = ContextMenu.isOpen()
+    end
+    
+    if not hoveredSlot and not hoveredEquipmentSlot and StationWindow:getOpen() and StationWindow.activeTab == "shop" then
+        -- Check for hovered shop item
+        if StationWindow.hoveredItemSlot and StationWindow.hoveredItemSlot.itemId then
+            hoveredSlot = StationWindow.hoveredItemSlot
+        end
     end
     
 
@@ -606,6 +619,8 @@ createWindowAPI('skills_window', SkillsWindow, true)
 createWindowAPI('map_window', MapWindow, true)
 createWindowAPI('quest_window', QuestWindow, false)  -- Quest window doesn't use focus system
 createWindowAPI('settings_window', SettingsWindow, false)  -- Settings window doesn't use focus system
+createWindowAPI('shop_window', ShopWindow, true)
+createWindowAPI('station_window', StationWindow, true)
 
 -- Public API for adding skill experience
 function UISystem.addSkillExperience(skillName, xpGain)

@@ -112,6 +112,12 @@ function MapWindow:draw(viewportWidth, viewportHeight)
     local bx2, by2 = worldToMap(maxX, maxY)
     love.graphics.rectangle('line', bx1, by1, bx2 - bx1, by2 - by1)
 
+    -- Draw chunk debug overlay on map if enabled
+    local ChunkDebug = require('src.systems.chunk_debug')
+    if ChunkDebug and ChunkDebug.isEnabled and ChunkDebug.isEnabled() then
+        ChunkDebug.drawOnMap(self)
+    end
+
     -- Store world bounds for input handlers
     self._minX, self._minY, self._maxX, self._maxY = minX, minY, maxX, maxY
 

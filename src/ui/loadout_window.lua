@@ -66,7 +66,13 @@ function ModuleEquipHelpers.equipModuleToSlot(droneId, slotType, itemId, itemDef
         turretSlots.slots[1] = itemId
         local turret = ECS.getComponent(droneId, "Turret")
         if turret then
-            turret.moduleName = itemId
+            -- Store the canonical module id/name (used by turret systems/registry), not the itemId
+            if itemDef and itemDef.module then
+                local mod = itemDef.module
+                turret.moduleName = mod.id or mod.name or (itemId:gsub("_module$", ""))
+            else
+                turret.moduleName = itemId
+            end
         end
         return true
     elseif slotType == "Defensive Module" then
@@ -120,6 +126,30 @@ function ModuleEquipHelpers.equipModule(droneId, itemId)
     
     -- Remove item from cargo
     cargo:removeItem(itemId, 1)
+    
+    -- Show notification
+    local Notifications = require('src.ui.notifications')
+    if Notifications then
+        local newItemName = itemDef.name or itemId
+        if oldItemId then
+            -- Swapped modules
+            local oldItemDef = ItemDefs[oldItemId]
+            local oldItemName = (oldItemDef and oldItemDef.name) or oldItemId
+            Notifications.addNotification({
+                type = 'equipment',
+                text = string.format("Swapped %s → %s", oldItemName, newItemName),
+                timer = 3.0
+            })
+        else
+            -- New equipment
+            Notifications.addNotification({
+                type = 'equipment',
+                text = string.format("Equipped: %s", newItemName),
+                timer = 3.0
+            })
+        end
+    end
+    
     return true
 end
 
@@ -147,6 +177,19 @@ function ModuleEquipHelpers.unequipModule(droneId, slotType)
         if generatorSlots and generatorSlots.slots then
             generatorSlots.slots[1] = nil
         end
+    end
+    
+    -- Show notification
+    local Notifications = require('src.ui.notifications')
+    if Notifications and oldItemId then
+        local ItemDefs = require('src.items.item_loader')
+        local oldItemDef = ItemDefs[oldItemId]
+        local oldItemName = (oldItemDef and oldItemDef.name) or oldItemId
+        Notifications.addNotification({
+            type = 'equipment',
+            text = string.format("Unequipped: %s", oldItemName),
+            timer = 3.0
+        })
     end
     
     return oldItemId
@@ -215,6 +258,53 @@ function LoadoutWindow:canEquipInSlotInternal(itemId, slotType)
     return UIUtils.canEquipInSlot(itemId, slotType)
 end
 
+-- Helper to get sub-slot item (sub-slots are indices 2, 3, 4 in the slots array)
+function LoadoutWindow:getSubSlotItem(droneId, slotType, subSlotIndex)
+    local ECS = require('src.ecs')
+    if slotType == "Turret Module" then
+        local turretSlots = ECS.getComponent(droneId, "TurretSlots")
+        if turretSlots and turretSlots.slots and turretSlots.slots[subSlotIndex + 1] then
+            return turretSlots.slots[subSlotIndex + 1]  -- +1 because subSlotIndex is 1-3, array indices are 2-4
+        end
+    elseif slotType == "Defensive Module" then
+        local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
+        if defensiveSlots and defensiveSlots.slots and defensiveSlots.slots[subSlotIndex + 1] then
+            return defensiveSlots.slots[subSlotIndex + 1]
+        end
+    elseif slotType == "Generator Module" then
+        local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
+        if generatorSlots and generatorSlots.slots and generatorSlots.slots[subSlotIndex + 1] then
+            return generatorSlots.slots[subSlotIndex + 1]
+        end
+    end
+    return nil
+end
+
+-- Helper to set sub-slot item
+function LoadoutWindow:setSubSlotItem(droneId, slotType, subSlotIndex, itemId)
+    local ECS = require('src.ecs')
+    if slotType == "Turret Module" then
+        local turretSlots = ECS.getComponent(droneId, "TurretSlots")
+        if turretSlots and turretSlots.slots then
+            turretSlots.slots[subSlotIndex + 1] = itemId
+            return true
+        end
+    elseif slotType == "Defensive Module" then
+        local defensiveSlots = ECS.getComponent(droneId, "DefensiveSlots")
+        if defensiveSlots and defensiveSlots.slots then
+            defensiveSlots.slots[subSlotIndex + 1] = itemId
+            return true
+        end
+    elseif slotType == "Generator Module" then
+        local generatorSlots = ECS.getComponent(droneId, "GeneratorSlots")
+        if generatorSlots and generatorSlots.slots then
+            generatorSlots.slots[subSlotIndex + 1] = itemId
+            return true
+        end
+    end
+    return false
+end
+
 -- Helper methods (full implementations)
 function LoadoutWindow:drawLoadoutContent(windowX, windowY, width, height, alpha)
     local contentX = windowX + 10
@@ -239,25 +329,34 @@ function LoadoutWindow:drawLoadoutContent(windowX, windowY, width, height, alpha
     -- Draw equipment slots in a row using UIUtils slot helpers
     local slotX = contentX + (contentWidth - (slotSize * 3 + slotPadding * 2)) / 2
     local slotY = slotsStartY
+    local subSlotSize = 32
+    local subSlotPadding = 4
+    local subSlotSpacing = 8
     
     -- Turret Module slot
     local turretItemId = UIUtils.getSlotItem(droneId, "Turret Module")
     self:drawEquipmentSlotInternal("Turret Module", turretItemId, slotX, slotY, slotSize, alpha, droneId)
+    -- Draw 3 sub-slots below turret slot
+    self:drawSubSlots("Turret Module", slotX + (slotSize - (subSlotSize * 3 + subSlotPadding * 2)) / 2, slotY + slotSize + subSlotSpacing, subSlotSize, subSlotPadding, alpha, droneId)
     slotX = slotX + slotSize + slotPadding
     
     -- Defensive Module slot
     local defensiveItemId = UIUtils.getSlotItem(droneId, "Defensive Module")
     self:drawEquipmentSlotInternal("Defensive Module", defensiveItemId, slotX, slotY, slotSize, alpha, droneId)
+    -- Draw 3 sub-slots below defensive slot
+    self:drawSubSlots("Defensive Module", slotX + (slotSize - (subSlotSize * 3 + subSlotPadding * 2)) / 2, slotY + slotSize + subSlotSpacing, subSlotSize, subSlotPadding, alpha, droneId)
     slotX = slotX + slotSize + slotPadding
     
     -- Generator Module slot
     local generatorItemId = UIUtils.getSlotItem(droneId, "Generator Module")
     self:drawEquipmentSlotInternal("Generator Module", generatorItemId, slotX, slotY, slotSize, alpha, droneId)
+    -- Draw 3 sub-slots below generator slot
+    self:drawSubSlots("Generator Module", slotX + (slotSize - (subSlotSize * 3 + subSlotPadding * 2)) / 2, slotY + slotSize + subSlotSpacing, subSlotSize, subSlotPadding, alpha, droneId)
     
-    -- Draw Stats button below the equipment slots
+    -- Draw Stats button below the equipment slots (accounting for sub-slots)
     local btnH = 32
     local btnW = 140
-    local btnY = slotY + slotSize + 30
+    local btnY = slotY + slotSize + subSlotSize + subSlotSpacing + 30
     local btnX = contentX + (contentWidth - btnW) / 2
     
     -- Track button for click detection
@@ -266,23 +365,19 @@ function LoadoutWindow:drawLoadoutContent(windowX, windowY, width, height, alpha
     local mx, my = UIUtils.getMousePosition()
     local isButtonHovered = UIUtils.pointInRect(mx, my, btnX, btnY, btnW, btnH)
     
-    -- Draw button using plasma theme
-    local bg = Theme.colors.surface
-    local border = isButtonHovered and Theme.colors.hover or Theme.colors.border
+    -- Draw button with blue background and white text
     local cornerRadius = Theme.window.cornerRadius or 0
-    if isButtonHovered then
-        local hoverBg = Theme.colors.surfaceAlt or Theme.colors.surface
-        love.graphics.setColor(hoverBg[1], hoverBg[2], hoverBg[3], 0.95 * alpha)
-        love.graphics.rectangle("fill", btnX - 1, btnY - 1, btnW + 2, btnH + 2, cornerRadius, cornerRadius)
-    end
-    love.graphics.setColor(bg[1], bg[2], bg[3], 0.9 * alpha)
+    local blueBg = isButtonHovered and {0.2, 0.5, 0.9, 1} or {0.15, 0.4, 0.85, 1}  -- Lighter blue on hover
+    love.graphics.setColor(blueBg[1], blueBg[2], blueBg[3], alpha)
     love.graphics.rectangle("fill", btnX, btnY, btnW, btnH, cornerRadius, cornerRadius)
-    love.graphics.setColor(border[1], border[2], border[3], 0.5 * alpha)
+    
+    -- Optional border (subtle)
+    love.graphics.setColor(0.1, 0.3, 0.7, 0.5 * alpha)
     love.graphics.rectangle("line", btnX, btnY, btnW, btnH, cornerRadius, cornerRadius)
     
-    -- Draw button text
+    -- Draw button text in white
     love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+    love.graphics.setColor(1, 1, 1, alpha)  -- White text
     love.graphics.printf("View Stats", btnX, btnY + (btnH - love.graphics.getFont():getHeight()) / 2, btnW, "center")
 end
 
@@ -300,6 +395,52 @@ function LoadoutWindow:unequipModuleInternal(slotType, itemId)
     return true
 end
 
+function LoadoutWindow:drawSubSlots(slotName, startX, startY, subSlotSize, subSlotPadding, alpha, droneId)
+    local ItemDefs = require('src.items.item_loader')
+    local mx, my = UIUtils.getMousePosition()
+    local currentX = startX
+    
+    for i = 1, 3 do
+        local itemId = self:getSubSlotItem(droneId, slotName, i)
+        local isHovered = UIUtils.pointInRect(mx, my, currentX, startY, subSlotSize, subSlotSize)
+        
+        if isHovered then
+            self.hoveredSlot = {
+                slotName = slotName,
+                itemId = itemId,
+                x = currentX,
+                y = startY,
+                width = subSlotSize,
+                mouseX = mx,
+                mouseY = my,
+                isSubSlot = true,
+                subSlotIndex = i
+            }
+        end
+        
+        -- Draw sub-slot background
+        local bg = Theme.colors.surfaceAlt or Theme.colors.surface
+        local border = isHovered and Theme.colors.hover or Theme.colors.border
+        local cornerRadius = 2
+        love.graphics.setColor(bg[1], bg[2], bg[3], 0.7 * alpha)
+        love.graphics.rectangle("fill", currentX, startY, subSlotSize, subSlotSize, cornerRadius, cornerRadius)
+        love.graphics.setColor(border[1], border[2], border[3], 0.5 * alpha)
+        love.graphics.rectangle("line", currentX, startY, subSlotSize, subSlotSize, cornerRadius, cornerRadius)
+        
+        -- Draw item icon if present
+        if itemId then
+            local itemDef = ItemDefs[itemId]
+            if itemDef then
+                local centerX = currentX + subSlotSize / 2
+                local centerY = startY + subSlotSize / 2
+                UIUtils.drawItemIcon(itemDef, centerX, centerY, alpha, 0.8)
+            end
+        end
+        
+        currentX = currentX + subSlotSize + subSlotPadding
+    end
+end
+
 function LoadoutWindow:drawEquipmentSlotInternal(slotName, equippedItemId, x, y, slotSize, alpha, droneId)
     local ItemDefs = require('src.items.item_loader')
     
@@ -315,7 +456,8 @@ function LoadoutWindow:drawEquipmentSlotInternal(slotName, equippedItemId, x, y,
             y = y,
             width = slotSize,
             mouseX = mx,
-            mouseY = my
+            mouseY = my,
+            isSubSlot = false
         }
     end
     
@@ -369,13 +511,21 @@ function LoadoutWindow:handleLoadoutMousepressed(x, y, button)
         end
     end
     
-    -- Start drag on left-click of an equipped slot
+    -- Start drag on left-click of an equipped slot (main or sub-slot)
     if button == 1 and self.hoveredSlot and not ContextMenu.isOpen() and not self._blockDragUntilRelease then
         local hovered = self.hoveredSlot
         if hovered.itemId and hovered.slotName then
             local ItemDefs = require('src.items.item_loader')
             local itemDef = ItemDefs[hovered.itemId]
-            DragState.startDrag({ origin = "loadout", itemId = hovered.itemId, itemDef = itemDef, slotName = hovered.slotName, sourceWindow = self })
+            DragState.startDrag({ 
+                origin = "loadout", 
+                itemId = hovered.itemId, 
+                itemDef = itemDef, 
+                slotName = hovered.slotName, 
+                sourceWindow = self,
+                isSubSlot = hovered.isSubSlot,
+                subSlotIndex = hovered.subSlotIndex
+            })
             return true
         end
     end
@@ -383,29 +533,25 @@ function LoadoutWindow:handleLoadoutMousepressed(x, y, button)
     -- Handle right-click on equipment slots to unequip
     if button == 2 and self.hoveredSlot then
         local hovered = self.hoveredSlot
-        if hovered.itemId and hovered.slotName then
-            -- Open context menu with unequip option
-            local ItemDefs = require('src.items.item_loader')
-            local itemDef = ItemDefs[hovered.itemId]
-            local itemName = (itemDef and itemDef.name) or tostring(hovered.itemId)
-            
-            ContextMenu.open({
-                itemId = hovered.itemId,
-                itemDef = itemDef,
-                x = x,
-                y = y,
-                options = {
-                    {
-                        text = "Unequip " .. itemName,
-                        action = "unequip",
-                        slotType = hovered.slotName
-                    }
-                }
-            }, function(option)
-                if option.action == "unequip" then
-                    self:unequipModuleInternal(option.slotType, hovered.itemId)
+        if hovered.isSubSlot and hovered.subSlotIndex then
+            -- Right-click on sub-slot to unequip
+            local EntityHelpers = require('src.entity_helpers')
+            local ECS = require('src.ecs')
+            local droneId = EntityHelpers.getPlayerShip()
+            if droneId then
+                local oldItemId = self:getSubSlotItem(droneId, hovered.slotName, hovered.subSlotIndex)
+                if oldItemId then
+                    local cargo = ECS.getComponent(droneId, "Cargo")
+                    if cargo then
+                        cargo:addItem(oldItemId, 1)
+                        self:setSubSlotItem(droneId, hovered.slotName, hovered.subSlotIndex, nil)
+                        return true
+                    end
                 end
-            end)
+            end
+        elseif hovered.itemId and hovered.slotName then
+            -- Right-click directly unequips the module without showing context menu
+            self:unequipModuleInternal(hovered.slotName, hovered.itemId)
             return true
         end
     end
@@ -426,7 +572,34 @@ function LoadoutWindow:handleLoadoutMousereleased(x, y, button)
             -- If we're hovering a slot
             if self.hoveredSlot and self.hoveredSlot.slotName then
                 local slotName = self.hoveredSlot.slotName
-                if self:canEquipInSlotInternal(dragged.itemId, slotName) then
+                local EntityHelpers = require('src.entity_helpers')
+                local ECS = require('src.ecs')
+                local droneId = EntityHelpers.getPlayerShip()
+                local cargo = ECS.getComponent(droneId, "Cargo")
+                
+                -- Check if hovering a sub-slot
+                if self.hoveredSlot.isSubSlot and self.hoveredSlot.subSlotIndex and droneId and cargo then
+                    -- Check if item is compatible (same type as main slot)
+                    if self:canEquipInSlotInternal(dragged.itemId, slotName) then
+                        -- Check if cargo has the item
+                        if cargo.items[dragged.itemId] and cargo.items[dragged.itemId] > 0 then
+                            -- Swap if sub-slot already has item
+                            local oldItemId = self:getSubSlotItem(droneId, slotName, self.hoveredSlot.subSlotIndex)
+                            if oldItemId then
+                                cargo:addItem(oldItemId, 1)
+                            end
+                            -- Equip new item to sub-slot
+                            cargo:removeItem(dragged.itemId, 1)
+                            self:setSubSlotItem(droneId, slotName, self.hoveredSlot.subSlotIndex, dragged.itemId)
+                            DragState.endDrag()
+                            return true
+                        end
+                    end
+                    -- Incompatible or no item: just return to inventory
+                    DragState.endDrag()
+                    return true
+                elseif self:canEquipInSlotInternal(dragged.itemId, slotName) then
+                    -- Main slot
                     local ok = self:equipModule(dragged.itemId)
                     if ok then DragState.endDrag() end
                     return true
@@ -444,41 +617,88 @@ function LoadoutWindow:handleLoadoutMousereleased(x, y, button)
         -- Loadout -> (swap or return to inventory)
         elseif dragged.origin == "loadout" then
             local srcSlot = dragged.slotName
+            local srcIsSubSlot = dragged.isSubSlot
+            local srcSubSlotIndex = dragged.subSlotIndex
 
             -- Get drone id using EntityHelpers
             local EntityHelpers = require('src.entity_helpers')
+            local ECS = require('src.ecs')
             local droneId = EntityHelpers.getPlayerShip()
             if not droneId then
+                DragState.endDrag()
+                return true
+            end
+            local cargo = ECS.getComponent(droneId, "Cargo")
+            if not cargo then
                 DragState.endDrag()
                 return true
             end
 
             if self.hoveredSlot and self.hoveredSlot.slotName then
                 local targetSlot = self.hoveredSlot.slotName
+                local targetIsSubSlot = self.hoveredSlot.isSubSlot
+                local targetSubSlotIndex = self.hoveredSlot.subSlotIndex
+                
                 -- Dropped back onto same slot -> cancel
-                if targetSlot == srcSlot then
+                if targetSlot == srcSlot and targetIsSubSlot == srcIsSubSlot and targetSubSlotIndex == srcSubSlotIndex then
                     DragState.endDrag()
                     return true
                 end
 
                 if self:canEquipInSlotInternal(dragged.itemId, targetSlot) then
-                    -- Swap items between srcSlot and targetSlot using UIUtils
-                    local targetOld = UIUtils.getSlotItem(droneId, targetSlot)
-                    -- Place dragged item into target
-                    UIUtils.setSlotItem(droneId, targetSlot, dragged.itemId)
-                    -- Put previous occupant (if any) into source slot
-                    UIUtils.setSlotItem(droneId, srcSlot, targetOld)
-                    DragState.endDrag()
-                    return true
+                    if targetIsSubSlot and targetSubSlotIndex then
+                        -- Dropping onto sub-slot
+                        local oldItemId = self:getSubSlotItem(droneId, targetSlot, targetSubSlotIndex)
+                        if oldItemId then
+                            cargo:addItem(oldItemId, 1)
+                        end
+                        self:setSubSlotItem(droneId, targetSlot, targetSubSlotIndex, dragged.itemId)
+                        
+                        -- Remove from source (sub-slot or main slot)
+                        if srcIsSubSlot and srcSubSlotIndex then
+                            self:setSubSlotItem(droneId, srcSlot, srcSubSlotIndex, nil)
+                        else
+                            self:unequipModuleInternal(srcSlot, dragged.itemId)
+                        end
+                        DragState.endDrag()
+                        return true
+                    else
+                        -- Dropping onto main slot
+                        local targetOld = UIUtils.getSlotItem(droneId, targetSlot)
+                        -- Place dragged item into target
+                        UIUtils.setSlotItem(droneId, targetSlot, dragged.itemId)
+                        -- Put previous occupant (if any) back to source
+                        if srcIsSubSlot and srcSubSlotIndex then
+                            if targetOld then
+                                self:setSubSlotItem(droneId, srcSlot, srcSubSlotIndex, targetOld)
+                            else
+                                self:setSubSlotItem(droneId, srcSlot, srcSubSlotIndex, nil)
+                            end
+                        else
+                            UIUtils.setSlotItem(droneId, srcSlot, targetOld)
+                        end
+                        DragState.endDrag()
+                        return true
+                    end
                 else
                     -- Incompatible target: return dragged item to inventory
-                    self:unequipModuleInternal(srcSlot, dragged.itemId)
+                    if srcIsSubSlot and srcSubSlotIndex then
+                        cargo:addItem(dragged.itemId, 1)
+                        self:setSubSlotItem(droneId, srcSlot, srcSubSlotIndex, nil)
+                    else
+                        self:unequipModuleInternal(srcSlot, dragged.itemId)
+                    end
                     DragState.endDrag()
                     return true
                 end
             else
                 -- Dropped outside any slot: return to inventory
-                self:unequipModuleInternal(srcSlot, dragged.itemId)
+                if srcIsSubSlot and srcSubSlotIndex then
+                    cargo:addItem(dragged.itemId, 1)
+                    self:setSubSlotItem(droneId, srcSlot, srcSubSlotIndex, nil)
+                else
+                    self:unequipModuleInternal(srcSlot, dragged.itemId)
+                end
                 DragState.endDrag()
                 return true
             end

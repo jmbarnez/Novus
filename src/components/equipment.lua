@@ -59,4 +59,18 @@ Components.GeneratorSlots = function(maxSlots)
     }
 end
 
+-- StatModifiers component - explicit deltas applied by modules/systems
+-- Stores additive modifiers applied to the entity's base stats so UI can
+-- display exactly what modules changed without guessing.
+-- Fields: mass, shield, shieldRegen, energyRegen, hull
+Components.StatModifiers = function()
+    return {
+        mass = 0,
+        shield = 0,
+        shieldRegen = 0,
+        energyRegen = 0,
+        hull = 0,
+    }
+end
+
 return Components

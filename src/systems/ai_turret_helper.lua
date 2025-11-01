@@ -271,19 +271,29 @@ function AiTurretHelper.fireLaserAtTarget(eid, turret, turretModule, targetPos, 
         return false
     end
     
-    -- Calculate laser start position from barrel
+    -- Calculate laser start position from barrel (same method as turret rendering)
     local fireAngle = math.atan2(dy, dx)
-    local muzzleDistance = computeMuzzleDistance(eid)
     
-    -- Calculate final muzzle position (ship center + collider radius + muzzle distance)
-    local collider = ECS.getComponent(eid, "Collidable")
-    local totalDistance = muzzleDistance
-    if collider then
-        totalDistance = collider.radius + muzzleDistance
-    end
+    -- Get turret offset and calculate turret world position (same as drawEnemyTurret)
+    local polygonShape = ECS.getComponent(eid, "PolygonShape")
+    local toffX = polygonShape and (polygonShape.turretOffsetX or polygonShape.cockpitOffsetX) or 0
+    local toffY = polygonShape and (polygonShape.turretOffsetY or polygonShape.cockpitOffsetY) or 0
+    local entityRotation = polygonShape and polygonShape.rotation or 0
+    local cos = math.cos(entityRotation)
+    local sin = math.sin(entityRotation)
+    local turretWorldX = pos.x + (toffX * cos - toffY * sin)
+    local turretWorldY = pos.y + (toffX * sin + toffY * cos)
     
-    local laserStartX = pos.x + math.cos(fireAngle) * totalDistance
-    local laserStartY = pos.y + math.sin(fireAngle) * totalDistance
+    -- Calculate barrel length (same method as drawTurret)
+    local baseRadius = estimateBaseRadiusFromEntity(eid)
+    local config = ECS.getComponent(eid, "TurretConfig") or {enabled = true, scale = 1.0, overhang = 4}
+    local overhang = config.overhang or 4
+    local scaleMult = config.scale or 1.0
+    local barrelLength = math.max(10, math.floor(baseRadius * 0.9 * scaleMult) + overhang)
+    
+    -- Calculate muzzle position from turret world position (matching drawTurret)
+    local laserStartX = turretWorldX + math.cos(fireAngle) * barrelLength
+    local laserStartY = turretWorldY + math.sin(fireAngle) * barrelLength
     
     -- Call the module's fire() function directly to create laser entity
     if turretModule.fire then
@@ -331,17 +341,27 @@ function AiTurretHelper.aimTurretAtTarget(eid, turret, shooterPos, targetPos)
     local dx = targetPos.x - shooterPos.x
     local dy = targetPos.y - shooterPos.y
     local fireAngle = math.atan2(dy, dx)
-    local muzzleDistance = computeMuzzleDistance(eid)
     
-    -- Calculate final muzzle position (ship center + collider radius + muzzle distance)
-    local collider = ECS.getComponent(eid, "Collidable")
-    local totalDistance = muzzleDistance
-    if collider then
-        totalDistance = collider.radius + muzzleDistance
-    end
+    -- Get turret offset and calculate turret world position (same as drawEnemyTurret)
+    local polygonShape = ECS.getComponent(eid, "PolygonShape")
+    local toffX = polygonShape and (polygonShape.turretOffsetX or polygonShape.cockpitOffsetX) or 0
+    local toffY = polygonShape and (polygonShape.turretOffsetY or polygonShape.cockpitOffsetY) or 0
+    local entityRotation = polygonShape and polygonShape.rotation or 0
+    local cos = math.cos(entityRotation)
+    local sin = math.sin(entityRotation)
+    local turretWorldX = shooterPos.x + (toffX * cos - toffY * sin)
+    local turretWorldY = shooterPos.y + (toffX * sin + toffY * cos)
     
-    turret.aimX = shooterPos.x + math.cos(fireAngle) * totalDistance
-    turret.aimY = shooterPos.y + math.sin(fireAngle) * totalDistance
+    -- Calculate barrel length (same method as drawTurret)
+    local baseRadius = estimateBaseRadiusFromEntity(eid)
+    local config = ECS.getComponent(eid, "TurretConfig") or {enabled = true, scale = 1.0, overhang = 4}
+    local overhang = config.overhang or 4
+    local scaleMult = config.scale or 1.0
+    local barrelLength = math.max(10, math.floor(baseRadius * 0.9 * scaleMult) + overhang)
+    
+    -- Calculate muzzle position from turret world position (matching drawTurret)
+    turret.aimX = turretWorldX + math.cos(fireAngle) * barrelLength
+    turret.aimY = turretWorldY + math.sin(fireAngle) * barrelLength
 end
 
 return AiTurretHelper
