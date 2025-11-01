@@ -103,7 +103,8 @@ function BasicCannon.fire(ownerId, startX, startY, endX, endY)
     ECS.addComponent(ballId, "Velocity", Components.Velocity(dirX * BasicCannon.BALL_SPEED, dirY * BasicCannon.BALL_SPEED))
     ECS.addComponent(ballId, "Renderable", Components.Renderable("circle", nil, nil, BasicCannon.BALL_RADIUS, BasicCannon.BALL_COLOR))
     ECS.addComponent(ballId, "Collidable", Components.Collidable(BasicCannon.BALL_RADIUS))
-    ECS.addComponent(ballId, "Physics", Components.Physics(1.0, 0.5, 0.99))
+    -- Cannon balls are somewhat bouncy; give a moderate restitution
+    ECS.addComponent(ballId, "Physics", Components.Physics(1.0, 0.5, 0.99, 0.6))
     ECS.addComponent(ballId, "Durability", Components.Durability(1, 1))
     -- Apply damage multiplier from owner ship
     local damageMultiplier = 1.0

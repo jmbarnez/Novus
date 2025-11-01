@@ -438,12 +438,17 @@ function InputSystem.update(dt)
         local playerPos = ECS.getComponent(turretOwner, "Position")
         local turret = ECS.getComponent(turretOwner, "Turret")
         
+        -- Check if turret has a valid module installed (moduleName is not nil)
+        if not turret or not turret.moduleName then
+            -- No module installed or module not found, don't fire
+            return
+        end
+        
         -- Get the module for this turret
         local turretModule = TurretRegistry.getModule(turret.moduleName)
 
-        -- Check if turret has a valid module installed (moduleName is not nil)
-        if not turret or not turret.moduleName or not turretModule then
-            -- No module installed or module not found, don't fire
+        if not turretModule then
+            -- Module not found, don't fire
             return
         end
         
@@ -553,7 +558,7 @@ function InputSystem.update(dt)
             if canFire then
                 local energyPerSecond = turretModule and turretModule.ENERGY_PER_SECOND
                 local EnergySystem = require('src.systems.energy')
-                if not energyPerSecond and EnergySystem and EnergySystem.CONSUMPTION then
+                if not energyPerSecond and EnergySystem and EnergySystem.CONSUMPTION and turret and turret.moduleName then
                     energyPerSecond = EnergySystem.CONSUMPTION[turret.moduleName]
                 end
                 if energyPerSecond and dt and dt > 0 then
@@ -673,7 +678,7 @@ function InputSystem.update(dt)
         local fired = false
         for slotIndex, action in ipairs(HUDHotbar.actions or {}) do
             local entry = hotbarEntries[slotIndex]
-            if entry and entry.sourceType == "turret" then
+            if entry and entry.sourceType == "turret" and turret and turret.moduleName then
                 local slotModuleName
                 if entry.itemDef and entry.itemDef.module and entry.itemDef.module.name then
                     slotModuleName = entry.itemDef.module.name
@@ -695,7 +700,10 @@ function InputSystem.update(dt)
 
         if not fired then
             -- Mouse released - destroy laser
-            local turretModule = TurretRegistry.getModule(turret.moduleName)
+            local turretModule = nil
+            if turret and turret.moduleName then
+                turretModule = TurretRegistry.getModule(turret.moduleName)
+            end
             local turretComp = ECS.getComponent(turretOwner, "Turret")
             if turretComp then
                 if turretModule and turretModule.stopFiring then

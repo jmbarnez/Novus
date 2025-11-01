@@ -14,32 +14,56 @@ local WreckageSystem = {
 -- @param x number: X position of ship destruction
 -- @param y number: Y position of ship destruction
 -- @param sourceShip string: Identifier for the source ship type
-function WreckageSystem.spawnWreckage(x, y, sourceShip, parentRadius)
+-- @param totalSurfaceArea number: Total surface area of the destroyed ship
+function WreckageSystem.spawnWreckage(x, y, sourceShip, totalSurfaceArea)
     sourceShip = sourceShip or "unknown"
 
-    -- Parent size influences number and size of wreckage pieces.
-    parentRadius = parentRadius or 16
+    -- Total surface area to distribute across wreckage pieces
+    totalSurfaceArea = totalSurfaceArea or (math.pi * 16 * 16)  -- Default fallback: circle with radius 16
 
-    -- Estimate few pieces based on parent radius (clamped to 1-3)
-    local estimated = math.floor(parentRadius / 20)
+    -- Estimate number of pieces based on total area (larger ships = more pieces)
+    -- Base calculation: sqrt(area) gives approximate radius, divide by ~15-20 for piece count
+    local estimatedRadius = math.sqrt(totalSurfaceArea / math.pi)
+    local estimated = math.floor(estimatedRadius / 18)
     if estimated < 1 then estimated = 1 end
-    local wreckageCount = math.min(3, estimated + math.random(0, 1))
+    local wreckageCount = math.min(5, estimated + math.random(0, 1))  -- Allow up to 5 pieces for large ships
+
+    -- Distribute total area across pieces (with slight random variation)
+    -- Calculate area allocation for each piece
+    local areaAllocations = {}
+    local totalAllocated = 0
+    
+    -- Generate random proportions that sum to 1.0
+    for i = 1, wreckageCount do
+        areaAllocations[i] = 0.6 + math.random() * 0.8  -- Random between 0.6 and 1.4
+        totalAllocated = totalAllocated + areaAllocations[i]
+    end
+    
+    -- Normalize so they sum to 1.0
+    for i = 1, wreckageCount do
+        areaAllocations[i] = areaAllocations[i] / totalAllocated
+    end
 
     -- Try to derive a (darker) colour from the original ship design if available
     local shipDesign = ShipLoader.getDesign(sourceShip)
 
     for i = 1, wreckageCount do
-        -- Size scales with parent size, add slight randomness
-        local size = parentRadius * (0.5 + math.random() * 0.8)
+        -- Calculate area for this piece
+        local pieceArea = totalSurfaceArea * areaAllocations[i]
+        
+        -- Convert area to size (radius-like value) for wreckage generation
+        -- Wreckage shapes are irregular polygons, approximate area ~= size^2 * scale_factor
+        -- For polygons with 4-6 sides, average area is roughly 0.7 * size^2 (empirical estimate)
+        local size = math.sqrt(pieceArea / 0.7)
 
-        -- Random spawn position near destruction point (relative to parent size)
+        -- Random spawn position near destruction point (relative to piece size)
         local angle = (math.random() * math.pi * 2)
-        local distance = parentRadius * (0.6 + math.random() * 1.2)
+        local distance = size * (0.8 + math.random() * 1.5)
         local wreckageX = x + math.cos(angle) * distance
         local wreckageY = y + math.sin(angle) * distance
 
-        -- Velocity scales with parent size
-        local speed = (10 + math.random() * 40) * (parentRadius / 16)
+        -- Velocity scales with piece size
+        local speed = (10 + math.random() * 40) * (size / 16)
         local vx = math.cos(angle) * speed
         local vy = math.sin(angle) * speed
 
@@ -53,15 +77,13 @@ function WreckageSystem.spawnWreckage(x, y, sourceShip, parentRadius)
         -- Core components
         ECS.addComponent(wreckageId, "Position", Components.Position(wreckageX, wreckageY))
         ECS.addComponent(wreckageId, "Velocity", Components.Velocity(vx, vy))
-        ECS.addComponent(wreckageId, "Physics", Components.Physics(0.97, math.max(0.5, parentRadius / 8), 0.90))
+        ECS.addComponent(wreckageId, "Physics", Components.Physics(0.97, math.max(0.5, size / 8), 0.90))
         ECS.addComponent(wreckageId, "AngularVelocity", Components.AngularVelocity(rotationSpeed))
 
         -- Wreckage tag
         ECS.addComponent(wreckageId, "Wreckage", Components.Wreckage(sourceShip))
 
-        -- Collision and durability
-        local collRadius = math.max(6, size * 0.6)
-        ECS.addComponent(wreckageId, "Collidable", Components.Collidable(collRadius))
+        -- Collision and durability (radius will be updated after scaling)
         -- Give wreckage a durability component with full durability
         local durMax = size * 1.2
         local durabilityComp = Components.Durability(durMax, durMax)
@@ -69,8 +91,27 @@ function WreckageSystem.spawnWreckage(x, y, sourceShip, parentRadius)
         ECS.addComponent(wreckageId, "Durability", durabilityComp)
         -- Wreckage uses Durability (not Hull) so HUD and damage logic remain consistent
 
-        -- Visual: generate jagged shard scaled by size
-        ECS.addComponent(wreckageId, "PolygonShape", Components.PolygonShape(WreckageSystem.generateWreckageShape(size), 0))
+        -- Visual: generate jagged shard with exact area matching
+        local wreckageVertices = WreckageSystem.generateWreckageShape(size)
+        -- Calculate actual area of generated shape
+        local actualArea = Components.calculatePolygonArea(wreckageVertices)
+        local finalScaleFactor = 1.0
+        -- Scale vertices to match target area exactly
+        if actualArea > 0 then
+            finalScaleFactor = math.sqrt(pieceArea / actualArea)
+            for _, v in ipairs(wreckageVertices) do
+                v.x = v.x * finalScaleFactor
+                v.y = v.y * finalScaleFactor
+            end
+        end
+        
+        -- Update collision radius based on final scaled size
+        local finalSize = size * finalScaleFactor
+        local collRadius = math.max(6, finalSize * 0.6)
+        -- Update collision component with correct radius
+        ECS.addComponent(wreckageId, "Collidable", Components.Collidable(collRadius))
+        
+        ECS.addComponent(wreckageId, "PolygonShape", Components.PolygonShape(wreckageVertices, 0))
 
         -- Determine wreckage color: prefer ship design but darken it
         local baseColor = {0.4, 0.4, 0.45, 1}

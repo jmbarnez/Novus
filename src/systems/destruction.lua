@@ -180,16 +180,23 @@ function DestructionSystem.update(dt)
             if controlledBy and controlledBy.pilotId then
                 local pilot = ECS.getComponent(controlledBy.pilotId, "Player")
                 if pilot then
-                    -- This is the player's drone - trigger death overlay UI, not instant respawn
+                     -- This is the player's drone. Capture the ship design for respawn and
+                     -- show the death overlay. Do NOT skip destruction here so the ship
+                     -- entity is actually removed and the player cannot keep flying.
+                     local shipDesignId = "starter_drone"
+                     local wreckComp = ECS.getComponent(entityId, "Wreckage")
+                     if wreckComp and wreckComp.sourceShip then
+                         shipDesignId = wreckComp.sourceShip
+                     end
+
                     DeathOverlay.show(
-                        function() -- respawn callback
-                            DestructionSystem.respawnPlayer(entityId, controlledBy.pilotId, true) -- 'true' = random spawn
+                          function() -- respawn callback: create a new ship for the player
+                             DestructionSystem.respawnPlayer(controlledBy.pilotId, shipDesignId, true) -- 'true' = random spawn
                         end,
                         function() -- rage quit callback
                             love.event.quit('restart') -- Reload game, handled in main
                         end
                     )
-                    goto continue_entity
                 end
             end
             
@@ -333,12 +340,12 @@ function DestructionSystem.update(dt)
                 -- (Turret drop handled separately for all destroyed ships)
             end
 
-            -- Spawn wreckage when ships are destroyed (AI-controlled or with Hull)
+            -- Spawn wreckage when ships are destroyed (any ship with Hull component)
             -- But NOT when wreckage pieces are destroyed - wreckage only spawns scrap
-            -- Ships have Wreckage component for sourceShip storage, but also have AI component
-            -- Actual wreckage pieces have Wreckage but NO AI component
-            -- So: spawn wreckage if (has AI OR has hull) AND (has AI OR doesn't have Wreckage)
-            if (ai or hull) and (ai or not wreckage) and pos then
+            -- Ships have both Hull and Wreckage components (Wreckage stores sourceShip)
+            -- Actual wreckage pieces have Wreckage but NO Hull component
+            -- So: spawn wreckage if has Hull (includes both AI and player ships)
+            if hull and pos then
                 local sourceShip = "unknown"
 
                 -- Try to get ship type from wreckage component if it exists
@@ -347,10 +354,22 @@ function DestructionSystem.update(dt)
                     sourceShip = existingWreckage.sourceShip
                 end
 
-                -- Pass parent size (collision radius) so wreckage pieces scale visually
+                -- Calculate ship's total surface area from polygon shape
+                local totalSurfaceArea = 0
+                local polygonShape = ECS.getComponent(entityId, "PolygonShape")
+                if polygonShape and polygonShape.vertices then
+                    totalSurfaceArea = Components.calculatePolygonArea(polygonShape.vertices)
+                end
+                
+                -- Fallback: estimate area from collision radius if no polygon
+                if totalSurfaceArea == 0 then
                 local parentColl = ECS.getComponent(entityId, "Collidable")
-                local parentSize = parentColl and parentColl.radius or 16
-                WreckageSystem.spawnWreckage(pos.x, pos.y, sourceShip, parentSize)
+                    local parentRadius = parentColl and parentColl.radius or 16
+                    -- Estimate area as circle: π * r^2
+                    totalSurfaceArea = math.pi * parentRadius * parentRadius
+                end
+
+                WreckageSystem.spawnWreckage(pos.x, pos.y, sourceShip, totalSurfaceArea)
 
                 -- Ship loot: 50% chance to drop turret module (if this entity had one)
                 do
@@ -396,39 +415,36 @@ function DestructionSystem.update(dt)
     end
 end
 
--- Respawn the player's drone at the start position with full hull
-function DestructionSystem.respawnPlayer(droneId, pilotId, randomLoc)
-    -- If randomLoc: pick a random spawn point in world bounds
-    local pos = ECS.getComponent(droneId, "Position")
-    if pos then
+-- Respawn the player's drone by creating a new ship entity
+-- @param pilotId number: The player pilot entity ID
+-- @param shipDesignId string: The ship design to respawn with
+-- @param randomLoc boolean: If true, spawn at random location; if false, spawn at (0, 0)
+function DestructionSystem.respawnPlayer(pilotId, shipDesignId, randomLoc)
+    if not pilotId then return end
+    
+    local ShipLoader = require('src.ship_loader')
+    
+    -- Calculate spawn position
+    local spawnX, spawnY = 0, 0
         if randomLoc then
             local minX, maxX = -4000, 4000
             local minY, maxY = -3000, 3000
-            pos.x = math.random(minX, maxX)
-            pos.y = math.random(minY, maxY)
-        else
-            pos.x = 0
-            pos.y = 0
-        end
-        pos.prevX = pos.x
-        pos.prevY = pos.y
+        spawnX = math.random(minX, maxX)
+        spawnY = math.random(minY, maxY)
     end
-    -- Reset velocity
-    local vel = ECS.getComponent(droneId, "Velocity")
-    if vel then
-        vel.vx = 0
-        vel.vy = 0
+    
+    -- Create new ship entity
+    local newShipId = ShipLoader.createShip(shipDesignId or "starter_drone", spawnX, spawnY, "player", pilotId)
+    
+    if not newShipId then
+        -- Fallback: try to create starter drone if design not found
+        newShipId = ShipLoader.createShip("starter_drone", spawnX, spawnY, "player", pilotId)
     end
-    -- Restore full hull
-    local hull = ECS.getComponent(droneId, "Hull")
-    if hull then
-        hull.current = hull.max
-    end
-    -- Restore shield to full if present
-    local shield = ECS.getComponent(droneId, "Shield")
-    if shield then
-        shield.current = shield.max
-        shield.lastDamageTime = 0  -- Reset shield regen timer
+    
+    -- Link the pilot's InputControlled to the new ship (ShipLoader should do this, but ensure it)
+    local inputComp = ECS.getComponent(pilotId, "InputControlled")
+    if inputComp and newShipId then
+        inputComp.targetEntity = newShipId
     end
 end
 

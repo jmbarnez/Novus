@@ -16,7 +16,7 @@ local MissileLauncher = {
     levelRequirement = 3, -- Requires player level 3
     MISSILE_SPEED = 50,
     MISSILE_RADIUS = 2,
-    MISSILE_COLOR = {1, 0.3, 0.1, 1}, -- Orange-red
+    MISSILE_COLOR = {0.5, 0.5, 0.5, 1}, -- Gray
     MISSILE_ACCELERATION = 800, -- Acceleration in pixels per second squared
     MISSILE_MAX_SPEED = 800, -- Maximum speed after acceleration
     HOMING_TURN_RATE = 8.0, -- Radians per second turning rate (increased from 4.0 for better tracking)
@@ -97,11 +97,12 @@ function MissileLauncher.fire(ownerId, startX, startY, endX, endY)
     -- Calculate initial rotation to face the direction of travel
     local initialRotation = math.atan2(dirY, dirX)
 
-    ECS.addComponent(missileId, "PolygonShape", Components.PolygonShape(missileVertices, initialRotation))
-    ECS.addComponent(missileId, "Renderable", Components.Renderable("polygon", nil, initialRotation, MissileLauncher.MISSILE_RADIUS, MissileLauncher.MISSILE_COLOR))
+    -- Use circle collision for missiles so fast straight-flying missiles are detected reliably by CCD
+    ECS.addComponent(missileId, "Renderable", Components.Renderable("circle", nil, nil, MissileLauncher.MISSILE_RADIUS, MissileLauncher.MISSILE_COLOR))
     ECS.addComponent(missileId, "Collidable", Components.Collidable(MissileLauncher.MISSILE_RADIUS))
     -- Give missile physics with low friction for sustained flight
-    ECS.addComponent(missileId, "Physics", Components.Physics(1.0, 1.5, 1.0)) -- no friction, light mass, rotation damping
+    -- Missiles are less bouncy (explosive) so give lower restitution
+    ECS.addComponent(missileId, "Physics", Components.Physics(1.0, 1.5, 1.0, 0.2)) -- no friction, light mass, rotation damping
     -- Missile durability - survives longer than basic projectiles
     ECS.addComponent(missileId, "Durability", Components.Durability(3, 3)) -- Takes 3 hits to destroy
     -- Apply damage multiplier from owner ship
@@ -159,7 +160,7 @@ function MissileLauncher.updateHoming(missileId, dt)
     local polygonShape = ECS.getComponent(missileId, "PolygonShape")
     local acceleration = ECS.getComponent(missileId, "Acceleration")
     
-    if not (position and velocity and polygonShape) then return end
+    if not (position and velocity) then return end
     
     -- Check if target still exists and is valid
     local targetPos = nil
@@ -213,8 +214,8 @@ function MissileLauncher.updateHoming(missileId, dt)
             velocity.vx = newDirX * speed
             velocity.vy = newDirY * speed
             
-            -- Update polygon rotation to match new direction
-            polygonShape.rotation = newAngle
+            -- Update polygon rotation to match new direction (if polygon shape present)
+            if polygonShape then polygonShape.rotation = newAngle end
             
             -- Apply acceleration in direction of travel
             if acceleration then
@@ -230,7 +231,7 @@ function MissileLauncher.updateHoming(missileId, dt)
         local currentDirX = velocity.vx / speed
         local currentDirY = velocity.vy / speed
         -- Use math.atan2(y, x) for proper 360-degree angle calculation
-        polygonShape.rotation = math.atan2(currentDirY, currentDirX)
+        if polygonShape then polygonShape.rotation = math.atan2(currentDirY, currentDirX) end
     end
     
     -- Apply acceleration for all missiles

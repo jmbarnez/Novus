@@ -52,11 +52,13 @@ end
 -- @field friction number: Air/space resistance (0-1)
 -- @field mass number: Mass for physics calculations (kg equivalent)
 -- @field angularDamping number: Rotational resistance (0-1, closer to 1 = more damping)
-Components.Physics = function(friction, mass, angularDamping)
+-- @field restitution number: Coefficient of restitution (0-1, 1 = perfectly elastic)
+Components.Physics = function(friction, mass, angularDamping, restitution)
     return {
         friction = friction or Constants.player_friction,
         mass = mass or 1,
-        angularDamping = angularDamping or 0.98  -- Default: slight rotational damping
+        angularDamping = angularDamping or 0.98,  -- Default: slight rotational damping
+        restitution = restitution or 0.2
     }
 end
 
@@ -74,6 +76,26 @@ Components.RotationalMass = function(inertia)
     return {
         inertia = inertia or 1
     }
+end
+
+-- Helper: Calculate polygon area using shoelace formula
+-- @param vertices table: Array of {x, y} vertices
+-- @return number: Area of the polygon
+Components.calculatePolygonArea = function(vertices)
+    if not vertices or #vertices < 3 then
+        return 0
+    end
+    
+    local area = 0
+    local numVertices = #vertices
+    
+    for i = 1, numVertices do
+        local v1 = vertices[i]
+        local v2 = vertices[(i % numVertices) + 1]
+        area = area + (v1.x * v2.y - v2.x * v1.y)
+    end
+    
+    return math.abs(area) * 0.5
 end
 
 -- Helper: Calculate moment of inertia for a polygon based on its shape and mass

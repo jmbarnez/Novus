@@ -45,8 +45,10 @@ local ShieldImpactSystem = {
                     -- Calculate effect progress (0 = just started, 1 = finished)
                     local progress = 1 - (impact.life / impact.maxLife)
                     
-                    -- Shield bubble radius is slightly larger than collision radius
-                    local shieldRadius = shipColl.radius * 1.3
+                    -- Shield bubble radius: place the visual just outside the object's collision radius
+                    -- Use a small additive offset (proportional to size with a minimum) so the bubble
+                    -- sits tightly against large stations while still remaining visible on small ships.
+                    local shieldRadius = shipColl.radius + math.max(4, shipColl.radius * 0.03)
                     
                     -- Calculate distance from impact point to each point on the shield
                     -- We'll draw the shield as a circle with varying opacity based on distance from impact

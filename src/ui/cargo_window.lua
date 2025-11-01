@@ -296,73 +296,94 @@ function CargoWindow:drawTopControls(x, y, width, alpha)
 end
 
 function CargoWindow:drawBottomBar(windowX, windowY, width, height, alpha, pilotId, droneId)
-    local bottomBarH = Theme.window.bottomBarHeight or 0
-    if bottomBarH <= 0 then return end
-    
-    local x = windowX
-    local y = windowY + height - bottomBarH
-    local w = width
-    local h = bottomBarH
-    local padding = Theme.spacing.sm
+	local bottomBarH = Theme.window.bottomBarHeight or 0
+	if bottomBarH <= 0 then return end
+	
+	local x = windowX
+	local y = windowY + height - bottomBarH
+	local w = width
+	local h = bottomBarH
+	local padding = Theme.spacing.sm
 
-    local wallet = ECS.getComponent(pilotId, "Wallet")
-    local cargo = ECS.getComponent(droneId, "Cargo")
-    local currentVolume = cargo and cargo.currentVolume or 0
-    local maxCapacity = cargo and cargo.capacity or 0
+	local wallet = ECS.getComponent(pilotId, "Wallet")
+	local cargo = ECS.getComponent(droneId, "Cargo")
+	local currentVolume = cargo and cargo.currentVolume or 0
+	local maxCapacity = cargo and cargo.capacity or 0
 
-    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
-    local fontHeight = love.graphics.getFont():getHeight()
-    local textY = y + (h - fontHeight) / 2
+	love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
+	local fontHeight = love.graphics.getFont():getHeight()
+	local textY = y + (h - fontHeight) / 2
 
-    -- Draw left side: Credits
-    local creditsText = wallet and string.format("Credits: %d", wallet.credits) or "Credits: 0"
-    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
-    love.graphics.print(creditsText, x + padding, textY)
+	-- Draw left side: Credits (with coin icon)
+	local creditsAmount = wallet and wallet.credits or 0
+	local coinSize = fontHeight + 6
+	local coinCenterX = x + padding + coinSize / 2
+	local coinCenterY = y + h / 2
 
-    -- Draw center: Cargo capacity
-    local cargoText = string.format("Cargo: %.2f/%.2f m3", currentVolume, maxCapacity)
-    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
-    love.graphics.printf(cargoText, x + padding, textY, w - padding * 2, "center")
+	-- Draw coin (sky blue fill)
+	love.graphics.setColor(0.53, 0.81, 0.98, alpha)
+	love.graphics.circle("fill", coinCenterX, coinCenterY, coinSize / 2)
+	-- coin border
+	love.graphics.setColor(0.2, 0.45, 0.7, alpha)
+	love.graphics.setLineWidth(1)
+	love.graphics.circle("line", coinCenterX, coinCenterY, coinSize / 2)
+	-- draw 'c' in center of coin
+	local font = love.graphics.getFont()
+	local cText = "c"
+	local cW = font:getWidth(cText)
+	local cH = font:getHeight()
+	love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+	love.graphics.print(cText, coinCenterX - cW / 2, coinCenterY - cH / 2)
 
-    -- Draw right side: Search box
-    local searchW = 220
-    local searchH = 26
-    local searchX = x + w - searchW - padding
-    local searchY = y + (h - searchH) / 2
-    self.cargoSearchRect = { x = searchX, y = searchY, w = searchW, h = searchH }
+	-- Draw credits amount next to coin
+	local creditsText = string.format("%d", creditsAmount)
+	love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+	love.graphics.print(creditsText, x + padding + coinSize + 8, textY)
 
-    local bg = Theme.colors.surface
-    local border = Theme.colors.border
-    local text = Theme.colors.text
-    if self.cargoSearchFocused then
-        love.graphics.setColor(0.2, 0.4, 0.6, 0.28 * alpha)
-        love.graphics.rectangle("fill", searchX - 1, searchY - 1, searchW + 2, searchH + 2, 6, 6)
-    end
-    love.graphics.setColor(bg[1], bg[2], bg[3], 0.95 * alpha)
-    love.graphics.rectangle("fill", searchX, searchY, searchW, searchH, 6, 6)
-    love.graphics.setColor(border[1], border[2], border[3], 0.5 * alpha)
-    love.graphics.rectangle("line", searchX, searchY, searchW, searchH, 6, 6)
+	-- Draw center: Cargo capacity
+	local cargoText = string.format("Cargo: %.2f/%.2f m3", currentVolume, maxCapacity)
+	love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+	love.graphics.printf(cargoText, x + padding, textY, w - padding * 2, "center")
 
-    local placeholder = "Search..."
-    local query = self.cargoSearchQuery or ""
-    local showPlaceholder = query == "" and not self.cargoSearchFocused
-    love.graphics.setScissor(searchX + 8, searchY, searchW - 16, searchH)
-    if showPlaceholder then
-        local tc = Theme.colors.textSecondary
-        love.graphics.setColor(tc[1], tc[2], tc[3], (tc[4] or 1) * alpha)
-        love.graphics.printf(placeholder, searchX + 8, searchY + 5, searchW - 16, "left")
-    else
-        love.graphics.setColor(text[1], text[2], text[3], alpha)
-        love.graphics.printf(query, searchX + 8, searchY + 5, searchW - 16, "left")
-        -- Caret
-        if self.cargoSearchFocused then
-            local font = love.graphics.getFont()
-            local caretX = searchX + 8 + font:getWidth(query)
-            love.graphics.setColor(text[1], text[2], text[3], 0.6 * alpha)
-            love.graphics.line(caretX, searchY + 6, caretX, searchY + searchH - 6)
-        end
-    end
-    love.graphics.setScissor()
+	-- Draw right side: Search box
+	local searchW = 220
+	local searchH = 26
+	local searchX = x + w - searchW - padding
+	local searchY = y + (h - searchH) / 2
+	self.cargoSearchRect = { x = searchX, y = searchY, w = searchW, h = searchH }
+
+	local bg = Theme.colors.surface
+	local border = Theme.colors.border
+	local text = Theme.colors.text
+	if self.cargoSearchFocused then
+		love.graphics.setColor(0.2, 0.4, 0.6, 0.28 * alpha)
+		love.graphics.rectangle("fill", searchX - 1, searchY - 1, searchW + 2, searchH + 2, 6, 6)
+	end
+	love.graphics.setColor(bg[1], bg[2], bg[3], 0.95 * alpha)
+	love.graphics.rectangle("fill", searchX, searchY, searchW, searchH, 6, 6)
+	love.graphics.setColor(border[1], border[2], border[3], 0.5 * alpha)
+	love.graphics.rectangle("line", searchX, searchY, searchW, searchH, 6, 6)
+
+	local placeholder = "Search..."
+	local query = self.cargoSearchQuery or ""
+	local showPlaceholder = query == "" and not self.cargoSearchFocused
+	love.graphics.setScissor(searchX + 8, searchY, searchW - 16, searchH)
+	if showPlaceholder then
+		local tc = Theme.colors.textSecondary
+		love.graphics.setColor(tc[1], tc[2], tc[3], (tc[4] or 1) * alpha)
+		love.graphics.printf(placeholder, searchX + 8, searchY + 5, searchW - 16, "left")
+	else
+		love.graphics.setColor(text[1], text[2], text[3], alpha)
+		love.graphics.printf(query, searchX + 8, searchY + 5, searchW - 16, "left")
+		-- Caret
+		if self.cargoSearchFocused then
+			local font = love.graphics.getFont()
+			local caretX = searchX + 8 + font:getWidth(query)
+			love.graphics.setColor(text[1], text[2], text[3], 0.6 * alpha)
+			love.graphics.line(caretX, searchY + 6, caretX, searchY + searchH - 6)
+		end
+	end
+	love.graphics.setScissor()
 end
 
 function CargoWindow:canEquipInSlotInternal(itemId, slotType)
