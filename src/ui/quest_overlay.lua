@@ -16,7 +16,8 @@ local FRAME_PADDING = QUEST_PADDING * 1.5
 local PANEL_SIDE_PADDING = QUEST_PADDING * 1.5
 local ROW_HEIGHT = QUEST_PADDING * 8
 local DIVIDER_HEIGHT = QUEST_PADDING * 0.75
-local EXTRA_SPACING = QUEST_PADDING * 6
+-- Increased to account for direction vector indicator below minimap
+local EXTRA_SPACING = QUEST_PADDING * 12
 
 local cachedQuests = {}
 local cachedVersion = -1

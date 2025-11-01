@@ -103,6 +103,85 @@ function HUDStats.drawSpeedText(viewportWidth, viewportHeight)
     BatchRenderer.queueText(cachedSpeedText, x, y, font, color[1], color[2], color[3], color[4], "center", minimapSize)
 end
 
+-- Draw direction vector after batch flush to avoid state conflicts
+function HUDStats._drawDirectionVectorImmediate(viewportWidth, viewportHeight)
+    local playerEntities = ECS.getEntitiesWith({"Player", "InputControlled"})
+    if #playerEntities == 0 then return end
+    local pilotId = playerEntities[1]
+    local input = ECS.getComponent(pilotId, "InputControlled")
+    if not input or not input.targetEntity then return end
+    local velocity = ECS.getComponent(input.targetEntity, "Velocity")
+    if not velocity then return end
+    
+    local speed = math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy)
+    if speed < 0.1 then return end -- Don't show vector if stationary
+    
+    -- Calculate direction angle
+    local angle = math.atan2(velocity.vy, velocity.vx)
+    
+    -- Position: right side, below minimap/speed text
+    local minimapSize = 150
+    local centerX = Scaling.getCurrentWidth() - minimapSize / 2 - 20
+    local centerY = 150 + 60 + 40 -- Below minimap + speed text + spacing
+    local radius = Scaling.scaleSize(35) -- Size of vector indicator circle
+    
+    -- Save current graphics state
+    local prevColor = {love.graphics.getColor()}
+    local prevLineWidth = love.graphics.getLineWidth()
+    
+    -- Draw background circle
+    local bgColor = Theme.colors.surface or {0.1, 0.1, 0.1, 1}
+    local borderColor = Theme.colors.borderLight or {0.3, 0.3, 0.3, 1}
+    love.graphics.setColor(bgColor[1], bgColor[2], bgColor[3], 0.85)
+    love.graphics.circle("fill", centerX, centerY, radius)
+    love.graphics.setColor(borderColor[1], borderColor[2], borderColor[3], 0.9)
+    love.graphics.setLineWidth(1.5)
+    love.graphics.circle("line", centerX, centerY, radius)
+    
+    -- Draw cardinal direction markers (N, E, S, W)
+    local markerSize = Scaling.scaleSize(3)
+    local markerRadius = radius - Scaling.scaleSize(2)
+    local markerColor = {0.5, 0.5, 0.5, 0.6}
+    love.graphics.setColor(markerColor[1], markerColor[2], markerColor[3], markerColor[4])
+    for i = 0, 3 do
+        local markerAngle = i * math.pi / 2
+        local mx = centerX + math.cos(markerAngle) * markerRadius
+        local my = centerY + math.sin(markerAngle) * markerRadius
+        love.graphics.circle("fill", mx, my, markerSize)
+    end
+    
+    -- Normalize velocity for display (scale arrow length by speed, but cap it)
+    local maxDisplaySpeed = 400 -- Speed at which arrow reaches max length
+    local normalizedSpeed = math.min(speed / maxDisplaySpeed, 1.0)
+    local arrowLength = radius * 0.7 * normalizedSpeed + radius * 0.15 -- Minimum arrow length for visibility
+    
+    -- Draw velocity vector arrow
+    local arrowColor = Theme.colors.accent or {0.6, 0.8, 1.0, 1.0}
+    local arrowEndX = centerX + math.cos(angle) * arrowLength
+    local arrowEndY = centerY + math.sin(angle) * arrowLength
+    
+    -- Draw arrow line
+    love.graphics.setLineWidth(Scaling.scaleSize(2.5))
+    love.graphics.setColor(arrowColor[1], arrowColor[2], arrowColor[3], arrowColor[4])
+    love.graphics.line(centerX, centerY, arrowEndX, arrowEndY)
+    
+    -- Draw arrowhead (triangle)
+    local headSize = Scaling.scaleSize(6)
+    local headAngle1 = angle + math.pi - math.pi / 6
+    local headAngle2 = angle + math.pi + math.pi / 6
+    local headX1 = arrowEndX + math.cos(headAngle1) * headSize
+    local headY1 = arrowEndY + math.sin(headAngle1) * headSize
+    local headX2 = arrowEndX + math.cos(headAngle2) * headSize
+    local headY2 = arrowEndY + math.sin(headAngle2) * headSize
+    
+    love.graphics.setColor(arrowColor[1], arrowColor[2], arrowColor[3], arrowColor[4])
+    love.graphics.polygon("fill", arrowEndX, arrowEndY, headX1, headY1, headX2, headY2)
+    
+    -- Restore graphics state
+    love.graphics.setLineWidth(prevLineWidth)
+    love.graphics.setColor(prevColor[1], prevColor[2], prevColor[3], prevColor[4])
+end
+
 local function calculateHullShieldRatios(hull, shield)
     if not hull or not hull.max or hull.max <= 0 then
         return 0, 0

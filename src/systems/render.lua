@@ -238,6 +238,10 @@ local RenderSystem = {
         BatchRenderer.flush()
         Profiler.stop("ui_hud_flush")
 
+        -- Draw direction vector indicator (uses immediate mode, must be after flush)
+        local HUDStats = require('src.systems.hud.stats')
+        HUDStats._drawDirectionVectorImmediate(screenWidth, screenHeight)
+
         -- Draw UI windows LAST (notifications, dialogs, windows) - these use immediate mode
         -- This ensures UI windows render ON TOP of all HUD elements
         Profiler.start("ui_windows")
