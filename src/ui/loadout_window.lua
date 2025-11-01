@@ -6,6 +6,7 @@ local Scaling = require('src.scaling')
 local ContextMenu = require('src.ui.context_menu')
 local DragState = require('src.ui.drag_state')
 local UIUtils = require('src.ui.ui_utils')
+local StatsWindow = require('src.ui.stats_window')
 
 -- Shared helper module for equip/unequip logic
 local ModuleEquipHelpers = {}
@@ -252,6 +253,35 @@ function LoadoutWindow:drawLoadoutContent(windowX, windowY, width, height, alpha
     -- Generator Module slot
     local generatorItemId = UIUtils.getSlotItem(droneId, "Generator Module")
     self:drawEquipmentSlotInternal("Generator Module", generatorItemId, slotX, slotY, slotSize, alpha, droneId)
+    
+    -- Draw Stats button below the equipment slots
+    local btnH = 32
+    local btnW = 140
+    local btnY = slotY + slotSize + 30
+    local btnX = contentX + (contentWidth - btnW) / 2
+    
+    -- Track button for click detection
+    self.statsButtonRect = { x = btnX, y = btnY, w = btnW, h = btnH }
+    
+    local mx, my = UIUtils.getMousePosition()
+    local isButtonHovered = UIUtils.pointInRect(mx, my, btnX, btnY, btnW, btnH)
+    
+    -- Draw button
+    local bg = Theme.colors.surface
+    local border = isButtonHovered and Theme.colors.hover or Theme.colors.border
+    if isButtonHovered then
+        love.graphics.setColor(0.2, 0.4, 0.6, 0.28 * alpha)
+        love.graphics.rectangle("fill", btnX - 1, btnY - 1, btnW + 2, btnH + 2, 6, 6)
+    end
+    love.graphics.setColor(bg[1], bg[2], bg[3], 0.9 * alpha)
+    love.graphics.rectangle("fill", btnX, btnY, btnW, btnH, 6, 6)
+    love.graphics.setColor(border[1], border[2], border[3], 0.5 * alpha)
+    love.graphics.rectangle("line", btnX, btnY, btnW, btnH, 6, 6)
+    
+    -- Draw button text
+    love.graphics.setFont(Theme.getFont(Theme.fonts.normal))
+    love.graphics.setColor(Theme.colors.text[1], Theme.colors.text[2], Theme.colors.text[3], alpha)
+    love.graphics.printf("View Stats", btnX, btnY + (btnH - love.graphics.getFont():getHeight()) / 2, btnW, "center")
 end
 
 function LoadoutWindow:unequipModuleInternal(slotType, itemId)
@@ -323,6 +353,19 @@ function LoadoutWindow:drawEquipmentSlotInternal(slotName, equippedItemId, x, y,
 end
 
 function LoadoutWindow:handleLoadoutMousepressed(x, y, button)
+    -- Handle Stats button click
+    if button == 1 and self.statsButtonRect then
+        if UIUtils.pointInRect(x, y, self.statsButtonRect.x, self.statsButtonRect.y, self.statsButtonRect.w, self.statsButtonRect.h) then
+            StatsWindow:toggle()
+            -- Set focus if stats window is open
+            if StatsWindow:getOpen() then
+                local UISystem = require('src.systems.ui')
+                UISystem.setWindowFocus('stats_window')
+            end
+            return true
+        end
+    end
+    
     -- Start drag on left-click of an equipped slot
     if button == 1 and self.hoveredSlot and not ContextMenu.isOpen() and not self._blockDragUntilRelease then
         local hovered = self.hoveredSlot

@@ -67,6 +67,48 @@ function CargoWindow:equipModule(itemId)
     end
 end
 
+-- Equip a module to a specific slot type
+function CargoWindow:equipModuleToSlot(itemId, slotType)
+    local EntityHelpers = require('src.entity_helpers')
+    local droneId = EntityHelpers.getPlayerShip()
+    if not droneId then return false end
+    
+    local LoadoutWindow = require('src.ui.loadout_window')
+    local ModuleEquipHelpers = LoadoutWindow.ModuleEquipHelpers
+    local ItemDefs = require('src.items.item_loader')
+    local ECS = require('src.ecs')
+    
+    local itemDef = ItemDefs[itemId]
+    if not itemDef then return false end
+    
+    local cargo = ECS.getComponent(droneId, "Cargo")
+    if not cargo then return false end
+    
+    if not cargo.items[itemId] or cargo.items[itemId] < 1 then
+        return false
+    end
+    
+    -- Check if item can be equipped in this slot
+    if not UIUtils.canEquipInSlot(itemId, slotType) then
+        return false
+    end
+    
+    -- Unequip old module if present
+    local oldItemId = ModuleEquipHelpers.unequipModuleFromSlot(droneId, slotType, ItemDefs)
+    if oldItemId then
+        cargo:addItem(oldItemId, 1)
+    end
+    
+    -- Equip new module
+    if not ModuleEquipHelpers.equipModuleToSlot(droneId, slotType, itemId, itemDef) then
+        return false
+    end
+    
+    -- Remove item from cargo
+    cargo:removeItem(itemId, 1)
+    return true
+end
+
 -- Open context menu for cargo items
 function CargoWindow:openContextMenu(itemId, itemDef, x, y)
     -- If parented, forward to parent
@@ -112,7 +154,10 @@ function CargoWindow:openContextMenu(itemId, itemDef, x, y)
         y = y,
         options = options
     }, function(option)
-        if option.action == "equip" then
+        if option.action == "equip" and option.slotType then
+            self:equipModuleToSlot(itemId, option.slotType)
+        elseif option.action == "equip" then
+            -- Fallback to auto-detect slot if no slotType specified
             self:equipModule(itemId)
         end
     end)
@@ -485,8 +530,34 @@ function CargoWindow:handleCargoMousepressed(x, y, button)
     if button == 2 and self.hoveredItemSlot then
         local hovered = self.hoveredItemSlot
         if hovered.itemId and hovered.itemDef then
-            self:openContextMenu(hovered.itemId, hovered.itemDef, x, y)
-            return true
+            local compatibleSlots = self:getCompatibleSlots(hovered.itemId)
+            
+            -- If no compatible slots, do nothing
+            if #compatibleSlots == 0 then
+                return false
+            end
+            
+            -- If exactly one compatible slot
+            if #compatibleSlots == 1 then
+                local slotType = compatibleSlots[1]
+                local EntityHelpers = require('src.entity_helpers')
+                local droneId = EntityHelpers.getPlayerShip()
+                local isOccupied = droneId and UIUtils.isSlotOccupied(droneId, slotType) or false
+                
+                if not isOccupied then
+                    -- Auto-equip to empty slot
+                    self:equipModuleToSlot(hovered.itemId, slotType)
+                    return true
+                else
+                    -- Slot is occupied, show swap context menu
+                    self:openContextMenu(hovered.itemId, hovered.itemDef, x, y)
+                    return true
+                end
+            else
+                -- Multiple compatible slots, show context menu with all options
+                self:openContextMenu(hovered.itemId, hovered.itemDef, x, y)
+                return true
+            end
         end
     end
 
