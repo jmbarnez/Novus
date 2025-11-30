@@ -98,37 +98,60 @@ local function getJoinDialogLayout()
 end
 
 local function getLoadDialogLayout()
-	local sw, sh = love.graphics.getDimensions()
-	local boxWidth = 420
-	local boxHeight = 260
-	local boxX = (sw - boxWidth) / 2
-	local boxY = (sh - boxHeight) / 2
+    local sw, sh = love.graphics.getDimensions()
+    local boxWidth = 420
+    local boxHeight = 260
+    local boxX = (sw - boxWidth) / 2
+    local boxY = (sh - boxHeight) / 2
 
-	local buttonWidth = 260
-	local buttonHeight = Theme.spacing.buttonHeight or 42
-	local buttonSpacing = 12
-	local startX = boxX + (boxWidth - buttonWidth) * 0.5
-	local startY = boxY + 70
+    local buttonWidth = 260
+    local buttonHeight = Theme.spacing.buttonHeight or 42
+    local buttonSpacing = 12
+    local startX = boxX + (boxWidth - buttonWidth) * 0.5
+    local startY = boxY + 70
 
-	local slotRects = {}
-	for slot = 1, 3 do
-		local y = startY + (slot - 1) * (buttonHeight + buttonSpacing)
-		slotRects[slot] = {
-			x = startX,
-			y = y,
-			w = buttonWidth,
-			h = buttonHeight,
-		}
-	end
+    local slotRects = {}
+    for slot = 1, 3 do
+        local y = startY + (slot - 1) * (buttonHeight + buttonSpacing)
+        slotRects[slot] = {
+            x = startX,
+            y = y,
+            w = buttonWidth,
+            h = buttonHeight,
+        }
+    end
 
-	return {
-		boxX = boxX,
-		boxY = boxY,
-		boxWidth = boxWidth,
-		boxHeight = boxHeight,
-		titleY = boxY + 20,
-		slotRects = slotRects,
-	}
+    return {
+        boxX = boxX,
+        boxY = boxY,
+        boxWidth = boxWidth,
+        boxHeight = boxHeight,
+        titleY = boxY + 20,
+        slotRects = slotRects,
+    }
+end
+
+local function drawModalOverlay(sw, sh)
+    love.graphics.setColor(0, 0, 0, 0.7)
+    love.graphics.rectangle("fill", 0, 0, sw, sh)
+end
+
+local function drawDialogBox(layout)
+    local boxX = layout.boxX
+    local boxY = layout.boxY
+    local boxWidth = layout.boxWidth
+    local boxHeight = layout.boxHeight
+    local rounding = Theme.shapes.buttonRounding or 0
+    local outlineWidth = Theme.shapes.outlineWidth or 1.5
+
+    local bgColor = Theme.getBackgroundColor()
+    local buttonColors = Theme.colors.button
+
+    love.graphics.setColor(bgColor)
+    love.graphics.rectangle("fill", boxX, boxY, boxWidth, boxHeight, rounding, rounding)
+    love.graphics.setLineWidth(outlineWidth)
+    love.graphics.setColor(buttonColors.outline)
+    love.graphics.rectangle("line", boxX, boxY, boxWidth, boxHeight, rounding, rounding)
 end
 
 local MenuState = {}
@@ -170,9 +193,9 @@ function MenuState:enter()
         {
             label = "LOAD GAME",
             action = function()
-				self.load_menu_open = true
-				self.load_hovered_slot = nil
-				self.load_active_slot = nil
+                self.load_menu_open = true
+                self.load_hovered_slot = nil
+                self.load_active_slot = nil
             end,
         },
     }
@@ -191,9 +214,9 @@ function MenuState:enter()
     self.ip_input = "localhost"
     self.cursor_blink_time = 0
     self.cursor_visible = true
-	self.load_menu_open = false
-	self.load_hovered_slot = nil
-	self.load_active_slot = nil
+    self.load_menu_open = false
+    self.load_hovered_slot = nil
+    self.load_active_slot = nil
 end
 
 function MenuState:update(dt)
@@ -221,35 +244,35 @@ function MenuState:update(dt)
     local isDown = love.mouse.isDown(1)
 
     if self.load_menu_open then
-		local prevHoveredSlot = self.load_hovered_slot
-		self.load_hovered_slot = nil
-		local layout = getLoadDialogLayout()
-		for slot, rect in ipairs(layout.slotRects) do
-			if pointInRect(mouseX, mouseY, rect) then
-				self.load_hovered_slot = slot
-				break
-			end
-		end
+        local prevHoveredSlot = self.load_hovered_slot
+        self.load_hovered_slot = nil
+        local layout = getLoadDialogLayout()
+        for slot, rect in ipairs(layout.slotRects) do
+            if pointInRect(mouseX, mouseY, rect) then
+                self.load_hovered_slot = slot
+                break
+            end
+        end
 
-		if self.load_hovered_slot and self.load_hovered_slot ~= prevHoveredSlot and SaveManager.has_save(self.load_hovered_slot) then
-			SoundManager.play_sound("button_hover")
-		end
+        if self.load_hovered_slot and self.load_hovered_slot ~= prevHoveredSlot and SaveManager.has_save(self.load_hovered_slot) then
+            SoundManager.play_sound("button_hover")
+        end
 
-		if isDown and not self.mouseWasDown then
-			self.load_active_slot = self.load_hovered_slot
-		elseif not isDown and self.mouseWasDown then
-			if self.load_active_slot and self.load_hovered_slot == self.load_active_slot then
-				local slot = self.load_active_slot
-				if SaveManager.has_save(slot) then
-					SoundManager.play_sound("button_click")
-					Gamestate.switch(require("src.states.play"), { mode = "load", slot = slot })
-				end
-			end
-			self.load_active_slot = nil
-		end
+        if isDown and not self.mouseWasDown then
+            self.load_active_slot = self.load_hovered_slot
+        elseif not isDown and self.mouseWasDown then
+            if self.load_active_slot and self.load_hovered_slot == self.load_active_slot then
+                local slot = self.load_active_slot
+                if SaveManager.has_save(slot) then
+                    SoundManager.play_sound("button_click")
+                    Gamestate.switch(require("src.states.play"), { mode = "load", slot = slot })
+                end
+            end
+            self.load_active_slot = nil
+        end
 
-		self.mouseWasDown = isDown
-		return
+        self.mouseWasDown = isDown
+        return
     end
 
     if not self.ip_input_mode then
@@ -404,28 +427,18 @@ function MenuState:draw()
 
     -- Draw IP input dialog if active
     if self.ip_input_mode then
-        -- Draw overlay
-        love.graphics.setColor(0, 0, 0, 0.7)
-        love.graphics.rectangle("fill", 0, 0, sw, sh)
+        drawModalOverlay(sw, sh)
 
         local layout = getJoinDialogLayout()
         local boxX = layout.boxX
-        local boxY = layout.boxY
         local boxWidth = layout.boxWidth
-        local boxHeight = layout.boxHeight
         local rounding = Theme.shapes.buttonRounding or 0
-        local outlineWidth = Theme.shapes.outlineWidth or 1.5
 
-        local bgColor = Theme.getBackgroundColor()
         local buttonColors = Theme.colors.button
         local textPrimary = Theme.colors.textPrimary
         local textMuted = Theme.colors.textMuted
 
-        love.graphics.setColor(bgColor)
-        love.graphics.rectangle("fill", boxX, boxY, boxWidth, boxHeight, rounding, rounding)
-        love.graphics.setLineWidth(outlineWidth)
-        love.graphics.setColor(buttonColors.outline)
-        love.graphics.rectangle("line", boxX, boxY, boxWidth, boxHeight, rounding, rounding)
+        drawDialogBox(layout)
 
         -- Draw title
         love.graphics.setColor(textPrimary)
@@ -511,26 +524,15 @@ function MenuState:draw()
     end
 
     if self.load_menu_open then
-        love.graphics.setColor(0, 0, 0, 0.7)
-        love.graphics.rectangle("fill", 0, 0, sw, sh)
+        drawModalOverlay(sw, sh)
 
         local layout = getLoadDialogLayout()
         local boxX = layout.boxX
-        local boxY = layout.boxY
         local boxWidth = layout.boxWidth
-        local boxHeight = layout.boxHeight
-        local rounding = Theme.shapes.buttonRounding or 0
-        local outlineWidth = Theme.shapes.outlineWidth or 1.5
-
-        local bgColor = Theme.getBackgroundColor()
         local buttonColors2 = Theme.colors.button
         local textPrimary2 = Theme.colors.textPrimary
 
-        love.graphics.setColor(bgColor)
-        love.graphics.rectangle("fill", boxX, boxY, boxWidth, boxHeight, rounding, rounding)
-        love.graphics.setLineWidth(outlineWidth)
-        love.graphics.setColor(buttonColors2.outline)
-        love.graphics.rectangle("line", boxX, boxY, boxWidth, boxHeight, rounding, rounding)
+        drawDialogBox(layout)
 
         love.graphics.setColor(textPrimary2)
         love.graphics.setFont(self.fontButton)
@@ -583,7 +585,13 @@ function MenuState:keypressed(key)
     end
 
     if key == 'escape' then
-        love.event.quit()
+        if self.load_menu_open then
+            self.load_menu_open = false
+            self.load_hovered_slot = nil
+            self.load_active_slot = nil
+        else
+            love.event.quit()
+        end
         return
     end
 end

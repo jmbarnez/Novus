@@ -593,12 +593,6 @@ function PlayState:tryDockAtStation()
         return
     end
 
-    -- For now, only apply docking logic on hosts / single-player to avoid
-    -- desync with an authoritative server.
-    if Client.connected and not world.hosting then
-        return
-    end
-
     local ship = world.local_ship
     local target = world.ui.hover_target
 
@@ -620,6 +614,13 @@ function PlayState:tryDockAtStation()
 
     local dock_radius = (target.station_area and target.station_area.radius) or 0
     if dock_radius <= 0 or dist > dock_radius then
+        return
+    end
+
+    -- For now, only apply docking logic on hosts / single-player to avoid
+    -- desync with an authoritative server.
+    if Client.connected and not world.hosting then
+        Client.requestDock()
         return
     end
 

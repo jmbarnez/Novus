@@ -3,6 +3,8 @@
 
 local enet = require "enet"
 local Protocol = require "src.network.protocol"
+local DefaultSector = require "src.data.default_sector"
+local Concord = require "lib.concord.concord"
 
 local MAX_INPUTS_PER_SECOND = 120
 local CHAT_WINDOW_SECONDS = 2.0
@@ -145,6 +147,72 @@ function Server.processEvents()
             return
         end
     end
+end
+
+function Server.handleDockRequest(player_id)
+    if not Server.world then return end
+
+    local player = Server.players[player_id]
+    if not player then return end
+
+    local ship = player.entity
+    if not (ship and ship.transform and ship.sector) then
+        return
+    end
+
+    local ship_sx = ship.sector.x or 0
+    local ship_sy = ship.sector.y or 0
+
+    local best_station = nil
+    local best_dist = nil
+    local best_ex, best_ey = nil, nil
+
+    for _, entity in ipairs(Server.world:getEntities()) do
+        if entity.station and entity.transform and entity.sector then
+            local dock_radius = (entity.station_area and entity.station_area.radius) or 0
+            if dock_radius > 0 then
+                local target_sx = entity.sector.x or 0
+                local target_sy = entity.sector.y or 0
+
+                local ex = entity.transform.x + (target_sx - ship_sx) * DefaultSector.SECTOR_SIZE
+                local ey = entity.transform.y + (target_sy - ship_sy) * DefaultSector.SECTOR_SIZE
+
+                local dx = ex - ship.transform.x
+                local dy = ey - ship.transform.y
+                local dist = math.sqrt(dx * dx + dy * dy)
+
+                if dist <= dock_radius and (not best_dist or dist < best_dist) then
+                    best_dist = dist
+                    best_station = entity
+                    best_ex, best_ey = ex, ey
+                end
+            end
+        end
+    end
+
+    if not best_station then
+        return
+    end
+
+    if ship.hull and ship.hull.max then
+        ship.hull.current = ship.hull.max
+    end
+    if ship.shield and ship.shield.max then
+        ship.shield.current = ship.shield.max
+    end
+    if ship.energy and ship.energy.max then
+        ship.energy.current = ship.energy.max
+    end
+
+    if ship.physics and ship.physics.body then
+        ship.physics.body:setLinearVelocity(0, 0)
+        ship.physics.body:setAngularVelocity(0)
+    end
+
+    local e = Concord.entity(Server.world)
+    local text = "Docked: ship resupplied"
+    local color = { 0.3, 1.0, 0.6, 1.0 }
+    e:give("floating_text", text, best_ex or ship.transform.x, best_ey or ship.transform.y, 1.6, color)
 end
 
 function Server.onClientConnect(peer)
@@ -369,6 +437,8 @@ function Server.onClientReceive(peer, data)
         peer:send(data, 0, "unreliable")
     elseif packet.type == Protocol.PacketType.REQUEST_RESPAWN then
         Server.respawnPlayer(client.player_id)
+    elseif packet.type == Protocol.PacketType.DOCK_REQUEST then
+        Server.handleDockRequest(client.player_id)
     end
 end
 

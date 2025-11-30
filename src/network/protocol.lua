@@ -19,6 +19,7 @@ Protocol.PacketType = {
     CHAT = 3, -- New: Chat message
     PLAYER_INFO = 4, -- Client display name / metadata
     REQUEST_RESPAWN = 5, -- Player is requesting to respawn
+    DOCK_REQUEST = 6, -- Player attempting to dock at a station
 
     -- Server -> Client
     WORLD_STATE = 10,
@@ -73,6 +74,13 @@ end
 function Protocol.createRequestRespawnPacket()
     return {
         type = Protocol.PacketType.REQUEST_RESPAWN
+    }
+end
+
+--- Create a DOCK_REQUEST packet (Client -> Server)
+function Protocol.createDockRequestPacket()
+    return {
+        type = Protocol.PacketType.DOCK_REQUEST,
     }
 end
 

@@ -230,6 +230,16 @@ function Client.requestRespawn()
     Client.peer:send(data, 0, "reliable")
 end
 
+function Client.requestDock()
+    if not Client.connected or not Client.peer then
+        return
+    end
+
+    local packet = Protocol.createDockRequestPacket()
+    local data = Protocol.serialize(packet)
+    Client.peer:send(data, 0, "reliable")
+end
+
 function Client.disconnect()
     if Client.peer then
         Client.peer:disconnect()
