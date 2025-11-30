@@ -137,7 +137,9 @@ vec3 computeBaseColors(vec2 ncoord, vec2 rel, float t, float density) {
     vec3 ca = mix(colorA, midColor, 0.30 + 0.30 * totalShift) * 0.8;
     vec3 cb = mix(colorB, midColor, 0.20 + 0.40 * (1.0 - totalShift)) * 0.8;
 
-    float mixFactor = clamp(density * 1.10, 0.0, 1.0);
+    float colorNoise = fbm(ncoord * 3.2 + rel * 1.3 + vec2(t * 0.07, -t * 0.05), 3);
+    float localMix = smoothstep(0.15, 0.85, colorNoise);
+    float mixFactor = clamp(density * 0.85 + localMix * colorVariation * 0.6, 0.0, 1.0);
     vec3 col = mix(ca, cb, mixFactor);
 
     float angle = atan(rel.y, rel.x);
@@ -157,7 +159,7 @@ vec3 computeBaseColors(vec2 ncoord, vec2 rel, float t, float density) {
     float coreMask = smoothstep(0.60, 0.0, coreRad);
     col += coreMask * 0.08 * midGlowColor;
 
-    return col * 0.75;
+    return col * 0.90;
 }
 
 vec3 applyStars(vec3 baseColor, vec2 uv, vec2 rel, float density) {
@@ -194,40 +196,25 @@ vec4 effect(vec4 vcolor, Image tex, vec2 texcoord, vec2 screen_coords) {
     uv += offset * 0.00003;
     uv += flow * 300.0;
 
-    float r = length(rel);
-
-    float inner = mix(0.22, 0.65, coverage);
-    float outer = mix(1.05, 1.85, coverage);
-    float baseRadial = smoothstep(outer, inner, r) * 0.65;
-
-    float angle = atan(rel.y, rel.x);
-    float swirl = sin(angle * 1.7 + time * 0.12) * 0.5 + 0.5;
-
-    float bands = sin((rel.x * 2.1 + rel.y * 2.7) + time * 0.07) * 0.5 + 0.5;
-
-    float variation = mix(swirl, bands, clamp(colorVariation, 0.0, 1.0));
-
     float ns = max(noiseScale, 0.35);
-    vec2 ncoord = rel * ns;
-    ncoord += vec2(uv.x * 2.3, uv.y * 1.7);
-    float shapeMask = nebulaShapeMask(ncoord);
+    vec2 ncoord = uv * ns + rel * (0.5 * ns);
 
-    float combinedMask = shapeMask * (0.35 + 0.65 * baseRadial);
+    float t = time;
+    float density = computeDensity(ncoord, rel, t);
 
-    float density = combinedMask * (0.50 + 0.40 * variation) * densityScale * 0.85;
-
-    float slowPulse = 0.95 + 0.05 * sin(time * 0.16);
-    density *= slowPulse;
+    float coverageBoost = mix(0.8, 1.25, coverage);
+    density *= coverageBoost;
 
     density = clamp(density, 0.0, 1.0);
 
-    float vignette = smoothstep(1.7, 0.5, length(centered));
+    float vignette = smoothstep(1.8, 0.4, length(centered));
     density *= vignette;
 
-    float mixFactor = clamp(density * 0.85 + variation * 0.15, 0.0, 1.0);
-    vec3 color = mix(colorA * 0.7, colorB * 0.7, mixFactor);
+    vec3 baseColor = computeBaseColors(ncoord, rel, t, density);
+    baseColor = applyStars(baseColor, uv, rel, density);
+    vec3 graded = gradeColor(baseColor);
 
-    float alpha = clamp(density * alphaScale * 0.75, 0.0, 1.0);
+    float alpha = clamp(density * alphaScale, 0.0, 1.0);
 
-    return vec4(color, alpha) * vcolor;
+    return vec4(graded, alpha) * vcolor;
 }

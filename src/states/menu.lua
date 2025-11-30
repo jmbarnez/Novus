@@ -484,13 +484,17 @@ function MenuState:draw()
 
         -- Draw IP text
         love.graphics.setColor(textPrimary)
-        love.graphics.printf(self.ip_input, layout.ipRect.x + 10, layout.ipRect.y + 12, layout.ipRect.w - 20, "left")
-        
+        local ipPadding = 10
+        local ipTextX = layout.ipRect.x + ipPadding
+        local ipTextY = layout.ipRect.y + (layout.ipRect.h - self.fontButton:getHeight()) * 0.5
+        love.graphics.printf(self.ip_input, ipTextX, ipTextY, layout.ipRect.w - ipPadding * 2, "left")
+
         -- Draw blinking cursor in IP field
         if self.cursor_visible then
             love.graphics.setColor(buttonColors.outlineActive)
             local textWidth = self.fontButton:getWidth(self.ip_input)
-            love.graphics.rectangle("fill", layout.ipRect.x + 10 + textWidth + 2, layout.ipRect.y + 10, 2, 20)
+            local caretHeight = self.fontButton:getHeight()
+            love.graphics.rectangle("fill", ipTextX + textWidth + 2, ipTextY, 2, caretHeight)
         end
 
         -- Draw instructions
@@ -534,11 +538,13 @@ function MenuState:draw()
 
     love.graphics.setColor(textPrimary)
     local nameText = self.display_name_input or ""
-    local innerX = nameX + 10
-    local innerWidth = fieldWidth - 20
+    local namePadding = 10
+    local innerX = nameX + namePadding
+    local innerWidth = fieldWidth - namePadding * 2
     local textWidth = self.fontButton:getWidth(nameText)
-    local textX = innerX + (innerWidth - textWidth) * 0.5
-    love.graphics.printf(nameText, textX, fieldY + 12, innerWidth, "left")
+    local textX = innerX
+    local textY = fieldY + (fieldHeight - self.fontButton:getHeight()) * 0.5
+    love.graphics.printf(nameText, textX, textY, innerWidth, "left")
 
     -- Randomize button
     local randomX = startX + fieldWidth + 12
@@ -547,7 +553,8 @@ function MenuState:draw()
     -- Caret in display name field
     if self.editing_display_name and self.cursor_visible then
         love.graphics.setColor(buttonColors.outlineActive)
-        love.graphics.rectangle("fill", textX + textWidth + 2, fieldY + 10, 2, 20)
+        local caretHeight = self.fontButton:getHeight()
+        love.graphics.rectangle("fill", textX + textWidth + 2, textY, 2, caretHeight)
     end
 
     if self.load_menu_open then

@@ -266,6 +266,7 @@ function Background:draw(cam_x, cam_y, cam_sector_x, cam_sector_y)
             self.nebulaShader:send("alphaScale", self.nebulaParams.alphaScale)
             self.nebulaShader:send("colorA", self.nebulaParams.colorA)
             self.nebulaShader:send("colorB", self.nebulaParams.colorB)
+            self.nebulaShader:send("distortion", self.nebulaParams.distortion or 0.0)
             self.nebulaShader:send("densityScale", self.nebulaParams.densityScale or 1.0)
 
             local patches = self.nebulaParams.patches or {

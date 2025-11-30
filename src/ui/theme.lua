@@ -151,6 +151,11 @@ Theme.spacing = {
     chatWidth = 600,
     chatHeight = 300,
     chatInputHeight = 30,
+
+    -- Generic text input spacing
+    inputPaddingX = 10,
+    inputCaretWidth = 2,
+    inputCaretOffsetX = 2,
 }
 
 -- Typeface configuration
@@ -241,6 +246,44 @@ function Theme.drawButton(x, y, w, h, label, state, font)
     local textHeight = font:getHeight()
     love.graphics.setColor(textColor[1], textColor[2], textColor[3], textColor[4] or 1)
     love.graphics.printf(label, x, y + (h - textHeight) * 0.5, w, "center")
+end
+
+function Theme.drawInputField(rect, text, isActive, font, caretVisible)
+    local spacing = Theme.spacing
+    local shapes = Theme.shapes
+    font = font or Theme.getFont("button")
+    love.graphics.setFont(font)
+
+    local state = isActive and "active" or "default"
+    local fillColor, outlineColor = Theme.getButtonColors(state)
+
+    love.graphics.setColor(fillColor)
+    love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, shapes.buttonRounding or 0,
+        shapes.buttonRounding or 0)
+    love.graphics.setColor(outlineColor)
+    love.graphics.setLineWidth(shapes.outlineWidth or 1)
+    love.graphics.rectangle("line", rect.x, rect.y, rect.w, rect.h, shapes.buttonRounding or 0,
+        shapes.buttonRounding or 0)
+
+    love.graphics.setColor(Theme.colors.textPrimary)
+    local paddingX = spacing.inputPaddingX or 10
+    local textX = rect.x + paddingX
+    local textY = rect.y + (rect.h - font:getHeight()) * 0.5
+    local maxWidth = rect.w - paddingX * 2
+    local value = text or ""
+    love.graphics.printf(value, textX, textY, maxWidth, "left")
+
+    local shouldDrawCaret = isActive and (caretVisible ~= false)
+    if shouldDrawCaret then
+        local caretWidth = spacing.inputCaretWidth or 2
+        local caretOffsetX = spacing.inputCaretOffsetX or 2
+        local textWidth = font:getWidth(value)
+        local caretX = textX + textWidth + caretOffsetX
+        local caretY = textY
+        local caretHeight = font:getHeight()
+        love.graphics.setColor(Theme.colors.button.outlineActive)
+        love.graphics.rectangle("fill", caretX, caretY, caretWidth, caretHeight)
+    end
 end
 
 return Theme
