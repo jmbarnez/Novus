@@ -1,12 +1,14 @@
 local Theme = require "src.ui.theme"
 local Window = require "src.ui.hud.window"
 local SoundManager = require "src.managers.sound_manager"
+local SaveManager = require "src.managers.save_manager"
 local Config = require "src.config"
 
 local PauseMenu = {}
 
 local buttons = {
     { label = "RESUME", action = "resume" },
+    { label = "SAVE GAME", action = "save" },
     { label = "SETTINGS", action = "settings" },
     { label = "MAIN MENU", action = "menu" },
 }
@@ -15,6 +17,12 @@ local settingsOpen = false
 local settingsState
 local settingsRects = {}
 local settingsActiveSlider
+local settingsWindow
+local settingsDragActive
+local settingsDragOffsetX
+local settingsDragOffsetY
+local saveOpen = false
+local saveRects = {}
 
 local function pointInRect(x, y, rect)
     return x >= rect.x and x <= rect.x + rect.w and y >= rect.y and y <= rect.y + rect.h
@@ -101,6 +109,26 @@ local function getSettingsWindowRect()
     local sw, sh = love.graphics.getDimensions()
     local width = math.min(420, sw * 0.6)
     local height = 320
+    
+    if settingsWindow then
+        local x = settingsWindow.x or (sw - width) * 0.5
+        local y = settingsWindow.y or (sh - height) * 0.5
+        settingsWindow.width = width
+        settingsWindow.height = height
+        return x, y, width, height
+    end
+
+    local x = (sw - width) * 0.5
+    local y = (sh - height) * 0.5
+
+    return x, y, width, height
+end
+
+local function getSaveWindowRect()
+    local sw, sh = love.graphics.getDimensions()
+    local width = math.min(420, sw * 0.6)
+    local height = 260
+
     local x = (sw - width) * 0.5
     local y = (sh - height) * 0.5
 
@@ -208,6 +236,7 @@ local function drawSettings()
     })
 
     settingsRects.close = layout.close
+    settingsRects.titleBar = layout.titleBar
 
     local content = layout.content
     local font = Theme.getFont("chat")
@@ -277,14 +306,92 @@ local function drawSettings()
     Theme.drawButton(nebulaRect.x, nebulaRect.y, nebulaRect.w, nebulaRect.h, label, state, font)
 end
 
+local function drawSaveWindow()
+    if not saveOpen then
+        return
+    end
+
+    local wx, wy, ww, wh = getSaveWindowRect()
+    local layout = Window.draw({
+        x = wx,
+        y = wy,
+        width = ww,
+        height = wh,
+        title = "Save Game",
+        bottomText = nil,
+        showClose = true,
+    })
+
+    saveRects.close = layout.close
+
+    local content = layout.content
+    local font = Theme.getFont("button")
+    love.graphics.setFont(font)
+    love.graphics.setColor(Theme.colors.textPrimary)
+
+    local buttonWidth = math.min(content.w - 40, 260)
+    local buttonHeight = Theme.spacing.buttonHeight or 42
+    local buttonSpacing = 12
+    local startX = content.x + (content.w - buttonWidth) * 0.5
+    local startY = content.y + 10
+
+    saveRects.slots = saveRects.slots or {}
+
+    for slot = 1, 3 do
+        local rectY = startY + (slot - 1) * (buttonHeight + buttonSpacing)
+        local rect = {
+            x = startX,
+            y = rectY,
+            w = buttonWidth,
+            h = buttonHeight,
+        }
+        saveRects.slots[slot] = rect
+
+        local hasSave = SaveManager.has_save(slot)
+        local label
+        if hasSave then
+            label = string.format("Slot %d - Overwrite", slot)
+        else
+            label = string.format("Slot %d - Empty", slot)
+        end
+
+        local mx, my = love.mouse.getPosition()
+        local hovered = mx >= rect.x and mx <= rect.x + rect.w and my >= rect.y and my <= rect.y + rect.h
+        local state = hovered and "hover" or "default"
+        Theme.drawButton(rect.x, rect.y, rect.w, rect.h, label, state, font)
+    end
+end
+
 function PauseMenu.update(dt)
     if not settingsOpen then
         settingsActiveSlider = nil
+        settingsDragActive = nil
         return
     end
 
     if not love.mouse.isDown(1) then
         settingsActiveSlider = nil
+        settingsDragActive = nil
+        return
+    end
+
+    if settingsDragActive then
+        local mx, my = love.mouse.getPosition()
+        local sw, sh = love.graphics.getDimensions()
+        local _, _, ww, wh = getSettingsWindowRect()
+
+        local new_x = mx - (settingsDragOffsetX or 0)
+        local new_y = my - (settingsDragOffsetY or 0)
+
+        new_x = math.max(0, math.min(new_x, sw - ww))
+        new_y = math.max(0, math.min(new_y, sh - wh))
+
+        settingsWindow = settingsWindow or {}
+        settingsWindow.x = new_x
+        settingsWindow.y = new_y
+        settingsWindow.width = ww
+        settingsWindow.height = wh
+
         return
     end
 
@@ -364,7 +471,7 @@ function PauseMenu.draw()
     end
 
     local prevHovered = PauseMenu._hoveredIndex
-    if settingsOpen then
+    if settingsOpen or saveOpen then
         hoveredIndex = nil
         PauseMenu._hoveredIndex = nil
     else
@@ -375,6 +482,7 @@ function PauseMenu.draw()
     end
 
     drawSettings()
+    drawSaveWindow()
 
     love.graphics.setLineWidth(1)
     love.graphics.setColor(1, 1, 1, 1)
@@ -385,6 +493,26 @@ function PauseMenu.mousepressed(x, y, button)
         return nil
     end
 
+    if saveOpen then
+        local closeRect = saveRects.close
+        if closeRect and pointInRect(x, y, closeRect) then
+            saveOpen = false
+            return nil
+        end
+
+        if saveRects.slots then
+            for slot = 1, 3 do
+                local rect = saveRects.slots[slot]
+                if rect and pointInRect(x, y, rect) then
+                    saveOpen = false
+                    return string.format("save_slot_%d", slot)
+                end
+            end
+        end
+
+        return nil
+    end
+
     if settingsOpen then
         ensureSettingsState()
 
@@ -392,6 +520,7 @@ function PauseMenu.mousepressed(x, y, button)
         if closeRect and pointInRect(x, y, closeRect) then
             settingsOpen = false
             settingsActiveSlider = nil
+            settingsDragActive = nil
             return nil
         end
 
@@ -412,6 +541,20 @@ function PauseMenu.mousepressed(x, y, button)
             end
             return nil
         end
+
+        local wx, wy, ww, wh = getSettingsWindowRect()
+        local layout = Window.getLayout({ x = wx, y = wy, width = ww, height = wh })
+        local tb = layout.titleBar
+        if tb and pointInRect(x, y, tb) then
+            settingsDragActive = true
+            settingsDragOffsetX = x - wx
+            settingsDragOffsetY = y - wy
+
+            settingsWindow = settingsWindow or {}
+            settingsWindow.width = ww
+            settingsWindow.height = wh
+            return nil
+        end
         return nil
     end
 
@@ -421,6 +564,10 @@ function PauseMenu.mousepressed(x, y, button)
     for i, rect in ipairs(buttonRects) do
         if pointInRect(x, y, rect) then
             local data = buttons[i]
+            if data and data.action == "save" then
+                saveOpen = true
+                return nil
+            end
             if data and data.action == "settings" then
                 settingsOpen = true
                 ensureSettingsState()
@@ -441,6 +588,8 @@ end
 function PauseMenu.reset()
     settingsOpen = false
     settingsActiveSlider = nil
+    settingsDragActive = nil
+    saveOpen = false
 end
 
 return PauseMenu

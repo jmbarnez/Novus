@@ -5,6 +5,7 @@ local EntityUtils   = require "src.utils.entity_utils"
 local Client        = require "src.network.client"
 local Protocol      = require "src.network.protocol"
 local ShipSystem    = require "src.ecs.spawners.ship"
+local StationManager= require "src.ecs.spawners.station"
 local Concord       = require "lib.concord.concord"
 
 local PlayNetwork = {}
@@ -303,6 +304,18 @@ local function spawnNetworkEntity(self, state, is_me)
             entity:give("physics", body, nil, nil)
             if state.vx and state.vy then body:setLinearVelocity(state.vx, state.vy) end
             if state.angular_velocity then body:setAngularVelocity(state.angular_velocity) end
+        end
+
+    elseif state.type == "station" then
+        entity = StationManager.spawn(self.world, "starter_station", state.x, state.y)
+        if entity then
+            if entity.transform then
+                entity.transform.r = state.r or 0
+            end
+            if entity.sector then
+                entity.sector.x = state.sx or 0
+                entity.sector.y = state.sy or 0
+            end
         end
     end
 
@@ -611,7 +624,7 @@ function PlayNetwork.startHosting(self)
         end
 
         for _, e in ipairs(self.world:getEntities()) do
-            if (e.asteroid or e.asteroid_chunk or e.projectile or e.vehicle or e.item) and not e.network_id then
+            if (e.asteroid or e.asteroid_chunk or e.projectile or e.vehicle or e.item or e.station) and not e.network_id then
                 e.network_id = Server.next_network_id
                 Server.next_network_id = Server.next_network_id + 1
             end

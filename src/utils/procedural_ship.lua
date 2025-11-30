@@ -1,4 +1,5 @@
 local Config = require "src.config"
+local ShipProceduralConfig = require "src.data.procedural_ship_config"
 
 local ProceduralShip = {}
 
@@ -327,8 +328,11 @@ end
 local function generateEngines(rng, hull_points, length, width)
     local engines = {}
 
-    -- Ships have 2-4 engines at the rear
-    local num_engines = rng:random(2, 4)
+    -- Ships have a configurable number of engines at the rear
+    local num_engines = rng:random(
+        ShipProceduralConfig.ENGINES.MIN_COUNT,
+        ShipProceduralConfig.ENGINES.MAX_COUNT
+    )
     local rear_x = -length * (0.45 + rng:random() * 0.12)
     local engine_width = width * (0.12 + rng:random() * 0.08)
 
@@ -538,7 +542,10 @@ end
 -- Generate panel lines / details
 local function generatePanelLines(rng, length, width)
     local lines = {}
-    local num_lines = rng:random(4, 8)
+    local num_lines = rng:random(
+        ShipProceduralConfig.PANEL_LINES.MIN_COUNT,
+        ShipProceduralConfig.PANEL_LINES.MAX_COUNT
+    )
 
     for i = 1, num_lines do
         local line_type = rng:random(1, 3)
@@ -591,18 +598,20 @@ function ProceduralShip.generate(seed)
     local length
     local width
 
-    if size_roll < 0.33 then
-        length = 22 + rng:random() * 16        -- small interceptor / scout
-        width = 12 + rng:random() * 10
-    elseif size_roll < 0.66 then
-        length = 26 + rng:random() * 20        -- medium fighter
-        width = 16 + rng:random() * 14
+    local size_cfg = ShipProceduralConfig.SIZE
+
+    if size_roll < size_cfg.SMALL.PROBABILITY_CUTOFF then
+        length = size_cfg.SMALL.LENGTH_MIN + rng:random() * size_cfg.SMALL.LENGTH_VARIATION
+        width = size_cfg.SMALL.WIDTH_MIN + rng:random() * size_cfg.SMALL.WIDTH_VARIATION
+    elseif size_roll < size_cfg.MEDIUM.PROBABILITY_CUTOFF then
+        length = size_cfg.MEDIUM.LENGTH_MIN + rng:random() * size_cfg.MEDIUM.LENGTH_VARIATION
+        width = size_cfg.MEDIUM.WIDTH_MIN + rng:random() * size_cfg.MEDIUM.WIDTH_VARIATION
     else
-        length = 32 + rng:random() * 22        -- heavy gunship
-        width = 20 + rng:random() * 18
+        length = size_cfg.LARGE.LENGTH_MIN + rng:random() * size_cfg.LARGE.LENGTH_VARIATION
+        width = size_cfg.LARGE.WIDTH_MIN + rng:random() * size_cfg.LARGE.WIDTH_VARIATION
     end
 
-    local radius = math.max(length, width) * 0.5 -- Bounding radius for physics
+    local radius = math.max(length, width) * size_cfg.RADIUS_MULTIPLIER -- Bounding radius for physics
 
     -- Generate ship components
     local hull_points = generateSpaceshipHull(rng, length, width)
@@ -612,7 +621,7 @@ function ProceduralShip.generate(seed)
     local panel_lines = generatePanelLines(rng, length, width)
 
     -- Color scheme
-    local color_schemes = { "warm", "cool", "neutral", "vibrant" }
+    local color_schemes = ShipProceduralConfig.COLOR_SCHEMES or { "warm", "cool", "neutral", "vibrant" }
     local scheme = color_schemes[rng:random(1, #color_schemes)]
 
     local base_color = randomColor(rng, scheme)
@@ -625,32 +634,28 @@ function ProceduralShip.generate(seed)
     detail_color[3] = detail_color[3] * 0.7
 
     -- Stats based on size/randomness
-    local class_mass_mult
-    local class_hp_mult
-    local class_shield_mult
-    local class_speed_mult
+    local class_multipliers
 
-    if length < 30 then
-        class_mass_mult = 0.85
-        class_hp_mult = 0.9
-        class_shield_mult = 0.8
-        class_speed_mult = 1.2
-    elseif length < 40 then
-        class_mass_mult = 1.0
-        class_hp_mult = 1.0
-        class_shield_mult = 1.0
-        class_speed_mult = 1.0
+    if length < ShipProceduralConfig.CLASS_BREAKPOINTS.SMALL_MAX_LENGTH then
+        class_multipliers = ShipProceduralConfig.CLASS_MULTIPLIERS.SMALL
+    elseif length < ShipProceduralConfig.CLASS_BREAKPOINTS.MEDIUM_MAX_LENGTH then
+        class_multipliers = ShipProceduralConfig.CLASS_MULTIPLIERS.MEDIUM
     else
-        class_mass_mult = 1.35
-        class_hp_mult = 1.4
-        class_shield_mult = 1.5
-        class_speed_mult = 0.8
+        class_multipliers = ShipProceduralConfig.CLASS_MULTIPLIERS.LARGE
     end
 
-    local mass = class_mass_mult * (1 + (radius / 15))
-    local max_hull = math.floor((50 + rng:random(100)) * class_hp_mult)
-    local max_shield = math.floor((20 + rng:random(80)) * class_shield_mult)
-    local speed_mult = class_speed_mult * (1.5 - (radius / 40)) -- Smaller is faster
+    local mass = class_multipliers.MASS * (1 + (radius / ShipProceduralConfig.STATS.MASS_RADIUS_DIVISOR))
+    local max_hull = math.floor((
+        ShipProceduralConfig.STATS.HULL_BASE
+            + rng:random(ShipProceduralConfig.STATS.HULL_RANDOM_MAX)
+    ) * class_multipliers.HP)
+    local max_shield = math.floor((
+        ShipProceduralConfig.STATS.SHIELD_BASE
+            + rng:random(ShipProceduralConfig.STATS.SHIELD_RANDOM_MAX)
+    ) * class_multipliers.SHIELD)
+    local speed_mult = class_multipliers.SPEED
+        * (ShipProceduralConfig.STATS.SPEED_RADIUS_SCALE
+            - (radius / ShipProceduralConfig.STATS.SPEED_RADIUS_DIVISOR)) -- Smaller is faster
 
     -- Engine mounts for trail system (use actual engine positions)
     local engine_mounts = {}
@@ -678,7 +683,7 @@ function ProceduralShip.generate(seed)
         -- Physics
         mass = mass,
         linear_damping = Config.LINEAR_DAMPING,
-        restitution = 0.2,
+        restitution = ShipProceduralConfig.PHYSICS.RESTITUTION,
         radius = radius,
 
         -- Vehicle
@@ -689,14 +694,14 @@ function ProceduralShip.generate(seed)
         -- Stats
         max_hull = max_hull,
         max_shield = max_shield,
-        shield_regen = 5,
+        shield_regen = ShipProceduralConfig.STATS.SHIELD_REGEN,
 
         -- Loadout / capacity
-        weapon_name = "pulse_laser",
+        weapon_name = ShipProceduralConfig.LOADOUT.WEAPON_NAME,
         weapon_mounts = weapon_mounts,
-        cargo_capacity = 50,
-        magnet_radius = 100,
-        magnet_force = 20,
+        cargo_capacity = ShipProceduralConfig.LOADOUT.CARGO_CAPACITY,
+        magnet_radius = ShipProceduralConfig.LOADOUT.MAGNET_RADIUS,
+        magnet_force = ShipProceduralConfig.LOADOUT.MAGNET_FORCE,
 
         engine_mounts = engine_mounts,
 

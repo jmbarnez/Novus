@@ -97,6 +97,40 @@ local function getJoinDialogLayout()
     }
 end
 
+local function getLoadDialogLayout()
+	local sw, sh = love.graphics.getDimensions()
+	local boxWidth = 420
+	local boxHeight = 260
+	local boxX = (sw - boxWidth) / 2
+	local boxY = (sh - boxHeight) / 2
+
+	local buttonWidth = 260
+	local buttonHeight = Theme.spacing.buttonHeight or 42
+	local buttonSpacing = 12
+	local startX = boxX + (boxWidth - buttonWidth) * 0.5
+	local startY = boxY + 70
+
+	local slotRects = {}
+	for slot = 1, 3 do
+		local y = startY + (slot - 1) * (buttonHeight + buttonSpacing)
+		slotRects[slot] = {
+			x = startX,
+			y = y,
+			w = buttonWidth,
+			h = buttonHeight,
+		}
+	end
+
+	return {
+		boxX = boxX,
+		boxY = boxY,
+		boxWidth = boxWidth,
+		boxHeight = boxHeight,
+		titleY = boxY + 20,
+		slotRects = slotRects,
+	}
+end
+
 local MenuState = {}
 
 function MenuState:enter()
@@ -136,9 +170,9 @@ function MenuState:enter()
         {
             label = "LOAD GAME",
             action = function()
-                if SaveManager.has_save(1) then
-                    Gamestate.switch(require("src.states.play"), { mode = "load", slot = 1 })
-                end
+				self.load_menu_open = true
+				self.load_hovered_slot = nil
+				self.load_active_slot = nil
             end,
         },
     }
@@ -157,6 +191,9 @@ function MenuState:enter()
     self.ip_input = "localhost"
     self.cursor_blink_time = 0
     self.cursor_visible = true
+	self.load_menu_open = false
+	self.load_hovered_slot = nil
+	self.load_active_slot = nil
 end
 
 function MenuState:update(dt)
@@ -181,8 +218,40 @@ function MenuState:update(dt)
     self:updateButtonLayout()
 
     local mouseX, mouseY = love.mouse.getPosition()
+    local isDown = love.mouse.isDown(1)
 
-    -- Don't process button hovers/clicks when IP input dialog is open
+    if self.load_menu_open then
+		local prevHoveredSlot = self.load_hovered_slot
+		self.load_hovered_slot = nil
+		local layout = getLoadDialogLayout()
+		for slot, rect in ipairs(layout.slotRects) do
+			if pointInRect(mouseX, mouseY, rect) then
+				self.load_hovered_slot = slot
+				break
+			end
+		end
+
+		if self.load_hovered_slot and self.load_hovered_slot ~= prevHoveredSlot and SaveManager.has_save(self.load_hovered_slot) then
+			SoundManager.play_sound("button_hover")
+		end
+
+		if isDown and not self.mouseWasDown then
+			self.load_active_slot = self.load_hovered_slot
+		elseif not isDown and self.mouseWasDown then
+			if self.load_active_slot and self.load_hovered_slot == self.load_active_slot then
+				local slot = self.load_active_slot
+				if SaveManager.has_save(slot) then
+					SoundManager.play_sound("button_click")
+					Gamestate.switch(require("src.states.play"), { mode = "load", slot = slot })
+				end
+			end
+			self.load_active_slot = nil
+		end
+
+		self.mouseWasDown = isDown
+		return
+    end
+
     if not self.ip_input_mode then
         self.hoveredButton = nil
         for index, rect in ipairs(self.buttonRects) do
@@ -194,8 +263,6 @@ function MenuState:update(dt)
     else
         self.hoveredButton = nil
     end
-
-    local isDown = love.mouse.isDown(1)
 
     if self.ip_input_mode then
         local layout = getJoinDialogLayout()
@@ -441,6 +508,54 @@ function MenuState:draw()
         love.graphics.setColor(buttonColors.outlineActive)
         local textWidth = self.fontButton:getWidth(nameText)
         love.graphics.rectangle("fill", nameX + 10 + textWidth + 2, fieldY + 10, 2, 20)
+    end
+
+    if self.load_menu_open then
+        love.graphics.setColor(0, 0, 0, 0.7)
+        love.graphics.rectangle("fill", 0, 0, sw, sh)
+
+        local layout = getLoadDialogLayout()
+        local boxX = layout.boxX
+        local boxY = layout.boxY
+        local boxWidth = layout.boxWidth
+        local boxHeight = layout.boxHeight
+        local rounding = Theme.shapes.buttonRounding or 0
+        local outlineWidth = Theme.shapes.outlineWidth or 1.5
+
+        local bgColor = Theme.getBackgroundColor()
+        local buttonColors2 = Theme.colors.button
+        local textPrimary2 = Theme.colors.textPrimary
+
+        love.graphics.setColor(bgColor)
+        love.graphics.rectangle("fill", boxX, boxY, boxWidth, boxHeight, rounding, rounding)
+        love.graphics.setLineWidth(outlineWidth)
+        love.graphics.setColor(buttonColors2.outline)
+        love.graphics.rectangle("line", boxX, boxY, boxWidth, boxHeight, rounding, rounding)
+
+        love.graphics.setColor(textPrimary2)
+        love.graphics.setFont(self.fontButton)
+        love.graphics.printf("Load Game", boxX, layout.titleY, boxWidth, "center")
+
+        for slot, rect in ipairs(layout.slotRects) do
+            local hasSave = SaveManager.has_save(slot)
+            local label
+            if hasSave then
+                label = string.format("Slot %d - Continue", slot)
+            else
+                label = string.format("Slot %d - Empty", slot)
+            end
+
+            local hovered = (self.load_hovered_slot == slot) and hasSave
+            local active = love.mouse.isDown(1) and self.load_active_slot == slot and hasSave
+            local stateButton = "default"
+            if active then
+                stateButton = "active"
+            elseif hovered then
+                stateButton = "hover"
+            end
+
+            Theme.drawButton(rect.x, rect.y, rect.w, rect.h, label, stateButton, self.fontButton)
+        end
     end
 
     love.graphics.setLineWidth(1)

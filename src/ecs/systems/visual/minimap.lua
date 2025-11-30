@@ -111,10 +111,22 @@ function MinimapSystem:draw()
                         elseif e.vehicle then
                             if e == target_entity then
                                 love.graphics.setColor(0, 1, 0, 1)
-                            else
+                            elseif e.ai then
                                 love.graphics.setColor(1, 0, 0, 1)
+                            else
+                                love.graphics.setColor(0.25, 0.6, 1.0, 1)
                             end
                             love.graphics.circle("fill", draw_x, draw_y, 4)
+
+                            if e ~= target_entity and not e.ai and e.name and e.name.value then
+                                local name = e.name.value
+                                local font = love.graphics.getFont()
+                                local text_w = font:getWidth(name)
+                                local text_h = font:getHeight()
+
+                                love.graphics.setColor(1, 1, 1, 0.9)
+                                love.graphics.print(name, draw_x - text_w * 0.5, draw_y - 4 - text_h - 2)
+                            end
                         end
                     end
                 end

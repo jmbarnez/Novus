@@ -255,6 +255,8 @@ function Protocol.createEntityState(entity)
         state.type = "projectile"
     elseif entity.item then
         state.type = "item"
+    elseif entity.station then
+        state.type = "station"
     end
 
     -- Add HP if exists

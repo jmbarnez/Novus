@@ -141,7 +141,7 @@ Theme.spacing = {
     -- Cargo window
     cargoWindowWidth = 720,
     cargoWindowHeight = 420,
-    cargoSlotSize = 64,
+    cargoSlotSize = 128,
     cargoSlotGap = 8,
     cargoCapacityBarWidth = 150,
     cargoCapacityBarHeight = 14,

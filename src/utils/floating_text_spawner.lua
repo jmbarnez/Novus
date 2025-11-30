@@ -54,9 +54,12 @@ local function findNearbyDamageText(world, x, y, color)
 end
 
 local function parsePlus(text)
-	local amount, label = string.match(text or "", "^%+(%d+)%s+(.+)$")
-	if amount then
-		return tonumber(amount), label
+	local amountStr, label = string.match(text or "", "^%+(%d*%.?%d+)%s+(.+)$")
+	if amountStr and label then
+		local amount = tonumber(amountStr)
+		if amount then
+			return amount, label
+		end
 	end
 	return nil, nil
 end
@@ -123,7 +126,7 @@ function FloatingTextSpawner.spawn(world, text, x, y, color)
 			local ft = existingPlus.floating_text
 			local currentAmount = select(1, parsePlus(ft.text)) or 0
 			local total = currentAmount + plusAmount
-			ft.text = "+" .. tostring(total) .. " " .. plusLabel
+			ft.text = string.format("+%.1f %s", total, plusLabel)
 			ft.elapsed = 0
 			return existingPlus
 		end

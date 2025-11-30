@@ -70,8 +70,8 @@ function Window.draw(opts)
     love.graphics.setColor(bg[1], bg[2], bg[3], 0.94)
     love.graphics.rectangle("fill", x, y, width, height, cornerRadius, cornerRadius)
 
-    local _, outlineColor = Theme.getButtonColors("default")
-    love.graphics.setColor(outlineColor)
+    local _, outlineColorDefault = Theme.getButtonColors("default")
+    love.graphics.setColor(outlineColorDefault)
     love.graphics.setLineWidth(1)
     love.graphics.rectangle("line", x, y, width, height, cornerRadius, cornerRadius)
 
@@ -112,7 +112,12 @@ function Window.draw(opts)
 
     if showClose then
         local r = layout.close
-        love.graphics.setColor(Theme.colors.window.closeBg)
+        local mx, my = love.mouse.getPosition()
+        local hovered = mx >= r.x and mx <= r.x + r.w and my >= r.y and my <= r.y + r.h
+        local state = hovered and "hover" or "default"
+        local fillColor, outlineColor = Theme.getButtonColors(state)
+
+        love.graphics.setColor(fillColor)
         love.graphics.rectangle("fill", r.x, r.y, r.w, r.h, closeCornerRadius, closeCornerRadius)
 
         love.graphics.setColor(outlineColor)

@@ -1,5 +1,8 @@
 local Theme = require "src.ui.theme"
 local Window = require "src.ui.hud.window"
+local ItemSpawners = require "src.ecs.spawners.item"
+local ItemDefinitions = require "src.data.items"
+local FloatingTextSpawner = require "src.utils.floating_text_spawner"
 
 local CargoPanel = {}
 
@@ -189,12 +192,11 @@ function CargoPanel.draw(world, player)
         return
     end
 
-    local slotSize = spacing.cargoSlotSize or 64 -- Increased from 32 to fit icon + text
+    local slotSize = spacing.cargoSlotSize or 96 -- Increased from 32 to fit icon + text
     local slotGap = spacing.cargoSlotGap or 8
     local cols = math.max(1, math.floor((cw + slotGap) / (slotSize + slotGap)))
 
     -- Load item definitions for rendering icons
-    local ItemDefinitions = require "src.data.items"
 
     local drag = ui and ui.cargo_item_drag
     local drag_index = drag and drag.active and drag.index or nil
@@ -205,7 +207,7 @@ function CargoPanel.draw(world, player)
         local item_def = ItemDefinitions[it.name:lower()]
         if item_def and item_def.render then
             love.graphics.push()
-            love.graphics.translate(sx + slotSize * 0.5, sy + slotSize * 0.4)
+            love.graphics.translate(sx + slotSize * 0.5, sy + slotSize * 0.5)
 
             local cache_key = it.name:lower()
             local vertices = icon_shape_cache[cache_key]
@@ -216,7 +218,8 @@ function CargoPanel.draw(world, player)
 
             local color = item_def.render.color or { 0.6, 0.6, 0.65, 1 }
 
-            local scale = 3.0
+            local baseSlotSize = 64
+            local scale = (slotSize / baseSlotSize) * 3.0
             love.graphics.push()
             love.graphics.scale(scale, scale)
 
@@ -232,28 +235,26 @@ function CargoPanel.draw(world, player)
             love.graphics.pop()
         end
 
-        local stack_volume = it.volume or 0
-        if stack_volume == 0 then
-            local unit_volume = 1.0
-            if item_def and item_def.volume then
-                unit_volume = item_def.volume
-            end
-            stack_volume = unit_volume * (it.count or 0)
-        end
-        local volumeText = string.format("%.1f m3", stack_volume)
-        local volumeW = fontText:getWidth(volumeText)
-        local volumeH = fontText:getHeight()
+        local amount = it.count or 0
+        local amountText = tostring(amount)
+        local amountW = fontText:getWidth(amountText)
+        local amountH = fontText:getHeight()
 
         love.graphics.setColor(0, 0, 0, 0.7)
-        love.graphics.rectangle("fill", sx + slotSize - volumeW - 4, sy + 2, volumeW + 4, volumeH + 2, 1, 1)
+        love.graphics.rectangle("fill",
+            sx + (slotSize - amountW) * 0.5 - 2,
+            sy + 2,
+            amountW + 4,
+            amountH + 2,
+            1, 1)
 
         love.graphics.setColor(cColors.textCount)
-        love.graphics.print(volumeText, sx + slotSize - volumeW - 2, sy + 2)
+        love.graphics.print(amountText, sx + (slotSize - amountW) * 0.5, sy + 2)
 
         local nameText = it.name
         local nameW = fontText:getWidth(nameText)
         local nameX = sx + (slotSize - nameW) * 0.5
-        local nameY = sy + slotSize - volumeH - 2
+        local nameY = sy + slotSize - amountH - 2
 
         love.graphics.setColor(cColors.textName)
         love.graphics.print(nameText, nameX, nameY)
@@ -376,6 +377,8 @@ function CargoPanel.mousereleased(x, y, button, world)
         local slots = ui.cargo_slots or {}
         local order = ui.cargo_item_order or {}
 
+        local wx, wy, ww, wh = CargoPanel.getWindowRect(world)
+
         local target_index
         for index, slot in ipairs(slots) do
             if x >= slot.x and x <= slot.x + slot.w and y >= slot.y and y <= slot.y + slot.h then
@@ -385,7 +388,75 @@ function CargoPanel.mousereleased(x, y, button, world)
         end
 
         local from_index = drag.index
-        if target_index and from_index and from_index ~= target_index and order[from_index] then
+        local dropped_outside_window = not (x >= wx and x <= wx + ww and y >= wy and y <= wy + wh)
+
+        if not target_index and from_index and dropped_outside_window then
+            local slot = slots[from_index]
+            if slot and slot.item and world.local_ship and world.local_ship.cargo then
+                local ship = world.local_ship
+                local cargo = ship.cargo
+                local item_name = slot.item.name
+                local item_count = cargo.items and cargo.items[item_name] or 0
+                if item_count and item_count > 0 then
+                    local def_id
+                    local def
+                    for id, d in pairs(ItemDefinitions) do
+                        if d.name == item_name then
+                            def_id = id
+                            def = d
+                            break
+                        end
+                    end
+
+                    if def_id and def then
+                        local mx, my = x, y
+                        local world_x, world_y = mx, my
+                        if world.camera and world.camera.worldCoords then
+                            world_x, world_y = world.camera:worldCoords(mx, my)
+                        end
+
+                        local sector = ship.sector
+                        local sector_x = sector and sector.x or 0
+                        local sector_y = sector and sector.y or 0
+
+                        ItemSpawners.spawn_item(world, def_id, world_x, world_y, sector_x, sector_y, nil, nil)
+
+                        local unit_volume = def.volume or 1.0
+                        local unit_mass = (def.physics and def.physics.mass) or 0
+
+                        cargo.current = math.max(0, (cargo.current or 0) - unit_volume)
+                        cargo.mass = math.max(0, (cargo.mass or 0) - unit_mass)
+
+                        cargo.items[item_name] = item_count - 1
+                        if cargo.items[item_name] <= 0 then
+                            cargo.items[item_name] = nil
+                            if cargo.item_volumes then
+                                cargo.item_volumes[item_name] = nil
+                            end
+                            for i, name in ipairs(order) do
+                                if name == item_name then
+                                    table.remove(order, i)
+                                    break
+                                end
+                            end
+                        else
+                            cargo.item_volumes = cargo.item_volumes or {}
+                            cargo.item_volumes[item_name] = math.max(0, (cargo.item_volumes[item_name] or 0) - unit_volume)
+                        end
+
+                        if ship.physics and ship.physics.body and unit_mass > 0 then
+                            local body = ship.physics.body
+                            local current_mass = body:getMass()
+                            body:setMass(math.max(0.1, current_mass - unit_mass))
+                        end
+
+                        local text = string.format("Jettisoned %s", tostring(item_name))
+                        local fx, fy = world_x, world_y
+                        FloatingTextSpawner.spawn(world, text, fx, fy, {1, 0.7, 0.2, 1})
+                    end
+                end
+            end
+        elseif target_index and from_index and from_index ~= target_index and order[from_index] then
             local name = table.remove(order, from_index)
             if name then
                 if target_index > #order + 1 then

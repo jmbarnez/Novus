@@ -14,7 +14,7 @@ function EnemyBehaviors.createBasicDrone()
         -- Combat: Has target and in range -> Attack
         BehaviorTree.Sequence:new({
             Conditions.HasTarget(),
-            Conditions.TargetInRange(800),
+            Conditions.TargetInRange(500),
             Actions.AttackTarget()
         }),
 
@@ -42,7 +42,7 @@ function EnemyBehaviors.createAggressiveFighter()
             BehaviorTree.Selector:new({
                 -- Attack if in range
                 BehaviorTree.Sequence:new({
-                    Conditions.TargetInRange(1000),
+                    Conditions.TargetInRange(500),
                     Actions.AttackTarget()
                 }),
                 -- Otherwise chase
@@ -65,7 +65,7 @@ function EnemyBehaviors.createDefensiveSentry()
         -- Attack if target is very close
         BehaviorTree.Sequence:new({
             Conditions.HasTarget(),
-            Conditions.TargetInRange(600),
+            Conditions.TargetInRange(500),
             Actions.AttackTarget()
         }),
 
@@ -84,7 +84,7 @@ function EnemyBehaviors.createSniper()
         -- Attack from distance
         BehaviorTree.Sequence:new({
             Conditions.HasTarget(),
-            Conditions.TargetInRange(1200),
+            Conditions.TargetInRange(500),
             Actions.AttackTarget()
         }),
 

@@ -30,7 +30,7 @@ function ShipDeathSystem:update(dt)
             end
 
             if not is_local_ship and e.transform then
-                SoundManager.play_sound_at("ship_explosion", e.transform.x, e.transform.y, { maxDistance = 3200 })
+                SoundManager.play_sound_at("ship_explosion", e.transform.x, e.transform.y, { volume = 0.7, maxDistance = 2000, rolloff = 2.0 })
             end
 
             if not is_pure_client then

@@ -1,22 +1,23 @@
-local Gamestate     = require "lib.hump.gamestate"
-local baton         = require "lib.baton"
-local Camera        = require "lib.hump.camera"
-local Concord       = require "lib.concord.concord"
-local Config        = require "src.config"
-local Background    = require "src.rendering.background"
-local HUD           = require "src.ui.hud.hud"
-local Chat          = require "src.ui.hud.chat"
-local PauseMenu     = require "src.ui.pause_menu"
-local Theme         = require "src.ui.theme"
-local SaveManager   = require "src.managers.save_manager"
-local Window        = require "src.ui.hud.window"
-local CargoPanel    = require "src.ui.hud.cargo_panel"
-local MapPanel      = require "src.ui.hud.map_panel"
-local Client        = require "src.network.client"
-local Protocol      = require "src.network.protocol"
-local PlayNetwork   = require "src.states.play_network"
-local SectorManager = require "src.managers.sector_manager"
-local SoundManager  = require "src.managers.sound_manager"
+local Gamestate           = require "lib.hump.gamestate"
+local baton               = require "lib.baton"
+local Camera              = require "lib.hump.camera"
+local Concord             = require "lib.concord.concord"
+local Config              = require "src.config"
+local Background          = require "src.rendering.background"
+local HUD                 = require "src.ui.hud.hud"
+local Chat                = require "src.ui.hud.chat"
+local PauseMenu           = require "src.ui.pause_menu"
+local Theme               = require "src.ui.theme"
+local SaveManager         = require "src.managers.save_manager"
+local Window              = require "src.ui.hud.window"
+local CargoPanel          = require "src.ui.hud.cargo_panel"
+local MapPanel            = require "src.ui.hud.map_panel"
+local Client              = require "src.network.client"
+local Protocol            = require "src.network.protocol"
+local PlayNetwork         = require "src.states.play_network"
+local SectorManager       = require "src.managers.sector_manager"
+local SoundManager        = require "src.managers.sound_manager"
+local FloatingTextSpawner = require "src.utils.floating_text_spawner"
 
 require "src.ecs.components"
 
@@ -101,6 +102,30 @@ local function getSpawnParamsFromSnapshot(snapshot, default_ship_name)
     end
 
     return spawn_x, spawn_y, ship_name, sector_x, sector_y
+end
+
+local function showSaveFeedback(world, slot, ok)
+    if not world then
+        return
+    end
+
+    local ship = world.local_ship
+    if ship and ship.transform then
+        local x = ship.transform.x or 0
+        local y = ship.transform.y or 0
+        local text
+        local color
+        if ok then
+            text = string.format("Game saved (slot %d)", slot or 1)
+            color = { 0.3, 1.0, 0.6, 1.0 }
+        else
+            text = "Save failed"
+            color = { 1.0, 0.3, 0.3, 1.0 }
+        end
+        FloatingTextSpawner.spawn(world, text, x, y, color)
+    end
+
+    SoundManager.play_sound("button_click")
 end
 
 --
@@ -286,7 +311,8 @@ function PlayState:keypressed(key)
             self.world.ui.cargo_drag.active = false
         end
     elseif key == "f6" then
-        SaveManager.save(1, self.world, self.player)
+        local ok = SaveManager.save(1, self.world, self.player)
+        showSaveFeedback(self.world, 1, ok)
     elseif key == "f9" then
         if SaveManager.has_save(1) then
             Gamestate.switch(PlayState, { mode = "load", slot = 1 })
@@ -306,6 +332,15 @@ function PlayState:mousepressed(x, y, button)
             self.isPaused = false
         elseif action == "menu" then
             Gamestate.switch(require("src.states.menu"))
+        elseif action == "save_slot_1" then
+            local ok = SaveManager.save(1, self.world, self.player)
+            showSaveFeedback(self.world, 1, ok)
+        elseif action == "save_slot_2" then
+            local ok = SaveManager.save(2, self.world, self.player)
+            showSaveFeedback(self.world, 2, ok)
+        elseif action == "save_slot_3" then
+            local ok = SaveManager.save(3, self.world, self.player)
+            showSaveFeedback(self.world, 3, ok)
         end
         return
     end

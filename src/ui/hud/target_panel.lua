@@ -102,12 +102,6 @@ function TargetPanel.draw(world, player)
 
     -- Stations: description + distance with docking hint
     if isStation then
-        if target.station and target.station.description and target.station.description ~= "" then
-            love.graphics.setColor(Theme.colors.textMuted)
-            love.graphics.print(target.station.description, cx, infoY)
-            infoY = infoY + textHeight
-        end
-
         if hasDistance then
             local dock_radius = (target.station_area and target.station_area.radius) or 0
             local inRange = (dock_radius > 0 and distanceValue <= dock_radius)

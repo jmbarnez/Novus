@@ -119,8 +119,22 @@ function MapPanel.draw(world, player)
                     love.graphics.setColor(0.40, 0.80, 1.00, 1.0)
                     love.graphics.rectangle("fill", px - 4, py - 4, 8, 8)
                 elseif e.vehicle then
-                    love.graphics.setColor(1.0, 0.25, 0.25, 1.0)
+                    if e.ai then
+                        love.graphics.setColor(1.0, 0.25, 0.25, 1.0)
+                    else
+                        love.graphics.setColor(0.25, 0.6, 1.0, 1.0)
+                    end
                     love.graphics.circle("fill", px, py, 3)
+
+                    if not e.ai and e ~= ship and e.name and e.name.value then
+                        local name = e.name.value
+                        local font = love.graphics.getFont()
+                        local text_w = font:getWidth(name)
+                        local text_h = font:getHeight()
+
+                        love.graphics.setColor(1.0, 1.0, 1.0, 0.9)
+                        love.graphics.print(name, px - text_w * 0.5, py - 3 - text_h - 2)
+                    end
                 elseif e.asteroid or e.asteroid_chunk then
                     love.graphics.setColor(0.70, 0.70, 0.70, 1.0)
                     love.graphics.circle("fill", px, py, 2)
@@ -150,6 +164,12 @@ function MapPanel.draw(world, player)
     love.graphics.circle("fill", legend_x + icon_radius, legend_y + line_h * 0.5, icon_radius)
     love.graphics.setColor(Theme.colors.textPrimary)
     love.graphics.print("You", legend_x + text_offset_x, legend_y)
+    legend_y = legend_y + line_h
+
+    love.graphics.setColor(0.25, 0.6, 1.0, 1.0)
+    love.graphics.circle("fill", legend_x + icon_radius, legend_y + line_h * 0.5, icon_radius - 1)
+    love.graphics.setColor(Theme.colors.textPrimary)
+    love.graphics.print("Remote Player", legend_x + text_offset_x, legend_y)
     legend_y = legend_y + line_h
 
     love.graphics.setColor(1.0, 0.25, 0.25, 1.0)

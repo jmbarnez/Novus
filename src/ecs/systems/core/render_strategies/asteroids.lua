@@ -180,6 +180,7 @@ function Asteroids.asteroid(e)
 
     if type(r) == "table" and r.vertices then
         poly = r.vertices
+        mesh = buildMeshForPolygon(key, poly)
     elseif isNetworkedAsteroid then
         love.graphics.circle("fill", 0, 0, radius)
         return
@@ -228,6 +229,7 @@ function Asteroids.asteroid_chunk(e)
 
     if type(r) == "table" and r.vertices then
         poly = r.vertices
+        mesh = buildMeshForPolygon(key, poly)
     else
         poly = asteroidShapes[key]
         if not poly then
