@@ -207,7 +207,14 @@ vec4 effect(vec4 vcolor, Image tex, vec2 texcoord, vec2 screen_coords) {
 
     float variation = mix(swirl, bands, clamp(colorVariation, 0.0, 1.0));
 
-    float density = baseRadial * (0.50 + 0.40 * variation) * densityScale * 0.6;
+    float ns = max(noiseScale, 0.35);
+    vec2 ncoord = rel * ns;
+    ncoord += vec2(uv.x * 2.3, uv.y * 1.7);
+    float shapeMask = nebulaShapeMask(ncoord);
+
+    float combinedMask = shapeMask * (0.35 + 0.65 * baseRadial);
+
+    float density = combinedMask * (0.50 + 0.40 * variation) * densityScale * 0.85;
 
     float slowPulse = 0.95 + 0.05 * sin(time * 0.16);
     density *= slowPulse;

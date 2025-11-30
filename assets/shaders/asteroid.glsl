@@ -123,7 +123,7 @@ vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords)
     finalColor = pow(finalColor, vec3(0.95));
 
     // Radial alpha mask to softly fade asteroid into background
-    float alphaMask = radialMask(uv);
+    float alphaMask = 1.0;
 
     return vec4(finalColor, color.a * alphaMask);
 }
