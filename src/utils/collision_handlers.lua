@@ -1,0 +1,93 @@
+local EntityUtils = require "src.utils.entity_utils"
+local ProjectileShatter = require "src/effects/projectile_shatter"
+local Client = require "src.network.client"
+local FloatingTextSpawner = require "src/utils/floating_text_spawner"
+
+local CollisionHandlers = {}
+
+-- Projectile vs Asteroid/Chunk/Enemy
+function CollisionHandlers.handle_projectile_hit(projectile, target, world)
+    if not (projectile and target and world) then return end
+
+    local proj_comp = projectile.projectile
+    if not proj_comp then return end
+
+    if target.projectile or target.projectile_shard then
+        return
+    end
+
+    local is_pure_client = (world and not world.hosting and Client.connected)
+    local is_local_owner = (world and world.local_ship and proj_comp.owner == world.local_ship)
+
+    if is_pure_client and not is_local_owner then
+        return
+    end
+
+    -- Get damage
+    local damage = proj_comp.damage or 0
+
+    if damage <= 0 then
+        return
+    end
+
+    -- Mark projectile as hit; ProjectileSystem will handle shatter + cleanup
+    proj_comp.hit_something = true
+
+    -- Apply damage
+    if target.vehicle and (target.hull or target.shield) then
+        -- Ships (players, enemies) with hull/shield
+        EntityUtils.apply_ship_damage(target, damage, proj_comp.owner, world)
+    elseif target.hp then
+        -- Generic HP entities, including asteroids and chunks
+        EntityUtils.apply_damage(target, damage, proj_comp.owner, world)
+    end
+end
+
+-- Item vs Collector
+function CollisionHandlers.handle_item_pickup(item, collector)
+    if not (item and collector) then return end
+    
+    local itemComp = item.item
+
+    if not itemComp then return end
+    
+    -- Logic for specific items
+    if itemComp.name == "Stone" then
+        if collector.cargo then
+            local cargo = collector.cargo
+            local item_vol = itemComp.volume or 1.0
+            
+            if (cargo.current + item_vol) <= cargo.capacity then
+                cargo.current = cargo.current + item_vol
+                cargo.items["Stone"] = (cargo.items["Stone"] or 0) + 1
+                cargo.item_volumes = cargo.item_volumes or {}
+                cargo.item_volumes[itemComp.name] = (cargo.item_volumes[itemComp.name] or 0) + item_vol
+
+                if collector.transform then
+                    local world = collector:getWorld()
+                    if world then
+                        local show_text = true
+                        if world.local_ship then
+                            show_text = (collector == world.local_ship)
+                        end
+                        if show_text then
+                            local vol_text = string.format("+%.1f m3 %s", item_vol, itemComp.name)
+                            FloatingTextSpawner.spawn(world, vol_text, collector.transform.x, collector.transform.y, {0, 1, 0, 1})
+                        end
+                    end
+                end
+
+            else
+                -- Cargo full
+                return 
+            end
+        end
+    end
+    
+    -- Mark item as collected; ItemSystem will handle cleanup
+    if item.item then
+        item.item.collected = true
+    end
+end
+
+return CollisionHandlers
