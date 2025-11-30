@@ -1,13 +1,14 @@
 ---@diagnostic disable: undefined-global
 
-local Gamestate    = require "lib.hump.gamestate"
-local Utils        = require "src.utils.utils"
-local Theme        = require "src.ui.theme"
-local Config       = require "src.config"
-local Background   = require "src.rendering.background"
-local NewGameState = require "src.states.newgame"
-local SaveManager  = require "src.managers.save_manager"
-local SoundManager = require "src.managers.sound_manager"
+local Gamestate     = require "lib.hump.gamestate"
+local Utils         = require "src.utils.utils"
+local Theme         = require "src.ui.theme"
+local Config        = require "src.config"
+local Background    = require "src.rendering.background"
+local NewGameState  = require "src.states.newgame"
+local SaveManager   = require "src.managers.save_manager"
+local SoundManager  = require "src.managers.sound_manager"
+local SettingsPanel = require "src.ui.settings_panel"
 
 local function pointInRect(x, y, rect)
     return x >= rect.x and x <= rect.x + rect.w and y >= rect.y and y <= rect.y + rect.h
@@ -182,6 +183,14 @@ function MenuState:enter()
             end,
         },
         {
+            label = "LOAD GAME",
+            action = function()
+                self.load_menu_open = true
+                self.load_hovered_slot = nil
+                self.load_active_slot = nil
+            end,
+        },
+        {
             label = "JOIN GAME",
             action = function()
                 self.ip_input_mode = true
@@ -191,11 +200,18 @@ function MenuState:enter()
             end,
         },
         {
-            label = "LOAD GAME",
+            label = "SETTINGS",
             action = function()
-                self.load_menu_open = true
-                self.load_hovered_slot = nil
-                self.load_active_slot = nil
+                self.settings_open = true
+                if SettingsPanel and SettingsPanel.reset then
+                    SettingsPanel.reset()
+                end
+            end,
+        },
+        {
+            label = "EXIT",
+            action = function()
+                love.event.quit()
             end,
         },
     }
@@ -217,6 +233,7 @@ function MenuState:enter()
     self.load_menu_open = false
     self.load_hovered_slot = nil
     self.load_active_slot = nil
+    self.settings_open = false
 end
 
 function MenuState:update(dt)
@@ -236,6 +253,14 @@ function MenuState:update(dt)
     if self.cursor_blink_time >= 0.5 then
         self.cursor_visible = not self.cursor_visible
         self.cursor_blink_time = 0
+    end
+
+    if self.settings_open then
+        if SettingsPanel and SettingsPanel.update then
+            SettingsPanel.update(dt)
+        end
+        self.mouseWasDown = love.mouse.isDown(1)
+        return
     end
 
     self:updateButtonLayout()
@@ -302,10 +327,8 @@ function MenuState:update(dt)
             local randomWidth = 140
             local totalWidth = fieldWidth + 12 + randomWidth
             local startX = (sw - totalWidth) * 0.5
-            local labelFont = Theme.getFont("button")
-            local labelH = labelFont:getHeight()
-            local labelY = sh * 0.8
-            local fieldY = labelY + labelH + 6
+            local bottomMargin = 60
+            local fieldY = sh - bottomMargin - fieldHeight
 
             local nameRect = { x = startX, y = fieldY, w = fieldWidth, h = fieldHeight }
             local randomRect = { x = startX + fieldWidth + 12, y = fieldY, w = randomWidth, h = fieldHeight }
@@ -486,8 +509,9 @@ function MenuState:draw()
     local startX = (sw2 - totalWidth) * 0.5
     local labelFont = self.fontButton
     local labelH = labelFont:getHeight()
-    local labelY = sh2 * 0.8
-    local fieldY = labelY + labelH + 6
+    local bottomMargin = 60
+    local fieldY = sh2 - bottomMargin - fieldHeight
+    local labelY = fieldY - labelH - 6
 
     local bgColor = Theme.getBackgroundColor()
     local buttonColors = Theme.colors.button
@@ -560,11 +584,26 @@ function MenuState:draw()
         end
     end
 
+    if self.settings_open and SettingsPanel and SettingsPanel.draw then
+        drawModalOverlay(sw, sh)
+        SettingsPanel.draw()
+    end
+
     love.graphics.setLineWidth(1)
     love.graphics.setColor(1, 1, 1, 1)
 end
 
 function MenuState:keypressed(key)
+    if self.settings_open then
+        if key == "escape" then
+            self.settings_open = false
+            if SettingsPanel and SettingsPanel.reset then
+                SettingsPanel.reset()
+            end
+        end
+        return
+    end
+
     if self.ip_input_mode then
         if key == "return" or key == "kpenter" then
             Gamestate.switch(require("src.states.play"), { mode = "join", host = self.ip_input })
@@ -605,6 +644,21 @@ function MenuState:textinput(t)
     if self.editing_display_name then
         self.display_name_input = (self.display_name_input or "") .. t
         Config.PLAYER_NAME = self.display_name_input
+    end
+end
+
+function MenuState:mousepressed(x, y, button, istouch, presses)
+    if self.settings_open and SettingsPanel and SettingsPanel.mousepressed then
+        local result = SettingsPanel.mousepressed(x, y, button)
+        if result == "close" then
+            self.settings_open = false
+            if SettingsPanel.reset then
+                SettingsPanel.reset()
+            end
+        end
+        if result then
+            return
+        end
     end
 end
 

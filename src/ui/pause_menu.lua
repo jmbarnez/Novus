@@ -2,7 +2,7 @@ local Theme = require "src.ui.theme"
 local Window = require "src.ui.hud.window"
 local SoundManager = require "src.managers.sound_manager"
 local SaveManager = require "src.managers.save_manager"
-local Config = require "src.config"
+local SettingsPanel = require "src.ui.settings_panel"
 
 local PauseMenu = {}
 
@@ -14,13 +14,6 @@ local buttons = {
 }
 
 local settingsOpen = false
-local settingsState
-local settingsRects = {}
-local settingsActiveSlider
-local settingsWindow
-local settingsDragActive
-local settingsDragOffsetX
-local settingsDragOffsetY
 local saveOpen = false
 local saveRects = {}
 
@@ -65,65 +58,6 @@ local function getLayout()
     }
 end
 
-local function ensureSettingsState()
-    if settingsState then
-        return
-    end
-
-    local master = 1
-    if love and love.audio and love.audio.getVolume then
-        master = love.audio.getVolume()
-    end
-
-    local music = 1
-    if SoundManager and SoundManager.get_music_volume then
-        music = SoundManager.get_music_volume() or music
-    end
-
-    local sfx = 1
-    if SoundManager and SoundManager.get_sfx_volume then
-        sfx = SoundManager.get_sfx_volume() or sfx
-    end
-
-    local nebulaEnabled = true
-    if Config and Config.BACKGROUND then
-        nebulaEnabled = Config.BACKGROUND.ENABLE_NEBULA ~= false
-    end
-
-    if master < 0 then master = 0 end
-    if master > 1 then master = 1 end
-    if music < 0 then music = 0 end
-    if music > 1 then music = 1 end
-    if sfx < 0 then sfx = 0 end
-    if sfx > 1 then sfx = 1 end
-
-    settingsState = {
-        masterVolume = master,
-        musicVolume = music,
-        sfxVolume = sfx,
-        nebulaEnabled = nebulaEnabled,
-    }
-end
-
-local function getSettingsWindowRect()
-    local sw, sh = love.graphics.getDimensions()
-    local width = math.min(420, sw * 0.6)
-    local height = 320
-    
-    if settingsWindow then
-        local x = settingsWindow.x or (sw - width) * 0.5
-        local y = settingsWindow.y or (sh - height) * 0.5
-        settingsWindow.width = width
-        settingsWindow.height = height
-        return x, y, width, height
-    end
-
-    local x = (sw - width) * 0.5
-    local y = (sh - height) * 0.5
-
-    return x, y, width, height
-end
-
 local function getSaveWindowRect()
     local sw, sh = love.graphics.getDimensions()
     local width = math.min(420, sw * 0.6)
@@ -133,177 +67,6 @@ local function getSaveWindowRect()
     local y = (sh - height) * 0.5
 
     return x, y, width, height
-end
-
-local function drawSlider(rect, value)
-    local c = Theme.colors.cargo
-    local shapes = Theme.shapes
-    local r = shapes.slotCornerRadius or 2
-
-    love.graphics.setColor(c.barBackground)
-    love.graphics.rectangle("fill", rect.x, rect.y, rect.w, rect.h, r, r)
-
-    local v = value or 0
-    if v < 0 then v = 0 end
-    if v > 1 then v = 1 end
-
-    if v > 0 then
-        love.graphics.setColor(c.barFill)
-        love.graphics.rectangle("fill", rect.x, rect.y, rect.w * v, rect.h, r, r)
-    end
-
-    love.graphics.setColor(c.barOutline)
-    love.graphics.setLineWidth(1)
-    love.graphics.rectangle("line", rect.x, rect.y, rect.w, rect.h, r, r)
-end
-
-local function drawSliderWithValue(rect, value)
-    drawSlider(rect, value)
-
-    local v = value or 0
-    if v < 0 then v = 0 end
-    if v > 1 then v = 1 end
-
-    local percent = math.floor(v * 100 + 0.5)
-    local label = tostring(percent) .. "%"
-
-    local font = Theme.getFont("chat")
-    love.graphics.setFont(font)
-    local tw = font:getWidth(label)
-    local th = font:getHeight()
-    local tx = rect.x + rect.w - tw - 4
-    local ty = rect.y + (rect.h - th) * 0.5
-
-    love.graphics.setColor(Theme.colors.textPrimary)
-    love.graphics.print(label, tx, ty)
-end
-
-local function applySliderValue(kind, t)
-    if t < 0 then t = 0 end
-    if t > 1 then t = 1 end
-
-    ensureSettingsState()
-
-    if kind == "master" then
-        settingsState.masterVolume = t
-        if SoundManager and SoundManager.set_global_volume then
-            SoundManager.set_global_volume(t)
-        end
-    elseif kind == "music" then
-        settingsState.musicVolume = t
-        if SoundManager and SoundManager.set_music_volume then
-            SoundManager.set_music_volume(t)
-        end
-    elseif kind == "sfx" then
-        settingsState.sfxVolume = t
-        if SoundManager and SoundManager.set_sfx_volume then
-            SoundManager.set_sfx_volume(t)
-        end
-    end
-end
-
-local function handleSliderClick(x, y, rect, kind)
-    if not rect or not pointInRect(x, y, rect) then
-        return false
-    end
-
-    local px = x
-    if px < rect.x then px = rect.x end
-    if px > rect.x + rect.w then px = rect.x + rect.w end
-
-    local t = (px - rect.x) / rect.w
-    applySliderValue(kind, t)
-    settingsActiveSlider = kind
-    return true
-end
-
-local function drawSettings()
-    if not settingsOpen then
-        return
-    end
-
-    ensureSettingsState()
-
-    local wx, wy, ww, wh = getSettingsWindowRect()
-    local layout = Window.draw({
-        x = wx,
-        y = wy,
-        width = ww,
-        height = wh,
-        title = "Settings",
-        bottomText = nil,
-        showClose = true,
-    })
-
-    settingsRects.close = layout.close
-    settingsRects.titleBar = layout.titleBar
-
-    local content = layout.content
-    local font = Theme.getFont("chat")
-    love.graphics.setFont(font)
-    love.graphics.setColor(Theme.colors.textPrimary)
-
-    local sliderWidth = math.min(content.w - 40, 260)
-    local sliderHeight = 18
-    local sliderX = content.x + 20
-
-    local labelY = content.y + 4
-    love.graphics.print("Master Volume", sliderX, labelY)
-    local masterRectY = labelY + font:getHeight() + 6
-
-    local masterRect = {
-        x = sliderX,
-        y = masterRectY,
-        w = sliderWidth,
-        h = sliderHeight,
-    }
-    settingsRects.masterSlider = masterRect
-    drawSliderWithValue(masterRect, settingsState.masterVolume)
-
-    local musicLabelY = masterRectY + sliderHeight + 28
-    love.graphics.print("Music Volume", sliderX, musicLabelY)
-    local musicRectY = musicLabelY + font:getHeight() + 6
-
-    local musicRect = {
-        x = sliderX,
-        y = musicRectY,
-        w = sliderWidth,
-        h = sliderHeight,
-    }
-    settingsRects.musicSlider = musicRect
-    drawSliderWithValue(musicRect, settingsState.musicVolume)
-
-    local sfxLabelY = musicRectY + sliderHeight + 28
-    love.graphics.print("SFX Volume", sliderX, sfxLabelY)
-    local sfxRectY = sfxLabelY + font:getHeight() + 6
-
-    local sfxRect = {
-        x = sliderX,
-        y = sfxRectY,
-        w = sliderWidth,
-        h = sliderHeight,
-    }
-    settingsRects.sfxSlider = sfxRect
-    drawSliderWithValue(sfxRect, settingsState.sfxVolume)
-
-    local graphicsLabelY = sfxRectY + sliderHeight + 30
-    love.graphics.print("Graphics", sliderX, graphicsLabelY)
-    local toggleY = graphicsLabelY + font:getHeight() + 6
-
-    local toggleWidth = math.min(sliderWidth, 200)
-    local toggleHeight = sliderHeight
-    local nebulaRect = {
-        x = sliderX,
-        y = toggleY,
-        w = toggleWidth,
-        h = toggleHeight,
-    }
-    settingsRects.nebulaToggle = nebulaRect
-
-    local enabled = settingsState.nebulaEnabled
-    local label = enabled and "Nebula: ON" or "Nebula: OFF"
-    local state = enabled and "active" or "default"
-    Theme.drawButton(nebulaRect.x, nebulaRect.y, nebulaRect.w, nebulaRect.h, label, state, font)
 end
 
 local function drawSaveWindow()
@@ -363,62 +126,9 @@ local function drawSaveWindow()
 end
 
 function PauseMenu.update(dt)
-    if not settingsOpen then
-        settingsActiveSlider = nil
-        settingsDragActive = nil
-        return
+    if settingsOpen and SettingsPanel and SettingsPanel.update then
+        SettingsPanel.update(dt)
     end
-
-    if not love.mouse.isDown(1) then
-        settingsActiveSlider = nil
-        settingsDragActive = nil
-        return
-    end
-
-    if settingsDragActive then
-        local mx, my = love.mouse.getPosition()
-        local sw, sh = love.graphics.getDimensions()
-        local _, _, ww, wh = getSettingsWindowRect()
-
-        local new_x = mx - (settingsDragOffsetX or 0)
-        local new_y = my - (settingsDragOffsetY or 0)
-
-        new_x = math.max(0, math.min(new_x, sw - ww))
-        new_y = math.max(0, math.min(new_y, sh - wh))
-
-        settingsWindow = settingsWindow or {}
-        settingsWindow.x = new_x
-        settingsWindow.y = new_y
-        settingsWindow.width = ww
-        settingsWindow.height = wh
-
-        return
-    end
-
-    if not settingsActiveSlider then
-        return
-    end
-
-    local mx, my = love.mouse.getPosition()
-    local rect
-    if settingsActiveSlider == "master" then
-        rect = settingsRects.masterSlider
-    elseif settingsActiveSlider == "music" then
-        rect = settingsRects.musicSlider
-    elseif settingsActiveSlider == "sfx" then
-        rect = settingsRects.sfxSlider
-    end
-
-    if not rect then
-        return
-    end
-
-    local px = mx
-    if px < rect.x then px = rect.x end
-    if px > rect.x + rect.w then px = rect.x + rect.w end
-
-    local t = (px - rect.x) / rect.w
-    applySliderValue(settingsActiveSlider, t)
 end
 
 function PauseMenu.draw()
@@ -481,7 +191,9 @@ function PauseMenu.draw()
         end
     end
 
-    drawSettings()
+    if settingsOpen and SettingsPanel and SettingsPanel.draw then
+        SettingsPanel.draw()
+    end
     drawSaveWindow()
 
     love.graphics.setLineWidth(1)
@@ -513,46 +225,16 @@ function PauseMenu.mousepressed(x, y, button)
         return nil
     end
 
-    if settingsOpen then
-        ensureSettingsState()
-
-        local closeRect = settingsRects.close
-        if closeRect and pointInRect(x, y, closeRect) then
+    if settingsOpen and SettingsPanel and SettingsPanel.mousepressed then
+        local result = SettingsPanel.mousepressed(x, y, button)
+        if result == "close" then
             settingsOpen = false
-            settingsActiveSlider = nil
-            settingsDragActive = nil
-            return nil
-        end
-
-        if handleSliderClick(x, y, settingsRects.masterSlider, "master") then
-            return nil
-        end
-        if handleSliderClick(x, y, settingsRects.musicSlider, "music") then
-            return nil
-        end
-        if handleSliderClick(x, y, settingsRects.sfxSlider, "sfx") then
-            return nil
-        end
-        local nebulaRect = settingsRects.nebulaToggle
-        if nebulaRect and pointInRect(x, y, nebulaRect) then
-            settingsState.nebulaEnabled = not settingsState.nebulaEnabled
-            if Config and Config.BACKGROUND then
-                Config.BACKGROUND.ENABLE_NEBULA = settingsState.nebulaEnabled
+            if SettingsPanel.reset then
+                SettingsPanel.reset()
             end
             return nil
         end
-
-        local wx, wy, ww, wh = getSettingsWindowRect()
-        local layout = Window.getLayout({ x = wx, y = wy, width = ww, height = wh })
-        local tb = layout.titleBar
-        if tb and pointInRect(x, y, tb) then
-            settingsDragActive = true
-            settingsDragOffsetX = x - wx
-            settingsDragOffsetY = y - wy
-
-            settingsWindow = settingsWindow or {}
-            settingsWindow.width = ww
-            settingsWindow.height = wh
+        if result then
             return nil
         end
         return nil
@@ -570,8 +252,9 @@ function PauseMenu.mousepressed(x, y, button)
             end
             if data and data.action == "settings" then
                 settingsOpen = true
-                ensureSettingsState()
-                settingsActiveSlider = nil
+                if SettingsPanel and SettingsPanel.reset then
+                    SettingsPanel.reset()
+                end
                 return nil
             end
             if data and data.action then
@@ -587,9 +270,10 @@ end
 
 function PauseMenu.reset()
     settingsOpen = false
-    settingsActiveSlider = nil
-    settingsDragActive = nil
     saveOpen = false
+    if SettingsPanel and SettingsPanel.reset then
+        SettingsPanel.reset()
+    end
 end
 
 return PauseMenu
