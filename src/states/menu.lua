@@ -534,7 +534,11 @@ function MenuState:draw()
 
     love.graphics.setColor(textPrimary)
     local nameText = self.display_name_input or ""
-    love.graphics.printf(nameText, nameX + 10, fieldY + 12, fieldWidth - 20, "left")
+    local innerX = nameX + 10
+    local innerWidth = fieldWidth - 20
+    local textWidth = self.fontButton:getWidth(nameText)
+    local textX = innerX + (innerWidth - textWidth) * 0.5
+    love.graphics.printf(nameText, textX, fieldY + 12, innerWidth, "left")
 
     -- Randomize button
     local randomX = startX + fieldWidth + 12
@@ -543,8 +547,7 @@ function MenuState:draw()
     -- Caret in display name field
     if self.editing_display_name and self.cursor_visible then
         love.graphics.setColor(buttonColors.outlineActive)
-        local textWidth = self.fontButton:getWidth(nameText)
-        love.graphics.rectangle("fill", nameX + 10 + textWidth + 2, fieldY + 10, 2, 20)
+        love.graphics.rectangle("fill", textX + textWidth + 2, fieldY + 10, 2, 20)
     end
 
     if self.load_menu_open then

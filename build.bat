@@ -1,12 +1,12 @@
 @echo off
 echo ==========================================
-echo      Building SpaceGame.love
+echo      Building Novus.love
 echo ==========================================
 
 :: Define output locations
 set BUILD_DIR=build
-set OUTPUT_NAME=SpaceGame.love
-set ZIP_NAME=SpaceGame.zip
+set OUTPUT_NAME=Novus.love
+set ZIP_NAME=Novus.zip
 set OUTPUT_PATH=%BUILD_DIR%\%OUTPUT_NAME%
 set ZIP_PATH=%BUILD_DIR%\%ZIP_NAME%
 
