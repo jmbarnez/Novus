@@ -48,7 +48,7 @@ function TargetPanelTopCenter.draw(ctx)
   local y0 = layout.topCenterY or margin
 
   local w = 240
-  local h = 54
+  local h = 62
   local x0 = math.floor(((ctx.screenW or 0) - w) * 0.5)
 
   local pad = 8
