@@ -4,6 +4,14 @@ local unpack = table.unpack or rawget(_G, "unpack")
 
 local MathUtil = require("util.math")
 
+local function ensureRng(rng)
+  if rng then
+    return rng
+  end
+
+  return love.math.newRandomGenerator(love.math.random(1, 2147483646))
+end
+
 local function pickAsteroidColor(rng)
   local palette = {
     { 0.58, 0.56, 0.54 },
@@ -68,28 +76,28 @@ local function convexHull(points)
   return lower
 end
 
-local function makeAsteroidPolygonCoords(radius)
-  local vertexCount = love.math.random(7, 8)
+local function makeAsteroidPolygonCoords(rng, radius)
+  local vertexCount = rng:random(7, 8)
   local points = {}
   local tau = math.pi * 2
   local angleJitter = tau / vertexCount * 0.25
 
-  local k1 = love.math.random(2, 4)
-  local k2 = love.math.random(5, 7)
-  local p1 = MathUtil.randRange(0, tau)
-  local p2 = MathUtil.randRange(0, tau)
-  local a1 = MathUtil.randRange(0.08, 0.18)
-  local a2 = MathUtil.randRange(0.04, 0.10)
+  local k1 = rng:random(2, 4)
+  local k2 = rng:random(5, 7)
+  local p1 = MathUtil.randRangeRng(rng, 0, tau)
+  local p2 = MathUtil.randRangeRng(rng, 0, tau)
+  local a1 = MathUtil.randRangeRng(rng, 0.08, 0.18)
+  local a2 = MathUtil.randRangeRng(rng, 0.04, 0.10)
 
-  local squash = MathUtil.randRange(0.78, 1.22)
-  local rot = MathUtil.randRange(0, tau)
+  local squash = MathUtil.randRangeRng(rng, 0.78, 1.22)
+  local rot = MathUtil.randRangeRng(rng, 0, tau)
 
   for i = 1, vertexCount do
     local baseAngle = (i - 1) / vertexCount * tau
-    local angle = baseAngle + MathUtil.randRange(-angleJitter, angleJitter)
+    local angle = baseAngle + MathUtil.randRangeRng(rng, -angleJitter, angleJitter)
 
     local wobble = 1 + a1 * math.sin(k1 * angle + p1) + a2 * math.sin(k2 * angle + p2)
-    local r = radius * wobble * MathUtil.randRange(0.78, 1.05)
+    local r = radius * wobble * MathUtil.randRangeRng(rng, 0.78, 1.05)
 
     local x = math.cos(angle) * r
     local y = math.sin(angle) * r
@@ -107,30 +115,30 @@ local function makeAsteroidPolygonCoords(radius)
   return coords
 end
 
-local function makeAsteroidRenderCoords(radius)
+local function makeAsteroidRenderCoords(rng, radius)
   local tau = math.pi * 2
-  local n = love.math.random(26, 40)
+  local n = rng:random(26, 40)
 
-  local k1 = love.math.random(2, 4)
-  local k2 = love.math.random(5, 8)
-  local k3 = love.math.random(9, 13)
-  local p1 = MathUtil.randRange(0, tau)
-  local p2 = MathUtil.randRange(0, tau)
-  local p3 = MathUtil.randRange(0, tau)
-  local a1 = MathUtil.randRange(0.10, 0.20)
-  local a2 = MathUtil.randRange(0.05, 0.12)
-  local a3 = MathUtil.randRange(0.02, 0.07)
+  local k1 = rng:random(2, 4)
+  local k2 = rng:random(5, 8)
+  local k3 = rng:random(9, 13)
+  local p1 = MathUtil.randRangeRng(rng, 0, tau)
+  local p2 = MathUtil.randRangeRng(rng, 0, tau)
+  local p3 = MathUtil.randRangeRng(rng, 0, tau)
+  local a1 = MathUtil.randRangeRng(rng, 0.10, 0.20)
+  local a2 = MathUtil.randRangeRng(rng, 0.05, 0.12)
+  local a3 = MathUtil.randRangeRng(rng, 0.02, 0.07)
 
-  local squash = MathUtil.randRange(0.78, 1.22)
-  local rot = MathUtil.randRange(0, tau)
+  local squash = MathUtil.randRangeRng(rng, 0.78, 1.22)
+  local rot = MathUtil.randRangeRng(rng, 0, tau)
 
-  local dentCount = love.math.random(2, 5)
+  local dentCount = rng:random(2, 5)
   local dents = {}
   for i = 1, dentCount do
     dents[i] = {
-      a = MathUtil.randRange(0, tau),
-      w = MathUtil.randRange(0.18, 0.42),
-      d = MathUtil.randRange(0.06, 0.18),
+      a = MathUtil.randRangeRng(rng, 0, tau),
+      w = MathUtil.randRangeRng(rng, 0.18, 0.42),
+      d = MathUtil.randRangeRng(rng, 0.06, 0.18),
     }
   end
 
@@ -153,7 +161,7 @@ local function makeAsteroidRenderCoords(radius)
       end
     end
 
-    local r = radius * (wobble - dent) * MathUtil.randRange(0.97, 1.03)
+    local r = radius * (wobble - dent) * MathUtil.randRangeRng(rng, 0.97, 1.03)
     local x = math.cos(t) * r
     local y = math.sin(t) * r
     local rx, ry = MathUtil.rotate(x, y, rot)
@@ -164,12 +172,13 @@ local function makeAsteroidRenderCoords(radius)
   return coords
 end
 
-function asteroids.createAsteroid(ecsWorld, physicsWorld, x, y, radius)
+function asteroids.createAsteroid(ecsWorld, physicsWorld, x, y, radius, rng)
+  rng = ensureRng(rng)
   local body = love.physics.newBody(physicsWorld, x, y, "dynamic")
   body:setLinearDamping(0.02)
   body:setAngularDamping(0.01)
 
-  local coords = makeAsteroidPolygonCoords(radius)
+  local coords = makeAsteroidPolygonCoords(rng, radius)
   local shape = love.physics.newPolygonShape(unpack(coords))
   local fixture = love.physics.newFixture(body, shape, 1)
   fixture:setRestitution(0.9)
@@ -177,17 +186,16 @@ function asteroids.createAsteroid(ecsWorld, physicsWorld, x, y, radius)
 
   fixture:setCategory(1)
 
-  body:setLinearVelocity(MathUtil.randRange(-8, 8), MathUtil.randRange(-8, 8))
-  body:setAngularVelocity(MathUtil.randRange(-0.12, 0.12))
+  body:setLinearVelocity(MathUtil.randRangeRng(rng, -8, 8), MathUtil.randRangeRng(rng, -8, 8))
+  body:setAngularVelocity(MathUtil.randRangeRng(rng, -0.12, 0.12))
 
   local craters = {}
 
-  local rng = love.math.newRandomGenerator(love.math.random(1, 1000000))
   local color = pickAsteroidColor(rng)
 
   local maxHealth = math.floor(30 + radius * 2)
 
-  local seed = love.math.random(1, 1000000)
+  local seed = rng:random(1, 1000000)
 
   local e = ecsWorld:newEntity()
     :give("physics_body", body, shape, fixture)
@@ -200,17 +208,18 @@ function asteroids.createAsteroid(ecsWorld, physicsWorld, x, y, radius)
   return e
 end
 
-function asteroids.spawnAsteroids(ecsWorld, physicsWorld, count, w, h, avoidX, avoidY, avoidRadius)
+function asteroids.spawnAsteroids(ecsWorld, physicsWorld, count, w, h, avoidX, avoidY, avoidRadius, rng)
+  rng = ensureRng(rng)
   avoidRadius = avoidRadius or 0
   local padding = 40
 
   for _ = 1, count do
-    local radius = MathUtil.randRange(18, 46)
+    local radius = MathUtil.randRangeRng(rng, 18, 46)
 
     local x, y
     for _ = 1, 20 do
-      local candidateX = MathUtil.randRange(radius + padding, w - radius - padding)
-      local candidateY = MathUtil.randRange(radius + padding, h - radius - padding)
+      local candidateX = MathUtil.randRangeRng(rng, radius + padding, w - radius - padding)
+      local candidateY = MathUtil.randRangeRng(rng, radius + padding, h - radius - padding)
 
       x, y = candidateX, candidateY
 
@@ -226,7 +235,7 @@ function asteroids.spawnAsteroids(ecsWorld, physicsWorld, count, w, h, avoidX, a
       end
     end
 
-    asteroids.createAsteroid(ecsWorld, physicsWorld, x, y, radius)
+    asteroids.createAsteroid(ecsWorld, physicsWorld, x, y, radius, rng)
   end
 end
 

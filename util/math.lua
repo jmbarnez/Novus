@@ -34,6 +34,14 @@ function M.randSigned()
   return love.math.random() * 2 - 1
 end
 
+function M.randRangeRng(rng, a, b)
+  return a + (b - a) * rng:random()
+end
+
+function M.randSignedRng(rng)
+  return rng:random() * 2 - 1
+end
+
 function M.rotate(x, y, a)
   local ca = math.cos(a)
   local sa = math.sin(a)

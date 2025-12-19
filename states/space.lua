@@ -9,6 +9,7 @@ local factory = require("game.factory")
 local SpaceBackground = require("game.backgrounds.space_background")
 local Camera = require("game.camera")
 local Profiler = require("util.profiler")
+local Seed = require("util.seed")
 
 local function clamp(v, lo, hi)
   if v < lo then return lo end
@@ -43,7 +44,7 @@ function Space:init()
   self.fixedDt = 1 / 60
 end
 
-function Space:enter()
+function Space:enter(_, worldSeed)
   self.accumulator = 0
   -- Box2D callbacks can occur during physics stepping; we buffer contacts and emit
   -- ECS events after the step to avoid mutating entities mid-step.
@@ -54,7 +55,12 @@ function Space:enter()
   love.mouse.setVisible(false)
 
   self.showBackground = true
-  self.background = SpaceBackground.new()
+  self.worldSeed = Seed.normalize(worldSeed or love.math.random(1, 2147483646))
+  self.worldRngs = {
+    background = love.math.newRandomGenerator(Seed.derive(self.worldSeed, "background")),
+    asteroids = love.math.newRandomGenerator(Seed.derive(self.worldSeed, "asteroids")),
+  }
+  self.background = SpaceBackground.new({ seed = Seed.derive(self.worldSeed, "starfield"), nebulaSeed = Seed.derive(self.worldSeed, "nebula") })
 
   self.view = {}
   self.profiler = Profiler.new()
@@ -92,6 +98,8 @@ function Space:enter()
   self.ecsWorld:setResource("mouse_world", self.mouseWorld)
   self.ecsWorld:setResource("ui_capture", { active = false })
   self.ecsWorld:setResource("map_ui", { open = false, zoom = 1.0, centerX = nil, centerY = nil, waypointX = nil, waypointY = nil })
+  self.ecsWorld:setResource("world_seed", self.worldSeed)
+  self.ecsWorld:setResource("world_rngs", self.worldRngs)
 
   self.ecsWorld:addSystems(
     Systems.PhysicsSnapshotSystem,
@@ -159,7 +167,7 @@ function Space:enter()
 
   local shipBody = self.ship.physics_body and self.ship.physics_body.body
   local avoidX, avoidY = shipBody:getPosition()
-  factory.spawnAsteroids(self.ecsWorld, self.physicsWorld, 70, self.sectorWidth, self.sectorHeight, avoidX, avoidY, 650)
+  factory.spawnAsteroids(self.ecsWorld, self.physicsWorld, 70, self.sectorWidth, self.sectorHeight, avoidX, avoidY, 650, self.worldRngs.asteroids)
 end
 
 function Space:_beginContact(fixtureA, fixtureB, contact)
@@ -342,7 +350,7 @@ function Space:keypressed(key)
       self.camera:zoomOut()
     end
   elseif key == "r" then
-    Gamestate.switch(Space)
+    Gamestate.switch(Space, self.worldSeed)
   end
 end
 

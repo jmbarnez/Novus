@@ -295,12 +295,12 @@ function RenderSystem:drawWorld()
             love.graphics.setLineWidth(2)
           end
 
-          local outline = getAsteroidTargetOutlineCoords(e, shape, 10)
+          local outline = getAsteroidTargetOutlineCoords(e, shape, 0)
           if outline then
             love.graphics.polygon("line", outline)
           else
             local r = (e.asteroid and e.asteroid.radius) or 30
-            love.graphics.circle("line", 0, 0, r + 10)
+            love.graphics.circle("line", 0, 0, r)
           end
           love.graphics.pop()
         end
