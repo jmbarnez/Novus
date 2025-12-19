@@ -207,7 +207,7 @@ function SpaceBackground:draw(focusX, focusY)
 
     love.graphics.push("all")
     love.graphics.setCanvas(self.canvas)
-    love.graphics.clear(0, 0, 0, 1)
+    love.graphics.clear(0.01, 0.01, 0.03, 1)
 
     self:_drawNebula(cw, ch, fx, fy)
 
