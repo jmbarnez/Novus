@@ -76,7 +76,7 @@ function SpaceBackground.new(opts)
 
   local self = setmetatable({}, SpaceBackground)
 
-  local seed = opts.seed or math.floor(love.timer.getTime() * 1000)
+  local seed = opts.seed or love.math.random(1, 1000000000)
   self.rng = love.math.newRandomGenerator(seed)
 
   self.time = 0
