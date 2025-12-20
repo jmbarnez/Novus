@@ -20,7 +20,8 @@ local function drawBar(x, y, w, h, frac, fillColor, colors)
   love.graphics.setColor(fillColor[1], fillColor[2], fillColor[3], fillColor[4])
   love.graphics.rectangle("fill", x, y, w * f, h)
 
-  love.graphics.setColor(0, 0, 0, 1)
+  local bb = colors.barBorder
+  love.graphics.setColor(bb[1], bb[2], bb[3], bb[4])
   love.graphics.rectangle("line", x, y, w, h)
 end
 
@@ -42,31 +43,66 @@ local function drawCircleBar(cx, cy, radius, thickness, frac, fillColor, bgColor
   love.graphics.setLineWidth(1)
 end
 
-function StatusPanelTopLeft.draw(ctx)
+function StatusPanelTopLeft.hitTest(ctx, x, y)
+  if not ctx then
+    return false
+  end
+
   local theme = (ctx and ctx.theme) or Theme
   local hudTheme = theme.hud
-  local colors = hudTheme.colors
+  local sp = hudTheme.statusPanel or {}
 
   local margin = (ctx.layout and ctx.layout.margin) or hudTheme.layout.margin
   local x0 = margin
   local y0 = (ctx.layout and ctx.layout.topLeftY) or margin
 
-  local circleRadius = 18
-  local circleThickness = 3
-  local barW = 80
-  local barH = 6
-  local barGap = 4
-  local panelPad = 6
+  local circleRadius = sp.circleRadius or 18
+  local barW = sp.barW or 80
+  local panelPad = sp.panelPad or 6
+
+  local w = circleRadius * 2 + panelPad * 3 + barW
+  local h = circleRadius * 2 + panelPad * 2
+
+  return x >= x0 and x <= (x0 + w) and y >= y0 and y <= (y0 + h)
+end
+
+function StatusPanelTopLeft.draw(ctx)
+  local theme = (ctx and ctx.theme) or Theme
+  local hudTheme = theme.hud
+  local colors = hudTheme.colors
+  local sp = hudTheme.statusPanel or {}
+  local ps = hudTheme.panelStyle or {}
+
+  local margin = (ctx.layout and ctx.layout.margin) or hudTheme.layout.margin
+  local x0 = margin
+  local y0 = (ctx.layout and ctx.layout.topLeftY) or margin
+
+  local circleRadius = sp.circleRadius or 18
+  local circleThickness = sp.circleThickness or 3
+  local barW = sp.barW or 80
+  local barH = sp.barH or 6
+  local barGap = sp.barGap or 4
+  local panelPad = sp.panelPad or 6
 
   local w = circleRadius * 2 + panelPad * 3 + barW
   local h = circleRadius * 2 + panelPad * 2
 
   -- panel
+  local r = ps.radius or 0
+  local shadowOffset = ps.shadowOffset or 0
+  local shadowAlpha = ps.shadowAlpha or 0
+  if shadowOffset ~= 0 and shadowAlpha > 0 then
+    love.graphics.setColor(0, 0, 0, shadowAlpha)
+    love.graphics.rectangle("fill", x0 + shadowOffset, y0 + shadowOffset, w, h, r, r)
+  end
+
   love.graphics.setColor(colors.panelBg[1], colors.panelBg[2], colors.panelBg[3], colors.panelBg[4])
-  love.graphics.rectangle("fill", x0, y0, w, h)
+  love.graphics.rectangle("fill", x0, y0, w, h, r, r)
 
   love.graphics.setColor(colors.panelBorder[1], colors.panelBorder[2], colors.panelBorder[3], colors.panelBorder[4])
-  love.graphics.rectangle("line", x0, y0, w, h)
+  love.graphics.setLineWidth(ps.borderWidth or 1)
+  love.graphics.rectangle("line", x0, y0, w, h, r, r)
+  love.graphics.setLineWidth(1)
 
   local level = ctx.playerLevel or 1
   local xp = ctx.playerXp or 0
@@ -77,8 +113,8 @@ function StatusPanelTopLeft.draw(ctx)
   local circleCX = x0 + panelPad + circleRadius
   local circleCY = y0 + panelPad + circleRadius
 
-  local xpFillColor = { 0.9, 0.75, 0.2, 0.9 }
-  local xpBgColor = { 0.3, 0.3, 0.3, 0.5 }
+  local xpFillColor = sp.xpFill or { 0.9, 0.75, 0.2, 0.9 }
+  local xpBgColor = sp.xpBg or { 0.3, 0.3, 0.3, 0.5 }
   drawCircleBar(circleCX, circleCY, circleRadius - circleThickness / 2, circleThickness, xpFrac, xpFillColor, xpBgColor)
 
   local font = love.graphics.getFont()
@@ -95,8 +131,8 @@ function StatusPanelTopLeft.draw(ctx)
   local barsHeight = barH * 2 + barGap
   local topY = y0 + (h - barsHeight) / 2
 
-  local hullColor = { 0.9, 0.4, 0.2, 0.85 }
-  local shieldColor = { 0.2, 0.8, 0.9, 0.85 }
+  local hullColor = sp.hullFill or { 0.9, 0.4, 0.2, 0.85 }
+  local shieldColor = sp.shieldFill or { 0.2, 0.8, 0.9, 0.85 }
 
   drawBar(rightX, topY, barW, barH, safeFrac(ctx.hullCur, ctx.hullMax), hullColor, colors)
   drawBar(rightX, topY + barH + barGap, barW, barH, safeFrac(ctx.shieldCur, ctx.shieldMax), shieldColor, colors)

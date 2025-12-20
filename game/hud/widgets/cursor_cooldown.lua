@@ -15,13 +15,16 @@ function CursorCooldown.draw(ctx)
   end
 
   local theme = (ctx and ctx.theme) or Theme
-  local colors = theme.hud.colors
+  local hudTheme = theme.hud
+  local colors = hudTheme.colors
+  local cc = hudTheme.cursorCooldown or {}
 
-  local w = 17
-  local h = 4
+  local w = cc.w or 17
+  local h = cc.h or 4
 
-  local margin = (theme.hud and theme.hud.layout and theme.hud.layout.margin) or 16
-  local bottomOffset = 44
+  local margin = (hudTheme.layout and hudTheme.layout.margin) or 16
+  local bottomOffset = cc.bottomOffset or 44
+  local fillAlpha = cc.fillAlpha or 0.98
 
   -- Fill grows from 0 -> 1 as the cooldown counts down.
   local frac = MathUtil.clamp(1 - (timer / cooldown), 0, 1)
@@ -32,7 +35,7 @@ function CursorCooldown.draw(ctx)
   love.graphics.setColor(colors.barBg[1], colors.barBg[2], colors.barBg[3], colors.barBg[4])
   love.graphics.rectangle("fill", x, y, w, h)
 
-  love.graphics.setColor(colors.barFillPrimary[1], colors.barFillPrimary[2], colors.barFillPrimary[3], 0.98)
+  love.graphics.setColor(colors.barFillPrimary[1], colors.barFillPrimary[2], colors.barFillPrimary[3], fillAlpha)
   love.graphics.rectangle("fill", x, y, w * frac, h)
 
   love.graphics.setColor(colors.barBorder[1], colors.barBorder[2], colors.barBorder[3], colors.barBorder[4])

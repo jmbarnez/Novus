@@ -7,6 +7,27 @@ local function pointInRect(px, py, r)
   return px >= r.x and px <= (r.x + r.w) and py >= r.y and py <= (r.y + r.h)
 end
 
+function MinimapTopRight.hitTest(ctx, x, y)
+  if not ctx then
+    return false
+  end
+
+  local theme = (ctx and ctx.theme) or Theme
+  local hudTheme = theme.hud
+  local layout = ctx.layout or {}
+  local margin = layout.margin or hudTheme.layout.margin
+
+  local sector = ctx.sector
+  if not sector or not sector.width or not sector.height or sector.width <= 0 or sector.height <= 0 then
+    return false
+  end
+
+  local mapW, mapH = hudTheme.minimap.w, hudTheme.minimap.h
+  local mapX = (ctx.screenW or 0) - margin - mapW
+  local mapY = layout.topRightY or margin
+  return pointInRect(x, y, { x = mapX, y = mapY, w = mapW, h = mapH })
+end
+
 function MinimapTopRight.draw(ctx)
   if not ctx then
     return
@@ -15,6 +36,7 @@ function MinimapTopRight.draw(ctx)
   local theme = (ctx and ctx.theme) or Theme
   local hudTheme = theme.hud
   local colors = hudTheme.colors
+  local ps = hudTheme.panelStyle or {}
 
   local layout = ctx.layout or {}
   local margin = layout.margin or hudTheme.layout.margin
@@ -28,12 +50,16 @@ function MinimapTopRight.draw(ctx)
   local mapX = (ctx.screenW or 0) - margin - mapW
   local mapY = layout.topRightY or margin
 
-  local cornerRadius = 0
+  local cornerRadius = ps.radius or 0
   local inset = hudTheme.minimap.gridInset or 5
 
   -- outer glow/shadow
-  love.graphics.setColor(0, 0, 0, 0.4)
-  love.graphics.rectangle("fill", mapX + 2, mapY + 2, mapW, mapH, cornerRadius, cornerRadius)
+  local shadowOffset = ps.shadowOffset or 2
+  local shadowAlpha = ps.shadowAlpha or 0.4
+  if shadowOffset ~= 0 and shadowAlpha > 0 then
+    love.graphics.setColor(0, 0, 0, shadowAlpha)
+    love.graphics.rectangle("fill", mapX + shadowOffset, mapY + shadowOffset, mapW, mapH, cornerRadius, cornerRadius)
+  end
 
   -- main background with gradient effect (darker at edges)
   love.graphics.setColor(colors.minimapBg[1] * 0.7, colors.minimapBg[2] * 0.7, colors.minimapBg[3] * 0.7, colors.minimapBg[4])
@@ -41,7 +67,8 @@ function MinimapTopRight.draw(ctx)
 
   -- inner lighter area
   love.graphics.setColor(colors.minimapBg[1], colors.minimapBg[2], colors.minimapBg[3], colors.minimapBg[4] * 0.8)
-  love.graphics.rectangle("fill", mapX + inset, mapY + inset, mapW - inset * 2, mapH - inset * 2, 2, 2)
+  local innerR = cornerRadius > 1 and (cornerRadius - 1) or 0
+  love.graphics.rectangle("fill", mapX + inset, mapY + inset, mapW - inset * 2, mapH - inset * 2, innerR, innerR)
 
   -- asteroids
   local world = ctx.world
@@ -111,7 +138,7 @@ function MinimapTopRight.draw(ctx)
     wx = MathUtil.clamp(wx, mapX + inset, mapX + mapW - inset)
     wy = MathUtil.clamp(wy, mapY + inset, mapY + mapH - inset)
 
-    love.graphics.setColor(1.0, 0.35, 0.95, 0.95)
+    love.graphics.setColor(colors.accent[1], colors.accent[2], colors.accent[3], colors.accent[4])
     love.graphics.setLineWidth(2)
     love.graphics.line(wx - 5, wy, wx + 5, wy)
     love.graphics.line(wx, wy - 5, wx, wy + 5)
@@ -120,7 +147,9 @@ function MinimapTopRight.draw(ctx)
 
   love.graphics.setLineWidth(1)
   love.graphics.setColor(colors.panelBorder[1], colors.panelBorder[2], colors.panelBorder[3], colors.panelBorder[4])
-  love.graphics.rectangle("line", mapX, mapY, mapW, mapH)
+  love.graphics.setLineWidth(ps.borderWidth or 1)
+  love.graphics.rectangle("line", mapX, mapY, mapW, mapH, cornerRadius, cornerRadius)
+  love.graphics.setLineWidth(1)
 
   if ctx.layout then
     ctx.layout.topRightY = mapY + mapH + hudTheme.layout.stackGap

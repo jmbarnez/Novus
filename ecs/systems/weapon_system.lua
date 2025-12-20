@@ -356,6 +356,10 @@ function WeaponSystem:onTargetClick(worldX, worldY, button)
     return
   end
 
+  if not love.keyboard.isDown("lctrl", "rctrl") then
+    return
+  end
+
   local player = self.world:getResource("player")
   if not player or not player:has("pilot") then
     return
@@ -374,12 +378,6 @@ function WeaponSystem:onTargetClick(worldX, worldY, button)
   local weapon = ship.auto_cannon
   local target = self:findTargetAtPosition(worldX, worldY)
   weapon.target = target
-
-  if target then
-    fireAtTarget(self.world, physicsWorld, ship, weapon, target)
-  else
-    fireAtPosition(self.world, physicsWorld, ship, weapon, worldX, worldY)
-  end
 end
 
 --------------------------------------------------------------------------------
@@ -421,20 +419,32 @@ function WeaponSystem:update(dt)
     weapon.target = nil
     target = nil
   else
-    local shipBody = ship.physics_body.body
-    local sx, sy = shipBody:getPosition()
-    local tx, ty = target.physics_body.body:getPosition()
-    local dx, dy = tx - sx, ty - sy
-    local dist2 = dx * dx + dy * dy
-    local maxDist2 = weapon.range * weapon.range
-
-    if dist2 > maxDist2 then
+    local shipPb = ship.physics_body
+    local targetPb = (target and target.physics_body) or nil
+    local shipBody = (shipPb and shipPb.body) or nil
+    local targetBody = (targetPb and targetPb.body) or nil
+    if not shipBody or not targetBody then
       weapon.target = nil
       target = nil
+    elseif weapon.range and weapon.range > 0 then
+      local sx, sy = shipBody:getPosition()
+      local tx, ty = targetBody:getPosition()
+      local dx, dy = tx - sx, ty - sy
+      local dist2 = dx * dx + dy * dy
+      local maxDist2 = weapon.range * weapon.range
+
+      if dist2 > maxDist2 then
+        weapon.target = nil
+        target = nil
+      end
     end
   end
 
   if love.mouse.isDown(1) and weapon.timer <= 0 then
+    if love.keyboard.isDown("lctrl", "rctrl") then
+      return
+    end
+
     local mw = self.world:getResource("mouse_world")
     if mw then
       local hoverTarget = self:findTargetAtPosition(mw.x, mw.y)

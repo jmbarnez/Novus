@@ -1,6 +1,8 @@
 local Theme = require("game.theme")
 local MathUtil = require("util.math")
 
+local tUnpack = table.unpack or rawget(_G, "unpack")
+
 local function formatDistance(d)
   if d >= 10000 then
     return string.format("%.0fk", d / 1000)
@@ -62,7 +64,9 @@ function WaypointIndicator.draw(ctx)
   end
 
   local theme = (ctx and ctx.theme) or Theme
-  local colors = theme.hud.colors
+  local hudTheme = theme.hud
+  local colors = hudTheme.colors
+  local wi = hudTheme.waypointIndicator or {}
 
   local dx = mapUi.waypointX - (ctx.x or 0)
   local dy = mapUi.waypointY - (ctx.y or 0)
@@ -79,7 +83,7 @@ function WaypointIndicator.draw(ctx)
   local cx = screenW * 0.5
   local cy = screenH * 0.5
 
-  local margin = ((theme.hud and theme.hud.layout and theme.hud.layout.margin) or 16) + 42
+  local margin = ((hudTheme.layout and hudTheme.layout.margin) or 16) + (wi.edgeInset or 42)
 
   local minX = margin
   local minY = margin
@@ -93,10 +97,10 @@ function WaypointIndicator.draw(ctx)
   love.graphics.rotate(angle)
 
   love.graphics.setColor(0, 0, 0, 0.55)
-  love.graphics.polygon("fill", 0, 0, -16, 9, -11, 0, -16, -9)
+  love.graphics.polygon("fill", tUnpack(wi.arrowOuterPoly or { 0, 0, -16, 9, -11, 0, -16, -9 }))
 
-  love.graphics.setColor(1.0, 0.35, 0.95, 0.90)
-  love.graphics.polygon("fill", 0, 0, -15, 8, -10, 0, -15, -8)
+  love.graphics.setColor(colors.accentSoft[1], colors.accentSoft[2], colors.accentSoft[3], colors.accentSoft[4])
+  love.graphics.polygon("fill", tUnpack(wi.arrowInnerPoly or { 0, 0, -15, 8, -10, 0, -15, -8 }))
 
   love.graphics.pop()
 
@@ -106,12 +110,14 @@ function WaypointIndicator.draw(ctx)
   local tw = font:getWidth(label)
   local th = font:getHeight()
 
-  local lx = MathUtil.clamp(px - tw * 0.5, 6, (screenW - tw) - 6)
-  local ly = MathUtil.clamp(py + 12, 6, (screenH - th) - 6)
+  local clampPad = wi.labelClampPad or 6
+  local labelYOffset = wi.labelYOffset or 12
+  local lx = MathUtil.clamp(px - tw * 0.5, clampPad, (screenW - tw) - clampPad)
+  local ly = MathUtil.clamp(py + labelYOffset, clampPad, (screenH - th) - clampPad)
 
-  love.graphics.setColor(0, 0, 0, 0.85)
+  love.graphics.setColor(0, 0, 0, wi.labelShadowAlpha or 0.85)
   love.graphics.print(label, lx + 1, ly + 1)
-  love.graphics.setColor(colors.text[1], colors.text[2], colors.text[3], 0.90)
+  love.graphics.setColor(colors.text[1], colors.text[2], colors.text[3], wi.labelTextAlpha or 0.90)
   love.graphics.print(label, lx, ly)
 
   love.graphics.setColor(1, 1, 1, 1)

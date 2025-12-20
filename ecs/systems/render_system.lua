@@ -289,10 +289,10 @@ function RenderSystem:drawWorld()
           love.graphics.push("all")
           if e == selected then
             love.graphics.setColor(1.00, 0.35, 0.95, 0.55)
-            love.graphics.setLineWidth(3)
+            love.graphics.setLineWidth(10)
           else
             love.graphics.setColor(0.00, 1.00, 1.00, 0.40)
-            love.graphics.setLineWidth(2)
+            love.graphics.setLineWidth(8)
           end
 
           local outline = getAsteroidTargetOutlineCoords(e, shape, 0)

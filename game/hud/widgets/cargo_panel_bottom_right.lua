@@ -78,20 +78,21 @@ local function makeCargoPanel()
   local function recomputeRects(ctx, cols, rows)
     local theme = (ctx and ctx.theme) or Theme
     local hudTheme = theme.hud
+    local cp = hudTheme.cargoPanel or {}
 
     local margin = (ctx.layout and ctx.layout.margin) or hudTheme.layout.margin
     local screenW = ctx and ctx.screenW or 0
     local yBottom = (ctx.layout and ctx.layout.bottomRightY) or ((ctx and ctx.screenH or 0) - margin)
 
-    local pad = 6
-    local headerH = 0
-    local slot = 44
-    local gap = 6
-    local barGap = 6
-    local barH = 10
-    local visibleRows = 4
-    local scrollGap = 6
-    local scrollW = 6
+    local pad = cp.pad or 6
+    local headerH = cp.headerH or 0
+    local slot = cp.slot or 44
+    local gap = cp.gap or 6
+    local barGap = cp.barGap or 6
+    local barH = cp.barH or 10
+    local visibleRows = cp.visibleRows or 4
+    local scrollGap = cp.scrollGap or 6
+    local scrollW = cp.scrollW or 6
 
     local maxScroll = rows - visibleRows
     if maxScroll < 0 then
@@ -171,8 +172,9 @@ local function makeCargoPanel()
       if rows > 0 then
         thumbH = math.floor(trackH * (visibleRows / rows))
       end
-      if thumbH < 18 then
-        thumbH = 18
+      local thumbMinH = cp.scrollThumbMinH or 18
+      if thumbH < thumbMinH then
+        thumbH = thumbMinH
       end
       if thumbH > trackH then
         thumbH = trackH
@@ -204,10 +206,36 @@ local function makeCargoPanel()
     return nil
   end
 
+  function self.hitTest(ctx, x, y)
+    if not ctx then
+      return false
+    end
+
+    local ship = ctx.world and getPlayerShip(ctx.world)
+    if not ship or not ship.cargo_hold then
+      return false
+    end
+
+    local theme = (ctx and ctx.theme) or Theme
+    local displayCols = (theme.hud.cargoPanel and theme.hud.cargoPanel.displayCols) or 2
+    local displayRows = getDisplayRows(ship.cargo_hold, displayCols)
+    recomputeRects(ctx, displayCols, displayRows)
+
+    local b = self.bounds
+    if not b then
+      return false
+    end
+
+    return pointInRect(x, y, b)
+  end
+
   function self.draw(ctx)
     if not ctx then
       return
     end
+
+    local theme = (ctx and ctx.theme) or Theme
+    local hudTheme = theme.hud
 
     local ship = getPlayerShip(ctx.world)
     if not ship or not ship.cargo_hold or not ship.cargo then
@@ -217,13 +245,11 @@ local function makeCargoPanel()
     local hold = ship.cargo_hold
     local cargo = ship.cargo
 
-    local displayCols = 2
+    local displayCols = (hudTheme.cargoPanel and hudTheme.cargoPanel.displayCols) or 2
     local displayRows = getDisplayRows(hold, displayCols)
 
     recomputeRects(ctx, displayCols, displayRows)
 
-    local theme = (ctx and ctx.theme) or Theme
-    local hudTheme = theme.hud
     local colors = hudTheme.colors
 
     local b = self.bounds
@@ -382,13 +408,20 @@ local function makeCargoPanel()
       love.graphics.setColor(colors.barBg[1], colors.barBg[2], colors.barBg[3], colors.barBg[4])
       love.graphics.rectangle("fill", barX, barY, barW, barH)
 
-      if frac < 0.85 then
-        love.graphics.setColor(0.20, 0.95, 0.35, 0.80)
-      elseif frac < 0.95 then
-        love.graphics.setColor(0.95, 0.85, 0.20, 0.85)
+      local theme = (ctx and ctx.theme) or Theme
+      local cp = theme.hud.cargoPanel or {}
+      local warnFrac = cp.warnFrac or 0.85
+      local dangerFrac = cp.dangerFrac or 0.95
+
+      local fill
+      if frac < warnFrac then
+        fill = colors.good
+      elseif frac < dangerFrac then
+        fill = colors.warn
       else
-        love.graphics.setColor(0.95, 0.30, 0.25, 0.85)
+        fill = colors.danger
       end
+      love.graphics.setColor(fill[1], fill[2], fill[3], fill[4])
       love.graphics.rectangle("fill", barX, barY, barW * frac, barH)
 
       love.graphics.setColor(colors.barBorder[1], colors.barBorder[2], colors.barBorder[3], colors.barBorder[4])
@@ -435,7 +468,8 @@ local function makeCargoPanel()
     end
 
     local hold = ship.cargo_hold
-    local displayCols = 2
+    local theme = (ctx and ctx.theme) or Theme
+    local displayCols = (theme.hud.cargoPanel and theme.hud.cargoPanel.displayCols) or 2
     local displayRows = getDisplayRows(hold, displayCols)
     recomputeRects(ctx, displayCols, displayRows)
 

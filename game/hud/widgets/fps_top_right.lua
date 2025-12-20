@@ -2,6 +2,36 @@ local FpsTopRight = {}
 
 local Theme = require("game.theme")
 
+function FpsTopRight.hitTest(ctx, x, y)
+  if not ctx then
+    return false
+  end
+
+  local theme = (ctx and ctx.theme) or Theme
+  local hudTheme = theme.hud
+
+  local layout = ctx.layout or {}
+  local margin = layout.margin or hudTheme.layout.margin
+  local xRight = (ctx.screenW or 0) - margin
+  local y0 = layout.topRightY or margin
+
+  local text = tostring(ctx.fps or 0)
+  local font = love.graphics.getFont()
+  local tw = font:getWidth(text)
+  local th = font:getHeight()
+
+  local coordText = string.format("X %d  Y %d", math.floor(ctx.x or 0), math.floor(ctx.y or 0))
+  local tw2 = font:getWidth(coordText)
+
+  local x1 = xRight - tw
+  local x2 = xRight - tw2
+  local left = math.min(x1, x2)
+  local right = xRight
+  local bottom = y0 + th * 2 + (hudTheme.layout and hudTheme.layout.smallGap or 0)
+
+  return x >= left and x <= right and y >= y0 and y <= bottom
+end
+
 function FpsTopRight.draw(ctx)
   if not ctx then
     return

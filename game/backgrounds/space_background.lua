@@ -92,7 +92,19 @@ function SpaceBackground.new(opts)
   self.canvasH = 0
   self.lastFocusX = nil
   self.lastFocusY = nil
-  self.nebulaSeed = opts.nebulaSeed or (self.rng:random() * 1000)
+  do
+    local nebulaSeed = opts.nebulaSeed
+    if nebulaSeed == nil then
+      nebulaSeed = self.rng:random() * 1000
+    elseif type(nebulaSeed) == "number" then
+      local a = math.abs(nebulaSeed)
+      if a > 10000 then
+        local m = 1000000
+        nebulaSeed = (nebulaSeed % m) / m * 1000
+      end
+    end
+    self.nebulaSeed = nebulaSeed
+  end
   self._shaderResolution = { 0, 0 }
   self._shaderOffset = { 0, 0 }
 

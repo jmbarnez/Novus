@@ -20,8 +20,17 @@ function Hud:mousemoved(ctx, x, y, dx, dy)
 end
 
 function Hud:draw(ctx)
+  local mx, my = love.mouse.getPosition()
+  if ctx then
+    ctx.uiOverHud = false
+  end
   for i = 1, #self.widgets do
     local w = self.widgets[i]
+    if ctx and w and w.hitTest then
+      if w.hitTest(ctx, mx, my) then
+        ctx.uiOverHud = true
+      end
+    end
     if w and w.draw then
       w.draw(ctx)
     end
@@ -93,10 +102,10 @@ function Hud.default()
     require("game.hud.widgets.minimap_top_right"),
     require("game.hud.widgets.fps_top_right"),
     require("game.hud.widgets.target_panel_top_center"),
-    require("game.hud.widgets.cursor_reticle"),
     require("game.hud.widgets.cursor_cooldown"),
     require("game.hud.widgets.waypoint_indicator"),
     require("game.hud.widgets.fullscreen_map"),
+    require("game.hud.widgets.cursor_reticle"),
   })
 end
 

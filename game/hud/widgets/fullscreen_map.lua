@@ -18,6 +18,11 @@ local function makeFullscreenMap()
     return world and world:getResource("map_ui")
   end
 
+  function self.hitTest(ctx, x, y)
+    local mapUi = getMapUi(ctx)
+    return mapUi and mapUi.open or false
+  end
+
   local function getUiCapture(ctx)
     local world = ctx and ctx.world
     return world and world:getResource("ui_capture")
@@ -72,6 +77,7 @@ local function makeFullscreenMap()
   local function computeLayout(ctx)
     local theme = (ctx and ctx.theme) or Theme
     local hudTheme = theme.hud
+    local fm = hudTheme.fullscreenMap or {}
 
     local screenW = ctx and ctx.screenW or 0
     local screenH = ctx and ctx.screenH or 0
@@ -79,7 +85,7 @@ local function makeFullscreenMap()
     local margin = (hudTheme.layout and hudTheme.layout.margin) or 16
     local gap = (hudTheme.layout and hudTheme.layout.stackGap) or 18
 
-    local legendW = 260
+    local legendW = fm.legendW or 260
 
     local mapRect = {
       x = margin,
@@ -88,7 +94,8 @@ local function makeFullscreenMap()
       h = screenH - margin * 2,
     }
 
-    if mapRect.w < 200 then
+    local minMapW = fm.minMapW or 200
+    if mapRect.w < minMapW then
       mapRect.w = screenW - margin * 2
       legendW = 0
     end
@@ -191,10 +198,12 @@ local function makeFullscreenMap()
 
   local function drawGrid(ctx, view)
     local theme = (ctx and ctx.theme) or Theme
-    local colors = theme.hud.colors
+    local hudTheme = theme.hud
+    local colors = hudTheme.colors
+    local fm = hudTheme.fullscreenMap or {}
     local dr = view.drawRect
 
-    local targetPx = 110
+    local targetPx = fm.gridTargetPx or 110
     local rawWorld = targetPx / view.scale
     local step = niceStep(rawWorld)
 
@@ -223,13 +232,18 @@ local function makeFullscreenMap()
     local lx = math.floor(view.left / labelStep) * labelStep
     local ly = math.floor(view.top / labelStep) * labelStep
 
+    local infoX = dr.x + (fm.gridInfoOffsetX or 6)
+    local infoY = dr.y + (fm.gridInfoOffsetY or 6)
+    local infoW = fm.gridInfoW or 176
+    local infoH = fm.gridInfoH or 38
     love.graphics.setColor(0, 0, 0, 0.65)
-    love.graphics.rectangle("fill", dr.x + 6, dr.y + 6, 176, 38)
+    love.graphics.rectangle("fill", infoX, infoY, infoW, infoH)
 
     love.graphics.setColor(colors.text[1], colors.text[2], colors.text[3], 0.85)
-    love.graphics.print(string.format("Grid %.0f", step), dr.x + 12, dr.y + 10)
-    love.graphics.print(string.format("X: %.0f..%.0f", view.left, view.left + view.viewW), dr.x + 12, dr.y + 24)
-    love.graphics.print(string.format("Y: %.0f..%.0f", view.top, view.top + view.viewH), dr.x + 12, dr.y + 38)
+    local textX = dr.x + (fm.gridInfoTextX or 12)
+    love.graphics.print(string.format("Grid %.0f", step), textX, dr.y + (fm.gridInfoTextY1 or 10))
+    love.graphics.print(string.format("X: %.0f..%.0f", view.left, view.left + view.viewW), textX, dr.y + (fm.gridInfoTextY2 or 24))
+    love.graphics.print(string.format("Y: %.0f..%.0f", view.top, view.top + view.viewH), textX, dr.y + (fm.gridInfoTextY3 or 38))
 
     local xLabel = lx
     while xLabel <= x1 do
@@ -290,29 +304,39 @@ local function makeFullscreenMap()
       return
     end
 
+    local theme = (ctx and ctx.theme) or Theme
+    local hudTheme = theme.hud
+    local colors = hudTheme.colors
+    local fm = hudTheme.fullscreenMap or {}
+
     local sx, sy = worldToScreen(view, mapUi.waypointX, mapUi.waypointY)
 
     if sx < view.drawRect.x or sx > (view.drawRect.x + view.drawRect.w) or sy < view.drawRect.y or sy > (view.drawRect.y + view.drawRect.h) then
       return
     end
 
-    love.graphics.setColor(1, 1, 1, 0.18)
+    love.graphics.setColor(1, 1, 1, fm.waypointLineAlpha or 0.18)
     if ctx and ctx.hasShip then
       local px, py = worldToScreen(view, ctx.x or 0, ctx.y or 0)
       love.graphics.line(px, py, sx, sy)
     end
 
-    love.graphics.setColor(1.0, 0.35, 0.95, 0.9)
-    love.graphics.setLineWidth(2)
-    love.graphics.line(sx - 8, sy, sx + 8, sy)
-    love.graphics.line(sx, sy - 8, sx, sy + 8)
+    love.graphics.setColor(colors.accentSoft[1], colors.accentSoft[2], colors.accentSoft[3], colors.accentSoft[4])
+    love.graphics.setLineWidth(fm.waypointCrossLineWidth or 2)
+    local half = fm.waypointCrossHalf or 8
+    love.graphics.line(sx - half, sy, sx + half, sy)
+    love.graphics.line(sx, sy - half, sx, sy + half)
     love.graphics.setLineWidth(1)
 
-    love.graphics.setColor(0, 0, 0, 0.75)
+    local shadowA = fm.waypointLabelShadowAlpha or 0.75
+    love.graphics.setColor(0, 0, 0, shadowA)
     local label = string.format("WAYPOINT %.0f, %.0f", mapUi.waypointX, mapUi.waypointY)
-    love.graphics.print(label, sx + 10 + 1, sy - 10 + 1)
-    love.graphics.setColor(1, 1, 1, 0.85)
-    love.graphics.print(label, sx + 10, sy - 10)
+    local ox = fm.waypointLabelOffsetX or 10
+    local oy = fm.waypointLabelOffsetY or -10
+    local shOff = fm.waypointLabelShadowOffset or 1
+    love.graphics.print(label, sx + ox + shOff, sy + oy + shOff)
+    love.graphics.setColor(1, 1, 1, fm.waypointLabelTextAlpha or 0.85)
+    love.graphics.print(label, sx + ox, sy + oy)
 
     love.graphics.setColor(1, 1, 1, 1)
   end
@@ -332,27 +356,32 @@ local function makeFullscreenMap()
     love.graphics.setColor(colors.panelBorder[1], colors.panelBorder[2], colors.panelBorder[3], 0.55)
     love.graphics.rectangle("line", legendRect.x, legendRect.y, legendRect.w, legendRect.h)
 
-    local x = legendRect.x + 12
-    local y = legendRect.y + 10
+    local fm = hudTheme.fullscreenMap or {}
+    local lg = fm.legend or {}
+
+    local x = legendRect.x + (lg.padX or 12)
+    local y = legendRect.y + (lg.padY or 10)
 
     love.graphics.setColor(colors.text[1], colors.text[2], colors.text[3], colors.text[4])
     love.graphics.print("MAP", x, y)
     y = y + 22
 
-    local function entry(label, r, g, b)
-      love.graphics.setColor(r, g, b, 0.9)
-      love.graphics.rectangle("fill", x, y + 4, 12, 12)
-      love.graphics.setColor(1, 1, 1, 0.35)
-      love.graphics.rectangle("line", x, y + 4, 12, 12)
+    local function entry(label, c)
+      local sw = lg.swatchSize or 12
+      local insetY = lg.swatchInsetY or 4
+      love.graphics.setColor(c[1], c[2], c[3], lg.swatchAlpha or 0.9)
+      love.graphics.rectangle("fill", x, y + insetY, sw, sw)
+      love.graphics.setColor(1, 1, 1, lg.swatchBorderAlpha or 0.35)
+      love.graphics.rectangle("line", x, y + insetY, sw, sw)
       love.graphics.setColor(colors.text[1], colors.text[2], colors.text[3], colors.text[4])
-      love.graphics.print(label, x + 18, y)
-      y = y + 18
+      love.graphics.print(label, x + (lg.textX or 18), y)
+      y = y + (lg.rowGap or 18)
     end
 
-    entry("Player", 0.20, 0.65, 1.00)
-    entry("Asteroid", 1, 1, 1)
-    entry("Pickup", 0.35, 1.0, 0.45)
-    entry("Ship", 1.0, 0.65, 0.20)
+    entry("Player", { (lg.player and lg.player[1]) or 0.20, (lg.player and lg.player[2]) or 0.65, (lg.player and lg.player[3]) or 1.00 })
+    entry("Asteroid", { (lg.asteroid and lg.asteroid[1]) or 1.00, (lg.asteroid and lg.asteroid[2]) or 1.00, (lg.asteroid and lg.asteroid[3]) or 1.00 })
+    entry("Pickup", { (lg.pickup and lg.pickup[1]) or 0.35, (lg.pickup and lg.pickup[2]) or 1.00, (lg.pickup and lg.pickup[3]) or 0.45 })
+    entry("Ship", { (lg.ship and lg.ship[1]) or 1.00, (lg.ship and lg.ship[2]) or 0.65, (lg.ship and lg.ship[3]) or 0.20 })
 
     y = y + 14
 
@@ -431,7 +460,8 @@ local function makeFullscreenMap()
 
         local sx, sy = worldToScreen(view, wx, wy)
 
-        love.graphics.setColor(colors.minimapGrid[1], colors.minimapGrid[2], colors.minimapGrid[3], 0.45)
+        local ac = colors.asteroid or { 1, 1, 1, 0.45 }
+        love.graphics.setColor(ac[1], ac[2], ac[3], ac[4])
         love.graphics.rectangle("fill", sx - 1, sy - 1, 2, 2)
 
         drawn = drawn + 1
@@ -456,7 +486,8 @@ local function makeFullscreenMap()
 
         local sx, sy = worldToScreen(view, wx, wy)
 
-        love.graphics.setColor(0.35, 1.0, 0.45, 0.85)
+        local pc = colors.pickup or { 0.35, 1.0, 0.45, 0.85 }
+        love.graphics.setColor(pc[1], pc[2], pc[3], pc[4])
         love.graphics.rectangle("fill", sx - 2, sy - 2, 4, 4)
         drawnP = drawnP + 1
       end)
@@ -480,7 +511,8 @@ local function makeFullscreenMap()
 
         local sx, sy = worldToScreen(view, wx, wy)
 
-        love.graphics.setColor(1.0, 0.65, 0.20, 0.55)
+        local sc = colors.ship or { 1.0, 0.65, 0.20, 0.55 }
+        love.graphics.setColor(sc[1], sc[2], sc[3], sc[4])
         love.graphics.circle("fill", sx, sy, 3)
         drawnS = drawnS + 1
       end)
