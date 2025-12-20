@@ -2,6 +2,7 @@ local Theme = require("game.theme")
 local Items = require("game.items")
 local Inventory = require("game.inventory")
 local ItemIcons = require("game.item_icons")
+local WindowFrame = require("game.hud.window_frame")
 
 local function getPlayerShip(world)
   local player = world and world:getResource("player")
@@ -49,97 +50,81 @@ end
 
 local function makeCargoPanel()
   local self = {
-    open = true,
+    open = false,
+    frame = WindowFrame.new(),
     bounds = nil,
     slotRects = {},
     drag = nil,
     dragFrom = nil,
-    scrollRow = 0,
-    scrollDrag = false,
-    scrollDragOffsetY = 0,
   }
 
-  local function getDisplayRows(hold, displayCols)
-    if not hold then
-      return 0
-    end
-    local totalSlots = (hold.cols or 0) * (hold.rows or 0)
-    if totalSlots <= 0 and hold.slots then
-      for _ in pairs(hold.slots) do
-        totalSlots = totalSlots + 1
-      end
-    end
-    if totalSlots <= 0 or not displayCols or displayCols <= 0 then
-      return 0
-    end
-    return math.ceil(totalSlots / displayCols)
+  local function getUiCapture(ctx)
+    local world = ctx and ctx.world
+    return world and world:getResource("ui_capture")
   end
 
-  local function recomputeRects(ctx, cols, rows)
+  local function isMapOpen(ctx)
+    local world = ctx and ctx.world
+    local mapUi = world and world:getResource("map_ui")
+    return mapUi and mapUi.open or false
+  end
+
+  local function setCapture(ctx)
+    local uiCapture = getUiCapture(ctx)
+    if uiCapture then
+      uiCapture.active = (self.open or isMapOpen(ctx)) and true or false
+    end
+  end
+
+  local function recomputeRects(ctx)
     local theme = (ctx and ctx.theme) or Theme
     local hudTheme = theme.hud
     local cp = hudTheme.cargoPanel or {}
 
     local margin = (ctx.layout and ctx.layout.margin) or hudTheme.layout.margin
-    local screenW = ctx and ctx.screenW or 0
-    local yBottom = (ctx.layout and ctx.layout.bottomRightY) or ((ctx and ctx.screenH or 0) - margin)
 
     local pad = cp.pad or 6
-    local headerH = cp.headerH or 0
+    local headerH = cp.headerH or 24
+    local footerH = cp.footerH or 26
     local slot = cp.slot or 44
     local gap = cp.gap or 6
-    local barGap = cp.barGap or 6
-    local barH = cp.barH or 10
-    local visibleRows = cp.visibleRows or 4
-    local scrollGap = cp.scrollGap or 6
-    local scrollW = cp.scrollW or 6
+    local footerGap = cp.footerGap or (cp.barGap or 6)
 
-    local maxScroll = rows - visibleRows
-    if maxScroll < 0 then
-      maxScroll = 0
-    end
-
-    if self.scrollRow < 0 then
-      self.scrollRow = 0
-    elseif self.scrollRow > maxScroll then
-      self.scrollRow = maxScroll
-    end
+    local cols = 4
+    local rows = 4
 
     local gridW = cols * slot + (cols - 1) * gap
-    local gridH = visibleRows * slot + (visibleRows - 1) * gap
+    local gridH = rows * slot + (rows - 1) * gap
 
-    local panelW = pad * 2 + gridW + scrollGap + scrollW
-    local panelH = pad * 2 + headerH + gridH + barGap + barH
+    local panelW = pad * 2 + gridW
+    local panelH = pad * 2 + headerH + gridH + footerGap + footerH
 
-    local panelDrawH = panelH
-    local x0 = screenW - margin - panelW
-    local y0 = yBottom - panelDrawH
+    if self.frame.x == nil or self.frame.y == nil then
+      local screenW = ctx and ctx.screenW or 0
+      local screenH = ctx and ctx.screenH or 0
+      self.frame.x = math.floor((screenW - panelW) * 0.5)
+      self.frame.y = math.floor((screenH - panelH) * 0.5)
+    end
 
-    self.bounds = {
-      x = x0,
-      y = y0,
-      w = panelW,
-      h = panelDrawH,
-      pad = pad,
+    local frameBounds = self.frame:compute(ctx, panelW, panelH, {
+      margin = margin,
       headerH = headerH,
-      slot = slot,
-      gap = gap,
-      barGap = barGap,
-      barH = barH,
-      visibleRows = visibleRows,
-      scrollGap = scrollGap,
-      scrollW = scrollW,
-      scrollMax = maxScroll,
-      gridX = x0 + pad,
-      gridY = y0 + pad + headerH,
-      gridW = gridW,
-      gridH = gridH,
-      cols = cols,
-      rows = rows,
-    }
+      footerH = footerH,
+      closeSize = cp.closeSize or 18,
+      closePad = cp.closePad or 6,
+    })
 
-    self.bounds.scrollTrack = nil
-    self.bounds.scrollThumb = nil
+    self.bounds = frameBounds
+    self.bounds.pad = pad
+    self.bounds.slot = slot
+    self.bounds.gap = gap
+    self.bounds.footerGap = footerGap
+    self.bounds.gridX = frameBounds.x + pad
+    self.bounds.gridY = frameBounds.y + pad + headerH
+    self.bounds.gridW = gridW
+    self.bounds.gridH = gridH
+    self.bounds.cols = cols
+    self.bounds.rows = rows
 
     local clearN = cols * rows
     if #self.slotRects > clearN then
@@ -149,45 +134,17 @@ local function makeCargoPanel()
       self.slotRects[i] = nil
     end
 
-    if self.open then
-      local gridX = x0 + pad
-      local gridY = y0 + pad + headerH
-      local idx = 1
-      for r = 1, visibleRows do
-        for c = 1, cols do
-          local sx = gridX + (c - 1) * (slot + gap)
-          local sy = gridY + (r - 1) * (slot + gap)
-          local row = r + self.scrollRow
-          local slotIdx = (row - 1) * cols + c
-          self.slotRects[idx] = { x = sx, y = sy, w = slot, h = slot, idx = slotIdx }
-          idx = idx + 1
-        end
+    local gridX = frameBounds.x + pad
+    local gridY = frameBounds.y + pad + headerH
+    local idx = 1
+    for r = 1, rows do
+      for c = 1, cols do
+        local sx = gridX + (c - 1) * (slot + gap)
+        local sy = gridY + (r - 1) * (slot + gap)
+        local slotIdx = (r - 1) * cols + c
+        self.slotRects[idx] = { x = sx, y = sy, w = slot, h = slot, idx = slotIdx }
+        idx = idx + 1
       end
-
-      local trackX = gridX + gridW + scrollGap
-      local trackY = gridY
-      local trackH = gridH
-
-      local thumbH = trackH
-      if rows > 0 then
-        thumbH = math.floor(trackH * (visibleRows / rows))
-      end
-      local thumbMinH = cp.scrollThumbMinH or 18
-      if thumbH < thumbMinH then
-        thumbH = thumbMinH
-      end
-      if thumbH > trackH then
-        thumbH = trackH
-      end
-
-      local t = 0
-      if maxScroll > 0 then
-        t = self.scrollRow / maxScroll
-      end
-      local thumbY = trackY + (trackH - thumbH) * t
-
-      self.bounds.scrollTrack = { x = trackX, y = trackY, w = scrollW, h = trackH }
-      self.bounds.scrollThumb = { x = trackX, y = thumbY, w = scrollW, h = thumbH }
     end
   end
 
@@ -211,15 +168,11 @@ local function makeCargoPanel()
       return false
     end
 
-    local ship = ctx.world and getPlayerShip(ctx.world)
-    if not ship or not ship.cargo_hold then
+    if not self.open then
       return false
     end
 
-    local theme = (ctx and ctx.theme) or Theme
-    local displayCols = (theme.hud.cargoPanel and theme.hud.cargoPanel.displayCols) or 2
-    local displayRows = getDisplayRows(ship.cargo_hold, displayCols)
-    recomputeRects(ctx, displayCols, displayRows)
+    recomputeRects(ctx)
 
     local b = self.bounds
     if not b then
@@ -234,6 +187,12 @@ local function makeCargoPanel()
       return
     end
 
+    if not self.open then
+      return
+    end
+
+    setCapture(ctx)
+
     local theme = (ctx and ctx.theme) or Theme
     local hudTheme = theme.hud
 
@@ -245,12 +204,7 @@ local function makeCargoPanel()
     local hold = ship.cargo_hold
     local cargo = ship.cargo
 
-    local displayCols = (hudTheme.cargoPanel and hudTheme.cargoPanel.displayCols) or 2
-    local displayRows = getDisplayRows(hold, displayCols)
-
-    recomputeRects(ctx, displayCols, displayRows)
-
-    local colors = hudTheme.colors
+    recomputeRects(ctx)
 
     local b = self.bounds
 
@@ -258,51 +212,15 @@ local function makeCargoPanel()
       return
     end
 
-    love.graphics.setColor(colors.panelBg[1], colors.panelBg[2], colors.panelBg[3], colors.panelBg[4])
-    love.graphics.rectangle("fill", b.x, b.y, b.w, b.h)
-
-    love.graphics.setColor(colors.panelBorder[1], colors.panelBorder[2], colors.panelBorder[3], colors.panelBorder[4])
-    love.graphics.rectangle("line", b.x, b.y, b.w, b.h)
+    do
+      local cp = hudTheme.cargoPanel or {}
+      self.frame:draw(ctx, b, { title = cp.title or "CARGO", titlePad = b.pad })
+    end
 
     local used = cargo.used or 0
     local cap = cargo.capacity or 0
 
-    if self.scrollDrag then
-      local mx0, my0 = love.mouse.getPosition()
-      if not love.mouse.isDown(1) then
-        self.scrollDrag = false
-      else
-        local track = b.scrollTrack
-        local thumb = b.scrollThumb
-        if track and thumb and b.scrollMax and b.scrollMax > 0 then
-          local minY = track.y
-          local maxY = track.y + track.h - thumb.h
-          local ty = my0 - (self.scrollDragOffsetY or 0)
-          if ty < minY then
-            ty = minY
-          elseif ty > maxY then
-            ty = maxY
-          end
-          local t = (maxY > minY) and ((ty - minY) / (maxY - minY)) or 0
-          local row = math.floor(t * b.scrollMax + 0.5)
-          if row < 0 then
-            row = 0
-          elseif row > b.scrollMax then
-            row = b.scrollMax
-          end
-          if row ~= self.scrollRow then
-            self.scrollRow = row
-            recomputeRects(ctx, displayCols, displayRows)
-            b = self.bounds
-            if not b then
-              return
-            end
-          end
-        end
-      end
-    end
-
-    if self.open then
+    do
       local mx, my = love.mouse.getPosition()
       local hover = pickSlot(mx, my)
 
@@ -314,7 +232,6 @@ local function makeCargoPanel()
         end
 
         if r then
-
           local isHover = hover == (r and r.idx)
           love.graphics.setColor(0, 0, 0, isHover and 0.55 or 0.35)
           love.graphics.rectangle("fill", r.x, r.y, r.w, r.h)
@@ -373,27 +290,14 @@ local function makeCargoPanel()
     end
 
     do
-      local track = b.scrollTrack
-      local thumb = b.scrollThumb
-      local maxScroll = b.scrollMax
-      if track and thumb and maxScroll and maxScroll > 0 then
-        love.graphics.setColor(colors.barBg[1], colors.barBg[2], colors.barBg[3], colors.barBg[4])
-        love.graphics.rectangle("fill", track.x, track.y, track.w, track.h)
-        love.graphics.setColor(colors.barBorder[1], colors.barBorder[2], colors.barBorder[3], colors.barBorder[4])
-        love.graphics.rectangle("line", track.x, track.y, track.w, track.h)
-
-        love.graphics.setColor(colors.barFillSecondary[1], colors.barFillSecondary[2], colors.barFillSecondary[3], colors.barFillSecondary[4])
-        love.graphics.rectangle("fill", thumb.x, thumb.y, thumb.w, thumb.h)
-        love.graphics.setColor(colors.barBorder[1], colors.barBorder[2], colors.barBorder[3], colors.barBorder[4])
-        love.graphics.rectangle("line", thumb.x, thumb.y, thumb.w, thumb.h)
-      end
-    end
-
-    do
-      local barX = b.x + b.pad
-      local barY = b.y + b.h - b.pad - (b.barH or 12)
-      local barW = b.w - b.pad * 2
-      local barH = b.barH or 12
+      local colors = hudTheme.colors
+      local footer = b.footerRect
+      local barPadX = 10
+      local barPadY = 8
+      local barX = footer.x + barPadX
+      local barW = footer.w - barPadX * 2
+      local barH = (hudTheme.cargoPanel and hudTheme.cargoPanel.barH) or 10
+      local barY = footer.y + math.floor((footer.h - barH) * 0.5)
 
       local frac = 0
       if cap > 0 then
@@ -453,25 +357,23 @@ local function makeCargoPanel()
       love.graphics.pop()
     end
 
-    if ctx.layout then
-      local stackGap = (hudTheme.layout and hudTheme.layout.stackGap) or 0
-      ctx.layout.bottomRightY = b.y - stackGap
-    end
-
     love.graphics.setColor(1, 1, 1, 1)
   end
 
   function self.mousepressed(ctx, x, y, button)
+    if not self.open then
+      return false
+    end
+
+    setCapture(ctx)
+
     local ship = ctx and ctx.world and getPlayerShip(ctx.world)
     if not ship or not ship.cargo_hold or not ship.cargo then
       return false
     end
 
     local hold = ship.cargo_hold
-    local theme = (ctx and ctx.theme) or Theme
-    local displayCols = (theme.hud.cargoPanel and theme.hud.cargoPanel.displayCols) or 2
-    local displayRows = getDisplayRows(hold, displayCols)
-    recomputeRects(ctx, displayCols, displayRows)
+    recomputeRects(ctx)
 
     local b = self.bounds
     if not b then
@@ -479,34 +381,18 @@ local function makeCargoPanel()
     end
 
     if not pointInRect(x, y, b) then
-      return false
-    end
-
-    if button ~= 1 then
       return true
     end
 
-    if b.scrollTrack and pointInRect(x, y, b.scrollTrack) then
-      if b.scrollThumb and pointInRect(x, y, b.scrollThumb) then
-        self.scrollDrag = true
-        self.scrollDragOffsetY = y - b.scrollThumb.y
-        return true
+    local consumed, didClose = self.frame:mousepressed(ctx, b, x, y, button)
+    if consumed then
+      if didClose then
+        self.open = false
+        self.drag = nil
+        self.dragFrom = nil
+        self.frame.dragging = false
+        setCapture(ctx)
       end
-
-      if b.scrollThumb and b.scrollMax and b.scrollMax > 0 then
-        local minY = b.scrollTrack.y
-        local maxY = b.scrollTrack.y + b.scrollTrack.h - b.scrollThumb.h
-        local ty = y - b.scrollThumb.h * 0.5
-        if ty < minY then
-          ty = minY
-        elseif ty > maxY then
-          ty = maxY
-        end
-        local t = (maxY > minY) and ((ty - minY) / (maxY - minY)) or 0
-        self.scrollRow = math.floor(t * b.scrollMax + 0.5)
-        recomputeRects(ctx, displayCols, displayRows)
-      end
-
       return true
     end
 
@@ -534,12 +420,18 @@ local function makeCargoPanel()
   end
 
   function self.mousereleased(ctx, x, y, button)
+    if not self.open then
+      return false
+    end
+
+    setCapture(ctx)
+
     if button ~= 1 then
       return false
     end
 
-    if self.scrollDrag then
-      self.scrollDrag = false
+    if self.frame:mousereleased(ctx, x, y, button) then
+      setCapture(ctx)
       return true
     end
 
@@ -553,9 +445,7 @@ local function makeCargoPanel()
     end
 
     local hold = ship.cargo_hold
-    local displayCols = 2
-    local displayRows = getDisplayRows(hold, displayCols)
-    recomputeRects(ctx, displayCols, displayRows)
+    recomputeRects(ctx)
 
     local b = self.bounds
     if not b then
@@ -633,7 +523,29 @@ local function makeCargoPanel()
   end
 
   function self.keypressed(ctx, key)
-    return false
+    if key == "tab" then
+      self.open = not self.open
+      self.drag = nil
+      self.dragFrom = nil
+      self.frame.dragging = false
+      setCapture(ctx)
+      return true
+    end
+
+    if not self.open then
+      return false
+    end
+
+    if key == "escape" then
+      self.open = false
+      self.drag = nil
+      self.dragFrom = nil
+      self.frame.dragging = false
+      setCapture(ctx)
+      return true
+    end
+
+    return true
   end
 
   function self.wheelmoved(ctx, x, y)
@@ -641,44 +553,31 @@ local function makeCargoPanel()
       return false
     end
 
-    local ship = getPlayerShip(ctx.world)
-    if not ship or not ship.cargo_hold or not ship.cargo then
+    setCapture(ctx)
+    return true
+  end
+
+  function self.mousemoved(ctx, x, y, dx, dy)
+    if not self.open then
       return false
     end
 
-    local hold = ship.cargo_hold
-    local displayCols = 2
-    local displayRows = getDisplayRows(hold, displayCols)
-    recomputeRects(ctx, displayCols, displayRows)
-
-    local b = self.bounds
-    if not b then
-      return false
-    end
-
-    local mx, my = love.mouse.getPosition()
-    if not pointInRect(mx, my, b) then
-      return false
-    end
-
-    local maxScroll = b.scrollMax or 0
-    if maxScroll <= 0 or not y or y == 0 then
+    if self.frame:mousemoved(ctx, x, y, dx, dy) and ctx then
+      recomputeRects(ctx)
+      setCapture(ctx)
       return true
     end
 
-    local nextRow = self.scrollRow - y
-    if nextRow < 0 then
-      nextRow = 0
-    elseif nextRow > maxScroll then
-      nextRow = maxScroll
+    if ctx then
+      recomputeRects(ctx)
+      local b = self.bounds
+      if b and pointInRect(x, y, b) then
+        setCapture(ctx)
+        return true
+      end
     end
 
-    if nextRow ~= self.scrollRow then
-      self.scrollRow = nextRow
-      recomputeRects(ctx, displayCols, displayRows)
-    end
-
-    return true
+    return false
   end
 
   return self

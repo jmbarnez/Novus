@@ -193,7 +193,9 @@ function asteroids.createAsteroid(ecsWorld, physicsWorld, x, y, radius, rng)
 
   local color = pickAsteroidColor(rng)
 
-  local maxHealth = math.floor(30 + radius * 2)
+  local r = radius or 0
+  local volume = math.max(1, math.floor((r * r) / 50))
+  local maxHealth = math.max(1, math.floor(6 + volume * 2))
 
   local seed = rng:random(1, 1000000)
 

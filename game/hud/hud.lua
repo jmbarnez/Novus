@@ -98,7 +98,7 @@ function Hud.default()
   return Hud.new({
     require("game.hud.widgets.status_panel_top_left"),
     require("game.hud.widgets.controls_bottom_left"),
-    require("game.hud.widgets.cargo_panel_bottom_right"),
+    require("game.hud.widgets.cargo_panel"),
     require("game.hud.widgets.minimap_top_right"),
     require("game.hud.widgets.fps_top_right"),
     require("game.hud.widgets.target_panel_top_center"),

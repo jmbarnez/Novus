@@ -21,5 +21,6 @@ require("ecs.components.projectile")
 require("ecs.components.shatter")
 require("ecs.components.pickup")
 require("ecs.components.magnet")
+require("ecs.components.floating_text")
 
 return true

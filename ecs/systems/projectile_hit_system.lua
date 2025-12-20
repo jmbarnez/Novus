@@ -2,6 +2,7 @@ local Concord = require("lib.concord")
 local PhysicsCleanup = require("ecs.physics_cleanup")
 local EntityUtil = require("ecs.util.entity")
 local ImpactUtil = require("ecs.util.impact")
+local FloatingText = require("ecs.util.floating_text")
 
 local ProjectileHitSystem = Concord.system()
 
@@ -94,6 +95,15 @@ local function tryHit(projectile, target, contact)
     local x, y = ImpactUtil.calculateImpactPosition(projectile, target, contact)
 
     spawnImpactEffect(world, physicsWorld, x, y)
+
+    if world then
+      FloatingText.spawn(world, x, y - 6, tostring(damage), {
+        kind = "damage",
+        riseSpeed = 70,
+        duration = 0.55,
+        scale = 1.0,
+      })
+    end
   end
 
   PhysicsCleanup.destroyPhysics(projectile)

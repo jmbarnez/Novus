@@ -15,6 +15,7 @@ Systems.PickupSystem = require("ecs.systems.pickup_system")
 Systems.MagnetSystem = require("ecs.systems.magnet_system")
 Systems.PhysicsSnapshotSystem = require("ecs.systems.physics_snapshot_system")
 Systems.TargetingSystem = require("ecs.systems.targeting_system")
+Systems.FloatingTextSystem = require("ecs.systems.floating_text_system")
 Systems.RenderSystem = require("ecs.systems.render_system")
 Systems.HudSystem = require("ecs.systems.hud_system")
 

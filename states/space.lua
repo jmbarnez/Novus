@@ -10,6 +10,7 @@ local SpaceBackground = require("game.backgrounds.space_background")
 local Camera = require("game.camera")
 local Profiler = require("util.profiler")
 local Seed = require("util.seed")
+local Pause = require("states.pause")
 
 local function clamp(v, lo, hi)
   if v < lo then return lo end
@@ -117,6 +118,7 @@ function Space:enter(_, worldSeed)
     Systems.MagnetSystem,
     Systems.ShatterSystem,
     Systems.RenderSystem,
+    Systems.FloatingTextSystem,
     Systems.HudSystem
   )
 
@@ -327,7 +329,7 @@ function Space:keypressed(key)
   end
 
   if key == "escape" then
-    love.event.quit()
+    Gamestate.push(Pause)
   elseif key == "f1" and self.profiler then
     self.profiler:setEnabled(not self.profiler.enabled)
   elseif key == "f2" then

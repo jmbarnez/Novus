@@ -4,6 +4,7 @@ local Physics = require("ecs.util.physics")
 local MathUtil = require("util.math")
 local Inventory = require("game.inventory")
 local Items = require("game.items")
+local FloatingText = require("ecs.util.floating_text")
 
 local PickupSystem = Concord.system({
   ships = { "ship", "cargo", "cargo_hold", "physics_body" },
@@ -130,6 +131,26 @@ local function tryCollect(ship, pickup)
   local collected = tryVol - remaining
   if collected <= 0 then
     return false
+  end
+
+  do
+    local world = ship:getWorld()
+    local body = pickup.physics_body and pickup.physics_body.body
+    if world and body then
+      local x, y = body:getPosition()
+      local def = Items.get(p.id)
+      local name = (def and def.name) or p.id
+      FloatingText.spawnStacked(world, x, y - 10, "pickup:" .. tostring(p.id), collected, {
+        kind = "pickup",
+        stackLabel = name,
+        prefix = "+",
+        stackRadius = 80,
+        stackWindow = 0.4,
+        riseSpeed = 55,
+        duration = 0.75,
+        scale = 0.95,
+      })
+    end
   end
 
   ship.cargo.used = Inventory.totalVolume(ship.cargo_hold.slots)
