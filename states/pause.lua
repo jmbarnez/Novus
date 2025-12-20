@@ -54,14 +54,16 @@ function Pause:_layout(ctx)
   local headerH = 28
   local footerH = 0
 
-  local winW = math.min(360, math.max(240, math.floor(screenW * 0.40)))
-  local winH = 180
+  local winW = math.min(260, math.max(210, math.floor(screenW * 0.30)))
+  local winH = 128
 
   local x0 = math.floor((screenW - winW) * 0.5)
   local y0 = math.floor((screenH - winH) * 0.40)
 
-  self.frame.x = math.max(margin, x0)
-  self.frame.y = math.max(margin, y0)
+  if self.frame.x == nil or self.frame.y == nil then
+    self.frame.x = math.max(margin, x0)
+    self.frame.y = math.max(margin, y0)
+  end
 
   local bounds = self.frame:compute(ctx, winW, winH, {
     headerH = headerH,
@@ -151,13 +153,17 @@ function Pause:mousepressed(x, y, button)
     return false
   end
 
-  local consumed, didClose = self.frame:mousepressed(ctx, b, x, y, button)
-  if consumed then
-    if didClose then
-      self:_activate("Resume")
-    end
+  local consumed, didClose, didDrag = self.frame:mousepressed(ctx, b, x, y, button)
+  if didClose then
+    self:_activate("Resume")
     return true
   end
+  if didDrag then
+    return true
+  end
+  -- NOTE: WindowFrame consumes clicks anywhere inside the window bounds.
+  -- We only want it to consume header drag + close. Allow the content area
+  -- to fall through to our button hit-tests.
 
   if button ~= 1 then
     return true
@@ -222,16 +228,7 @@ function Pause:draw()
 
   self.frame:draw(ctx, b, { title = "PAUSED", titlePad = b.pad })
 
-  local msg = "Game is paused."
   local font = love.graphics.getFont()
-  local tw = font:getWidth(msg)
-  local tx = b.contentRect.x + math.floor((b.contentRect.w - tw) * 0.5)
-  local ty = b.contentRect.y
-  love.graphics.setColor(colors.textShadow[1], colors.textShadow[2], colors.textShadow[3], 0.75)
-  love.graphics.print(msg, tx + 1, ty + 1)
-  love.graphics.setColor(colors.text[1], colors.text[2], colors.text[3], 0.9)
-  love.graphics.print(msg, tx, ty)
-
   local mx, my = love.mouse.getPosition()
 
   local function drawButton(rect, label, isSelected)
