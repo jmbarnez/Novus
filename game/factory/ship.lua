@@ -9,14 +9,14 @@ function ship.createShip(ecsWorld, physicsWorld, x, y)
   body:setBullet(true)
 
   local shape = love.physics.newPolygonShape(
-    22, 0,
-    10, 9,
-    0, 16,
-    -18, 8,
-    -22, 0,
-    -18, -8,
-    0, -16,
-    10, -9
+    12, 0,
+    6, 5,
+    0, 10,
+    -10, 5,
+    -12, 0,
+    -10, -5,
+    0, -10,
+    6, -5
   )
 
   local fixture = love.physics.newFixture(body, shape, 1)
@@ -35,7 +35,7 @@ function ship.createShip(ecsWorld, physicsWorld, x, y)
     :give("ship_input")
     :give("auto_cannon")
     :give("engine_trail", {
-      offsetX = -24,
+      offsetX = -12,
       offsetY = 0,
       color = { 0.00, 1.00, 1.00, 0.95 },
     })

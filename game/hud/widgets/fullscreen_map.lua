@@ -1,5 +1,6 @@
 local Theme = require("game.theme")
 local MathUtil = require("util.math")
+local WindowFrame = require("game.hud.window_frame")
 
 local function pointInRect(px, py, r)
   return px >= r.x and px <= (r.x + r.w) and py >= r.y and py <= (r.y + r.h)
@@ -11,16 +12,13 @@ local function makeFullscreenMap()
     dragStart = nil,
     dragStartCenter = nil,
     dragMoved = false,
+    windowFrame = WindowFrame.new(),
   }
 
+  -- State access ---------------------------------------------------------
   local function getMapUi(ctx)
     local world = ctx and ctx.world
     return world and world:getResource("map_ui")
-  end
-
-  function self.hitTest(ctx, x, y)
-    local mapUi = getMapUi(ctx)
-    return mapUi and mapUi.open or false
   end
 
   local function getUiCapture(ctx)
@@ -51,6 +49,7 @@ local function makeFullscreenMap()
     end
   end
 
+  -- Layout + view --------------------------------------------------------
   local function clampCenter(sector, centerX, centerY, viewW, viewH)
     if not sector then
       return centerX, centerY
@@ -85,18 +84,42 @@ local function makeFullscreenMap()
     local margin = (hudTheme.layout and hudTheme.layout.margin) or 16
     local gap = (hudTheme.layout and hudTheme.layout.stackGap) or 18
 
+    -- Large, centered window instead of true fullscreen; anchored via WindowFrame.
+    local maxW = screenW - margin * 2
+    local maxH = screenH - margin * 2
+    local desiredW = math.min(maxW, math.floor((fm.windowWFactor or 0.85) * screenW))
+    local desiredH = math.min(maxH, math.floor((fm.windowHFactor or 0.82) * screenH))
+
+    local headerH = fm.headerH or 32
+    local bounds = self.windowFrame:compute(ctx, desiredW, desiredH, {
+      headerH = headerH,
+      footerH = 0,
+      closeSize = fm.closeSize or 18,
+      closePad = fm.closePad or 10,
+      margin = margin,
+    })
+
+    local windowRect = {
+      x = bounds.x,
+      y = bounds.y,
+      w = bounds.w,
+      h = bounds.h,
+    }
+
+    local pad = fm.windowPadding or 18
     local legendW = fm.legendW or 260
 
+    local headerOffset = bounds.headerRect and bounds.headerRect.h or 0
     local mapRect = {
-      x = margin,
-      y = margin,
-      w = screenW - margin * 2 - legendW - gap,
-      h = screenH - margin * 2,
+      x = windowRect.x + pad,
+      y = windowRect.y + headerOffset + pad,
+      w = windowRect.w - pad * 2 - legendW - gap,
+      h = windowRect.h - headerOffset - pad * 2,
     }
 
     local minMapW = fm.minMapW or 200
     if mapRect.w < minMapW then
-      mapRect.w = screenW - margin * 2
+      mapRect.w = windowRect.w - pad * 2
       legendW = 0
     end
 
@@ -110,7 +133,7 @@ local function makeFullscreenMap()
       }
     end
 
-    return mapRect, legendRect
+    return mapRect, legendRect, windowRect, bounds
   end
 
   local function computeView(ctx, mapRect)
@@ -160,6 +183,19 @@ local function makeFullscreenMap()
       viewW = viewW,
       viewH = viewH,
       zoom = zoom,
+    }
+  end
+
+  local function computeLayoutAndView(ctx)
+    local mapRect, legendRect, windowRect, frameBounds = computeLayout(ctx)
+    local view = computeView(ctx, mapRect)
+
+    return {
+      mapRect = mapRect,
+      legendRect = legendRect,
+      windowRect = windowRect,
+      frameBounds = frameBounds,
+      view = view,
     }
   end
 
@@ -341,6 +377,19 @@ local function makeFullscreenMap()
     love.graphics.setColor(1, 1, 1, 1)
   end
 
+  local function legendButtonRect(legendRect)
+    if not legendRect then
+      return nil
+    end
+
+    return {
+      x = legendRect.x + 12,
+      y = legendRect.y + legendRect.h - 44,
+      w = legendRect.w - 24,
+      h = 30,
+    }
+  end
+
   local function drawLegend(ctx, legendRect)
     if not legendRect then
       return
@@ -400,28 +449,24 @@ local function makeFullscreenMap()
     y = y + 16
     love.graphics.print("Click: waypoint", x, y)
 
-    local btn = {
-      x = legendRect.x + 12,
-      y = legendRect.y + legendRect.h - 44,
-      w = legendRect.w - 24,
-      h = 30,
-    }
+    local btn = legendButtonRect(legendRect)
+    if btn then
+      local mx, my = love.mouse.getPosition()
+      local hover = pointInRect(mx, my, btn)
 
-    local mx, my = love.mouse.getPosition()
-    local hover = pointInRect(mx, my, btn)
+      love.graphics.setColor(0, 0, 0, hover and 0.55 or 0.35)
+      love.graphics.rectangle("fill", btn.x, btn.y, btn.w, btn.h)
+      love.graphics.setColor(1, 1, 1, hover and 0.45 or 0.25)
+      love.graphics.rectangle("line", btn.x, btn.y, btn.w, btn.h)
 
-    love.graphics.setColor(0, 0, 0, hover and 0.55 or 0.35)
-    love.graphics.rectangle("fill", btn.x, btn.y, btn.w, btn.h)
-    love.graphics.setColor(1, 1, 1, hover and 0.45 or 0.25)
-    love.graphics.rectangle("line", btn.x, btn.y, btn.w, btn.h)
+      local label = "CENTER ON PLAYER"
+      local font = love.graphics.getFont()
+      local tw = font:getWidth(label)
+      local th = font:getHeight()
 
-    local label = "CENTER ON PLAYER"
-    local font = love.graphics.getFont()
-    local tw = font:getWidth(label)
-    local th = font:getHeight()
-
-    love.graphics.setColor(colors.text[1], colors.text[2], colors.text[3], 0.9)
-    love.graphics.print(label, btn.x + (btn.w - tw) * 0.5, btn.y + (btn.h - th) * 0.5)
+      love.graphics.setColor(colors.text[1], colors.text[2], colors.text[3], 0.9)
+      love.graphics.print(label, btn.x + (btn.w - tw) * 0.5, btn.y + (btn.h - th) * 0.5)
+    end
 
     love.graphics.setColor(1, 1, 1, 1)
   end
@@ -544,6 +589,12 @@ local function makeFullscreenMap()
     love.graphics.setColor(1, 1, 1, 1)
   end
 
+  -- Interface: draw ------------------------------------------------------
+  function self.hitTest(ctx, x, y)
+    local mapUi = getMapUi(ctx)
+    return mapUi and mapUi.open or false
+  end
+
   function self.draw(ctx)
     local mapUi = getMapUi(ctx)
     if not ctx or not mapUi or not mapUi.open then
@@ -553,25 +604,32 @@ local function makeFullscreenMap()
     local theme = (ctx and ctx.theme) or Theme
     local hudTheme = theme.hud
 
-    local mapRect, legendRect = computeLayout(ctx)
-    local view = computeView(ctx, mapRect)
-    if not view then
+    local layout = computeLayoutAndView(ctx)
+    if not layout.view then
       return
     end
 
     love.graphics.setColor(0, 0, 0, 0.65)
     love.graphics.rectangle("fill", 0, 0, ctx.screenW or 0, ctx.screenH or 0)
 
-    drawMap(ctx, view)
-    drawLegend(ctx, legendRect)
+    if layout.frameBounds then
+      self.windowFrame:draw(ctx, layout.frameBounds, {
+        title = (hudTheme.fullscreenMap and hudTheme.fullscreenMap.title) or "MAP",
+        headerAlpha = 0.55,
+        headerLineAlpha = 0.4,
+      })
+    end
+
+    drawMap(ctx, layout.view)
+    drawLegend(ctx, layout.legendRect)
 
     local font = love.graphics.getFont()
-    local header = string.format("ZOOM %.1fx", view.zoom)
+    local header = string.format("ZOOM %.1fx", layout.view.zoom)
 
     love.graphics.setColor(0, 0, 0, 0.85)
-    love.graphics.print(header, mapRect.x + 1, mapRect.y - font:getHeight() - 2 + 1)
+    love.graphics.print(header, layout.mapRect.x + 1, layout.mapRect.y - font:getHeight() - 2 + 1)
     love.graphics.setColor(1, 1, 1, 0.9)
-    love.graphics.print(header, mapRect.x, mapRect.y - font:getHeight() - 2)
+    love.graphics.print(header, layout.mapRect.x, layout.mapRect.y - font:getHeight() - 2)
 
     love.graphics.setColor(1, 1, 1, 1)
   end
@@ -640,8 +698,17 @@ local function makeFullscreenMap()
       return false
     end
 
-    local mapRect, legendRect = computeLayout(ctx)
-    local view = computeView(ctx, mapRect)
+    local layout = computeLayoutAndView(ctx)
+    local consumed, closeHit, headerDrag = self.windowFrame:mousepressed(ctx, layout.frameBounds, x, y, button)
+    if closeHit then
+      setOpen(ctx, false)
+      return true
+    end
+    if headerDrag then
+      return true
+    end
+
+    local view = layout.view
     if not view then
       return true
     end
@@ -656,19 +723,12 @@ local function makeFullscreenMap()
       return true
     end
 
-    if legendRect and pointInRect(x, y, legendRect) then
-      local btn = {
-        x = legendRect.x + 12,
-        y = legendRect.y + legendRect.h - 44,
-        w = legendRect.w - 24,
-        h = 30,
-      }
-
+    if layout.legendRect and pointInRect(x, y, layout.legendRect) then
+      local btn = legendButtonRect(layout.legendRect)
       if pointInRect(x, y, btn) and ctx.hasShip then
         mapUi.centerX = ctx.x
         mapUi.centerY = ctx.y
       end
-
       return true
     end
 
@@ -690,9 +750,13 @@ local function makeFullscreenMap()
       return false
     end
 
+    if self.windowFrame:mousereleased(ctx, x, y, button) then
+      return true
+    end
+
     if button == 1 and self.dragging then
-      local mapRect = computeLayout(ctx)
-      local view = computeView(ctx, mapRect)
+      local layout = computeLayoutAndView(ctx)
+      local view = layout.view
       if view and (not self.dragMoved) and pointInRect(x, y, view.drawRect) then
         local wx, wy = screenToWorld(view, x, y)
         mapUi.waypointX = MathUtil.clamp(wx, 0, (view.sector and view.sector.width) or wx)
@@ -711,7 +775,15 @@ local function makeFullscreenMap()
 
   function self.mousemoved(ctx, x, y, dx, dy)
     local mapUi = getMapUi(ctx)
-    if not mapUi or not mapUi.open or not self.dragging then
+    if not mapUi or not mapUi.open then
+      return false
+    end
+
+    if self.windowFrame:mousemoved(ctx, x, y, dx, dy) then
+      return true
+    end
+
+    if not self.dragging then
       return false
     end
 
@@ -719,8 +791,8 @@ local function makeFullscreenMap()
       self.dragMoved = true
     end
 
-    local mapRect = computeLayout(ctx)
-    local view = computeView(ctx, mapRect)
+    local layout = computeLayoutAndView(ctx)
+    local view = layout.view
     if not view then
       return true
     end

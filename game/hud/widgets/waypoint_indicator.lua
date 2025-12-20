@@ -68,6 +68,18 @@ function WaypointIndicator.draw(ctx)
   local colors = hudTheme.colors
   local wi = hudTheme.waypointIndicator or {}
 
+  -- Hide the arrow if the waypoint is already visible in the current camera view.
+  local cameraView = ctx.world:getResource("camera_view")
+  if cameraView and cameraView.camX and cameraView.camY and cameraView.viewW and cameraView.viewH then
+    local viewLeft = cameraView.camX
+    local viewTop = cameraView.camY
+    local viewRight = viewLeft + cameraView.viewW
+    local viewBottom = viewTop + cameraView.viewH
+    if mapUi.waypointX >= viewLeft and mapUi.waypointX <= viewRight and mapUi.waypointY >= viewTop and mapUi.waypointY <= viewBottom then
+      return
+    end
+  end
+
   local dx = mapUi.waypointX - (ctx.x or 0)
   local dy = mapUi.waypointY - (ctx.y or 0)
 
