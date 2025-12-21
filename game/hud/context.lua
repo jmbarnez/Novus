@@ -77,6 +77,25 @@ function HudContext.build(world, ships)
       ctx.shieldCur = targetShip.shield.current
       ctx.shieldMax = targetShip.shield.max
     end
+
+    -- Check for nearby interactables (space stations)
+    if world then
+      local px, py = ctx.x, ctx.y
+      for _, entity in ipairs(world:getEntities()) do
+        if entity:has("space_station") and entity:has("physics_body") and entity.physics_body.body then
+          local stationBody = entity.physics_body.body
+          local sx, sy = stationBody:getPosition()
+          local radius = entity.space_station.radius or 400
+          local dockingRange = radius * 1.6
+          local dx, dy = px - sx, py - sy
+          local dist = math.sqrt(dx * dx + dy * dy)
+          if dist < dockingRange then
+            ctx.interactionPrompt = { text = "[E] Dock", entity = entity }
+            break
+          end
+        end
+      end
+    end
   end
 
   return ctx

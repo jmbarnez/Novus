@@ -36,8 +36,8 @@ function WindowFrame:compute(ctx, w, h, opts)
   local x0 = self.x
   local y0 = self.y
   if x0 == nil or y0 == nil then
-    x0 = screenW - margin - w
-    y0 = screenH - margin - h
+    x0 = math.floor((screenW - w) / 2)
+    y0 = math.floor((screenH - h) / 2)
   end
 
   if screenW > 0 then

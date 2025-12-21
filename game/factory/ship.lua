@@ -32,9 +32,9 @@ function ship.createShip(ecsWorld, physicsWorld, x, y)
       :give("renderable", "ship", { 0.75, 0.85, 1.0, 1.0 })
       :give("ship")
       :give("ship_control", {
-        thrustForce = 220,
-        strafeForce = 180,
-        rcsPower = 400,
+        thrustForce = 110,
+        strafeForce = 80,
+        rcsPower = 200,
         stabilization = 1.0,
       })
       :give("ship_input")

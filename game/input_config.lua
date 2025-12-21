@@ -13,5 +13,8 @@ return {
         fire = { "mouse:1" },
         aim = { "mouse:2" },
         target_lock = { "key:lctrl", "key:rctrl" },
+
+        -- Interaction
+        interact = { "key:e" },
     },
 }

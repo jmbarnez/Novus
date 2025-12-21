@@ -22,5 +22,7 @@ require("ecs.components.shatter")
 require("ecs.components.pickup")
 require("ecs.components.magnet")
 require("ecs.components.floating_text")
+require("ecs.components.space_station")
+require("ecs.components.credits")
 
 return true

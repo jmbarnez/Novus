@@ -91,6 +91,7 @@ function Space:enter(_, worldSeed)
     { open = false, zoom = 1.0, centerX = nil, centerY = nil, waypointX = nil, waypointY = nil })
   self.ecsWorld:setResource("world_seed", self.worldSeed)
   self.ecsWorld:setResource("world_rngs", self.worldRngs)
+  self.ecsWorld:setResource("station_ui", require("game.station_ui").new())
 
   self.ecsWorld:addSystems(
     Systems.PhysicsSnapshotSystem,
@@ -123,7 +124,18 @@ function Space:enter(_, worldSeed)
   self.hudSystem = self.ecsWorld:getSystem(Systems.HudSystem)
 
   factory.createWalls(self.physicsWorld, self.sectorWidth, self.sectorHeight)
-  self.ship = factory.createShip(self.ecsWorld, self.physicsWorld, self.sectorWidth / 2, self.sectorHeight / 2)
+
+  -- Create the main hub space station at sector center
+  self.spaceStation = factory.createSpaceStation(
+    self.ecsWorld,
+    self.physicsWorld,
+    self.sectorWidth / 2,
+    self.sectorHeight / 2,
+    "hub"
+  )
+
+  -- Spawn the player ship offset from the station
+  self.ship = factory.createShip(self.ecsWorld, self.physicsWorld, self.sectorWidth / 2 + 650, self.sectorHeight / 2)
   self.player = factory.createPlayer(self.ecsWorld, self.ship)
   self.ecsWorld:setResource("player", self.player)
 

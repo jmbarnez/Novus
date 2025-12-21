@@ -5,6 +5,38 @@ local Theme = require("game.theme")
 local Items = require("game.items")
 local ItemIcons = require("game.item_icons")
 
+--- Draw the credit icon (stylized coin with C symbol)
+---@param cx number Center X
+---@param cy number Center Y
+---@param size number Icon size
+local function drawCreditIcon(cx, cy, size)
+    local r = size * 0.5
+
+    -- Outer coin ring
+    love.graphics.push("all")
+    love.graphics.setColor(0.85, 0.70, 0.25, 0.3)
+    love.graphics.circle("fill", cx + 2, cy + 2, r) -- shadow
+
+    love.graphics.setColor(0.95, 0.80, 0.30, 0.95)
+    love.graphics.circle("fill", cx, cy, r)
+
+    -- Inner ring
+    love.graphics.setColor(0.80, 0.65, 0.20, 0.9)
+    love.graphics.setLineWidth(2)
+    love.graphics.circle("line", cx, cy, r * 0.75)
+
+    -- Center "C" shape
+    love.graphics.setColor(0.40, 0.30, 0.10, 0.9)
+    love.graphics.setLineWidth(2.5)
+    love.graphics.arc("line", "open", cx, cy, r * 0.45, math.pi * 0.3, math.pi * 1.7)
+
+    -- Highlight
+    love.graphics.setColor(1, 1, 0.85, 0.4)
+    love.graphics.arc("line", "open", cx - r * 0.15, cy - r * 0.15, r * 0.55, math.pi * 1.1, math.pi * 1.5)
+
+    love.graphics.pop()
+end
+
 --- Draw all cargo slots
 ---@param bounds table Panel bounds
 ---@param slotRects table Array of slot rectangles
@@ -83,7 +115,7 @@ function M.drawDragItem(drag, slotSize)
     love.graphics.print(countText, mx + 16, my - 10)
 end
 
---- Draw the footer capacity bar
+--- Draw the footer capacity bar with credits display
 ---@param ctx table HUD context
 ---@param bounds table Panel bounds with footerRect
 ---@param used number Used capacity
@@ -94,10 +126,38 @@ function M.drawFooterBar(ctx, bounds, used, capacity)
     local colors = hudTheme.colors
 
     local footer = bounds.footerRect
+    local font = love.graphics.getFont()
+    local th = font:getHeight()
+
+    -- Get player credits
+    local credits = 0
+    if ctx and ctx.world then
+        local player = ctx.world:getResource("player")
+        if player and player:has("credits") then
+            credits = player.credits.balance or 0
+        end
+    end
+
+    -- Left side: Credits display
+    local creditIconSize = 16
+    local creditIconX = footer.x + 8 + creditIconSize / 2
+    local creditIconY = footer.y + footer.h / 2
+
+    drawCreditIcon(creditIconX, creditIconY, creditIconSize)
+
+    local creditText = string.format("%d cr", credits)
+    local creditTw = font:getWidth(creditText)
+    love.graphics.setColor(colors.textShadow[1], colors.textShadow[2], colors.textShadow[3], 0.75)
+    love.graphics.print(creditText, creditIconX + creditIconSize / 2 + 5 + 1, creditIconY - th / 2 + 1)
+    love.graphics.setColor(0.95, 0.85, 0.40, 0.95)
+    love.graphics.print(creditText, creditIconX + creditIconSize / 2 + 5, creditIconY - th / 2)
+
+    -- Right side: Capacity bar
     local barPadX = 10
+    local creditsWidth = creditIconSize + creditTw + 20
     local barH = (hudTheme.cargoPanel and hudTheme.cargoPanel.barH) or 10
-    local barX = footer.x + barPadX
-    local barW = footer.w - barPadX * 2
+    local barX = footer.x + creditsWidth + barPadX
+    local barW = footer.w - creditsWidth - barPadX * 2
     local barY = footer.y + math.floor((footer.h - barH) * 0.5)
 
     local frac = 0
@@ -130,9 +190,7 @@ function M.drawFooterBar(ctx, bounds, used, capacity)
     local percent = math.floor(frac * 100 + 0.5)
     local label = tostring(percent) .. "%"
 
-    local font = love.graphics.getFont()
     local tw = font:getWidth(label)
-    local th = font:getHeight()
     local padX = 4
     local maxTw = barW - padX * 2
     local sx = 1
