@@ -152,6 +152,7 @@ local function tryCollect(ship, pickup)
         kind = "pickup",
         stackLabel = name,
         prefix = "+",
+        amountSuffix = "m3",
         stackRadius = 80,
         stackWindow = 0.4,
         riseSpeed = 55,

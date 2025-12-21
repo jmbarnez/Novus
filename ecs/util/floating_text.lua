@@ -12,10 +12,15 @@ end
 local function buildStackText(amount, opts)
   local prefix = opts and opts.prefix or "+"
   local label = opts and opts.stackLabel
-  if label ~= nil and label ~= "" then
-    return prefix .. tostring(amount) .. " " .. tostring(label)
+  local suffix = opts and opts.amountSuffix
+  local amountText = tostring(amount)
+  if suffix and suffix ~= "" then
+    amountText = amountText .. tostring(suffix)
   end
-  return prefix .. tostring(amount)
+  if label ~= nil and label ~= "" then
+    return prefix .. amountText .. " " .. tostring(label)
+  end
+  return prefix .. amountText
 end
 
 function M.spawn(world, x, y, text, opts)

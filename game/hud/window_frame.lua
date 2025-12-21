@@ -122,7 +122,8 @@ function WindowFrame:draw(ctx, bounds, opts)
     love.graphics.setColor(colors.panelBg[1], colors.panelBg[2], colors.panelBg[3], opts.headerAlpha or 0.45)
     love.graphics.rectangle("fill", header.x, header.y, header.w, header.h, r, r)
 
-    love.graphics.setColor(colors.panelBorder[1], colors.panelBorder[2], colors.panelBorder[3], opts.headerLineAlpha or 0.35)
+    love.graphics.setColor(colors.panelBorder[1], colors.panelBorder[2], colors.panelBorder[3],
+      opts.headerLineAlpha or 0.35)
     love.graphics.line(header.x, header.y + header.h, header.x + header.w, header.y + header.h)
 
     local title = opts.title
@@ -160,7 +161,8 @@ function WindowFrame:draw(ctx, bounds, opts)
   if footer then
     love.graphics.setColor(colors.panelBg[1], colors.panelBg[2], colors.panelBg[3], opts.footerAlpha or 0.45)
     love.graphics.rectangle("fill", footer.x, footer.y, footer.w, footer.h, r, r)
-    love.graphics.setColor(colors.panelBorder[1], colors.panelBorder[2], colors.panelBorder[3], opts.footerLineAlpha or 0.35)
+    love.graphics.setColor(colors.panelBorder[1], colors.panelBorder[2], colors.panelBorder[3],
+      opts.footerLineAlpha or 0.35)
     love.graphics.line(footer.x, footer.y, footer.x + footer.w, footer.y)
   end
 
@@ -187,7 +189,7 @@ function WindowFrame:mousepressed(ctx, bounds, x, y, button)
     return true, false, true
   end
 
-  return true, false, false
+  return false, false, false
 end
 
 function WindowFrame:mousereleased(ctx, x, y, button)
