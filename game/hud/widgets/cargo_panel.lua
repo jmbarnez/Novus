@@ -1,18 +1,13 @@
+--- Cargo Panel HUD Widget
+--- Uses cargo_panel_view and cargo_panel_draw for layout and drawing
+
 local Theme = require("game.theme")
-local Items = require("game.items")
 local Inventory = require("game.inventory")
-local ItemIcons = require("game.item_icons")
 local WindowFrame = require("game.hud.window_frame")
 local Rect = require("util.rect")
 local PickupFactory = require("game.factory.pickup")
-
-local function getPlayerShip(world)
-  local player = world and world:getResource("player")
-  if player and player.pilot and player.pilot.ship then
-    return player.pilot.ship
-  end
-  return nil
-end
+local CargoView = require("game.hud.widgets.cargo_panel_view")
+local CargoDraw = require("game.hud.widgets.cargo_panel_draw")
 
 local pointInRect = Rect.pointInRect
 
@@ -40,6 +35,7 @@ local function makeCargoPanel()
     dragFrom = nil,
   }
 
+  -- State helpers --------------------------------------------------------
   local function getUiCapture(ctx)
     local world = ctx and ctx.world
     return world and world:getResource("ui_capture")
@@ -59,98 +55,16 @@ local function makeCargoPanel()
   end
 
   local function recomputeRects(ctx)
-    local theme = (ctx and ctx.theme) or Theme
-    local hudTheme = theme.hud
-    local cp = hudTheme.cargoPanel or {}
-
-    local margin = (ctx.layout and ctx.layout.margin) or hudTheme.layout.margin
-
-    local pad = cp.pad or 6
-    local headerH = cp.headerH or 24
-    local footerH = cp.footerH or 26
-    local slot = cp.slot or 44
-    local gap = cp.gap or 6
-    local footerGap = cp.footerGap or (cp.barGap or 6)
-
-    local cols = 4
-    local rows = 4
-
-    local gridW = cols * slot + (cols - 1) * gap
-    local gridH = rows * slot + (rows - 1) * gap
-
-    local panelW = pad * 2 + gridW
-    local panelH = pad * 2 + headerH + gridH + footerGap + footerH
-
-    if self.frame.x == nil or self.frame.y == nil then
-      local screenW = ctx and ctx.screenW or 0
-      local screenH = ctx and ctx.screenH or 0
-      self.frame.x = math.floor((screenW - panelW) * 0.5)
-      self.frame.y = math.floor((screenH - panelH) * 0.5)
-    end
-
-    local frameBounds = self.frame:compute(ctx, panelW, panelH, {
-      margin = margin,
-      headerH = headerH,
-      footerH = footerH,
-      closeSize = cp.closeSize or 18,
-      closePad = cp.closePad or 6,
-    })
-
-    self.bounds = frameBounds
-    self.bounds.pad = pad
-    self.bounds.slot = slot
-    self.bounds.gap = gap
-    self.bounds.footerGap = footerGap
-    self.bounds.gridX = frameBounds.x + pad
-    self.bounds.gridY = frameBounds.y + pad + headerH
-    self.bounds.gridW = gridW
-    self.bounds.gridH = gridH
-    self.bounds.cols = cols
-    self.bounds.rows = rows
-
-    local clearN = cols * rows
-    if #self.slotRects > clearN then
-      clearN = #self.slotRects
-    end
-    for i = 1, clearN do
-      self.slotRects[i] = nil
-    end
-
-    local gridX = frameBounds.x + pad
-    local gridY = frameBounds.y + pad + headerH
-    local idx = 1
-    for r = 1, rows do
-      for c = 1, cols do
-        local sx = gridX + (c - 1) * (slot + gap)
-        local sy = gridY + (r - 1) * (slot + gap)
-        local slotIdx = (r - 1) * cols + c
-        self.slotRects[idx] = { x = sx, y = sy, w = slot, h = slot, idx = slotIdx }
-        idx = idx + 1
-      end
-    end
+    local bounds, slotRects, fx, fy = CargoView.computeLayout(ctx, self.frame, self.frame.x, self.frame.y)
+    self.bounds = bounds
+    self.slotRects = slotRects
+    if self.frame.x == nil then self.frame.x = fx end
+    if self.frame.y == nil then self.frame.y = fy end
   end
 
-  local function pickSlot(mx, my)
-    if not self.open then
-      return nil
-    end
-
-    for i = 1, #self.slotRects do
-      local r = self.slotRects[i]
-      if r and pointInRect(mx, my, r) then
-        return r.idx
-      end
-    end
-
-    return nil
-  end
-
+  -- Interface: hitTest ---------------------------------------------------
   function self.hitTest(ctx, x, y)
-    if not ctx then
-      return false
-    end
-
-    if not self.open then
+    if not ctx or not self.open then
       return false
     end
 
@@ -164,12 +78,9 @@ local function makeCargoPanel()
     return pointInRect(x, y, b)
   end
 
+  -- Interface: draw ------------------------------------------------------
   function self.draw(ctx)
-    if not ctx then
-      return
-    end
-
-    if not self.open then
+    if not ctx or not self.open then
       return
     end
 
@@ -178,7 +89,7 @@ local function makeCargoPanel()
     local theme = (ctx and ctx.theme) or Theme
     local hudTheme = theme.hud
 
-    local ship = getPlayerShip(ctx.world)
+    local ship = CargoView.getPlayerShip(ctx.world)
     if not ship or not ship.cargo_hold or not ship.cargo then
       return
     end
@@ -189,159 +100,24 @@ local function makeCargoPanel()
     recomputeRects(ctx)
 
     local b = self.bounds
-
     if not b then
       return
     end
 
-    do
-      local cp = hudTheme.cargoPanel or {}
-      self.frame:draw(ctx, b, { title = cp.title or "CARGO", titlePad = b.pad })
-    end
+    local cp = hudTheme.cargoPanel or {}
+    self.frame:draw(ctx, b, { title = cp.title or "CARGO", titlePad = b.pad })
 
-    local used = cargo.used or 0
-    local cap = cargo.capacity or 0
+    local mx, my = love.mouse.getPosition()
+    local hoverIdx = CargoView.pickSlot(self.slotRects, mx, my, self.open)
 
-    do
-      local mx, my = love.mouse.getPosition()
-      local hover = pickSlot(mx, my)
-
-      for i = 1, #self.slotRects do
-        local r = self.slotRects[i]
-        local slot = r and r.idx and hold.slots[r.idx] or nil
-        if self.dragFrom and r and r.idx == self.dragFrom then
-          slot = nil
-        end
-
-        if r then
-          local isHover = hover == (r and r.idx)
-          love.graphics.setColor(0, 0, 0, isHover and 0.55 or 0.35)
-          love.graphics.rectangle("fill", r.x, r.y, r.w, r.h)
-
-          love.graphics.setColor(1, 1, 1, isHover and 0.55 or 0.25)
-          love.graphics.rectangle("line", r.x, r.y, r.w, r.h)
-
-          if slot and slot.id and slot.volume and slot.volume > 0 then
-            local def = Items.get(slot.id)
-            local c = (def and def.color) or { 1, 1, 1, 0.9 }
-
-            if def and def.icon then
-              ItemIcons.draw(slot.id, r.x + 3, r.y + 3, r.w - 6, r.h - 6, { tint = { 1, 1, 1, 0.95 } })
-            else
-              love.graphics.setColor(c[1], c[2], c[3], 0.75)
-              love.graphics.rectangle("fill", r.x + 3, r.y + 3, r.w - 6, r.h - 6)
-            end
-
-            local countText = tostring(math.floor(slot.volume)) .. "m3"
-            local font = love.graphics.getFont()
-            local tw = font:getWidth(countText)
-            local th = font:getHeight()
-
-            love.graphics.setColor(0, 0, 0, 0.85)
-            love.graphics.print(countText, r.x + r.w - tw - 4 + 1, r.y + r.h - th - 2 + 1)
-            love.graphics.setColor(1, 1, 1, 0.95)
-            love.graphics.print(countText, r.x + r.w - tw - 4, r.y + r.h - th - 2)
-          end
-        end
-      end
-
-      if self.drag and self.drag.id and self.drag.volume and self.drag.volume > 0 then
-        local mx2, my2 = love.mouse.getPosition()
-        local def = Items.get(self.drag.id)
-        local c = (def and def.color) or { 1, 1, 1, 0.9 }
-
-        local slotSize = b.slot or 28
-        local dragSize = math.max(28, math.floor(slotSize * 0.6))
-        local dragHalf = dragSize * 0.5
-
-        if def and def.icon then
-          ItemIcons.draw(self.drag.id, mx2 - dragHalf, my2 - dragHalf, dragSize, dragSize, { tint = { 1, 1, 1, 0.9 } })
-        else
-          love.graphics.setColor(c[1], c[2], c[3], 0.7)
-          love.graphics.rectangle("fill", mx2 - dragHalf, my2 - dragHalf, dragSize, dragSize)
-          love.graphics.setColor(1, 1, 1, 0.35)
-          love.graphics.rectangle("line", mx2 - dragHalf, my2 - dragHalf, dragSize, dragSize)
-        end
-
-        local countText = tostring(math.floor(self.drag.volume)) .. "m3"
-        love.graphics.setColor(0, 0, 0, 0.85)
-        love.graphics.print(countText, mx2 + 16 + 1, my2 - 10 + 1)
-        love.graphics.setColor(1, 1, 1, 0.95)
-        love.graphics.print(countText, mx2 + 16, my2 - 10)
-      end
-    end
-
-    do
-      local colors = hudTheme.colors
-      local footer = b.footerRect
-      local barPadX = 10
-      local barPadY = 8
-      local barX = footer.x + barPadX
-      local barW = footer.w - barPadX * 2
-      local barH = (hudTheme.cargoPanel and hudTheme.cargoPanel.barH) or 10
-      local barY = footer.y + math.floor((footer.h - barH) * 0.5)
-
-      local frac = 0
-      if cap > 0 then
-        frac = used / cap
-        if frac < 0 then
-          frac = 0
-        elseif frac > 1 then
-          frac = 1
-        end
-      end
-
-      love.graphics.setColor(colors.barBg[1], colors.barBg[2], colors.barBg[3], colors.barBg[4])
-      love.graphics.rectangle("fill", barX, barY, barW, barH)
-
-      local theme = (ctx and ctx.theme) or Theme
-      local cp = theme.hud.cargoPanel or {}
-      local warnFrac = cp.warnFrac or 0.85
-      local dangerFrac = cp.dangerFrac or 0.95
-
-      local fill
-      if frac < warnFrac then
-        fill = colors.good
-      elseif frac < dangerFrac then
-        fill = colors.warn
-      else
-        fill = colors.danger
-      end
-      love.graphics.setColor(fill[1], fill[2], fill[3], fill[4])
-      love.graphics.rectangle("fill", barX, barY, barW * frac, barH)
-
-      love.graphics.setColor(colors.barBorder[1], colors.barBorder[2], colors.barBorder[3], colors.barBorder[4])
-      love.graphics.rectangle("line", barX, barY, barW, barH)
-
-      local percent = math.floor(frac * 100 + 0.5)
-      local label = tostring(percent) .. "%"
-
-      local font = love.graphics.getFont()
-      local tw = font:getWidth(label)
-      local th = font:getHeight()
-      local padX = 4
-      local maxTw = barW - padX * 2
-      local sx = 1
-      if tw > 0 and maxTw > 0 and tw > maxTw then
-        sx = maxTw / tw
-      end
-
-      local tx = barX + (barW - tw * sx) * 0.5
-      local ty = barY + (barH - th) * 0.5
-
-      love.graphics.push()
-      love.graphics.translate(tx, ty)
-      love.graphics.scale(sx, 1)
-      love.graphics.setColor(colors.textShadow[1], colors.textShadow[2], colors.textShadow[3], colors.textShadow[4])
-      love.graphics.print(label, 1, 1)
-      love.graphics.setColor(colors.text[1], colors.text[2], colors.text[3], colors.text[4])
-      love.graphics.print(label, 0, 0)
-      love.graphics.pop()
-    end
+    CargoDraw.drawSlots(b, self.slotRects, hold, hoverIdx, self.dragFrom)
+    CargoDraw.drawDragItem(self.drag, b.slot or 44)
+    CargoDraw.drawFooterBar(ctx, b, cargo.used or 0, cargo.capacity or 0)
 
     love.graphics.setColor(1, 1, 1, 1)
   end
 
+  -- Interface: mousepressed ----------------------------------------------
   function self.mousepressed(ctx, x, y, button)
     if not self.open then
       return false
@@ -349,7 +125,7 @@ local function makeCargoPanel()
 
     setCapture(ctx)
 
-    local ship = ctx and ctx.world and getPlayerShip(ctx.world)
+    local ship = ctx and ctx.world and CargoView.getPlayerShip(ctx.world)
     if not ship or not ship.cargo_hold or not ship.cargo then
       return false
     end
@@ -383,7 +159,7 @@ local function makeCargoPanel()
       return true
     end
 
-    local idx = pickSlot(x, y)
+    local idx = CargoView.pickSlot(self.slotRects, x, y, self.open)
     if not idx then
       return true
     end
@@ -402,6 +178,7 @@ local function makeCargoPanel()
     return true
   end
 
+  -- Interface: mousereleased ---------------------------------------------
   function self.mousereleased(ctx, x, y, button)
     if not self.open then
       return false
@@ -422,7 +199,7 @@ local function makeCargoPanel()
       return false
     end
 
-    local ship = ctx and ctx.world and getPlayerShip(ctx.world)
+    local ship = ctx and ctx.world and CargoView.getPlayerShip(ctx.world)
     if not ship or not ship.cargo_hold or not ship.cargo then
       return false
     end
@@ -464,7 +241,7 @@ local function makeCargoPanel()
       return true
     end
 
-    local idx = pickSlot(x, y)
+    local idx = CargoView.pickSlot(self.slotRects, x, y, self.open)
 
     if not idx or not hold.slots[idx] then
       self.drag = nil
@@ -505,6 +282,7 @@ local function makeCargoPanel()
     return true
   end
 
+  -- Interface: keypressed ------------------------------------------------
   function self.keypressed(ctx, key)
     if key == "tab" then
       self.open = not self.open
@@ -531,6 +309,7 @@ local function makeCargoPanel()
     return true
   end
 
+  -- Interface: wheelmoved ------------------------------------------------
   function self.wheelmoved(ctx, x, y)
     if not self.open or not ctx then
       return false
@@ -540,6 +319,7 @@ local function makeCargoPanel()
     return true
   end
 
+  -- Interface: mousemoved ------------------------------------------------
   function self.mousemoved(ctx, x, y, dx, dy)
     if not self.open then
       return false
