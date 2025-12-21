@@ -65,13 +65,10 @@ local function makeControlsBottomLeft()
     local w = maxW + pad * 2
     local h = headerH + footerH + pad * 2 + contentH
 
-    if self.frame.x == nil then
-      self.frame.x = margin
-    end
-    if self.frame.y == nil then
-      local screenH = ctx and ctx.screenH or 0
-      self.frame.y = screenH - margin - h
-    end
+    -- Always force bottom left position
+    self.frame.x = margin
+    local screenH = ctx and ctx.screenH or 0
+    self.frame.y = screenH - margin - h
 
     self.bounds = self.frame:compute(ctx, w, h, {
       margin = margin,

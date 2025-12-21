@@ -169,6 +169,8 @@ function SpaceBackground.new(opts)
     opts.depthPower or CONFIG.DEFAULT_DEPTH_POWER
   )
 
+  self.enableNebula = false -- Easy switch: set to true to enable nebula
+
   return self
 end
 
@@ -275,7 +277,9 @@ function SpaceBackground:draw(focusX, focusY)
     love.graphics.setCanvas(self.canvas)
     love.graphics.clear(0.01, 0.01, 0.03, 1)
 
-    self:_drawNebula(cw, ch, fx, fy)
+    if self.enableNebula then
+      self:_drawNebula(cw, ch, fx, fy)
+    end
 
     love.graphics.setBlendMode("add")
     self:_drawStars(cw, ch, fx, fy)
