@@ -5,6 +5,7 @@ local FILENAME = "settings.lua"
 -- Default configuration
 local DEFAULTS = {
     maxFps = 60,
+    vsync = true,
     controls = {
         thrust = { "key:w", "key:up" },
         strafe_left = { "key:a", "key:left" },

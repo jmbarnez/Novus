@@ -15,6 +15,9 @@ function love.load()
 
   love.graphics.setDefaultFilter("nearest", "nearest")
 
+  local vsync = Settings.get("vsync")
+  love.window.setVSync(vsync and 1 or 0)
+
   Gamestate.registerEvents()
   Gamestate.switch(Space, worldSeed)
 end
@@ -63,13 +66,13 @@ function love.run()
     if maxFps > 0 then
       local targetDt = 1.0 / maxFps
       if love.timer then
-        local delta = love.timer.getTime() - (love.timer.getTime() - dt)          -- Rough delta
-        local frameTime = love.timer.step()                                       -- Reset step to get actual frame time at start of next loop? No.
+        local delta = love.timer.getTime() - (love.timer.getTime() - dt) -- Rough delta
+        local frameTime = love.timer.step()                              -- Reset step to get actual frame time at start of next loop? No.
         -- Proper wait:
         local start = love.timer.getTime()
-        local remaining = targetDt - dt                  -- dt is the last frame duration
+        local remaining = targetDt - dt       -- dt is the last frame duration
         if remaining > 0.001 then
-          love.timer.sleep(remaining - 0.001)            -- sleep a bit less to be safe
+          love.timer.sleep(remaining - 0.001) -- sleep a bit less to be safe
         end
       end
 

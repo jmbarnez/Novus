@@ -12,19 +12,58 @@ local function getMapOpen(ctx)
   return mapUi and mapUi.open
 end
 
+local Settings = require("game.settings")
+
+local function formatKey(k)
+  if not k then return "" end
+  if k:sub(1, 4) == "key:" then
+    return k:sub(5):upper()
+  elseif k:sub(1, 6) == "mouse:" then
+    local b = k:sub(7)
+    if b == "1" then return "LMB" end
+    if b == "2" then return "RMB" end
+    if b == "3" then return "MMB" end
+    return "MB" .. b
+  end
+  return k
+end
+
 local function getLines()
-  return {
-    "W / Up: Thrust",
-    "A / Left: Strafe left",
-    "D / Right: Strafe right",
-    "Space: Brake",
-    "Mouse: Aim",
-    "LMB: Fire",
-    "RMB: Turret aim laser",
-    "Ctrl+Click: Select/Clear target",
-    "M: Map",
-    "Wheel: Zoom",
+  local controls = Settings.get("controls") or {}
+  local lines = {}
+
+  local order = {
+    { id = "thrust",       label = "Thrust" },
+    { id = "strafe_left",  label = "Strafe Left" },
+    { id = "strafe_right", label = "Strafe Right" },
+    { id = "brake",        label = "Brake" },
+    { id = "aim",          label = "Aim" },
+    { id = "fire",         label = "Fire" },
+    { id = "target_lock",  label = "Target Lock" },
+    { id = "interact",     label = "Interact" },
   }
+
+  for _, item in ipairs(order) do
+    local keys = controls[item.id]
+    if keys then
+      local keyStr = ""
+      for i, k in ipairs(keys) do
+        if i > 1 then keyStr = keyStr .. " / " end
+        keyStr = keyStr .. formatKey(k)
+      end
+      if keyStr ~= "" then
+        table.insert(lines, keyStr .. ": " .. item.label)
+      end
+    end
+  end
+
+  -- Hardcoded / Extra
+  table.insert(lines, "Ctrl+Click: Select Target")
+  table.insert(lines, "M: Map")
+  table.insert(lines, "Wheel: Zoom")
+  table.insert(lines, "F11: Fullscreen")
+
+  return lines
 end
 
 local function makeControlsBottomLeft()

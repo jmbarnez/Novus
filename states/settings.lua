@@ -98,8 +98,13 @@ function SettingsState:_layout(ctx)
     bounds.fpsLeft = { x = contentX + 110, y = fpsY, w = 24, h = 24 }
     bounds.fpsRight = { x = contentX + 110 + 140 - 24, y = fpsY, w = 24, h = 24 }
 
+    -- VSync Control
+    local vsyncY = fpsY + 32
+    bounds.vsyncLabel = { x = contentX, y = vsyncY, w = 100, h = 24 }
+    bounds.vsyncBtn = { x = contentX + 110, y = vsyncY, w = 140, h = 24 }
+
     -- Keybinds Header
-    local listY = fpsY + 40
+    local listY = vsyncY + 40
     bounds.listHeader = { x = contentX, y = listY, w = contentW, h = 24 }
 
     -- Keybinds List
@@ -222,6 +227,14 @@ function SettingsState:mousepressed(x, y, button)
         return true
     end
 
+    -- VSync Toggle
+    if pointInRect(x, y, b.vsyncBtn) then
+        local current = Settings.get("vsync")
+        Settings.set("vsync", not current)
+        love.window.setVSync(not current and 1 or 0)
+        return true
+    end
+
     -- Keybinds
     for _, item in ipairs(b.binds) do
         if item.type == "key" and pointInRect(x, y, item.rect) then
@@ -257,6 +270,7 @@ function SettingsState:mousemoved(x, y, dx, dy)
     if pointInRect(x, y, b.btnBack) then self.hover = "Back" end
     if pointInRect(x, y, b.fpsLeft) then self.hover = "fpsLeft" end
     if pointInRect(x, y, b.fpsRight) then self.hover = "fpsRight" end
+    if pointInRect(x, y, b.vsyncBtn) then self.hover = "vsync" end
 
     for _, item in ipairs(b.binds) do
         if item.type == "key" and pointInRect(x, y, item.rect) then
@@ -308,6 +322,22 @@ function SettingsState:draw()
     drawArrow(b.fpsLeft, "left", self.hover == "fpsLeft")
     drawArrow(b.fpsRight, "right", self.hover == "fpsRight")
 
+    -- VSync Control
+    love.graphics.setColor(1, 1, 1, 0.9)
+    love.graphics.print("VSync:", b.vsyncLabel.x, b.vsyncLabel.y + 4)
+
+    local vsyncOn = Settings.get("vsync")
+    local vsyncText = vsyncOn and "Enabled" or "Disabled"
+    local vw = font:getWidth(vsyncText)
+
+    local isVsyncHover = self.hover == "vsync"
+    love.graphics.setColor(colors.panelBorder[1], colors.panelBorder[2], colors.panelBorder[3],
+        isVsyncHover and 0.8 or 0.4)
+    love.graphics.rectangle("line", b.vsyncBtn.x, b.vsyncBtn.y, b.vsyncBtn.w, b.vsyncBtn.h, 4)
+
+    love.graphics.setColor(1, 1, 1, isVsyncHover and 1 or 0.9)
+    love.graphics.print(vsyncText, b.vsyncBtn.x + (b.vsyncBtn.w - vw) / 2, b.vsyncBtn.y + 4)
+
     -- Keybinds Header
     love.graphics.setColor(0.6, 0.6, 0.6, 1)
     love.graphics.print("Keybindings", b.listHeader.x, b.listHeader.y)
@@ -320,7 +350,7 @@ function SettingsState:draw()
             love.graphics.print(item.text, item.rect.x, item.rect.y + 4)
         elseif item.type == "key" then
             local isListening = self.listening and self.listening.action == item.action and
-            self.listening.index == item.index
+                self.listening.index == item.index
             local isHover = self.hover == item
 
             love.graphics.setColor(0.1, 0.1, 0.1, 1)
