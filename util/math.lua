@@ -95,4 +95,14 @@ function M.atan2(y, x)
   return 0
 end
 
+function M.angleDiff(a, b)
+  return M.normalizeAngle(a - b)
+end
+
+function M.lerpAngle(a, b, t)
+  -- Shortest path interpolation
+  local d = M.angleDiff(b, a)
+  return a + d * t
+end
+
 return M

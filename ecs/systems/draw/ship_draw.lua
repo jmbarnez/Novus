@@ -1,4 +1,5 @@
 local Utils = require("ecs.systems.draw.render_utils")
+local WeaponDraw = require("ecs.systems.draw.weapon_draw")
 
 local ShipDraw = {}
 
@@ -181,7 +182,7 @@ local function drawEngineThrust(e, isPlayerShip)
   end
 
   local flicker = 0.8 + 0.35 * love.math.random()
-  local len = 9 * thrust * flicker  -- Half size
+  local len = 9 * thrust * flicker -- Half size
 
   if isPlayerShip then
     -- Main flame
@@ -232,5 +233,12 @@ function ShipDraw.draw(ctx, e, body, shape, x, y, angle)
 
   love.graphics.setLineWidth(2)
   love.graphics.pop()
+
+  if e.auto_cannon then
+    if love.mouse.isDown(2) and e.auto_cannon.aimX and e.auto_cannon.aimY then
+      WeaponDraw.drawAimIndicator(body, e.auto_cannon)
+    end
+  end
 end
+
 return ShipDraw

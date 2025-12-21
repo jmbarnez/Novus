@@ -1,6 +1,8 @@
 local Concord = require("lib.concord")
 local WeaponLogic = require("ecs.systems.weapon_logic")
+local WeaponLogic = require("ecs.systems.weapon_logic")
 local WeaponDraw = require("ecs.systems.draw.weapon_draw")
+local Math = require("util.math")
 
 -- Localize frequently used functions
 local max = math.max
@@ -165,6 +167,47 @@ function WeaponSystem:update(dt)
         WeaponLogic.fireAtPosition(self.world, physicsWorld, ship, weapon, mw.x, mw.y)
       end
     end
+  end
+
+  -- Scale up cone visualization while right clicking
+  if love.mouse.isDown(2) then
+    local mw = self.world:getResource("mouse_world")
+    if mw then
+      weapon.aimX = mw.x
+      weapon.aimY = mw.y
+
+      -- If we have a locked target, snap aim to it for visualization
+      if target and target.physics_body and target.physics_body.body then
+        weapon.aimX, weapon.aimY = target.physics_body.body:getPosition()
+      end
+
+      -- Calculate smoothed visual angle
+      local sx, sy = ship.physics_body.body:getPosition()
+      local sa = ship.physics_body.body:getAngle()
+      local noseOffset = 12
+      local startX = sx + math.cos(sa) * noseOffset
+      local startY = sy + math.sin(sa) * noseOffset
+
+      local dx = weapon.aimX - startX
+      local dy = weapon.aimY - startY
+      local aimAngle = Math.atan2(dy, dx)
+
+      local diff = Math.angleDiff(aimAngle, sa)
+      local clampedDiff = Math.clamp(diff, -weapon.coneHalfAngle, weapon.coneHalfAngle)
+      local goalAngle = sa + clampedDiff
+
+      if not weapon.visualAimAngle then
+        weapon.visualAimAngle = goalAngle
+      end
+
+      -- Smoothly interpolate towards goal
+      weapon.visualAimAngle = Math.lerpAngle(weapon.visualAimAngle, goalAngle, dt * 20)
+
+      weapon.coneVis = weapon.coneVisHold
+    end
+  else
+    weapon.coneVis = 0
+    weapon.visualAimAngle = nil
   end
 end
 
