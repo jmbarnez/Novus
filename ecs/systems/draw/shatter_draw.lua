@@ -1,7 +1,7 @@
 local ShatterDraw = {}
 
-function ShatterDraw.draw(e, body)
-  local x, y = body:getPosition()
+function ShatterDraw.draw(e, body, x, y)
+  -- local x, y = body:getPosition() -- Using interpolated values
   local c = e.shatter
 
   local t = 0

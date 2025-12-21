@@ -9,7 +9,7 @@ local Pause = {}
 
 function Pause:init()
   self.selection = 1
-  self.items = { "Resume", "Quit" }
+  self.items = { "Resume", "Settings", "Quit" }
   self.frame = WindowFrame.new()
   self.hover = nil
   self.pressed = nil
@@ -54,7 +54,7 @@ function Pause:_layout(ctx)
   local footerH = 0
 
   local winW = math.min(260, math.max(210, math.floor(screenW * 0.30)))
-  local winH = 128
+  local winH = 168
 
   local x0 = math.floor((screenW - winW) * 0.5)
   local y0 = math.floor((screenH - winH) * 0.40)
@@ -81,10 +81,11 @@ function Pause:_layout(ctx)
   local btnW = math.min(200, contentW)
   local btnX = bounds.x + math.floor((bounds.w - btnW) * 0.5)
 
-  local btnY0 = bounds.y + bounds.h - pad - btnH * 2 - 10
+  local btnY0 = bounds.y + bounds.h - pad - (btnH * 3 + 10 * 2)
 
   bounds.btnResume = { x = btnX, y = btnY0, w = btnW, h = btnH }
-  bounds.btnQuit = { x = btnX, y = btnY0 + btnH + 10, w = btnW, h = btnH }
+  bounds.btnSettings = { x = btnX, y = btnY0 + btnH + 10, w = btnW, h = btnH }
+  bounds.btnQuit = { x = btnX, y = btnY0 + (btnH + 10) * 2, w = btnW, h = btnH }
   bounds.contentRect = { x = contentX, y = contentY, w = contentW, h = (btnY0 - 8) - contentY }
 
   self.bounds = bounds
@@ -94,6 +95,8 @@ end
 function Pause:_activate(item)
   if item == "Resume" then
     Gamestate.pop()
+  elseif item == "Settings" then
+    Gamestate.push(require("states.settings"))
   elseif item == "Quit" then
     love.event.quit()
   end
@@ -134,9 +137,14 @@ function Pause:mousemoved(x, y, dx, dy)
     self.selection = 1
     return true
   end
+  if pointInRect(x, y, b.btnSettings) then
+    self.hover = "Settings"
+    self.selection = 2
+    return true
+  end
   if pointInRect(x, y, b.btnQuit) then
     self.hover = "Quit"
-    self.selection = 2
+    self.selection = 3
     return true
   end
 
@@ -172,6 +180,10 @@ function Pause:mousepressed(x, y, button)
     self.pressed = "Resume"
     return true
   end
+  if pointInRect(x, y, b.btnSettings) then
+    self.pressed = "Settings"
+    return true
+  end
   if pointInRect(x, y, b.btnQuit) then
     self.pressed = "Quit"
     return true
@@ -198,6 +210,10 @@ function Pause:mousereleased(x, y, button)
 
   if pressed == "Resume" and pointInRect(x, y, b.btnResume) then
     self:_activate("Resume")
+    return true
+  end
+  if pressed == "Settings" and pointInRect(x, y, b.btnSettings) then
+    self:_activate("Settings")
     return true
   end
   if pressed == "Quit" and pointInRect(x, y, b.btnQuit) then
@@ -257,7 +273,8 @@ function Pause:draw()
   end
 
   drawButton(b.btnResume, "Resume", self.selection == 1)
-  drawButton(b.btnQuit, "Quit", self.selection == 2)
+  drawButton(b.btnSettings, "Settings", self.selection == 2)
+  drawButton(b.btnQuit, "Quit", self.selection == 3)
 
   love.graphics.pop()
 end

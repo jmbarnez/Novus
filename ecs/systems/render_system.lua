@@ -88,9 +88,9 @@ function RenderSystem:drawWorld()
     elseif e.renderable.kind == "projectile" then
       ProjectileDraw.draw(ctx, e, body, x, y)
     elseif e.renderable.kind == "pickup" then
-      PickupDraw.draw(ctx, e, body)
+      PickupDraw.draw(ctx, e, body, x, y)
     elseif e.renderable.kind == "shatter" and e:has("shatter") then
-      ShatterDraw.draw(e, body)
+      ShatterDraw.draw(e, body, x, y)
     elseif e.renderable.kind == "space_station" then
       SpaceStationDraw.draw(ctx, e, body, shape, x, y, angle)
     end

@@ -37,6 +37,7 @@ function Space:init()
 end
 
 function Space:enter(_, worldSeed)
+  local Settings = require("game.settings")
   self.accumulator = 0
   -- Box2D callbacks can occur during physics stepping; we buffer contacts and emit
   -- ECS events after the step to avoid mutating entities mid-step.
@@ -144,6 +145,23 @@ function Space:enter(_, worldSeed)
   local avoidX, avoidY = shipBody:getPosition()
   factory.spawnAsteroids(self.ecsWorld, self.physicsWorld, 70, self.sectorWidth, self.sectorHeight, avoidX, avoidY, 650,
     self.worldRngs.asteroids)
+end
+
+function Space:resume()
+  if self.input then
+    local InputConfig = require("game.input_config")
+    -- HACK: Clear cached require to force reload of config which reads Settings
+    package.loaded["game.input_config"] = nil
+    InputConfig = require("game.input_config")
+
+    -- Creating new baton instance with fresh controls
+    local baton = require("lib.baton")
+    self.input = baton.new(InputConfig)
+
+    if self.ecsWorld then
+      self.ecsWorld:setResource("input", self.input)
+    end
+  end
 end
 
 function Space:_beginContact(fixtureA, fixtureB, contact)

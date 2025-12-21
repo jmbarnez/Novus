@@ -4,8 +4,8 @@ local ItemIcons = require("game.item_icons")
 
 local PickupDraw = {}
 
-function PickupDraw.draw(ctx, e, body)
-  local x, y = body:getPosition()
+function PickupDraw.draw(ctx, e, body, x, y)
+  -- x, y are interpolated positions passed from RenderSystem
 
   if e:has("pickup") and e.pickup and e.pickup.id then
     local def = Items.get(e.pickup.id)
