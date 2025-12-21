@@ -62,6 +62,7 @@ local function getLines()
   table.insert(lines, "M: Map")
   table.insert(lines, "Wheel: Zoom")
   table.insert(lines, "F11: Fullscreen")
+  table.insert(lines, "Esc: Pause")
 
   return lines
 end
