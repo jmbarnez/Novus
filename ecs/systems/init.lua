@@ -18,5 +18,6 @@ Systems.TargetingSystem = require("ecs.systems.targeting_system")
 Systems.FloatingTextSystem = require("ecs.systems.floating_text_system")
 Systems.RenderSystem = require("ecs.systems.render_system")
 Systems.HudSystem = require("ecs.systems.hud_system")
+Systems.QuestSystem = require("ecs.systems.quest_system")
 
 return Systems

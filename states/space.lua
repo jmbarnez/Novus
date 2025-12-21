@@ -110,7 +110,8 @@ function Space:enter(_, worldSeed)
     Systems.ShatterSystem,
     Systems.RenderSystem,
     Systems.FloatingTextSystem,
-    Systems.HudSystem
+    Systems.HudSystem,
+    Systems.QuestSystem
   )
 
   self.ecsWorld.__profiler = self.profiler.concord
@@ -312,6 +313,9 @@ function Space:keypressed(key)
       local cur = (getVsync and getVsync()) or 0
       setVsync(cur == 0 and 1 or 0)
     end
+  elseif key == "f11" then
+    local isFullscreen = love.window.getFullscreen()
+    love.window.setFullscreen(not isFullscreen)
   elseif self.hudSystem and self.hudSystem:keypressed(key) then
     return
   elseif key == "b" then

@@ -8,6 +8,8 @@ local Shop = require("game.shop")
 local Quests = require("game.quests")
 local StationUI = require("game.station_ui")
 local ItemIcons = require("game.item_icons")
+local Inventory = require("game.inventory")
+local Items = require("game.items")
 
 local pointInRect = Rect.pointInRect
 
@@ -17,7 +19,8 @@ local function makeStationWindow()
         scrollY = 0,
         hoveredItem = nil,
         hoveredQuest = nil,
-        quantities = {}, -- Per-item quantity inputs
+        quantities = {},    -- Per-item quantity inputs
+        notification = nil, -- { text, color, timer }
     }
 
     -- Constants
@@ -44,8 +47,13 @@ local function makeStationWindow()
 
         if open then
             local world = ctx and ctx.world
-            local worldSeed = world and world:getResource("world_seed") or os.time()
-            local quests = Quests.generate(worldSeed + 12345, 5)
+            -- Only generate new quests if there are no existing quests (preserves progress)
+            local existingQuests = stationUi.quests or {}
+            local quests = existingQuests
+            if #existingQuests == 0 then
+                local worldSeed = world and world:getResource("world_seed") or os.time()
+                quests = Quests.generate(worldSeed + 12345, 3) -- Max 3 quests available
+            end
             StationUI.open(stationUi, stationEntity, quests)
             -- Reset quantities
             self.quantities = {}
@@ -97,6 +105,34 @@ local function makeStationWindow()
     local function setQuantity(itemId, qty)
         qty = math.max(1, math.min(99, qty or 1))
         self.quantities[itemId] = qty
+    end
+
+    -- Show notification
+    local function showNotification(text, isSuccess)
+        self.notification = {
+            text = text,
+            isSuccess = isSuccess,
+            timer = 2.0, -- seconds to display
+        }
+    end
+
+    -- Get how much of an item the player has
+    local function getPlayerStock(ctx, itemId)
+        local player = ctx.world and ctx.world:getResource("player")
+        local ship = player and player.pilot and player.pilot.ship
+        if not ship or not ship.cargo_hold then return 0 end
+
+        local itemDef = Items.get(itemId)
+        local unitVolume = (itemDef and itemDef.unitVolume) or 1
+        local total = 0
+
+        for _, slot in ipairs(ship.cargo_hold.slots) do
+            if slot.id == itemId and slot.volume then
+                total = total + slot.volume
+            end
+        end
+
+        return math.floor(total / unitVolume)
     end
 
     -- Draw shop tab content
@@ -186,15 +222,33 @@ local function makeStationWindow()
                 love.graphics.setColor(1, 1, 1, 0.95)
                 love.graphics.print("Buy", buyBtnRect.x + 13, buyBtnRect.y + 3)
 
-                -- Sell button
+                -- Sell button (only show if player has items)
+                local stock = getPlayerStock(ctx, item.id)
                 local sellBtnRect = { x = qtyX + 152, y = qtyY, w = 50, h = 22 }
-                local sellHover = pointInRect(mx, my, sellBtnRect)
-                love.graphics.setColor(0.45, 0.25, 0.15, sellHover and 1.0 or 0.8)
-                love.graphics.rectangle("fill", sellBtnRect.x, sellBtnRect.y, sellBtnRect.w, sellBtnRect.h, 3)
-                love.graphics.setColor(0.75, 0.45, 0.30, 0.9)
-                love.graphics.rectangle("line", sellBtnRect.x, sellBtnRect.y, sellBtnRect.w, sellBtnRect.h, 3)
-                love.graphics.setColor(1, 1, 1, 0.95)
-                love.graphics.print("Sell", sellBtnRect.x + 11, sellBtnRect.y + 3)
+                if stock >= qty then
+                    local sellHover = pointInRect(mx, my, sellBtnRect)
+                    love.graphics.setColor(0.45, 0.25, 0.15, sellHover and 1.0 or 0.8)
+                    love.graphics.rectangle("fill", sellBtnRect.x, sellBtnRect.y, sellBtnRect.w, sellBtnRect.h, 3)
+                    love.graphics.setColor(0.75, 0.45, 0.30, 0.9)
+                    love.graphics.rectangle("line", sellBtnRect.x, sellBtnRect.y, sellBtnRect.w, sellBtnRect.h, 3)
+                    love.graphics.setColor(1, 1, 1, 0.95)
+                    love.graphics.print("Sell", sellBtnRect.x + 11, sellBtnRect.y + 3)
+                else
+                    -- Disabled sell button
+                    love.graphics.setColor(0.20, 0.20, 0.20, 0.5)
+                    love.graphics.rectangle("fill", sellBtnRect.x, sellBtnRect.y, sellBtnRect.w, sellBtnRect.h, 3)
+                    love.graphics.setColor(0.35, 0.35, 0.35, 0.5)
+                    love.graphics.rectangle("line", sellBtnRect.x, sellBtnRect.y, sellBtnRect.w, sellBtnRect.h, 3)
+                    love.graphics.setColor(0.5, 0.5, 0.5, 0.5)
+                    love.graphics.print("Sell", sellBtnRect.x + 11, sellBtnRect.y + 3)
+                end
+
+                -- Stock indicator
+                if stock > 0 then
+                    local stockText = string.format("x%d", stock)
+                    love.graphics.setColor(0.6, 0.8, 0.6, 0.8)
+                    love.graphics.print(stockText, nameX + 80, itemRect.y + 26)
+                end
             end
         end
 
@@ -339,6 +393,40 @@ local function makeStationWindow()
             drawQuestsContent(ctx, bounds.contentRect, stationUi)
         end
 
+        -- Draw notification
+        if self.notification and self.notification.timer and self.notification.timer > 0 then
+            local notif = self.notification
+            local alpha = math.min(1, notif.timer / 0.5) -- Fade out in last 0.5 seconds
+            local font = love.graphics.getFont()
+            local text = notif.text
+            local tw = font:getWidth(text)
+            local th = font:getHeight()
+            local nx = bounds.x + (WINDOW_W - tw) / 2
+            local ny = bounds.y + WINDOW_H - 50
+
+            -- Background
+            love.graphics.setColor(0.05, 0.10, 0.15, 0.9 * alpha)
+            love.graphics.rectangle("fill", nx - 12, ny - 6, tw + 24, th + 12, 4)
+
+            -- Border and text color based on success/failure
+            if notif.isSuccess then
+                love.graphics.setColor(0.30, 0.80, 0.50, 0.9 * alpha)
+                love.graphics.rectangle("line", nx - 12, ny - 6, tw + 24, th + 12, 4)
+                love.graphics.setColor(0.40, 1.00, 0.60, alpha)
+            else
+                love.graphics.setColor(0.80, 0.40, 0.30, 0.9 * alpha)
+                love.graphics.rectangle("line", nx - 12, ny - 6, tw + 24, th + 12, 4)
+                love.graphics.setColor(1.00, 0.50, 0.40, alpha)
+            end
+            love.graphics.print(text, nx, ny)
+
+            -- Decrement timer (approximate based on 60fps)
+            notif.timer = notif.timer - (1 / 60)
+            if notif.timer <= 0 then
+                self.notification = nil
+            end
+        end
+
         love.graphics.setColor(1, 1, 1, 1)
     end
 
@@ -403,10 +491,20 @@ local function makeStationWindow()
                 local items = Shop.getItems()
                 local itemH = 56
                 local pad = 6
+
+                -- Get player and ship for transactions
+                local player = ctx.world and ctx.world:getResource("player")
+                local ship = player and player.pilot and player.pilot.ship
+
                 for i, item in ipairs(items) do
                     local iy = bounds.contentRect.y + (i - 1) * itemH + pad - self.scrollY
-                    local itemRect = { x = bounds.contentRect.x + pad, y = iy, w = bounds.contentRect.w - pad * 2, h =
-                    itemH - pad }
+                    local itemRect = {
+                        x = bounds.contentRect.x + pad,
+                        y = iy,
+                        w = bounds.contentRect.w - pad * 2,
+                        h =
+                            itemH - pad
+                    }
 
                     if iy + itemH > bounds.contentRect.y and iy < bounds.contentRect.y + bounds.contentRect.h then
                         local qtyX = itemRect.x + itemRect.w - 230
@@ -427,15 +525,29 @@ local function makeStationWindow()
                         -- Buy button
                         if pointInRect(x, y, { x = qtyX + 96, y = qtyY, w = 50, h = 22 }) then
                             local qty = getQuantity(item.id)
-                            Shop.buyItem(nil, item.id, qty)
-                            -- TODO: Add items to player cargo
+                            if player and ship then
+                                local success, msg = Shop.buyItem(player, ship, item.id, qty)
+                                if success then
+                                    showNotification("Bought " .. qty .. " " .. (item.name or item.id), true)
+                                else
+                                    showNotification(msg or "Purchase failed", false)
+                                end
+                            end
                             return true
                         end
 
-                        -- Sell button
+                        -- Sell button (only works if player has enough)
                         if pointInRect(x, y, { x = qtyX + 152, y = qtyY, w = 50, h = 22 }) then
                             local qty = getQuantity(item.id)
-                            -- TODO: Remove items from player cargo and add credits
+                            local stock = getPlayerStock(ctx, item.id)
+                            if player and ship and stock >= qty then
+                                local success, msg = Shop.sellItem(player, ship, item.id, qty)
+                                if success then
+                                    showNotification("Sold " .. qty .. " " .. (item.name or item.id), true)
+                                else
+                                    showNotification(msg or "Sale failed", false)
+                                end
+                            end
                             return true
                         end
                     end

@@ -12,8 +12,11 @@ function FpsTopRight.hitTest(ctx, x, y)
 
   local layout = ctx.layout or {}
   local margin = layout.margin or hudTheme.layout.margin
-  local xRight = (ctx.screenW or 0) - margin
-  local y0 = layout.topRightY or margin
+  local mapW = hudTheme.minimap.w
+
+  -- Position to the left of minimap
+  local xRight = (ctx.screenW or 0) - margin - mapW - 10
+  local y0 = margin
 
   local text = tostring(ctx.fps or 0)
   local font = love.graphics.getFont()
@@ -43,10 +46,13 @@ function FpsTopRight.draw(ctx)
 
   local layout = ctx.layout or {}
   local margin = layout.margin or hudTheme.layout.margin
-  local xRight = (ctx.screenW or 0) - margin
-  local y = layout.topRightY or margin
+  local mapW = hudTheme.minimap.w
 
-  local text = tostring(ctx.fps or 0)
+  -- Position to the left of minimap
+  local xRight = (ctx.screenW or 0) - margin - mapW - 10
+  local y = margin
+
+  local text = tostring(ctx.fps or 0) .. " FPS"
   local font = love.graphics.getFont()
   local tw = font:getWidth(text)
 
@@ -60,7 +66,8 @@ function FpsTopRight.draw(ctx)
   local bracketInsetY = hudTheme.fps.bracketInsetY
   love.graphics.setColor(colors.fpsBrackets[1], colors.fpsBrackets[2], colors.fpsBrackets[3], colors.fpsBrackets[4])
   love.graphics.line(x - bracketOffsetX, y + bracketInsetY, x - bracketOffsetX, y + font:getHeight() - bracketInsetY)
-  love.graphics.line(x + tw + bracketOffsetX, y + bracketInsetY, x + tw + bracketOffsetX, y + font:getHeight() - bracketInsetY)
+  love.graphics.line(x + tw + bracketOffsetX, y + bracketInsetY, x + tw + bracketOffsetX,
+    y + font:getHeight() - bracketInsetY)
 
   local coordText = string.format("X %d  Y %d", math.floor(ctx.x or 0), math.floor(ctx.y or 0))
   local y2 = y + font:getHeight() + hudTheme.layout.smallGap
@@ -70,9 +77,7 @@ function FpsTopRight.draw(ctx)
   love.graphics.print(coordText, x2, y2)
   love.graphics.setColor(1, 1, 1, 1)
 
-  if ctx.layout then
-    ctx.layout.topRightY = y2 + font:getHeight() + hudTheme.layout.smallGap
-  end
+  -- Don't update topRightY - minimap sets that
 end
 
 return FpsTopRight

@@ -39,7 +39,7 @@ function PickupSystem:onAsteroidDestroyed(a, b, c, d)
 
   local r = radius or (asteroid and asteroid.asteroid and asteroid.asteroid.radius) or 30
   local baseVolume = (asteroid and asteroid.asteroid and asteroid.asteroid.volume) or
-  math.max(1, math.floor((r * r) / 50))
+      math.max(1, math.floor((r * r) / 50))
   local eff = (asteroid and asteroid.asteroid and asteroid.asteroid.lastMiningEfficiency) or 1.0
   eff = math.max(0, math.min(1, eff))
 
@@ -139,6 +139,9 @@ local function tryCollect(ship, pickup)
         duration = 0.75,
         scale = 0.95,
       })
+
+      -- Emit collection event for quests
+      world:emit("onItemCollected", ship, p.id, collected)
     end
   end
 
