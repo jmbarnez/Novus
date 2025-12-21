@@ -5,37 +5,16 @@ local MathUtil = require("util.math")
 local Inventory = require("game.inventory")
 local Items = require("game.items")
 local FloatingText = require("ecs.util.floating_text")
+local PickupFactory = require("game.factory.pickup")
 
 local PickupSystem = Concord.system({
   ships = { "ship", "cargo", "cargo_hold", "physics_body" },
 })
 
 local function spawnPickup(world, physicsWorld, id, x, y, volume)
-  if not world or not physicsWorld then
-    return
-  end
-
-  local def = Items.get(id)
-  local color = (def and def.color) or { 0.7, 0.7, 0.7, 0.95 }
-
-  local body = love.physics.newBody(physicsWorld, x, y, "dynamic")
-  body:setLinearDamping(3.5)
-  body:setAngularDamping(6.0)
-
-  local shape = love.physics.newCircleShape(6)
-  local fixture = love.physics.newFixture(body, shape, 0.2)
-  fixture:setSensor(true)
-  fixture:setCategory(16)
-  fixture:setMask(1, 2, 4, 8, 16)
-
-  body:setLinearVelocity(MathUtil.randRange(-60, 60), MathUtil.randRange(-60, 60))
-
-  local e = world:newEntity()
-    :give("physics_body", body, shape, fixture)
-    :give("renderable", "pickup", color)
-    :give("pickup", id, volume)
-
-  fixture:setUserData(e)
+  local vx = MathUtil.randRange(-60, 60)
+  local vy = MathUtil.randRange(-60, 60)
+  return PickupFactory.spawn(world, physicsWorld, id, x, y, volume, vx, vy)
 end
 
 function PickupSystem:init(world)
@@ -59,7 +38,8 @@ function PickupSystem:onAsteroidDestroyed(a, b, c, d)
   end
 
   local r = radius or (asteroid and asteroid.asteroid and asteroid.asteroid.radius) or 30
-  local baseVolume = (asteroid and asteroid.asteroid and asteroid.asteroid.volume) or math.max(1, math.floor((r * r) / 50))
+  local baseVolume = (asteroid and asteroid.asteroid and asteroid.asteroid.volume) or
+  math.max(1, math.floor((r * r) / 50))
   local eff = (asteroid and asteroid.asteroid and asteroid.asteroid.lastMiningEfficiency) or 1.0
   eff = math.max(0, math.min(1, eff))
 

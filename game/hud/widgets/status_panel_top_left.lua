@@ -2,28 +2,10 @@ local StatusPanelTopLeft = {}
 
 local Theme = require("game.theme")
 local MathUtil = require("util.math")
+local DrawHelpers = require("game.hud.draw_helpers")
 
-local function safeFrac(num, den)
-  if not den or den <= 0 then
-    return 0
-  end
-  return MathUtil.clamp((num or 0) / den, 0, 1)
-end
-
-local function drawBar(x, y, w, h, frac, fillColor, colors)
-  local f = MathUtil.clamp(frac or 0, 0, 1)
-
-  local bg = colors.barBg
-  love.graphics.setColor(bg[1], bg[2], bg[3], bg[4])
-  love.graphics.rectangle("fill", x, y, w, h)
-
-  love.graphics.setColor(fillColor[1], fillColor[2], fillColor[3], fillColor[4])
-  love.graphics.rectangle("fill", x, y, w * f, h)
-
-  local bb = colors.barBorder
-  love.graphics.setColor(bb[1], bb[2], bb[3], bb[4])
-  love.graphics.rectangle("line", x, y, w, h)
-end
+local safeFrac = DrawHelpers.safeFrac
+local drawBar = DrawHelpers.drawBar
 
 local function drawCircleBar(cx, cy, radius, thickness, frac, fillColor, bgColor)
   local segments = 32

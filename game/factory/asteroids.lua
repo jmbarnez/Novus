@@ -3,19 +3,12 @@ local asteroids = {}
 local unpack = table.unpack or rawget(_G, "unpack")
 
 local MathUtil = require("util.math")
+local Rng = require("util.rng")
 
 local ORE_VARIANTS = {
-  { id = "iron", tint = { 0.72, 0.72, 0.74, 1.0 } },
+  { id = "iron",    tint = { 0.72, 0.72, 0.74, 1.0 } },
   { id = "mithril", tint = { 0.22, 0.28, 0.46, 1.0 } },
 }
-
-local function ensureRng(rng)
-  if rng then
-    return rng
-  end
-
-  return love.math.newRandomGenerator(love.math.random(1, 2147483646))
-end
 
 local function pickAsteroidColor(rng)
   local palette = {
@@ -174,9 +167,9 @@ local function makeAsteroidRenderCoords(rng, radius)
     local t = (i - 1) / n * tau
 
     local wobble = 1
-      + a1 * math.sin(k1 * t + p1)
-      + a2 * math.sin(k2 * t + p2)
-      + a3 * math.sin(k3 * t + p3)
+        + a1 * math.sin(k1 * t + p1)
+        + a2 * math.sin(k2 * t + p2)
+        + a3 * math.sin(k3 * t + p3)
 
     local dent = 0
     for j = 1, dentCount do
@@ -200,7 +193,7 @@ local function makeAsteroidRenderCoords(rng, radius)
 end
 
 function asteroids.createAsteroid(ecsWorld, physicsWorld, x, y, radius, rng, oreId)
-  rng = ensureRng(rng)
+  rng = Rng.ensure(rng)
   local body = love.physics.newBody(physicsWorld, x, y, "dynamic")
   body:setLinearDamping(0.02)
   body:setAngularDamping(0.01)
@@ -239,10 +232,10 @@ function asteroids.createAsteroid(ecsWorld, physicsWorld, x, y, radius, rng, ore
   local seed = rng:random(1, 1000000)
 
   local e = ecsWorld:newEntity()
-    :give("physics_body", body, shape, fixture)
-    :give("renderable", "asteroid", color)
-    :give("asteroid", radius, craters, nil, nil, nil, nil, seed, finalOreId)
-    :give("health", maxHealth)
+      :give("physics_body", body, shape, fixture)
+      :give("renderable", "asteroid", color)
+      :give("asteroid", radius, craters, nil, nil, nil, nil, seed, finalOreId)
+      :give("health", maxHealth)
 
   fixture:setUserData(e)
 
@@ -250,7 +243,7 @@ function asteroids.createAsteroid(ecsWorld, physicsWorld, x, y, radius, rng, ore
 end
 
 function asteroids.spawnAsteroids(ecsWorld, physicsWorld, count, w, h, avoidX, avoidY, avoidRadius, rng)
-  rng = ensureRng(rng)
+  rng = Rng.ensure(rng)
   avoidRadius = avoidRadius or 0
   local padding = 40
 

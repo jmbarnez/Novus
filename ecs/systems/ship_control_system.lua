@@ -14,6 +14,42 @@ function ShipControlSystem:init(world)
   self.mouseWorld = world:getResource("mouse_world")
 end
 
+-- Compute derived control stats from physics properties
+function ShipControlSystem:_computeDerivedStats(e)
+  local body = e.physics_body.body
+  local ctrl = e.ship_control
+
+  local inertia = body:getInertia()
+
+  -- Estimate lever arm from bounding box of shape
+  local shape = e.physics_body.shape
+  local leverArm = 10 -- default fallback
+  if shape and shape.getPoints then
+    local ok, pts = pcall(function() return { shape:getPoints() } end)
+    if ok and pts then
+      local maxR = 0
+      for i = 1, #pts, 2 do
+        local r = math.sqrt(pts[i] ^ 2 + pts[i + 1] ^ 2)
+        if r > maxR then maxR = r end
+      end
+      if maxR > 0 then leverArm = maxR end
+    end
+  end
+
+  -- Calculate effective torque: thruster force * lever arm
+  ctrl.torque = ctrl.rcsPower * leverArm
+
+  -- Max angular speed: scale inversely with sqrt of inertia
+  -- Clamp to reasonable range (1.5 to 4.0 rad/s)
+  local rawMaxW = math.sqrt(ctrl.torque / math.max(1, inertia)) * 0.8
+  ctrl.maxAngularSpeed = math.max(1.5, math.min(4.0, rawMaxW))
+
+  -- Stabilization torque scales with inertia
+  ctrl.stabilizeTorque = inertia * ctrl.stabilization * 3.0
+
+  ctrl._initialized = true
+end
+
 function ShipControlSystem:fixedUpdate(dt)
   local player = self.world and self.world:getResource("player")
   local playerShip = player and player:has("pilot") and player.pilot.ship or nil
@@ -23,6 +59,11 @@ function ShipControlSystem:fixedUpdate(dt)
   for i = 1, self.ships.size do
     local e = self.ships[i]
     local body = e.physics_body.body
+
+    -- Initialize derived stats on first encounter
+    if not e.ship_control._initialized then
+      self:_computeDerivedStats(e)
+    end
 
     local angle = body:getAngle()
     local thrustForce = e.ship_control.thrustForce

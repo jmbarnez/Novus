@@ -235,8 +235,9 @@ function ShipDraw.draw(ctx, e, body, shape, x, y, angle)
   love.graphics.pop()
 
   if e.auto_cannon then
-    if love.mouse.isDown(2) and e.auto_cannon.aimX and e.auto_cannon.aimY then
-      WeaponDraw.drawAimIndicator(body, e.auto_cannon)
+    local weapon = e.auto_cannon
+    if weapon.coneVis and weapon.coneVis > 0 and weapon.aimX and weapon.aimY then
+      WeaponDraw.drawAimIndicator(body, weapon)
     end
   end
 end

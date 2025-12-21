@@ -1,6 +1,5 @@
 local Concord = require("lib.concord")
 local WeaponLogic = require("ecs.systems.weapon_logic")
-local WeaponLogic = require("ecs.systems.weapon_logic")
 local WeaponDraw = require("ecs.systems.draw.weapon_draw")
 local Math = require("util.math")
 
@@ -17,6 +16,7 @@ local WeaponSystem = Concord.system({
 
 function WeaponSystem:init(world)
   self.world = world
+  self.input = world:getResource("input")
 end
 
 function WeaponSystem:drawWeaponCone(body, weapon)
@@ -67,7 +67,7 @@ function WeaponSystem:onTargetClick(worldX, worldY, button)
     return
   end
 
-  if not love.keyboard.isDown("lctrl", "rctrl") then
+  if not self.input:down("target_lock") then
     return
   end
 
@@ -151,8 +151,8 @@ function WeaponSystem:update(dt)
     end
   end
 
-  if love.mouse.isDown(1) and weapon.timer <= 0 then
-    if love.keyboard.isDown("lctrl", "rctrl") then
+  if self.input:down("fire") and weapon.timer <= 0 then
+    if self.input:down("target_lock") then
       return
     end
 
@@ -170,7 +170,7 @@ function WeaponSystem:update(dt)
   end
 
   -- Scale up cone visualization while right clicking
-  if love.mouse.isDown(2) then
+  if self.input:down("aim") then
     local mw = self.world:getResource("mouse_world")
     if mw then
       weapon.aimX = mw.x

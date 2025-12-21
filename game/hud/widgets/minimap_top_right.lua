@@ -2,10 +2,9 @@ local MinimapTopRight = {}
 
 local Theme = require("game.theme")
 local MathUtil = require("util.math")
+local Rect = require("util.rect")
 
-local function pointInRect(px, py, r)
-  return px >= r.x and px <= (r.x + r.w) and py >= r.y and py <= (r.y + r.h)
-end
+local pointInRect = Rect.pointInRect
 
 function MinimapTopRight.hitTest(ctx, x, y)
   if not ctx then
@@ -62,7 +61,8 @@ function MinimapTopRight.draw(ctx)
   end
 
   -- main background with gradient effect (darker at edges)
-  love.graphics.setColor(colors.minimapBg[1] * 0.7, colors.minimapBg[2] * 0.7, colors.minimapBg[3] * 0.7, colors.minimapBg[4])
+  love.graphics.setColor(colors.minimapBg[1] * 0.7, colors.minimapBg[2] * 0.7, colors.minimapBg[3] * 0.7,
+    colors.minimapBg[4])
   love.graphics.rectangle("fill", mapX, mapY, mapW, mapH, cornerRadius, cornerRadius)
 
   -- inner lighter area
@@ -122,7 +122,8 @@ function MinimapTopRight.draw(ctx)
     love.graphics.circle("fill", px, py, dotRadius * 1.5)
 
     -- bright center
-    love.graphics.setColor(colors.minimapPlayer[1], colors.minimapPlayer[2], colors.minimapPlayer[3], colors.minimapPlayer[4])
+    love.graphics.setColor(colors.minimapPlayer[1], colors.minimapPlayer[2], colors.minimapPlayer[3],
+      colors.minimapPlayer[4])
     love.graphics.circle("fill", px, py, dotRadius)
 
     -- white core

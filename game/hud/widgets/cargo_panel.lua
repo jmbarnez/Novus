@@ -3,6 +3,8 @@ local Items = require("game.items")
 local Inventory = require("game.inventory")
 local ItemIcons = require("game.item_icons")
 local WindowFrame = require("game.hud.window_frame")
+local Rect = require("util.rect")
+local PickupFactory = require("game.factory.pickup")
 
 local function getPlayerShip(world)
   local player = world and world:getResource("player")
@@ -12,9 +14,7 @@ local function getPlayerShip(world)
   return nil
 end
 
-local function pointInRect(px, py, r)
-  return px >= r.x and px <= (r.x + r.w) and py >= r.y and py <= (r.y + r.h)
-end
+local pointInRect = Rect.pointInRect
 
 local function spawnPickup(ctx, id, volume, worldX, worldY)
   if not ctx or not ctx.world or not id or not volume or volume <= 0 then
@@ -26,26 +26,8 @@ local function spawnPickup(ctx, id, volume, worldX, worldY)
     return false
   end
 
-  local def = Items.get(id)
-  local color = (def and def.color) or { 1, 1, 1, 0.95 }
-
-  local body = love.physics.newBody(physicsWorld, worldX or 0, worldY or 0, "dynamic")
-  body:setLinearDamping(3.5)
-  body:setAngularDamping(6.0)
-
-  local shape = love.physics.newCircleShape(6)
-  local fixture = love.physics.newFixture(body, shape, 0.2)
-  fixture:setSensor(true)
-  fixture:setCategory(16)
-  fixture:setMask(1, 4, 8, 16)
-
-  local e = ctx.world:newEntity()
-      :give("physics_body", body, shape, fixture)
-      :give("renderable", "pickup", color)
-      :give("pickup", id, volume)
-
-  fixture:setUserData(e)
-  return true
+  local e = PickupFactory.spawn(ctx.world, physicsWorld, id, worldX or 0, worldY or 0, volume)
+  return e ~= nil
 end
 
 local function makeCargoPanel()

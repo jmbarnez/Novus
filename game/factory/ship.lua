@@ -28,23 +28,28 @@ function ship.createShip(ecsWorld, physicsWorld, x, y)
   fixture:setCategory(2)
 
   local e = ecsWorld:newEntity()
-    :give("physics_body", body, shape, fixture)
-    :give("renderable", "ship", { 0.75, 0.85, 1.0, 1.0 })
-    :give("ship")
-    :give("ship_control", 220, 180, 3000, 2.0, 1400)
-    :give("ship_input")
-    :give("auto_cannon")
-    :give("engine_trail", {
-      offsetX = -12,
-      offsetY = 0,
-      color = { 0.00, 1.00, 1.00, 0.95 },
-    })
-    :give("cargo", 100)
-    :give("cargo_hold", 4, 4)
-    :give("magnet", 360, 140, 30, 420)
-    :give("hull", 100)
-    :give("shield", 60, 0)
-    :give("energy", 100, 0)
+      :give("physics_body", body, shape, fixture)
+      :give("renderable", "ship", { 0.75, 0.85, 1.0, 1.0 })
+      :give("ship")
+      :give("ship_control", {
+        thrustForce = 220,
+        strafeForce = 180,
+        rcsPower = 400,
+        stabilization = 1.0,
+      })
+      :give("ship_input")
+      :give("auto_cannon")
+      :give("engine_trail", {
+        offsetX = -12,
+        offsetY = 0,
+        color = { 0.00, 1.00, 1.00, 0.95 },
+      })
+      :give("cargo", 100)
+      :give("cargo_hold", 4, 4)
+      :give("magnet", 360, 140, 30, 420)
+      :give("hull", 100)
+      :give("shield", 60, 0)
+      :give("energy", 100, 0)
 
   fixture:setUserData(e)
 

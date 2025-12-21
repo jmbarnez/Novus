@@ -2,27 +2,10 @@ local TargetPanelTopCenter = {}
 
 local Theme = require("game.theme")
 local MathUtil = require("util.math")
+local DrawHelpers = require("game.hud.draw_helpers")
 
-local function safeFrac(num, den)
-  if not den or den <= 0 then
-    return 0
-  end
-  return MathUtil.clamp((num or 0) / den, 0, 1)
-end
-
-local function drawBar(x, y, w, h, frac, fillColor, colors)
-  local f = MathUtil.clamp(frac or 0, 0, 1)
-
-  local bg = colors.barBg
-  love.graphics.setColor(bg[1], bg[2], bg[3], bg[4])
-  love.graphics.rectangle("fill", x, y, w, h)
-
-  love.graphics.setColor(fillColor[1], fillColor[2], fillColor[3], fillColor[4])
-  love.graphics.rectangle("fill", x, y, w * f, h)
-
-  love.graphics.setColor(0, 0, 0, 1)
-  love.graphics.rectangle("line", x, y, w, h)
-end
+local safeFrac = DrawHelpers.safeFrac
+local drawBar = DrawHelpers.drawBar
 
 function TargetPanelTopCenter.hitTest(ctx, x, y)
   if not ctx or not ctx.world then

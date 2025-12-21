@@ -11,16 +11,7 @@ local Camera = require("game.camera")
 local Profiler = require("util.profiler")
 local Seed = require("util.seed")
 local Pause = require("states.pause")
-
-local function clamp(v, lo, hi)
-  if v < lo then return lo end
-  if v > hi then return hi end
-  return v
-end
-
-local function lerp(a, b, t)
-  return a + (b - a) * t
-end
+local MathUtil = require("util.math")
 
 local function getInterpolatedTarget(ship, alpha)
   local shipBody = ship and ship.physics_body and ship.physics_body.body
@@ -31,8 +22,8 @@ local function getInterpolatedTarget(ship, alpha)
   local x, y = shipBody:getPosition()
   local pb = ship.physics_body
   if pb and pb.prevX ~= nil and pb.prevY ~= nil and alpha ~= nil and alpha ~= 1 then
-    x = lerp(pb.prevX, x, alpha)
-    y = lerp(pb.prevY, y, alpha)
+    x = MathUtil.lerp(pb.prevX, x, alpha)
+    y = MathUtil.lerp(pb.prevY, y, alpha)
   end
 
   return x, y
@@ -61,7 +52,11 @@ function Space:enter(_, worldSeed)
     background = love.math.newRandomGenerator(Seed.derive(self.worldSeed, "background")),
     asteroids = love.math.newRandomGenerator(Seed.derive(self.worldSeed, "asteroids")),
   }
-  self.background = SpaceBackground.new({ seed = Seed.derive(self.worldSeed, "starfield"), nebulaSeed = Seed.derive(self.worldSeed, "nebula") })
+  self.background = SpaceBackground.new({
+    seed = Seed.derive(self.worldSeed, "starfield"),
+    nebulaSeed = Seed.derive(
+      self.worldSeed, "nebula")
+  })
 
   self.view = {}
   self.profiler = Profiler.new()
@@ -77,14 +72,8 @@ function Space:enter(_, worldSeed)
     boundsH = self.sectorHeight,
   })
 
-  self.input = baton.new({
-    controls = {
-      thrust = { "key:w", "key:up" },
-      strafe_left = { "key:a", "key:left" },
-      strafe_right = { "key:d", "key:right" },
-      brake = { "key:space" },
-    },
-  })
+  local InputConfig = require("game.input_config")
+  self.input = baton.new(InputConfig)
 
   self.physicsWorld = love.physics.newWorld(0, 0, true)
   self.physicsWorld:setCallbacks(
@@ -98,7 +87,8 @@ function Space:enter(_, worldSeed)
   self.ecsWorld:setResource("physics", self.physicsWorld)
   self.ecsWorld:setResource("mouse_world", self.mouseWorld)
   self.ecsWorld:setResource("ui_capture", { active = false })
-  self.ecsWorld:setResource("map_ui", { open = false, zoom = 1.0, centerX = nil, centerY = nil, waypointX = nil, waypointY = nil })
+  self.ecsWorld:setResource("map_ui",
+    { open = false, zoom = 1.0, centerX = nil, centerY = nil, waypointX = nil, waypointY = nil })
   self.ecsWorld:setResource("world_seed", self.worldSeed)
   self.ecsWorld:setResource("world_rngs", self.worldRngs)
 
@@ -124,40 +114,10 @@ function Space:enter(_, worldSeed)
 
   self.ecsWorld.__profiler = self.profiler.concord
 
-  do
-    local s
-    s = self.ecsWorld:getSystem(Systems.InputSystem)
-    if s then s.__profileName = "InputSystem" end
-    s = self.ecsWorld:getSystem(Systems.PhysicsSnapshotSystem)
-    if s then s.__profileName = "PhysicsSnapshotSystem" end
-    s = self.ecsWorld:getSystem(Systems.TargetingSystem)
-    if s then s.__profileName = "TargetingSystem" end
-    s = self.ecsWorld:getSystem(Systems.ShipControlSystem)
-    if s then s.__profileName = "ShipControlSystem" end
-    s = self.ecsWorld:getSystem(Systems.ContactFlashSystem)
-    if s then s.__profileName = "ContactFlashSystem" end
-    s = self.ecsWorld:getSystem(Systems.ProjectileHitSystem)
-    if s then s.__profileName = "ProjectileHitSystem" end
-    s = self.ecsWorld:getSystem(Systems.HitFlashSystem)
-    if s then s.__profileName = "HitFlashSystem" end
-    s = self.ecsWorld:getSystem(Systems.EngineTrailSystem)
-    if s then s.__profileName = "EngineTrailSystem" end
-    s = self.ecsWorld:getSystem(Systems.WeaponSystem)
-    if s then s.__profileName = "WeaponSystem" end
-    s = self.ecsWorld:getSystem(Systems.HealthSystem)
-    if s then s.__profileName = "HealthSystem" end
-    s = self.ecsWorld:getSystem(Systems.ProjectileSystem)
-    if s then s.__profileName = "ProjectileSystem" end
-    s = self.ecsWorld:getSystem(Systems.PickupSystem)
-    if s then s.__profileName = "PickupSystem" end
-    s = self.ecsWorld:getSystem(Systems.MagnetSystem)
-    if s then s.__profileName = "MagnetSystem" end
-    s = self.ecsWorld:getSystem(Systems.ShatterSystem)
-    if s then s.__profileName = "ShatterSystem" end
-    s = self.ecsWorld:getSystem(Systems.RenderSystem)
-    if s then s.__profileName = "RenderSystem" end
-    s = self.ecsWorld:getSystem(Systems.HudSystem)
-    if s then s.__profileName = "HudSystem" end
+  -- Assign profile names to all registered systems
+  for name, systemClass in pairs(Systems) do
+    local s = self.ecsWorld:getSystem(systemClass)
+    if s then s.__profileName = name end
   end
 
   self.hudSystem = self.ecsWorld:getSystem(Systems.HudSystem)
@@ -169,7 +129,8 @@ function Space:enter(_, worldSeed)
 
   local shipBody = self.ship.physics_body and self.ship.physics_body.body
   local avoidX, avoidY = shipBody:getPosition()
-  factory.spawnAsteroids(self.ecsWorld, self.physicsWorld, 70, self.sectorWidth, self.sectorHeight, avoidX, avoidY, 650, self.worldRngs.asteroids)
+  factory.spawnAsteroids(self.ecsWorld, self.physicsWorld, 70, self.sectorWidth, self.sectorHeight, avoidX, avoidY, 650,
+    self.worldRngs.asteroids)
 end
 
 function Space:_beginContact(fixtureA, fixtureB, contact)
@@ -273,7 +234,7 @@ function Space:draw()
   if alpha == nil then
     alpha = 1
   end
-  alpha = clamp(alpha, 0, 1)
+  alpha = MathUtil.clamp(alpha, 0, 1)
 
   local targetX, targetY = getInterpolatedTarget(pilotedShip, alpha)
 
@@ -417,7 +378,7 @@ function Space:mousepressed(x, y, button)
   if alpha == nil then
     alpha = 1
   end
-  alpha = clamp(alpha, 0, 1)
+  alpha = MathUtil.clamp(alpha, 0, 1)
 
   local targetX, targetY = getInterpolatedTarget(pilotedShip, alpha)
 

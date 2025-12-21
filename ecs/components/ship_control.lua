@@ -1,11 +1,17 @@
 local Concord = require("lib.concord")
 
-Concord.component("ship_control", function(c, thrustForce, strafeForce, torque, maxAngularSpeed, stabilizeTorque)
-  c.thrustForce = thrustForce
-  c.strafeForce = strafeForce
-  c.torque = torque
-  c.maxAngularSpeed = maxAngularSpeed or 3.0
-  c.stabilizeTorque = stabilizeTorque or 0
+Concord.component("ship_control", function(c, opts)
+  opts = opts or {}
+  c.thrustForce = opts.thrustForce or 220
+  c.strafeForce = opts.strafeForce or 180
+  c.rcsPower = opts.rcsPower or 400           -- Maneuvering thruster force
+  c.stabilization = opts.stabilization or 1.0 -- How aggressively to stop rotation
+
+  -- Derived values (computed from physics in ship_control_system)
+  c.torque = nil
+  c.maxAngularSpeed = nil
+  c.stabilizeTorque = nil
+  c._initialized = false
 end)
 
 return true
