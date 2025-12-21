@@ -3,7 +3,7 @@ local WeaponLogic = require("ecs.systems.weapon_logic")
 local WeaponDraw = require("ecs.systems.draw.weapon_draw")
 
 -- Localize frequently used functions
-local sqrt, max, min = math.sqrt, math.max, math.min
+local max = math.max
 
 local WeaponSystem = Concord.system({
   targets = { "asteroid", "health", "physics_body" },
@@ -15,67 +15,6 @@ local WeaponSystem = Concord.system({
 
 function WeaponSystem:init(world)
   self.world = world
-end
-
---------------------------------------------------------------------------------
--- Drawing
---------------------------------------------------------------------------------
-
-function WeaponSystem:drawWorld()
-  local player = self.world:getResource("player")
-  if not player or not player:has("pilot") then
-    return
-  end
-
-  local ship = player.pilot.ship
-  if not ship or not ship:has("auto_cannon") or not ship:has("physics_body") then
-    return
-  end
-
-  local weapon = ship.auto_cannon
-  local body = ship.physics_body.body
-  if not body then
-    return
-  end
-
-  local uiCapture = self.world and self.world:getResource("ui_capture")
-  if uiCapture and uiCapture.active then
-    return
-  end
-
-  if not love.mouse.isDown(2) then
-    return
-  end
-
-  local mw = self.world:getResource("mouse_world")
-  if not mw then
-    return
-  end
-
-  local sx, sy = body:getPosition()
-  local dx, dy = mw.x - sx, mw.y - sy
-
-  local dirX, dirY = WeaponLogic.getClampedAimDir(body, dx, dy, weapon.coneHalfAngle)
-  if not dirX then
-    return
-  end
-
-  local dist = sqrt(dx * dx + dy * dy)
-  if weapon.range and weapon.range > 0 then
-    dist = min(dist, weapon.range)
-  end
-
-  local muzzleX, muzzleY = WeaponLogic.getMuzzlePosition(body, dirX, dirY)
-
-  local mdx, mdy = mw.x - muzzleX, mw.y - muzzleY
-  dist = sqrt(mdx * mdx + mdy * mdy)
-  if weapon.range and weapon.range > 0 then
-    dist = min(dist, weapon.range)
-  end
-
-  local aimX = muzzleX + dirX * dist
-  local aimY = muzzleY + dirY * dist
-  WeaponDraw.drawAimIndicator(muzzleX, muzzleY, aimX, aimY)
 end
 
 function WeaponSystem:drawWeaponCone(body, weapon)

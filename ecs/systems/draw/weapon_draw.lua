@@ -17,30 +17,10 @@ function WeaponDraw.drawAimIndicator(sx, sy, aimX, aimY)
   local t = love.timer.getTime()
   local pulse = 0.7 + 0.3 * (0.5 + 0.5 * math.sin(t * 10.0))
 
-  -- Single beam instead of a stacked double to avoid the "two lasers" look.
+  -- Single beam to show exactly where the projectile will travel.
   love.graphics.setLineWidth(2)
-  love.graphics.setColor(0.20, 0.85, 1.00, 0.18 * pulse)
+  love.graphics.setColor(0.20, 0.85, 1.00, 0.35 * pulse)
   love.graphics.line(sx, sy, aimX, aimY)
-
-  local r = 10
-  local len = 7
-  local gap = 3
-
-  love.graphics.setLineWidth(3)
-  love.graphics.setColor(0.20, 0.85, 1.00, 0.12 * pulse)
-  love.graphics.circle("line", aimX, aimY, r)
-  love.graphics.line(aimX - (gap + len), aimY, aimX - gap, aimY)
-  love.graphics.line(aimX + gap, aimY, aimX + (gap + len), aimY)
-  love.graphics.line(aimX, aimY - (gap + len), aimX, aimY - gap)
-  love.graphics.line(aimX, aimY + gap, aimX, aimY + (gap + len))
-
-  love.graphics.setLineWidth(1)
-  love.graphics.setColor(0.20, 0.85, 1.00, 0.35)
-  love.graphics.circle("line", aimX, aimY, r)
-  love.graphics.line(aimX - (gap + len), aimY, aimX - gap, aimY)
-  love.graphics.line(aimX + gap, aimY, aimX + (gap + len), aimY)
-  love.graphics.line(aimX, aimY - (gap + len), aimX, aimY - gap)
-  love.graphics.line(aimX, aimY + gap, aimX, aimY + (gap + len))
 
   love.graphics.setBlendMode(bm, am)
   love.graphics.setLineWidth(1)
