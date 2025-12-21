@@ -16,8 +16,8 @@ end
 factory.createWalls = Walls.createWalls
 factory.createShip = Ship.createShip
 factory.createPlayer = Player.createPlayer
-factory.createAsteroid = function(ecsWorld, physicsWorld, x, y, radius, rng)
-  return Asteroids.createAsteroid(ecsWorld, physicsWorld, x, y, radius, ensureRng(rng))
+factory.createAsteroid = function(ecsWorld, physicsWorld, x, y, radius, rng, oreId)
+  return Asteroids.createAsteroid(ecsWorld, physicsWorld, x, y, radius, ensureRng(rng), oreId)
 end
 factory.spawnAsteroids = function(ecsWorld, physicsWorld, count, w, h, avoidX, avoidY, avoidRadius, rng)
   return Asteroids.spawnAsteroids(ecsWorld, physicsWorld, count, w, h, avoidX, avoidY, avoidRadius, ensureRng(rng))

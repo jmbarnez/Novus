@@ -10,6 +10,8 @@ function Items.register(def)
 end
 
 Items.register(require("game.items.stone"))
+Items.register(require("game.items.iron"))
+Items.register(require("game.items.mithril"))
 
 function Items.get(id)
   return Items.defs[id]

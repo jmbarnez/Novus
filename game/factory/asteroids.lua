@@ -4,6 +4,11 @@ local unpack = table.unpack or rawget(_G, "unpack")
 
 local MathUtil = require("util.math")
 
+local ORE_VARIANTS = {
+  { id = "iron", tint = { 0.72, 0.72, 0.74, 1.0 } },
+  { id = "mithril", tint = { 0.22, 0.28, 0.46, 1.0 } },
+}
+
 local function ensureRng(rng)
   if rng then
     return rng
@@ -35,6 +40,28 @@ local function pickAsteroidColor(rng)
   b = MathUtil.clamp(b, 0, 1)
 
   return { r, g, b, 1.0 }
+end
+
+local function mulColor(a, b)
+  return {
+    MathUtil.clamp((a[1] or 1) * (b[1] or 1), 0, 1),
+    MathUtil.clamp((a[2] or 1) * (b[2] or 1), 0, 1),
+    MathUtil.clamp((a[3] or 1) * (b[3] or 1), 0, 1),
+    MathUtil.clamp((a[4] or 1) * (b[4] or 1), 0, 1),
+  }
+end
+
+local function mixColor(a, b, t)
+  return {
+    MathUtil.clamp((a[1] or 0) * (1 - t) + (b[1] or 0) * t, 0, 1),
+    MathUtil.clamp((a[2] or 0) * (1 - t) + (b[2] or 0) * t, 0, 1),
+    MathUtil.clamp((a[3] or 0) * (1 - t) + (b[3] or 0) * t, 0, 1),
+    MathUtil.clamp(((a[4] or 1) * (1 - t) + (b[4] or 1) * t), 0, 1),
+  }
+end
+
+local function pickOreVariant(rng)
+  return ORE_VARIANTS[rng:random(1, #ORE_VARIANTS)]
 end
 
 local function cross(o, a, b)
@@ -172,7 +199,7 @@ local function makeAsteroidRenderCoords(rng, radius)
   return coords
 end
 
-function asteroids.createAsteroid(ecsWorld, physicsWorld, x, y, radius, rng)
+function asteroids.createAsteroid(ecsWorld, physicsWorld, x, y, radius, rng, oreId)
   rng = ensureRng(rng)
   local body = love.physics.newBody(physicsWorld, x, y, "dynamic")
   body:setLinearDamping(0.02)
@@ -191,7 +218,19 @@ function asteroids.createAsteroid(ecsWorld, physicsWorld, x, y, radius, rng)
 
   local craters = {}
 
-  local color = pickAsteroidColor(rng)
+  local baseColor = pickAsteroidColor(rng)
+  local color = baseColor
+  local finalOreId = oreId
+  if finalOreId then
+    for i = 1, #ORE_VARIANTS do
+      local v = ORE_VARIANTS[i]
+      if v and v.id == finalOreId then
+        local mixed = mixColor(baseColor, v.tint, 0.68)
+        color = mulColor(mixed, { 1.05, 1.05, 1.05, 1.0 })
+        break
+      end
+    end
+  end
 
   local r = radius or 0
   local volume = math.max(1, math.floor((r * r) / 50))
@@ -202,7 +241,7 @@ function asteroids.createAsteroid(ecsWorld, physicsWorld, x, y, radius, rng)
   local e = ecsWorld:newEntity()
     :give("physics_body", body, shape, fixture)
     :give("renderable", "asteroid", color)
-    :give("asteroid", radius, craters, nil, nil, nil, nil, seed)
+    :give("asteroid", radius, craters, nil, nil, nil, nil, seed, finalOreId)
     :give("health", maxHealth)
 
   fixture:setUserData(e)
@@ -214,6 +253,8 @@ function asteroids.spawnAsteroids(ecsWorld, physicsWorld, count, w, h, avoidX, a
   rng = ensureRng(rng)
   avoidRadius = avoidRadius or 0
   local padding = 40
+
+  local oreChance = 0.22
 
   for _ = 1, count do
     local radius = MathUtil.randRangeRng(rng, 18, 46)
@@ -237,7 +278,12 @@ function asteroids.spawnAsteroids(ecsWorld, physicsWorld, count, w, h, avoidX, a
       end
     end
 
-    asteroids.createAsteroid(ecsWorld, physicsWorld, x, y, radius, rng)
+    local oreId = nil
+    if rng:random() < oreChance then
+      local v = pickOreVariant(rng)
+      oreId = v and v.id or nil
+    end
+    asteroids.createAsteroid(ecsWorld, physicsWorld, x, y, radius, rng, oreId)
   end
 end
 

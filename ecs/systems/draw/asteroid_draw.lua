@@ -2,6 +2,34 @@ local Utils = require("ecs.systems.draw.render_utils")
 
 local AsteroidDraw = {}
 
+local ORE_VEIN_COLORS = {
+  iron = { 0.85, 0.85, 0.88, 0.20 },
+  mithril = { 0.35, 0.45, 0.75, 0.20 },
+}
+
+local function drawOreVeins(e)
+  if not (e and e.asteroid and e.asteroid.oreId) then
+    return
+  end
+
+  local c = ORE_VEIN_COLORS[e.asteroid.oreId]
+  if not c then
+    return
+  end
+
+  local r = (e.asteroid and e.asteroid.radius) or 30
+
+  love.graphics.push("all")
+  love.graphics.setLineJoin("bevel")
+  love.graphics.setLineWidth(2.0)
+  love.graphics.setColor(c[1], c[2], c[3], c[4])
+
+  love.graphics.line(-r * 0.55, -r * 0.10, -r * 0.15, -r * 0.35, r * 0.10, -r * 0.05, r * 0.40, -r * 0.20)
+  love.graphics.line(-r * 0.30, r * 0.25, -r * 0.05, r * 0.10, r * 0.20, r * 0.35)
+
+  love.graphics.pop()
+end
+
 function AsteroidDraw.draw(ctx, e, body, shape, x, y, angle)
   local drawIt = true
   if ctx.viewLeft then
@@ -46,6 +74,8 @@ function AsteroidDraw.draw(ctx, e, body, shape, x, y, angle)
   else
     love.graphics.polygon("fill", shape:getPoints())
   end
+
+  drawOreVeins(e)
 
   love.graphics.push("all")
   love.graphics.setLineJoin("bevel")

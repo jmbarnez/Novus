@@ -163,6 +163,11 @@ local function makeCargoPanel()
     return nil
   end
 
+  local function clearDrag()
+    self.drag = nil
+    self.dragFrom = nil
+  end
+
   function self.hitTest(ctx, x, y)
     if not ctx then
       return false
@@ -243,7 +248,7 @@ local function makeCargoPanel()
             local def = Items.get(slot.id)
             local c = (def and def.color) or { 1, 1, 1, 0.9 }
 
-            if slot.id == "stone" then
+            if def and def.icon then
               ItemIcons.draw(slot.id, r.x + 3, r.y + 3, r.w - 6, r.h - 6, { tint = { 1, 1, 1, 0.95 } })
             else
               love.graphics.setColor(c[1], c[2], c[3], 0.75)
@@ -272,7 +277,7 @@ local function makeCargoPanel()
         local dragSize = math.max(28, math.floor(slotSize * 0.6))
         local dragHalf = dragSize * 0.5
 
-        if self.drag.id == "stone" then
+        if def and def.icon then
           ItemIcons.draw(self.drag.id, mx2 - dragHalf, my2 - dragHalf, dragSize, dragSize, { tint = { 1, 1, 1, 0.9 } })
         else
           love.graphics.setColor(c[1], c[2], c[3], 0.7)
@@ -365,6 +370,10 @@ local function makeCargoPanel()
       return false
     end
 
+    if button ~= 1 then
+      return false
+    end
+
     setCapture(ctx)
 
     local ship = ctx and ctx.world and getPlayerShip(ctx.world)
@@ -388,8 +397,7 @@ local function makeCargoPanel()
     if consumed then
       if didClose then
         self.open = false
-        self.drag = nil
-        self.dragFrom = nil
+        clearDrag()
         self.frame.dragging = false
         setCapture(ctx)
       end
@@ -484,16 +492,14 @@ local function makeCargoPanel()
     local idx = pickSlot(x, y)
 
     if not idx or not hold.slots[idx] then
-      self.drag = nil
-      self.dragFrom = nil
+      clearDrag()
       return true
     end
 
     local dst = hold.slots[idx]
 
     if idx == originIdx then
-      self.drag = nil
-      self.dragFrom = nil
+      clearDrag()
       return true
     end
 
@@ -501,8 +507,7 @@ local function makeCargoPanel()
       dst.id = origin.id
       dst.volume = origin.volume
       Inventory.clear(origin)
-      self.drag = nil
-      self.dragFrom = nil
+      clearDrag()
       ship.cargo.used = Inventory.totalVolume(hold.slots)
       return true
     end
@@ -510,14 +515,12 @@ local function makeCargoPanel()
     if dst.id == origin.id then
       Inventory.mergeInto(dst, origin)
       ship.cargo.used = Inventory.totalVolume(hold.slots)
-      self.drag = nil
-      self.dragFrom = nil
+      clearDrag()
       return true
     end
 
     Inventory.swap(origin, dst)
-    self.drag = nil
-    self.dragFrom = nil
+    clearDrag()
     ship.cargo.used = Inventory.totalVolume(hold.slots)
     return true
   end
@@ -525,8 +528,7 @@ local function makeCargoPanel()
   function self.keypressed(ctx, key)
     if key == "tab" then
       self.open = not self.open
-      self.drag = nil
-      self.dragFrom = nil
+      clearDrag()
       self.frame.dragging = false
       setCapture(ctx)
       return true
@@ -538,8 +540,7 @@ local function makeCargoPanel()
 
     if key == "escape" then
       self.open = false
-      self.drag = nil
-      self.dragFrom = nil
+      clearDrag()
       self.frame.dragging = false
       setCapture(ctx)
       return true
@@ -564,6 +565,16 @@ local function makeCargoPanel()
 
     if self.frame:mousemoved(ctx, x, y, dx, dy) and ctx then
       recomputeRects(ctx)
+      setCapture(ctx)
+      return true
+    end
+
+    if self.drag and (not love.mouse.isDown(1)) then
+      clearDrag()
+      return true
+    end
+
+    if self.drag then
       setCapture(ctx)
       return true
     end

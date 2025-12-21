@@ -10,12 +10,12 @@ local PickupSystem = Concord.system({
   ships = { "ship", "cargo", "cargo_hold", "physics_body" },
 })
 
-local function spawnStonePickup(world, physicsWorld, x, y, volume)
+local function spawnPickup(world, physicsWorld, id, x, y, volume)
   if not world or not physicsWorld then
     return
   end
 
-  local def = Items.get("stone")
+  local def = Items.get(id)
   local color = (def and def.color) or { 0.7, 0.7, 0.7, 0.95 }
 
   local body = love.physics.newBody(physicsWorld, x, y, "dynamic")
@@ -33,7 +33,7 @@ local function spawnStonePickup(world, physicsWorld, x, y, volume)
   local e = world:newEntity()
     :give("physics_body", body, shape, fixture)
     :give("renderable", "pickup", color)
-    :give("pickup", "stone", volume)
+    :give("pickup", id, volume)
 
   fixture:setUserData(e)
 end
@@ -68,6 +68,14 @@ function PickupSystem:onAsteroidDestroyed(a, b, c, d)
     minedVolume = 1
   end
 
+  local dropId = "stone"
+  if asteroid and asteroid.asteroid and asteroid.asteroid.oreId then
+    local id = asteroid.asteroid.oreId
+    if Items.get(id) then
+      dropId = id
+    end
+  end
+
   local pieces = math.max(3, math.min(12, math.floor(r / 6)))
   local remaining = minedVolume
 
@@ -85,7 +93,7 @@ function PickupSystem:onAsteroidDestroyed(a, b, c, d)
 
     local jx = MathUtil.randRange(-10, 10)
     local jy = MathUtil.randRange(-10, 10)
-    spawnStonePickup(world, physicsWorld, x + jx, y + jy, v)
+    spawnPickup(world, physicsWorld, dropId, x + jx, y + jy, v)
   end
 
   while remaining > 0 do
@@ -93,7 +101,7 @@ function PickupSystem:onAsteroidDestroyed(a, b, c, d)
     remaining = remaining - v
     local jx = MathUtil.randRange(-10, 10)
     local jy = MathUtil.randRange(-10, 10)
-    spawnStonePickup(world, physicsWorld, x + jx, y + jy, v)
+    spawnPickup(world, physicsWorld, dropId, x + jx, y + jy, v)
   end
 end
 
