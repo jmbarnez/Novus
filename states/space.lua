@@ -92,8 +92,8 @@ function Space:enter(_, worldSeed)
     { open = false, zoom = 1.0, centerX = nil, centerY = nil, waypointX = nil, waypointY = nil })
   self.ecsWorld:setResource("world_seed", self.worldSeed)
   self.ecsWorld:setResource("world_rngs", self.worldRngs)
-  self.ecsWorld:setResource("station_ui", require("game.station_ui").new())
-  self.ecsWorld:setResource("refinery_ui", require("game.refinery_ui").new())
+  self.ecsWorld:setResource("station_ui", require("game.hud.station_state").new())
+  self.ecsWorld:setResource("refinery_ui", require("game.hud.refinery_state").new())
 
   self.ecsWorld:addSystems(
     Systems.PhysicsSnapshotSystem,
@@ -113,7 +113,8 @@ function Space:enter(_, worldSeed)
     Systems.RenderSystem,
     Systems.FloatingTextSystem,
     Systems.HudSystem,
-    Systems.QuestSystem
+    Systems.QuestSystem,
+    Systems.RefinerySystem
   )
 
   self.ecsWorld.__profiler = self.profiler.concord

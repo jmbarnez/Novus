@@ -9,18 +9,30 @@ local Refinery = {}
 -- Define processing recipes: input ore -> output ingot
 -- ratio: how many ore units to produce 1 ingot
 -- processingFee: credits cost per unit processed
+-- timePerUnit: seconds to process 1 ingot
+-- batchBonuses: discounts for larger batches
 local recipes = {
     {
         inputId = "iron",
         outputId = "iron_ingot",
-        ratio = 2,         -- 2 iron ore -> 1 iron ingot
-        processingFee = 5, -- 5 credits per ingot
+        ratio = 2,                                                        -- 2 iron ore -> 1 iron ingot
+        processingFee = 5,                                                -- 5 credits per ingot
+        timePerUnit = 3.0,                                                -- 3 seconds per ingot
+        batchBonuses = {
+            { minQty = 5,  timeMultiplier = 0.90, feeMultiplier = 0.95 }, -- 5+: 10% faster, 5% cheaper
+            { minQty = 20, timeMultiplier = 0.75, feeMultiplier = 0.85 }, -- 20+: 25% faster, 15% cheaper
+        },
     },
     {
         inputId = "mithril",
         outputId = "mithril_ingot",
         ratio = 3,          -- 3 mithril ore -> 1 mithril ingot
         processingFee = 15, -- 15 credits per ingot
+        timePerUnit = 8.0,  -- 8 seconds per ingot (rarer = slower)
+        batchBonuses = {
+            { minQty = 5,  timeMultiplier = 0.90, feeMultiplier = 0.95 },
+            { minQty = 20, timeMultiplier = 0.75, feeMultiplier = 0.85 },
+        },
     },
 }
 
@@ -41,6 +53,8 @@ function Refinery.getRecipes()
             outputIcon = outputDef and outputDef.icon,
             ratio = recipe.ratio,
             processingFee = recipe.processingFee,
+            timePerUnit = recipe.timePerUnit or 3.0,
+            batchBonuses = recipe.batchBonuses or {},
         })
     end
     return result

@@ -19,5 +19,6 @@ Systems.FloatingTextSystem = require("ecs.systems.floating_text_system")
 Systems.RenderSystem = require("ecs.systems.render_system")
 Systems.HudSystem = require("ecs.systems.hud_system")
 Systems.QuestSystem = require("ecs.systems.quest_system")
+Systems.RefinerySystem = require("ecs.systems.refinery_system")
 
 return Systems

@@ -42,6 +42,7 @@ function refinery_station.createRefineryStation(ecsWorld, physicsWorld, x, y)
         :give("physics_body", body, shape, fixture)
         :give("renderable", "refinery_station", { 0.85, 0.55, 0.25, 1.0 })
         :give("space_station", stationType, radius, dockingPoints)
+        :give("refinery_queue", 3) -- 3 queue slots
 
     fixture:setUserData(e)
 
