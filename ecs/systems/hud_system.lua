@@ -13,7 +13,9 @@ function HudSystem:init(world)
 end
 
 function HudSystem:_buildCtx()
-  return HudContext.build(self.world, self.ships)
+  local ctx = HudContext.build(self.world, self.ships)
+  ctx.hud = self.hud -- Allow widgets to access hud for focus management
+  return ctx
 end
 
 function HudSystem:_setCapture(active)

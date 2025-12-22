@@ -4,10 +4,41 @@ Hud.__index = Hud
 function Hud.new(widgets)
   local self = setmetatable({}, Hud)
   self.widgets = widgets or {}
+  self.focusedWidget = nil -- Track which widget is focused (should be drawn on top)
   return self
 end
 
+-- Bring a widget to front (draw on top)
+function Hud:bringToFront(widget)
+  self.focusedWidget = widget
+end
+
+-- Returns widgets in input priority (topmost -> bottom) matching draw order
+function Hud:_inputOrder()
+  local order = {}
+  local numWidgets = #self.widgets
+  local alwaysOnTopWidget = self.widgets[numWidgets]
+
+  if self.focusedWidget and self.focusedWidget ~= alwaysOnTopWidget then
+    order[#order + 1] = self.focusedWidget
+  end
+
+  for i = numWidgets, 1, -1 do
+    local w = self.widgets[i]
+    if w and w ~= self.focusedWidget and w ~= alwaysOnTopWidget then
+      order[#order + 1] = w
+    end
+  end
+
+  if alwaysOnTopWidget then
+    order[#order + 1] = alwaysOnTopWidget
+  end
+
+  return order
+end
+
 function Hud:mousemoved(ctx, x, y, dx, dy)
+  -- Check all widgets - whichever consumes input wins
   for i = #self.widgets, 1, -1 do
     local w = self.widgets[i]
     if w and w.mousemoved then
@@ -24,15 +55,47 @@ function Hud:draw(ctx)
   if ctx then
     ctx.uiOverHud = false
   end
-  for i = 1, #self.widgets do
+
+  local numWidgets = #self.widgets
+  local alwaysOnTopWidget = self.widgets[numWidgets] -- Last widget (cursor_reticle) always on top
+
+  -- Draw all widgets except the focused one and the always-on-top widget first
+  for i = 1, numWidgets do
     local w = self.widgets[i]
-    if ctx and w and w.hitTest then
+    if w ~= self.focusedWidget and w ~= alwaysOnTopWidget then
+      if ctx and w and w.hitTest then
+        if w.hitTest(ctx, mx, my) then
+          ctx.uiOverHud = true
+        end
+      end
+      if w and w.draw then
+        w.draw(ctx)
+      end
+    end
+  end
+
+  -- Draw focused widget (on top of others, but below cursor)
+  if self.focusedWidget and self.focusedWidget ~= alwaysOnTopWidget then
+    local w = self.focusedWidget
+    if ctx and w.hitTest then
       if w.hitTest(ctx, mx, my) then
         ctx.uiOverHud = true
       end
     end
-    if w and w.draw then
+    if w.draw then
       w.draw(ctx)
+    end
+  end
+
+  -- Draw the always-on-top widget (cursor) absolutely last
+  if alwaysOnTopWidget then
+    if ctx and alwaysOnTopWidget.hitTest then
+      if alwaysOnTopWidget.hitTest(ctx, mx, my) then
+        ctx.uiOverHud = true
+      end
+    end
+    if alwaysOnTopWidget.draw then
+      alwaysOnTopWidget.draw(ctx)
     end
   end
 end
@@ -47,10 +110,15 @@ function Hud:layout(ctx)
 end
 
 function Hud:mousepressed(ctx, x, y, button)
-  for i = #self.widgets, 1, -1 do
-    local w = self.widgets[i]
+  -- Check widgets from topmost to bottom to mirror draw order
+  local order = self:_inputOrder()
+  for i = 1, #order do
+    local w = order[i]
     if w and w.mousepressed then
       if w.mousepressed(ctx, x, y, button) then
+        if w ~= self.widgets[#self.widgets] then
+          self:bringToFront(w)
+        end
         return true
       end
     end
@@ -59,8 +127,9 @@ function Hud:mousepressed(ctx, x, y, button)
 end
 
 function Hud:mousereleased(ctx, x, y, button)
-  for i = #self.widgets, 1, -1 do
-    local w = self.widgets[i]
+  local order = self:_inputOrder()
+  for i = 1, #order do
+    local w = order[i]
     if w and w.mousereleased then
       if w.mousereleased(ctx, x, y, button) then
         return true
@@ -71,6 +140,7 @@ function Hud:mousereleased(ctx, x, y, button)
 end
 
 function Hud:keypressed(ctx, key)
+  -- Check all widgets
   for i = #self.widgets, 1, -1 do
     local w = self.widgets[i]
     if w and w.keypressed then
@@ -83,6 +153,7 @@ function Hud:keypressed(ctx, key)
 end
 
 function Hud:wheelmoved(ctx, x, y)
+  -- Check all widgets
   for i = #self.widgets, 1, -1 do
     local w = self.widgets[i]
     if w and w.wheelmoved then

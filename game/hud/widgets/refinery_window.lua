@@ -43,13 +43,12 @@ local function makeRefineryWindow()
         if open then
             RefineryUI.open(refineryUi, stationEntity)
             self.quantities = {}
+            -- Bring window to front
+            if ctx.hud then
+                ctx.hud:bringToFront(self)
+            end
         else
             RefineryUI.close(refineryUi)
-        end
-
-        local uiCapture = getUiCapture(ctx)
-        if uiCapture then
-            uiCapture.active = open
         end
     end
 
@@ -243,10 +242,6 @@ local function makeRefineryWindow()
         local theme = (ctx and ctx.theme) or Theme
         local bounds = computeLayout(ctx)
 
-        -- Dim background
-        love.graphics.setColor(0, 0, 0, 0.65)
-        love.graphics.rectangle("fill", 0, 0, ctx.screenW or 0, ctx.screenH or 0)
-
         -- Window frame
         self.windowFrame:draw(ctx, bounds, {
             title = "REFINERY",
@@ -317,7 +312,8 @@ local function makeRefineryWindow()
             return true
         end
 
-        return true
+        -- Don't block other keys - allow other windows to handle them
+        return false
     end
 
     -- Interface: mousepressed
@@ -326,6 +322,11 @@ local function makeRefineryWindow()
         if not refineryUi or not refineryUi.open then return false end
 
         local bounds = computeLayout(ctx)
+
+        -- Bring to front when clicked
+        if pointInRect(x, y, bounds) and ctx.hud then
+            ctx.hud:bringToFront(self)
+        end
 
         -- Window frame (close button, drag header)
         local consumed, closeHit, headerDrag = self.windowFrame:mousepressed(ctx, bounds, x, y, button)

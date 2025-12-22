@@ -139,7 +139,12 @@ local function makeCargoPanel()
     end
 
     if not pointInRect(x, y, b) then
-      return true
+      return false -- allow clicks to reach widgets behind the panel
+    end
+
+    -- Bring to front when clicked
+    if ctx.hud then
+      ctx.hud:bringToFront(self)
     end
 
     local consumed, didClose, didDrag = self.frame:mousepressed(ctx, b, x, y, button)
@@ -290,6 +295,10 @@ local function makeCargoPanel()
       self.dragFrom = nil
       self.frame.dragging = false
       setCapture(ctx)
+      -- Bring to front when opening
+      if self.open and ctx.hud then
+        ctx.hud:bringToFront(self)
+      end
       return true
     end
 
@@ -306,7 +315,8 @@ local function makeCargoPanel()
       return true
     end
 
-    return true
+    -- Don't block other keys - allow other windows to handle them
+    return false
   end
 
   -- Interface: wheelmoved ------------------------------------------------

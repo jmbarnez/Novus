@@ -45,6 +45,10 @@ local function makeFullscreenMap()
         mapUi.centerX = mapUi.centerX or (ctx.x or (sector.width * 0.5))
         mapUi.centerY = mapUi.centerY or (ctx.y or (sector.height * 0.5))
       end
+      -- Bring to front when opening
+      if ctx.hud then
+        ctx.hud:bringToFront(self)
+      end
     end
 
     local uiCapture = getUiCapture(ctx)
@@ -71,7 +75,16 @@ local function makeFullscreenMap()
   -- Interface: draw ------------------------------------------------------
   function self.hitTest(ctx, x, y)
     local mapUi = getMapUi(ctx)
-    return mapUi and mapUi.open or false
+    if not mapUi or not mapUi.open then
+      return false
+    end
+
+    local layout = computeLayoutAndView(ctx)
+    if layout and layout.frameBounds then
+      return pointInRect(x, y, layout.frameBounds)
+    end
+
+    return false
   end
 
   function self.draw(ctx)
@@ -87,9 +100,6 @@ local function makeFullscreenMap()
     if not layout.view then
       return
     end
-
-    love.graphics.setColor(0, 0, 0, 0.65)
-    love.graphics.rectangle("fill", 0, 0, ctx.screenW or 0, ctx.screenH or 0)
 
     if layout.frameBounds then
       self.windowFrame:draw(ctx, layout.frameBounds, {
@@ -145,7 +155,7 @@ local function makeFullscreenMap()
 
     local sector = ctx and ctx.sector
     if not sector then
-      return true
+      return false -- Don't block other keys
     end
 
     local zoom = mapUi.zoom or 1.0
@@ -163,7 +173,8 @@ local function makeFullscreenMap()
     elseif key == "down" or key == "s" then
       mapUi.centerY = (mapUi.centerY or (sector.height * 0.5)) + nudge
     else
-      return true
+      -- Don't block other keys - allow other panels to handle them
+      return false
     end
 
     mapUi.centerX, mapUi.centerY = MapView.clampCenter(sector, mapUi.centerX, mapUi.centerY, viewW, viewH)
@@ -175,6 +186,11 @@ local function makeFullscreenMap()
     local mapUi = getMapUi(ctx)
     if not mapUi or not mapUi.open then
       return false
+    end
+
+    -- Bring to front when clicked
+    if ctx.hud then
+      ctx.hud:bringToFront(self)
     end
 
     local layout = computeLayoutAndView(ctx)
