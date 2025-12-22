@@ -356,6 +356,7 @@ local function makeStationWindow()
             title = "STATION",
             headerAlpha = 0.55,
             headerLineAlpha = 0.4,
+            owner = self,
         })
 
         -- Tabs

@@ -144,7 +144,7 @@ function WindowFrame:draw(ctx, bounds, opts)
     local close = bounds.closeRect
     if close then
       local mx, my = love.mouse.getPosition()
-      local hoverClose = pointInRect(mx, my, close)
+      local hoverClose = (ctx and ctx.hoverWidget == opts.owner) and pointInRect(mx, my, close)
 
       love.graphics.setColor(0, 0, 0, hoverClose and 0.55 or 0.35)
       love.graphics.rectangle("fill", close.x, close.y, close.w, close.h, r, r)

@@ -85,6 +85,7 @@ local function makeCargoPanel()
     end
 
     setCapture(ctx)
+    local mapOpen = isMapOpen(ctx)
 
     local theme = (ctx and ctx.theme) or Theme
     local hudTheme = theme.hud
@@ -105,10 +106,10 @@ local function makeCargoPanel()
     end
 
     local cp = hudTheme.cargoPanel or {}
-    self.frame:draw(ctx, b, { title = cp.title or "CARGO", titlePad = b.pad })
+    self.frame:draw(ctx, b, { title = cp.title or "CARGO", titlePad = b.pad, owner = self })
 
     local mx, my = love.mouse.getPosition()
-    local hoverIdx = CargoView.pickSlot(self.slotRects, mx, my, self.open)
+    local hoverIdx = (not mapOpen and ctx.hoverWidget == self) and CargoView.pickSlot(self.slotRects, mx, my, self.open) or nil
 
     CargoDraw.drawSlots(b, self.slotRects, hold, hoverIdx, self.dragFrom)
     CargoDraw.drawDragItem(self.drag, b.slot or 44)

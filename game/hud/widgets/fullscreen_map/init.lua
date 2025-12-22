@@ -106,6 +106,7 @@ local function makeFullscreenMap()
         title = (hudTheme.fullscreenMap and hudTheme.fullscreenMap.title) or "MAP",
         headerAlpha = 0.55,
         headerLineAlpha = 0.4,
+        owner = self,
       })
     end
 

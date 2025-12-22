@@ -247,6 +247,7 @@ local function makeRefineryWindow()
             title = "REFINERY",
             headerAlpha = 0.55,
             headerLineAlpha = 0.4,
+            owner = self,
         })
 
         -- Content

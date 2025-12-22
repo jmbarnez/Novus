@@ -54,20 +54,44 @@ function Hud:draw(ctx)
   local mx, my = love.mouse.getPosition()
   if ctx then
     ctx.uiOverHud = false
+    ctx.hoverWidget = nil
   end
 
   local numWidgets = #self.widgets
   local alwaysOnTopWidget = self.widgets[numWidgets] -- Last widget (cursor_reticle) always on top
 
+  -- Pre-pass: find the topmost widget under the cursor in draw order
+  if ctx then
+    local function testHover(w)
+      if w and w.hitTest and w.hitTest(ctx, mx, my) then
+        ctx.hoverWidget = w
+      end
+    end
+
+    for i = 1, numWidgets do
+      local w = self.widgets[i]
+      if w ~= self.focusedWidget and w ~= alwaysOnTopWidget then
+        testHover(w)
+      end
+    end
+
+    if self.focusedWidget and self.focusedWidget ~= alwaysOnTopWidget then
+      testHover(self.focusedWidget)
+    end
+
+    if alwaysOnTopWidget then
+      testHover(alwaysOnTopWidget)
+    end
+
+    if ctx.hoverWidget then
+      ctx.uiOverHud = true
+    end
+  end
+
   -- Draw all widgets except the focused one and the always-on-top widget first
   for i = 1, numWidgets do
     local w = self.widgets[i]
     if w ~= self.focusedWidget and w ~= alwaysOnTopWidget then
-      if ctx and w and w.hitTest then
-        if w.hitTest(ctx, mx, my) then
-          ctx.uiOverHud = true
-        end
-      end
       if w and w.draw then
         w.draw(ctx)
       end
@@ -77,11 +101,6 @@ function Hud:draw(ctx)
   -- Draw focused widget (on top of others, but below cursor)
   if self.focusedWidget and self.focusedWidget ~= alwaysOnTopWidget then
     local w = self.focusedWidget
-    if ctx and w.hitTest then
-      if w.hitTest(ctx, mx, my) then
-        ctx.uiOverHud = true
-      end
-    end
     if w.draw then
       w.draw(ctx)
     end
@@ -89,11 +108,6 @@ function Hud:draw(ctx)
 
   -- Draw the always-on-top widget (cursor) absolutely last
   if alwaysOnTopWidget then
-    if ctx and alwaysOnTopWidget.hitTest then
-      if alwaysOnTopWidget.hitTest(ctx, mx, my) then
-        ctx.uiOverHud = true
-      end
-    end
     if alwaysOnTopWidget.draw then
       alwaysOnTopWidget.draw(ctx)
     end
