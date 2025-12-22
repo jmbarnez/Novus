@@ -90,7 +90,12 @@ function HudContext.build(world, ships)
           local dx, dy = px - sx, py - sy
           local dist = math.sqrt(dx * dx + dy * dy)
           if dist < dockingRange then
-            ctx.interactionPrompt = { text = "[E] Dock", entity = entity }
+            local stationType = entity.space_station.stationType or "hub"
+            if stationType == "refinery" then
+              ctx.refineryPrompt = { text = "[E] Refine", entity = entity }
+            else
+              ctx.interactionPrompt = { text = "[E] Dock", entity = entity }
+            end
             break
           end
         end

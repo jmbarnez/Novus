@@ -107,6 +107,7 @@ function Hud.default()
     require("game.hud.widgets.waypoint_indicator"),
     require("game.hud.widgets.interaction_prompt"),
     require("game.hud.widgets.station_window"),
+    require("game.hud.widgets.refinery_window"),
     require("game.hud.widgets.fullscreen_map"),
     require("game.hud.widgets.cursor_reticle"),
   })

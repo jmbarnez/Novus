@@ -8,6 +8,7 @@ local PickupDraw = require("ecs.systems.draw.pickup_draw")
 local ShatterDraw = require("ecs.systems.draw.shatter_draw")
 local MapUiDraw = require("ecs.systems.draw.map_ui_draw")
 local SpaceStationDraw = require("ecs.systems.draw.space_station_draw")
+local RefineryStationDraw = require("ecs.systems.draw.refinery_station_draw")
 
 local RenderSystem = Concord.system({
   renderables = { "physics_body", "renderable" },
@@ -93,6 +94,8 @@ function RenderSystem:drawWorld()
       ShatterDraw.draw(e, body, x, y)
     elseif e.renderable.kind == "space_station" then
       SpaceStationDraw.draw(ctx, e, body, shape, x, y, angle)
+    elseif e.renderable.kind == "refinery_station" then
+      RefineryStationDraw.draw(ctx, e, body, shape, x, y, angle)
     end
   end
 

@@ -30,6 +30,8 @@ function Shop.getPrice(itemId)
         stone = 5,
         iron = 15,
         mithril = 50,
+        iron_ingot = 35,
+        mithril_ingot = 120,
     }
     return prices[itemId] or 10
 end

@@ -93,6 +93,7 @@ function Space:enter(_, worldSeed)
   self.ecsWorld:setResource("world_seed", self.worldSeed)
   self.ecsWorld:setResource("world_rngs", self.worldRngs)
   self.ecsWorld:setResource("station_ui", require("game.station_ui").new())
+  self.ecsWorld:setResource("refinery_ui", require("game.refinery_ui").new())
 
   self.ecsWorld:addSystems(
     Systems.PhysicsSnapshotSystem,
@@ -134,6 +135,14 @@ function Space:enter(_, worldSeed)
     self.sectorWidth / 2,
     self.sectorHeight / 2,
     "hub"
+  )
+
+  -- Create the refinery station offset from the hub
+  self.refineryStation = factory.createRefineryStation(
+    self.ecsWorld,
+    self.physicsWorld,
+    self.sectorWidth / 2 + 1500,
+    self.sectorHeight / 2 - 800
   )
 
   -- Spawn the player ship offset from the station

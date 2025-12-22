@@ -131,6 +131,38 @@ function MinimapTopRight.draw(ctx)
     love.graphics.circle("fill", px, py, dotRadius * 0.4)
   end
 
+  -- space stations (dark blue for friendly)
+  if world and world.query then
+    world:query({ "space_station", "physics_body" }, function(e)
+      local body = e.physics_body and e.physics_body.body
+      if not body then return end
+
+      local sx, sy = body:getPosition()
+      local mx = mapX + (sx / sector.width) * mapW
+      local my = mapY + (sy / sector.height) * mapH
+
+      mx = MathUtil.clamp(mx, mapX + inset, mapX + mapW - inset)
+      my = MathUtil.clamp(my, mapY + inset, mapY + mapH - inset)
+
+      local stationType = e.space_station.stationType or "hub"
+      local stationRadius = 4
+
+      if stationType == "refinery" then
+        -- Orange for refinery
+        love.graphics.setColor(0.90, 0.55, 0.20, 0.5)
+        love.graphics.circle("fill", mx, my, stationRadius * 1.5)
+        love.graphics.setColor(1.00, 0.70, 0.30, 0.9)
+        love.graphics.circle("fill", mx, my, stationRadius)
+      else
+        -- Dark blue for hub/friendly stations
+        love.graphics.setColor(0.20, 0.35, 0.70, 0.5)
+        love.graphics.circle("fill", mx, my, stationRadius * 1.5)
+        love.graphics.setColor(0.30, 0.50, 0.90, 0.9)
+        love.graphics.circle("fill", mx, my, stationRadius)
+      end
+    end)
+  end
+
   local mapUi = world and world.getResource and world:getResource("map_ui")
   if mapUi and mapUi.waypointX and mapUi.waypointY then
     local wx = mapX + (mapUi.waypointX / sector.width) * mapW

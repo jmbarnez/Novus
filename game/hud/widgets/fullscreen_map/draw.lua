@@ -3,7 +3,7 @@ local M = {}
 
 local Theme = require("game.theme")
 local Rect = require("util.rect")
-local MapView = require("game.hud.widgets.fullscreen_map_view")
+local MapView = require("game.hud.widgets.fullscreen_map.view")
 
 local pointInRect = Rect.pointInRect
 

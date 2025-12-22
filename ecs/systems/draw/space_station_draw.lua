@@ -91,11 +91,11 @@ function SpaceStationDraw.draw(ctx, e, body, shape, x, y, angle)
     love.graphics.translate(x, y)
     love.graphics.rotate(angle)
 
-    -- Outer ambient glow
+    -- Outer ambient glow (dark blue for friendly stations)
     love.graphics.push("all")
-    love.graphics.setColor(0.20, 0.40, 0.70, 0.08)
+    love.graphics.setColor(0.15, 0.25, 0.55, 0.08)
     love.graphics.circle("fill", 0, 0, radius * 1.4)
-    love.graphics.setColor(0.25, 0.50, 0.80, 0.05)
+    love.graphics.setColor(0.20, 0.35, 0.65, 0.05)
     love.graphics.circle("fill", 0, 0, radius * 1.6)
     love.graphics.pop()
 
