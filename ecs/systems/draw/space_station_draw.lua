@@ -2,53 +2,37 @@ local Utils = require("ecs.systems.draw.render_utils")
 
 local SpaceStationDraw = {}
 
-local function drawDockingBay(radius, angle, dockId, time)
-    love.graphics.push()
-    love.graphics.rotate(angle)
-    love.graphics.translate(radius, 0)
+local function drawDockRingIfNear(ctx, stationX, stationY, dockingRange)
+    local range = dockingRange or 0
+    if range <= 0 then
+        return
+    end
 
-    -- Docking arm structure
-    love.graphics.push("all")
-    love.graphics.setColor(0.35, 0.40, 0.50, 1.0)
-    love.graphics.rectangle("fill", -20, -25, 100, 50)
-    love.graphics.pop()
+    local baseAlpha = 0.08
+    local brightAlpha = 0.85
+    local t = 0
 
-    -- Docking arm outline
+    local playerShip = ctx and ctx.playerShip
+    local body = playerShip and playerShip.physics_body and playerShip.physics_body.body
+    if body then
+        local px, py = body:getPosition()
+        local dx, dy = px - stationX, py - stationY
+        local dist = math.sqrt(dx * dx + dy * dy)
+        if dist <= range then
+            t = 1
+        else
+            local falloffRange = range * 1.05
+            t = math.max(0, math.min(1, 1 - dist / falloffRange))
+            t = t * t -- smoother ease
+        end
+    end
+
+    local alpha = baseAlpha + (brightAlpha - baseAlpha) * t
+
     love.graphics.push("all")
     love.graphics.setLineWidth(2)
-    love.graphics.setColor(0.50, 0.60, 0.75, 0.9)
-    love.graphics.rectangle("line", -20, -25, 100, 50)
-    love.graphics.pop()
-
-    -- Docking bay opening
-    love.graphics.push("all")
-    love.graphics.setColor(0.15, 0.20, 0.30, 1.0)
-    love.graphics.rectangle("fill", 70, -18, 15, 36)
-    love.graphics.pop()
-
-    -- Bay entrance lights
-    love.graphics.push("all")
-    local blinkOffset = (dockId * 0.3) % 1
-    local lightPhase = ((time * 1.5) + blinkOffset) % 1
-    local lightAlpha = 0.4 + 0.6 * math.abs(math.sin(lightPhase * math.pi))
-    love.graphics.setColor(0.00, 1.00, 0.70, lightAlpha)
-    love.graphics.circle("fill", 85, -15, 4)
-    love.graphics.circle("fill", 85, 15, 4)
-    love.graphics.pop()
-
-    -- Guide lights along the arm
-    love.graphics.push("all")
-    local guidePhase = ((time * 2) + blinkOffset) % 1
-    for i = 0, 2 do
-        local gx = 10 + i * 25
-        local ga = (guidePhase + i * 0.2) % 1
-        local gAlpha = 0.3 + 0.5 * math.sin(ga * math.pi)
-        love.graphics.setColor(0.00, 0.80, 0.90, gAlpha)
-        love.graphics.circle("fill", gx, -22, 3)
-        love.graphics.circle("fill", gx, 22, 3)
-    end
-    love.graphics.pop()
-
+    love.graphics.setColor(0.20, 0.85, 1.00, alpha)
+    love.graphics.circle("line", 0, 0, range)
     love.graphics.pop()
 end
 
@@ -91,93 +75,74 @@ function SpaceStationDraw.draw(ctx, e, body, shape, x, y, angle)
     love.graphics.translate(x, y)
     love.graphics.rotate(angle)
 
-    -- Outer ambient glow (dark blue for friendly stations)
+    -- Main hull (octagon from physics shape)
     love.graphics.push("all")
-    love.graphics.setColor(0.15, 0.25, 0.55, 0.08)
-    love.graphics.circle("fill", 0, 0, radius * 1.4)
-    love.graphics.setColor(0.20, 0.35, 0.65, 0.05)
-    love.graphics.circle("fill", 0, 0, radius * 1.6)
-    love.graphics.pop()
-
-    -- Draw docking bays
-    for i, dock in ipairs(dockingPoints) do
-        drawDockingBay(radius * 0.92, dock.angle, dock.id, time)
-    end
-
-    -- Main station body (octagon from physics shape)
-    love.graphics.push("all")
-    love.graphics.setColor(0.18, 0.22, 0.32, 1.0)
+    love.graphics.setColor(0.16, 0.20, 0.30, 1.0)
     love.graphics.polygon("fill", shape:getPoints())
-    love.graphics.pop()
-
-    -- Station hull outline
-    love.graphics.push("all")
     love.graphics.setLineJoin("bevel")
     love.graphics.setLineWidth(4)
-    love.graphics.setColor(0.40, 0.50, 0.65, 0.9)
+    love.graphics.setColor(0.42, 0.52, 0.70, 0.9)
     love.graphics.polygon("line", shape:getPoints())
     love.graphics.pop()
 
-    -- Outer structural ring
-    drawStructuralRing(radius * 0.95, 3, { 0.50, 0.60, 0.75, 0.6 })
-    drawStructuralRing(radius * 0.85, 2, { 0.40, 0.50, 0.65, 0.5 })
-
-    -- Mid section panels
+    -- Outer plate wedges (give depth without full rings)
     love.graphics.push("all")
-    love.graphics.setColor(0.25, 0.30, 0.42, 0.9)
-    love.graphics.circle("fill", 0, 0, radius * 0.70)
+    love.graphics.setColor(0.24, 0.30, 0.42, 0.9)
+    for i = 0, 7 do
+        local ang = (i / 8) * math.pi * 2 + math.pi / 8
+        local wx1 = math.cos(ang) * radius * 0.78
+        local wy1 = math.sin(ang) * radius * 0.78
+        local wx2 = math.cos(ang) * radius * 0.52
+        local wy2 = math.sin(ang) * radius * 0.52
+        love.graphics.setLineWidth(6)
+        love.graphics.line(wx1, wy1, wx2, wy2)
+    end
     love.graphics.pop()
-    drawStructuralRing(radius * 0.70, 3, { 0.55, 0.65, 0.80, 0.7 })
 
-    -- Radial support beams (16 beams)
-    for i = 0, 15 do
-        local beamAngle = (i / 16) * math.pi * 2
-        drawRadialBeam(radius * 0.35, radius * 0.70, beamAngle, 3, { 0.45, 0.55, 0.70, 0.6 })
+    -- Radiating trusses (hard mechanical feel)
+    for i = 0, 11 do
+        local beamAngle = (i / 12) * math.pi * 2
+        drawRadialBeam(radius * 0.30, radius * 0.72, beamAngle, 3, { 0.48, 0.60, 0.82, 0.55 })
     end
 
-    -- Inner ring with windows
+    -- Mid core plating
     love.graphics.push("all")
     love.graphics.setColor(0.22, 0.28, 0.40, 1.0)
-    love.graphics.circle("fill", 0, 0, radius * 0.50)
-    love.graphics.pop()
-    drawStructuralRing(radius * 0.50, 2, { 0.50, 0.60, 0.78, 0.8 })
-
-    -- Window lights on inner ring
-    love.graphics.push("all")
-    local windowRing = radius * 0.45
-    for i = 0, 23 do
-        local wAngle = (i / 24) * math.pi * 2
-        local wx = math.cos(wAngle) * windowRing
-        local wy = math.sin(wAngle) * windowRing
-        local wFlicker = 0.6 + 0.4 * math.sin((time * 0.5 + i * 0.2) * math.pi)
-        love.graphics.setColor(0.90, 0.85, 0.60, wFlicker * 0.7)
-        love.graphics.circle("fill", wx, wy, 5)
-    end
+    love.graphics.circle("fill", 0, 0, radius * 0.55)
+    love.graphics.setLineWidth(2)
+    love.graphics.setColor(0.55, 0.65, 0.82, 0.7)
+    love.graphics.circle("line", 0, 0, radius * 0.55)
     love.graphics.pop()
 
-    -- Central command hub
+    -- Sensor fins (four cardinal antennas)
     love.graphics.push("all")
-    love.graphics.setColor(0.30, 0.38, 0.55, 1.0)
-    love.graphics.circle("fill", 0, 0, radius * 0.25)
+    love.graphics.setColor(0.60, 0.80, 0.95, 0.8)
+    love.graphics.setLineWidth(2)
+    local finLen = radius * 0.32
+    love.graphics.line(-finLen, 0, -radius * 0.05, 0)
+    love.graphics.line(finLen, 0, radius * 0.05, 0)
+    love.graphics.line(0, -finLen, 0, -radius * 0.05)
+    love.graphics.line(0, finLen, 0, radius * 0.05)
+    love.graphics.pop()
+
+    -- Command hub and beacon
+    love.graphics.push("all")
+    love.graphics.setColor(0.32, 0.40, 0.58, 1.0)
+    love.graphics.circle("fill", 0, 0, radius * 0.26)
     love.graphics.setLineWidth(3)
-    love.graphics.setColor(0.60, 0.70, 0.85, 0.9)
-    love.graphics.circle("line", 0, 0, radius * 0.25)
-    love.graphics.pop()
-
-    -- Command hub inner details
-    love.graphics.push("all")
-    love.graphics.setColor(0.35, 0.45, 0.60, 0.9)
+    love.graphics.setColor(0.65, 0.76, 0.92, 0.9)
+    love.graphics.circle("line", 0, 0, radius * 0.26)
+    love.graphics.setColor(0.38, 0.48, 0.66, 0.9)
     love.graphics.circle("fill", 0, 0, radius * 0.12)
-    love.graphics.pop()
-
-    -- Central beacon
-    love.graphics.push("all")
     local beaconPulse = 0.5 + 0.5 * math.sin(time * 3)
     love.graphics.setColor(0.00, 0.95, 0.85, beaconPulse * 0.9)
     love.graphics.circle("fill", 0, 0, radius * 0.05)
-    love.graphics.setColor(0.00, 1.00, 0.90, beaconPulse * 0.4)
-    love.graphics.circle("fill", 0, 0, radius * 0.08)
+    love.graphics.setColor(0.00, 1.00, 0.90, beaconPulse * 0.45)
+    love.graphics.circle("line", 0, 0, radius * 0.08)
     love.graphics.pop()
+
+    -- Docking distance ring (cyan) only when player is close enough
+    drawDockRingIfNear(ctx, x, y, radius * 1.6)
 
     love.graphics.pop()
 

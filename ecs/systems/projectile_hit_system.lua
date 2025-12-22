@@ -19,7 +19,7 @@ local function isValidTarget(projectile, target)
     return false
   end
 
-  if not target:has("health") then
+  if not target:has("health") and not target:has("space_station") then
     return false
   end
 
@@ -78,8 +78,13 @@ local function tryHit(projectile, target, contact)
     return
   end
 
-  local damage = projectile.projectile.damage or 1
-  applyDamage(target, damage)
+  local isStation = target:has("space_station")
+  local hasHealth = target:has("health")
+  local damage = isStation and 0 or (projectile.projectile.damage or 1)
+
+  if hasHealth and damage > 0 then
+    applyDamage(target, damage)
+  end
 
   if target:has("asteroid") then
     local eff = projectile.projectile.miningEfficiency
@@ -96,7 +101,7 @@ local function tryHit(projectile, target, contact)
 
     spawnImpactEffect(world, physicsWorld, x, y)
 
-    if world then
+    if world and damage > 0 then
       FloatingText.spawn(world, x, y - 6, tostring(damage), {
         kind = "damage",
         riseSpeed = 70,

@@ -130,14 +130,23 @@ local function makeRefineryWindow()
                     local iconY = recipeRect.y + (recipeRect.h - iconSize) / 2
                     ItemIcons.draw(recipe.inputId, iconX, iconY, iconSize, iconSize)
 
-                    -- Arrow
-                    love.graphics.setColor(0.80, 0.60, 0.30, 0.9)
+                    -- Arrow (solid chevron + shaft)
                     local arrowX = iconX + iconSize + 15
                     local arrowY = recipeRect.y + recipeRect.h / 2
+                    local shaftW = 12
+                    local shaftH = 6
+                    love.graphics.setColor(0.85, 0.65, 0.35, 0.95)
+                    love.graphics.rectangle("fill", arrowX, arrowY - shaftH * 0.5, shaftW, shaftH, 2)
                     love.graphics.polygon("fill",
-                        arrowX, arrowY - 6,
-                        arrowX + 12, arrowY,
-                        arrowX, arrowY + 6
+                        arrowX + shaftW, arrowY - 8,
+                        arrowX + shaftW + 10, arrowY,
+                        arrowX + shaftW, arrowY + 8
+                    )
+                    love.graphics.setColor(0.25, 0.18, 0.12, 0.65)
+                    love.graphics.polygon("line",
+                        arrowX + shaftW, arrowY - 8,
+                        arrowX + shaftW + 10, arrowY,
+                        arrowX + shaftW, arrowY + 8
                     )
 
                     -- Output icon
@@ -148,7 +157,7 @@ local function makeRefineryWindow()
                     local font = love.graphics.getFont()
                     local textX = outIconX + iconSize + 15
                     love.graphics.setColor(1, 1, 1, 0.95)
-                    local ratioText = string.format("%d %s → 1 %s", recipe.ratio, recipe.inputName, recipe.outputName)
+                    local ratioText = string.format("%d %s -> 1 %s", recipe.ratio, recipe.inputName, recipe.outputName)
                     love.graphics.print(ratioText, textX, recipeRect.y + 10)
 
                     -- Processing fee
