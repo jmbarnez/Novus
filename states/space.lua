@@ -201,7 +201,11 @@ function Space:update(dt)
     dt = maxFrameDt
   end
 
-  if self.background then
+  -- Check if we are docked
+  local stationUI = self.ecsWorld and self.ecsWorld:getResource("station_ui")
+  local isDocked = stationUI and stationUI.open
+
+  if not isDocked and self.background then
     self.background:update(dt)
   end
 
@@ -222,33 +226,35 @@ function Space:update(dt)
     end
   end
 
-  do
-    local t0 = love.timer.getTime()
-    self.ecsWorld:emit("update", dt)
-    if self.profiler then
-      self.profiler:add("ecs:update", (love.timer.getTime() - t0) * 1000)
+  if not isDocked then
+    do
+      local t0 = love.timer.getTime()
+      self.ecsWorld:emit("update", dt)
+      if self.profiler then
+        self.profiler:add("ecs:update", (love.timer.getTime() - t0) * 1000)
+      end
     end
-  end
 
-  local maxSubSteps = 6
-  local maxAccum = self.fixedDt * maxSubSteps
-  self.accumulator = math.min(self.accumulator + dt, maxAccum)
+    local maxSubSteps = 6
+    local maxAccum = self.fixedDt * maxSubSteps
+    self.accumulator = math.min(self.accumulator + dt, maxAccum)
 
-  local steps = 0
-  while self.accumulator >= self.fixedDt and steps < maxSubSteps do
-    local t0 = love.timer.getTime()
-    self.ecsWorld:emit("fixedUpdate", self.fixedDt)
-    self.physicsWorld:update(self.fixedDt)
-    if self.profiler then
-      self.profiler:add("fixed+physics", (love.timer.getTime() - t0) * 1000)
+    local steps = 0
+    while self.accumulator >= self.fixedDt and steps < maxSubSteps do
+      local t0 = love.timer.getTime()
+      self.ecsWorld:emit("fixedUpdate", self.fixedDt)
+      self.physicsWorld:update(self.fixedDt)
+      if self.profiler then
+        self.profiler:add("fixed+physics", (love.timer.getTime() - t0) * 1000)
+      end
+      self:_drainContacts()
+      self.accumulator = self.accumulator - self.fixedDt
+      steps = steps + 1
     end
-    self:_drainContacts()
-    self.accumulator = self.accumulator - self.fixedDt
-    steps = steps + 1
-  end
 
-  if self.ecsWorld and self.fixedDt > 0 then
-    self.ecsWorld:setResource("render_alpha", self.accumulator / self.fixedDt)
+    if self.ecsWorld and self.fixedDt > 0 then
+      self.ecsWorld:setResource("render_alpha", self.accumulator / self.fixedDt)
+    end
   end
 end
 
