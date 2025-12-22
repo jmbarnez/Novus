@@ -5,8 +5,8 @@ local Theme = require("game.theme")
 local MathUtil = require("util.math")
 local WindowFrame = require("game.hud.window_frame")
 local Rect = require("util.rect")
-local MapView = require("game.hud.widgets.fullscreen_map_view")
-local MapDraw = require("game.hud.widgets.fullscreen_map_draw")
+local MapView = require("game.hud.widgets.fullscreen_map.view")
+local MapDraw = require("game.hud.widgets.fullscreen_map.draw")
 
 local pointInRect = Rect.pointInRect
 

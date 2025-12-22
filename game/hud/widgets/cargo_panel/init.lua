@@ -6,8 +6,8 @@ local Inventory = require("game.inventory")
 local WindowFrame = require("game.hud.window_frame")
 local Rect = require("util.rect")
 local PickupFactory = require("game.factory.pickup")
-local CargoView = require("game.hud.widgets.cargo_panel_view")
-local CargoDraw = require("game.hud.widgets.cargo_panel_draw")
+local CargoView = require("game.hud.widgets.cargo_panel.view")
+local CargoDraw = require("game.hud.widgets.cargo_panel.draw")
 
 local pointInRect = Rect.pointInRect
 
