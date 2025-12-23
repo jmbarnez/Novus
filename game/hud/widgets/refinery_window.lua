@@ -305,7 +305,7 @@ local function makeRefineryWindow()
 
         -- --- Work orders list (below recipes) ---
         local station = getStation(ctx)
-        local workOrders = (station and station.refinery_queue and station.refinery_queue.workOrders) or {}
+        local workOrders = RefineryQueue.getWorkOrders(station)
         local workOrderH = 72
         local workOrdersHeaderY = recipesStartY + math.max(#recipes, 1) * recipeH + pad * 2 - self.scrollY
 
@@ -342,6 +342,60 @@ local function makeRefineryWindow()
                     local levelText = string.format("Req. Level %d", order.levelRequired or 1)
                     love.graphics.setColor(0.7, 0.75, 0.85, 0.8)
                     love.graphics.print(levelText, orderRect.x + orderRect.w - 110, orderRect.y + 6)
+
+                    -- Status / action button
+                    local btnW = 86
+                    local btnH = 22
+                    local btnX = orderRect.x + orderRect.w - btnW - 12
+                    local btnY = orderRect.y + orderRect.h - btnH - 8
+                    local btnRect = { x = btnX, y = btnY, w = btnW, h = btnH }
+                    local btnHover = pointInRect(mx, my, btnRect)
+
+                    local statusText
+                    local btnText
+                    local btnEnabled = true
+
+                    if order.rewarded then
+                        statusText = "TURNED IN"
+                        btnText = nil
+                        btnEnabled = false
+                    elseif order.completed then
+                        statusText = "READY"
+                        btnText = "Turn in"
+                    elseif order.accepted then
+                        statusText = "ACTIVE"
+                        btnText = nil
+                        btnEnabled = false
+                    else
+                        btnText = "Accept"
+                        if (station and station.refinery_queue and station.refinery_queue.level or 1) < (order.levelRequired or 1) then
+                            btnEnabled = false
+                        end
+                    end
+
+                    -- Status text
+                    if statusText then
+                        love.graphics.setColor(0.8, 0.85, 0.9, 0.8)
+                        love.graphics.print(statusText, orderRect.x + 10, orderRect.y + orderRect.h - 20)
+                    end
+
+                    -- Button (if applicable)
+                    if btnText then
+                        if btnEnabled then
+                            love.graphics.setColor(0.20, 0.50, 0.35, btnHover and 1.0 or 0.85)
+                            love.graphics.rectangle("fill", btnRect.x, btnRect.y, btnRect.w, btnRect.h, 3)
+                            love.graphics.setColor(0.30, 0.80, 0.50, 0.9)
+                            love.graphics.rectangle("line", btnRect.x, btnRect.y, btnRect.w, btnRect.h, 3)
+                            love.graphics.setColor(1, 1, 1, 0.95)
+                        else
+                            love.graphics.setColor(0.20, 0.20, 0.20, 0.5)
+                            love.graphics.rectangle("fill", btnRect.x, btnRect.y, btnRect.w, btnRect.h, 3)
+                            love.graphics.setColor(0.35, 0.35, 0.35, 0.5)
+                            love.graphics.rectangle("line", btnRect.x, btnRect.y, btnRect.w, btnRect.h, 3)
+                            love.graphics.setColor(0.7, 0.7, 0.7, 0.6)
+                        end
+                        love.graphics.print(btnText, btnRect.x + 12, btnRect.y + 4)
+                    end
                 end
             end
         end
@@ -683,6 +737,57 @@ local function makeRefineryWindow()
                     if pointInRect(x, y, { x = qtyDispX + 84, y = controlY, w = 60, h = 20 }) then
                         local qty = getQuantity(recipe.inputId)
                         startSmeltingJob(ctx, recipe, qty)
+                        return true
+                    end
+                end
+            end
+        end
+
+        -- Work order buttons (accept / turn in) within left panel
+        if button == 1 and pointInRect(x, y, bounds.leftPanel) then
+            local station = getStation(ctx)
+            local workOrders = RefineryQueue.getWorkOrders(station)
+            local recipeH = 85
+            local pad = 6
+            local workOrderH = 72
+            local workOrdersHeaderY = bounds.leftPanel.y + math.max(#Refinery.getRecipes(), 1) * recipeH + pad * 2 - self.scrollY
+
+            for i, order in ipairs(workOrders) do
+                local oy = workOrdersHeaderY + 18 + (i - 1) * workOrderH + pad
+                if oy + workOrderH > bounds.leftPanel.y and oy < bounds.leftPanel.y + bounds.leftPanel.h then
+                    local btnW = 86
+                    local btnH = 22
+                    local btnX = bounds.leftPanel.x + bounds.leftPanel.w - btnW - 12
+                    local btnY = oy + (workOrderH - btnH - pad)
+                    local btnRect = { x = btnX, y = btnY, w = btnW, h = btnH }
+
+                    local btnText
+                    local btnEnabled = true
+
+                    if order.rewarded then
+                        btnText = nil
+                        btnEnabled = false
+                    elseif order.completed then
+                        btnText = "Turn in"
+                    elseif order.accepted then
+                        btnText = nil
+                        btnEnabled = false
+                    else
+                        btnText = "Accept"
+                        if (station and station.refinery_queue and station.refinery_queue.level or 1) < (order.levelRequired or 1) then
+                            btnEnabled = false
+                        end
+                    end
+
+                    if btnText and btnEnabled and pointInRect(x, y, btnRect) then
+                        local player = ctx.world and ctx.world:getResource("player")
+                        local success, msg
+                        if btnText == "Accept" then
+                            success, msg = RefineryQueue.acceptWorkOrder(station, order.id)
+                        else
+                            success, msg = RefineryQueue.turnInWorkOrder(station, order.id, player)
+                        end
+                        showNotification(msg, success)
                         return true
                     end
                 end
