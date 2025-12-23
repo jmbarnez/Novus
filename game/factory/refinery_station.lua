@@ -38,11 +38,44 @@ function refinery_station.createRefineryStation(ecsWorld, physicsWorld, x, y)
         })
     end
 
+    -- Level 1 refinery work orders
+    local refineryLevel = 1
+    local workOrders = {
+        {
+            id = "refine_iron_lvl1",
+            levelRequired = 1,
+            recipeInputId = "iron",
+            outputId = "iron_ingot",
+            amount = 10,
+            rewardCredits = 150,
+            description = "Smelt 10 Iron Ingots",
+            accepted = false,
+            completed = false,
+            rewarded = false,
+            turnInRequired = true,
+            current = 0,
+        },
+        {
+            id = "refine_mithril_lvl1",
+            levelRequired = 1,
+            recipeInputId = "mithril",
+            outputId = "mithril_ingot",
+            amount = 6,
+            rewardCredits = 320,
+            description = "Smelt 6 Mithril Ingots",
+            accepted = false,
+            completed = false,
+            rewarded = false,
+            turnInRequired = true,
+            current = 0,
+        },
+    }
+
     local e = ecsWorld:newEntity()
         :give("physics_body", body, shape, fixture)
         :give("renderable", "refinery_station", { 0.85, 0.55, 0.25, 1.0 })
         :give("space_station", stationType, radius, dockingPoints)
-        :give("refinery_queue", 3) -- 3 queue slots
+        :give("refinery_queue", 3, refineryLevel, workOrders) -- 3 queue slots, level + work orders
 
     fixture:setUserData(e)
 

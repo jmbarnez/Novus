@@ -42,7 +42,9 @@ function Quests.generate(seed, count)
             id = i,
             accepted = false,
             completed = false,
+            rewarded = false,
             current = 0,
+            turnInRequired = true,
         }
 
         if questType == 1 and #collectibles > 0 then
@@ -82,7 +84,7 @@ function Quests.accept(quests, questId)
     return false
 end
 
--- Check if quest is complete
+-- Check if quest is complete (progress only)
 function Quests.checkCompletion(quest)
     if quest.accepted and quest.current >= quest.amount then
         quest.completed = true
@@ -102,6 +104,31 @@ function Quests.updateProgress(quests, questType, target, amount)
             end
         end
     end
+end
+
+-- Turn in a completed quest to grant rewards
+-- @return boolean success, string message
+function Quests.turnIn(quests, questId, player)
+    for _, quest in ipairs(quests) do
+        if quest.id == questId then
+            if not quest.accepted then
+                return false, "Quest not accepted"
+            end
+            if not quest.completed then
+                return false, "Quest not complete"
+            end
+            if quest.rewarded then
+                return false, "Already turned in"
+            end
+
+            if player and player:has("credits") and quest.reward then
+                player.credits.balance = player.credits.balance + quest.reward
+            end
+            quest.rewarded = true
+            return true, "Quest turned in"
+        end
+    end
+    return false, "Quest not found"
 end
 
 return Quests

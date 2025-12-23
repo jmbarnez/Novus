@@ -12,12 +12,13 @@ end
 
 -- Grant rewards for any newly completed quests
 function QuestSystem:grantRewards(quests)
+    -- Turn-in flow now handled explicitly via Quests.turnIn
+    -- Keep for backward compatibility: only auto-reward quests that do NOT require turn-in
     local player = self.world:getResource("player")
     if not player then return end
 
     for _, quest in ipairs(quests) do
-        -- Grant reward if quest just completed and hasn't been rewarded yet
-        if quest.completed and not quest.rewarded and quest.reward then
+        if quest.completed and not quest.rewarded and not quest.turnInRequired and quest.reward then
             if player:has("credits") then
                 player.credits.balance = player.credits.balance + quest.reward
             end

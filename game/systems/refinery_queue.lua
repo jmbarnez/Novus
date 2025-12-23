@@ -139,10 +139,31 @@ function RefineryQueue.collectJob(station, jobIndex, ship)
     -- Update cargo used
     ship.cargo.used = Inventory.totalVolume(ship.cargo_hold.slots)
 
+    RefineryQueue.recordWorkOrderProgress(station, job)
+
     -- Remove job from queue
     table.remove(queue.jobs, jobIndex)
 
     return true, "Collected " .. job.quantity .. " " .. job.outputName
+end
+
+--- Update refinery work order progress based on a collected job
+--- @param station Entity with refinery_queue component
+--- @param job Job table that was collected
+function RefineryQueue.recordWorkOrderProgress(station, job)
+    if not station or not station.refinery_queue or not job then
+        return
+    end
+
+    local orders = station.refinery_queue.workOrders or {}
+    for _, order in ipairs(orders) do
+        if order.accepted and not order.rewarded and order.recipeInputId == job.recipeInputId then
+            order.current = (order.current or 0) + job.quantity
+            if (order.current or 0) >= (order.amount or 0) then
+                order.completed = true
+            end
+        end
+    end
 end
 
 --- Get all jobs for a station
@@ -155,9 +176,19 @@ function RefineryQueue.getJobs(station)
     return station.refinery_queue.jobs
 end
 
+--- Get work orders for a station
+--- @param station Entity with refinery_queue component
+--- @return table Array of work orders
+function RefineryQueue.getWorkOrders(station)
+    if not station or not station.refinery_queue then
+        return {}
+    end
+    return station.refinery_queue.workOrders or {}
+end
+
 --- Get number of free slots
 --- @param station Entity with refinery_queue component
---- @return number
+--- @return number freeSlots
 function RefineryQueue.getFreeSlots(station)
     if not station or not station.refinery_queue then
         return 0

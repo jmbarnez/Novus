@@ -90,8 +90,11 @@ vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords)
   vec2 center = vec2(sin(seed * 0.9 + 1.4), cos(seed * 1.1 + 2.2)) * 0.10;
   float edgeNoise = fbm(p * 1.10 + vec2(seed * 0.37, seed * 0.53));
   float r = length(p - center) + (edgeNoise - 0.5) * 0.28;
-  float mask = 1.0 - smoothstep(0.30, 1.05, r);
-  mask = pow(clamp(mask, 0.0, 1.0), 1.15);
+
+  // Smoother falloff at the perimeter: inner core plus a soft outer feather.
+  float core = 1.0 - smoothstep(0.30, 0.95, r);
+  float feather = 1.0 - smoothstep(0.95, 1.18, r);
+  float mask = pow(clamp(core * feather, 0.0, 1.0), 1.08);
   density *= mask;
 
   float hue = fbm(pw * 1.8 + 12.3 + seed * 1.7);

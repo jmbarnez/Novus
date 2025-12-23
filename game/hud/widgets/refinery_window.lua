@@ -134,6 +134,7 @@ local function makeRefineryWindow()
     end
 
     -- Draw recipe panel (left side)
+    -- Includes available recipes and station work orders stacked vertically
     local function drawRecipePanel(ctx, rect)
         local recipes = Refinery.getRecipes()
         local recipeH = 85
@@ -150,12 +151,14 @@ local function makeRefineryWindow()
 
         love.graphics.setScissor(rect.x, rect.y, rect.w, rect.h)
 
+        -- --- Recipes list ---
+        local recipesStartY = rect.y
         if #recipes == 0 then
             love.graphics.setColor(0.6, 0.6, 0.6, 0.8)
-            love.graphics.print("No recipes available", rect.x + 10, rect.y + 10)
+            love.graphics.print("No recipes available", rect.x + 10, recipesStartY + 10)
         else
             for i, recipe in ipairs(recipes) do
-                local ry = rect.y + (i - 1) * recipeH + pad - self.scrollY
+                local ry = recipesStartY + (i - 1) * recipeH + pad - self.scrollY
 
                 if ry + recipeH > rect.y and ry < rect.y + rect.h then
                     local recipeRect = { x = rect.x, y = ry, w = rect.w, h = recipeH - pad }
@@ -194,7 +197,7 @@ local function makeRefineryWindow()
                     -- Recipe text
                     local textX = outIconX + iconSize + 10
                     love.graphics.setColor(1, 1, 1, 0.95)
-                    local ratioText = string.format("%d %s → 1 %s", recipe.ratio, recipe.inputName, recipe.outputName)
+                    local ratioText = string.format("%d %s -> 1 %s", recipe.ratio, recipe.inputName, recipe.outputName)
                     love.graphics.print(ratioText, textX, recipeRect.y + 8)
 
                     -- Time per unit
@@ -296,6 +299,49 @@ local function makeRefineryWindow()
                     -- Fee display
                     love.graphics.setColor(0.85, 0.80, 0.40, 0.9)
                     love.graphics.print(string.format("%d cr", fee), startBtnRect.x + startBtnRect.w + 8, controlY + 3)
+                end
+            end
+        end
+
+        -- --- Work orders list (below recipes) ---
+        local station = getStation(ctx)
+        local workOrders = (station and station.refinery_queue and station.refinery_queue.workOrders) or {}
+        local workOrderH = 72
+        local workOrdersHeaderY = recipesStartY + math.max(#recipes, 1) * recipeH + pad * 2 - self.scrollY
+
+        if #workOrders > 0 and workOrdersHeaderY < rect.y + rect.h then
+            love.graphics.setColor(0.9, 0.7, 0.4, 0.9)
+            love.graphics.print("JOBS", rect.x, workOrdersHeaderY)
+
+            for i, order in ipairs(workOrders) do
+                local oy = workOrdersHeaderY + 18 + (i - 1) * workOrderH + pad
+                if oy + workOrderH > rect.y and oy < rect.y + rect.h then
+                    local orderRect = { x = rect.x, y = oy, w = rect.w, h = workOrderH - pad }
+                    local mx, my = love.mouse.getPosition()
+                    local hovered = pointInRect(mx, my, orderRect)
+
+                    -- Background
+                    love.graphics.setColor(0.14, 0.12, 0.08, hovered and 0.9 or 0.75)
+                    love.graphics.rectangle("fill", orderRect.x, orderRect.y, orderRect.w, orderRect.h, 4)
+                    love.graphics.setColor(0.65, 0.48, 0.28, hovered and 0.9 or 0.6)
+                    love.graphics.setLineWidth(hovered and 2 or 1)
+                    love.graphics.rectangle("line", orderRect.x, orderRect.y, orderRect.w, orderRect.h, 4)
+
+                    -- Text
+                    love.graphics.setColor(1, 1, 1, 0.95)
+                    love.graphics.print(order.description or ("Job " .. tostring(order.id)), orderRect.x + 10, orderRect.y + 6)
+                    local amountText = string.format("%d x %s -> %s", order.amount or 0, order.recipeInputId or "ore",
+                        order.outputId or "ingot")
+                    love.graphics.setColor(0.8, 0.85, 0.9, 0.85)
+                    love.graphics.print(amountText, orderRect.x + 10, orderRect.y + 24)
+
+                    local rewardText = string.format("Reward: %d cr", order.rewardCredits or 0)
+                    love.graphics.setColor(0.9, 0.8, 0.45, 0.9)
+                    love.graphics.print(rewardText, orderRect.x + 10, orderRect.y + 40)
+
+                    local levelText = string.format("Req. Level %d", order.levelRequired or 1)
+                    love.graphics.setColor(0.7, 0.75, 0.85, 0.8)
+                    love.graphics.print(levelText, orderRect.x + orderRect.w - 110, orderRect.y + 6)
                 end
             end
         end
