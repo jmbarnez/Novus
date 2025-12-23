@@ -28,8 +28,8 @@ local function drawDockRingIfNear(ctx, stationX, stationY, dockingRange)
         return
     end
 
-    local baseAlpha = 0.08
-    local brightAlpha = 0.85
+    local baseAlpha = 0.10
+    local brightAlpha = 0.95
     local t = 0
 
     local playerShip = ctx and ctx.playerShip
@@ -51,7 +51,8 @@ local function drawDockRingIfNear(ctx, stationX, stationY, dockingRange)
 
     love.graphics.push("all")
     love.graphics.setLineWidth(2)
-    love.graphics.setColor(0.20, 0.85, 1.00, alpha)
+    -- Orange docking ring for refinery stations
+    love.graphics.setColor(0.95, 0.55, 0.15, alpha)
     love.graphics.circle("line", 0, 0, range)
     love.graphics.pop()
 end
