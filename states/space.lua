@@ -12,6 +12,7 @@ local Profiler = require("util.profiler")
 local Seed = require("util.seed")
 local Pause = require("states.pause")
 local MathUtil = require("util.math")
+local Sound = require("game.sound")
 
 local function getInterpolatedTarget(ship, alpha)
   local shipBody = ship and ship.physics_body and ship.physics_body.body
@@ -114,7 +115,8 @@ function Space:enter(_, worldSeed)
     Systems.FloatingTextSystem,
     Systems.HudSystem,
     Systems.QuestSystem,
-    Systems.RefinerySystem
+    Systems.RefinerySystem,
+    Systems.SoundSystem
   )
 
   self.ecsWorld.__profiler = self.profiler.concord
@@ -155,6 +157,10 @@ function Space:enter(_, worldSeed)
   local avoidX, avoidY = shipBody:getPosition()
   factory.spawnAsteroids(self.ecsWorld, self.physicsWorld, 70, self.sectorWidth, self.sectorHeight, avoidX, avoidY, 650,
     self.worldRngs.asteroids)
+
+  -- Initialize sound system and start background music
+  Sound.load()
+  Sound.playMusic("space_ambient1")
 end
 
 function Space:resume()

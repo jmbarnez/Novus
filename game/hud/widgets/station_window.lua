@@ -298,7 +298,7 @@ local function makeStationWindow()
                     -- Progress
                     local progress = string.format("%d / %d", quest.current or 0, quest.amount or 0)
                     if quest.type == "collect_resource" then
-                        progress = progress .. " m³"
+                        progress = progress .. " m3"
                     end
                     love.graphics.setColor(0.7, 0.8, 0.9, 0.8)
                     love.graphics.print(progress, questRect.x + 10, questRect.y + 26)

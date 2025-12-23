@@ -169,7 +169,7 @@ function SpaceBackground.new(opts)
     opts.depthPower or CONFIG.DEFAULT_DEPTH_POWER
   )
 
-  self.enableNebula = false -- Easy switch: set to true to enable nebula
+  self.enableNebula = true
 
   return self
 end

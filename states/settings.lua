@@ -3,6 +3,7 @@ local Theme = require("game.theme")
 local WindowFrame = require("game.hud.window_frame")
 local Rect = require("util.rect")
 local Settings = require("game.settings")
+local Sound = require("game.sound")
 
 local pointInRect = Rect.pointInRect
 
@@ -14,10 +15,12 @@ function SettingsState:init()
     self.pressed = nil
     self.bounds = nil
     self.listening = nil -- { action = "thrust", index = 1 } (waiting for key press)
+    self.dragging = nil -- { channel = "master" }
 
     -- FPS Options
-    self.fpsOptions = { 30, 60, 120, 144, 0 } -- 0 is Unlimited
+    self.fpsOptions = { 30, 60, 120, 144, 240, 360, 0 } -- 0 is Unlimited
     self.fpsIndex = 2
+    self.fpsDropdownOpen = false
 end
 
 function SettingsState:enter(from)
@@ -26,16 +29,21 @@ function SettingsState:enter(from)
     self.pressed = nil
     self.bounds = nil
     self.listening = nil
+    self.dragging = nil
+    self.fpsDropdownOpen = false
 
     -- Initialize FPS index from settings
     local currentFps = Settings.get("maxFps") or 60
-    self.fpsIndex = 5 -- Default to Unlimited if not found
+    self.fpsIndex = 7 -- Default to Unlimited if not found
     for i, fps in ipairs(self.fpsOptions) do
         if fps == currentFps then
             self.fpsIndex = i
             break
         end
     end
+
+    -- Sync audio volumes with saved settings (ensures sliders reflect persisted values)
+    Sound.load()
 end
 
 function SettingsState:_ctx()
@@ -91,20 +99,57 @@ function SettingsState:_layout(ctx)
         h = btnH
     }
 
-    -- FPS Control
+    -- FPS Control (Dropdown)
     local fpsY = contentY
-    bounds.fpsLabel = { x = contentX, y = fpsY, w = 100, h = 24 }
-    bounds.fpsValue = { x = contentX + 110, y = fpsY, w = 140, h = 24 }
-    bounds.fpsLeft = { x = contentX + 110, y = fpsY, w = 24, h = 24 }
-    bounds.fpsRight = { x = contentX + 110 + 140 - 24, y = fpsY, w = 24, h = 24 }
+    local dropdownW = 140
+    local dropdownH = 24
+    local optionH = 24
+    bounds.fpsLabel = { x = contentX, y = fpsY, w = 100, h = dropdownH }
+    bounds.fpsDropdown = { x = contentX + 110, y = fpsY, w = dropdownW, h = dropdownH }
+
+    -- Dropdown options (positioned below the dropdown button)
+    bounds.fpsOptions = {}
+    for i = 1, #self.fpsOptions do
+        bounds.fpsOptions[i] = {
+            x = contentX + 110,
+            y = fpsY + dropdownH + (i - 1) * optionH,
+            w = dropdownW,
+            h = optionH
+        }
+    end
+    bounds.fpsOptionsPanel = {
+        x = contentX + 110,
+        y = fpsY + dropdownH,
+        w = dropdownW,
+        h = #self.fpsOptions * optionH
+    }
 
     -- VSync Control
     local vsyncY = fpsY + 32
     bounds.vsyncLabel = { x = contentX, y = vsyncY, w = 100, h = 24 }
     bounds.vsyncBtn = { x = contentX + 110, y = vsyncY, w = 140, h = 24 }
 
+    -- Sound Section
+    local soundY = vsyncY + 40
+    bounds.soundRows = {}
+    local soundRowH = 28
+    local channels = {
+        { label = "Master", channel = "master" },
+        { label = "SFX", channel = "sfx" },
+        { label = "Music", channel = "music" },
+    }
+    for i, ch in ipairs(channels) do
+        local y = soundY + (i - 1) * (soundRowH + 6)
+        bounds.soundRows[i] = {
+            label = { x = contentX, y = y, w = 100, h = soundRowH },
+            slider = { x = contentX + 110, y = y + 4, w = 180, h = soundRowH - 8 },
+            channel = ch.channel,
+            text = ch.label,
+        }
+    end
+
     -- Keybinds Header
-    local listY = vsyncY + 40
+    local listY = soundY + (#bounds.soundRows * (soundRowH + 6)) + 20
     bounds.listHeader = { x = contentX, y = listY, w = contentW, h = 24 }
 
     -- Keybinds List
@@ -213,18 +258,26 @@ function SettingsState:mousepressed(x, y, button)
         return true
     end
 
-    -- FPS Arrows
-    if pointInRect(x, y, b.fpsLeft) then
-        self.fpsIndex = self.fpsIndex - 1
-        if self.fpsIndex < 1 then self.fpsIndex = #self.fpsOptions end
-        Settings.set("maxFps", self.fpsOptions[self.fpsIndex])
+    -- FPS Dropdown
+    if self.fpsDropdownOpen then
+        -- Check if clicked on an option
+        for i, optRect in ipairs(b.fpsOptions) do
+            if pointInRect(x, y, optRect) then
+                self.fpsIndex = i
+                Settings.set("maxFps", self.fpsOptions[i])
+                self.fpsDropdownOpen = false
+                return true
+            end
+        end
+        -- Clicked outside dropdown, close it
+        self.fpsDropdownOpen = false
         return true
-    end
-    if pointInRect(x, y, b.fpsRight) then
-        self.fpsIndex = self.fpsIndex + 1
-        if self.fpsIndex > #self.fpsOptions then self.fpsIndex = 1 end
-        Settings.set("maxFps", self.fpsOptions[self.fpsIndex])
-        return true
+    else
+        -- Toggle dropdown open
+        if pointInRect(x, y, b.fpsDropdown) then
+            self.fpsDropdownOpen = true
+            return true
+        end
     end
 
     -- VSync Toggle
@@ -233,6 +286,17 @@ function SettingsState:mousepressed(x, y, button)
         Settings.set("vsync", not current)
         love.window.setVSync(not current and 1 or 0)
         return true
+    end
+
+    -- Sound Controls (slider grab)
+    for _, row in ipairs(b.soundRows) do
+        if pointInRect(x, y, row.slider) then
+            local pct = (x - row.slider.x) / row.slider.w
+            pct = math.max(0, math.min(1, pct))
+            Sound.setVolume(row.channel, pct)
+            self.dragging = { channel = row.channel, slider = row.slider }
+            return true
+        end
     end
 
     -- Keybinds
@@ -253,6 +317,8 @@ function SettingsState:mousereleased(x, y, button)
     local b = self:_layout(ctx)
     self.frame:mousereleased(ctx, x, y, button)
 
+    self.dragging = nil
+
     if self.pressed == "Back" and pointInRect(x, y, b.btnBack) then
         Gamestate.pop()
     end
@@ -268,9 +334,25 @@ function SettingsState:mousemoved(x, y, dx, dy)
 
     self.hover = nil
     if pointInRect(x, y, b.btnBack) then self.hover = "Back" end
-    if pointInRect(x, y, b.fpsLeft) then self.hover = "fpsLeft" end
-    if pointInRect(x, y, b.fpsRight) then self.hover = "fpsRight" end
+    if pointInRect(x, y, b.fpsDropdown) then self.hover = "fpsDropdown" end
+    if self.fpsDropdownOpen then
+        for i, optRect in ipairs(b.fpsOptions) do
+            if pointInRect(x, y, optRect) then
+                self.hover = "fpsOption" .. i
+            end
+        end
+    end
     if pointInRect(x, y, b.vsyncBtn) then self.hover = "vsync" end
+    for _, row in ipairs(b.soundRows) do
+        if pointInRect(x, y, row.slider) then self.hover = row.slider end
+    end
+
+    if self.dragging and self.dragging.slider then
+        local slider = self.dragging.slider
+        local pct = (x - slider.x) / slider.w
+        pct = math.max(0, math.min(1, pct))
+        Sound.setVolume(self.dragging.channel, pct)
+    end
 
     for _, item in ipairs(b.binds) do
         if item.type == "key" and pointInRect(x, y, item.rect) then
@@ -305,22 +387,37 @@ function SettingsState:draw()
     love.graphics.setColor(1, 1, 1, 0.9)
     love.graphics.print("Max FPS:", b.fpsLabel.x, b.fpsLabel.y + 4)
 
-    -- FPS Arrows
+    -- FPS Dropdown Button
     local fpsText = self.fpsOptions[self.fpsIndex] == 0 and "Unlimited" or tostring(self.fpsOptions[self.fpsIndex])
     local tw = font:getWidth(fpsText)
-    love.graphics.print(fpsText, b.fpsValue.x + (b.fpsValue.w - tw) / 2, b.fpsValue.y + 4)
+    local isDropdownHover = self.hover == "fpsDropdown"
 
-    local function drawArrow(rect, dir, hover)
-        love.graphics.setColor(1, 1, 1, hover and 1 or 0.5)
-        local cx, cy = rect.x + rect.w / 2, rect.y + rect.h / 2
-        if dir == "left" then
-            love.graphics.polygon("fill", cx + 4, cy - 6, cx + 4, cy + 6, cx - 4, cy)
-        else
-            love.graphics.polygon("fill", cx - 4, cy - 6, cx - 4, cy + 6, cx + 4, cy)
-        end
+    -- Dropdown background
+    love.graphics.setColor(0.1, 0.1, 0.1, 1)
+    love.graphics.rectangle("fill", b.fpsDropdown.x, b.fpsDropdown.y, b.fpsDropdown.w, b.fpsDropdown.h, 4)
+
+    -- Dropdown border
+    love.graphics.setColor(colors.panelBorder[1], colors.panelBorder[2], colors.panelBorder[3],
+        (isDropdownHover or self.fpsDropdownOpen) and 0.8 or 0.4)
+    love.graphics.rectangle("line", b.fpsDropdown.x, b.fpsDropdown.y, b.fpsDropdown.w, b.fpsDropdown.h, 4)
+
+    -- Dropdown text
+    love.graphics.setColor(1, 1, 1, 0.9)
+    love.graphics.print(fpsText, b.fpsDropdown.x + 8, b.fpsDropdown.y + 4)
+
+    -- Dropdown arrow indicator
+    local arrowX = b.fpsDropdown.x + b.fpsDropdown.w - 16
+    local arrowY = b.fpsDropdown.y + b.fpsDropdown.h / 2
+    love.graphics.setColor(1, 1, 1, 0.7)
+    if self.fpsDropdownOpen then
+        -- Up arrow
+        love.graphics.polygon("fill", arrowX - 4, arrowY + 2, arrowX + 4, arrowY + 2, arrowX, arrowY - 4)
+    else
+        -- Down arrow
+        love.graphics.polygon("fill", arrowX - 4, arrowY - 2, arrowX + 4, arrowY - 2, arrowX, arrowY + 4)
     end
-    drawArrow(b.fpsLeft, "left", self.hover == "fpsLeft")
-    drawArrow(b.fpsRight, "right", self.hover == "fpsRight")
+
+
 
     -- VSync Control
     love.graphics.setColor(1, 1, 1, 0.9)
@@ -337,6 +434,41 @@ function SettingsState:draw()
 
     love.graphics.setColor(1, 1, 1, isVsyncHover and 1 or 0.9)
     love.graphics.print(vsyncText, b.vsyncBtn.x + (b.vsyncBtn.w - vw) / 2, b.vsyncBtn.y + 4)
+
+    -- Sound Section
+    love.graphics.setColor(0.6, 0.6, 0.6, 1)
+    love.graphics.print("Sound", b.soundRows[1].label.x, b.soundRows[1].label.y - 20)
+    for _, row in ipairs(b.soundRows) do
+        local val = Sound.getVolume(row.channel)
+        local pctText = string.format("%d%%", math.floor(val * 100 + 0.5))
+        local tw = font:getWidth(pctText)
+
+        love.graphics.setColor(1, 1, 1, 0.9)
+        love.graphics.print(row.text .. ":", row.label.x, row.label.y + 4)
+
+        local slider = row.slider
+        local isHover = self.hover == slider or (self.dragging and self.dragging.slider == slider)
+        local thumbX = slider.x + val * slider.w
+
+        -- Track
+        love.graphics.setColor(0.12, 0.12, 0.12, 1)
+        love.graphics.rectangle("fill", slider.x, slider.y, slider.w, slider.h, 3)
+        love.graphics.setColor(colors.panelBorder[1], colors.panelBorder[2], colors.panelBorder[3], 0.5)
+        love.graphics.rectangle("line", slider.x, slider.y, slider.w, slider.h, 3)
+
+        -- Fill
+        love.graphics.setColor(0.3, 0.6, 1, 0.6)
+        love.graphics.rectangle("fill", slider.x, slider.y, slider.w * val, slider.h, 3)
+
+        -- Thumb
+        love.graphics.setColor(1, 1, 1, isHover and 1 or 0.8)
+        love.graphics.rectangle("fill", thumbX - 6, slider.y - 3, 12, slider.h + 6, 3)
+        love.graphics.setColor(colors.panelBorder[1], colors.panelBorder[2], colors.panelBorder[3], isHover and 0.9 or 0.5)
+        love.graphics.rectangle("line", thumbX - 6, slider.y - 3, 12, slider.h + 6, 3)
+
+        love.graphics.setColor(1, 1, 1, 0.9)
+        love.graphics.print(pctText, slider.x + slider.w + 8, slider.y - 2)
+    end
 
     -- Keybinds Header
     love.graphics.setColor(0.6, 0.6, 0.6, 1)
@@ -378,6 +510,46 @@ function SettingsState:draw()
     local backText = "Back"
     local bw = font:getWidth(backText)
     love.graphics.print(backText, b.btnBack.x + (b.btnBack.w - bw) / 2, b.btnBack.y + 6)
+
+    -- FPS Dropdown options panel (drawn last to render on top of everything)
+    if self.fpsDropdownOpen then
+        -- Panel background
+        love.graphics.setColor(0.08, 0.08, 0.08, 0.98)
+        love.graphics.rectangle("fill", b.fpsOptionsPanel.x, b.fpsOptionsPanel.y, b.fpsOptionsPanel.w,
+            b.fpsOptionsPanel.h, 4)
+
+        -- Panel border
+        love.graphics.setColor(colors.panelBorder[1], colors.panelBorder[2], colors.panelBorder[3], 0.6)
+        love.graphics.rectangle("line", b.fpsOptionsPanel.x, b.fpsOptionsPanel.y, b.fpsOptionsPanel.w,
+            b.fpsOptionsPanel.h, 4)
+
+        -- Draw each option
+        for i, optRect in ipairs(b.fpsOptions) do
+            local optText = self.fpsOptions[i] == 0 and "Unlimited" or tostring(self.fpsOptions[i])
+            local isHovered = self.hover == "fpsOption" .. i
+            local isSelected = i == self.fpsIndex
+
+            -- Highlight on hover
+            if isHovered then
+                love.graphics.setColor(0.3, 0.5, 0.8, 0.4)
+                love.graphics.rectangle("fill", optRect.x + 2, optRect.y, optRect.w - 4, optRect.h)
+            end
+
+            -- Option text
+            if isSelected then
+                love.graphics.setColor(0.4, 0.8, 1, 1)
+            else
+                love.graphics.setColor(1, 1, 1, isHovered and 1 or 0.8)
+            end
+            love.graphics.print(optText, optRect.x + 8, optRect.y + 4)
+
+            -- Checkmark for selected
+            if isSelected then
+                love.graphics.setColor(0.4, 0.8, 1, 1)
+                love.graphics.print("✓", optRect.x + optRect.w - 20, optRect.y + 4)
+            end
+        end
+    end
 
     love.graphics.pop()
 end

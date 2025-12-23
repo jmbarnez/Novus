@@ -50,9 +50,9 @@ local function spawnImpactEffect(world, physicsWorld, x, y)
   effectFixture:setMask(1, 2, 4, 8)
 
   world:newEntity()
-    :give("physics_body", effectBody, effectShape, effectFixture)
-    :give("renderable", "shatter", { 1, 1, 1, 1 })
-    :give("shatter")
+      :give("physics_body", effectBody, effectShape, effectFixture)
+      :give("renderable", "shatter", { 1, 1, 1, 1 })
+      :give("shatter")
 end
 
 --------------------------------------------------------------------------------
@@ -100,6 +100,10 @@ local function tryHit(projectile, target, contact)
     local x, y = ImpactUtil.calculateImpactPosition(projectile, target, contact)
 
     spawnImpactEffect(world, physicsWorld, x, y)
+
+    if world then
+      world:emit("onProjectileImpact", x, y)
+    end
 
     if world and damage > 0 then
       FloatingText.spawn(world, x, y - 6, tostring(damage), {

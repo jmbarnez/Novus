@@ -6,6 +6,11 @@ local FILENAME = "settings.lua"
 local DEFAULTS = {
     maxFps = 60,
     vsync = true,
+    audio = {
+        masterVolume = 1.0,
+        sfxVolume = 0.8,
+        musicVolume = 0.5,
+    },
     controls = {
         thrust = { "key:w", "key:up" },
         strafe_left = { "key:a", "key:left" },

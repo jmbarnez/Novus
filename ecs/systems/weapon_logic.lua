@@ -10,11 +10,11 @@ local WeaponLogic = {}
 
 function WeaponLogic.isValidTarget(e)
   return e
-    and e.inWorld
-    and e:inWorld()
-    and e:has("health")
-    and e.health.current > 0
-    and e:has("physics_body")
+      and e.inWorld
+      and e:inWorld()
+      and e:has("health")
+      and e.health.current > 0
+      and e:has("physics_body")
 end
 
 function WeaponLogic.getClampedAimDir(shipBody, dx, dy, coneHalfAngle)
@@ -80,9 +80,9 @@ local function spawnProjectile(world, physicsWorld, ship, weapon, dirX, dirY)
   -- Create projectile entity
   local miningEfficiency = weapon.miningEfficiency or 1.0
   local projectile = world:newEntity()
-    :give("physics_body", body, shape, fixture)
-    :give("renderable", "projectile", { 0.00, 1.00, 1.00, 0.95 })
-    :give("projectile", weapon.damage, ttl, ship, miningEfficiency)
+      :give("physics_body", body, shape, fixture)
+      :give("renderable", "projectile", { 0.00, 1.00, 1.00, 0.95 })
+      :give("projectile", weapon.damage, ttl, ship, miningEfficiency)
 
   fixture:setUserData(projectile)
   return true
@@ -112,6 +112,7 @@ function WeaponLogic.fireWeapon(world, physicsWorld, ship, weapon, targetX, targ
 
   weapon.timer = weapon.cooldown
   triggerConeVisual(weapon)
+  world:emit("onWeaponFired", ship, weapon)
 
   return spawnProjectile(world, physicsWorld, ship, weapon, dirX, dirY)
 end
