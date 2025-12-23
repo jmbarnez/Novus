@@ -102,6 +102,17 @@ function HudSystem:keypressed(key)
   return consumed or self:isCapturing()
 end
 
+function HudSystem:textinput(text)
+  local ctx = self:_buildCtx()
+  local prevFont = love.graphics.getFont()
+  if self.hudFont then
+    love.graphics.setFont(self.hudFont)
+  end
+  local consumed = self.hud:textinput(ctx, text)
+  love.graphics.setFont(prevFont)
+  return consumed or self:isCapturing()
+end
+
 function HudSystem:draw()
   return self:drawHud()
 end

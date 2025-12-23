@@ -197,4 +197,62 @@ function RefineryQueue.getFreeSlots(station)
     return queue.maxSlots - #queue.jobs
 end
 
+--- Accept a work order if requirements are met
+--- @return boolean success, string message
+function RefineryQueue.acceptWorkOrder(station, orderId)
+    if not station or not station.refinery_queue then
+        return false, "Invalid station"
+    end
+
+    local orders = station.refinery_queue.workOrders or {}
+    local level = station.refinery_queue.level or 1
+
+    for _, order in ipairs(orders) do
+        if order.id == orderId then
+            if order.accepted then
+                return false, "Already accepted"
+            end
+            if level < (order.levelRequired or 1) then
+                return false, "Level too low"
+            end
+            order.accepted = true
+            order.current = order.current or 0
+            return true, "Job accepted"
+        end
+    end
+    return false, "Job not found"
+end
+
+--- Turn in a completed work order
+--- @return boolean success, string message
+function RefineryQueue.turnInWorkOrder(station, orderId, player)
+    if not station or not station.refinery_queue then
+        return false, "Invalid station"
+    end
+
+    local orders = station.refinery_queue.workOrders or {}
+
+    for _, order in ipairs(orders) do
+        if order.id == orderId then
+            if not order.accepted then
+                return false, "Job not accepted"
+            end
+            if not order.completed then
+                return false, "Job not complete"
+            end
+            if order.rewarded then
+                return false, "Already turned in"
+            end
+
+            if player and player:has("credits") and order.rewardCredits then
+                player.credits.balance = player.credits.balance + order.rewardCredits
+            end
+            order.rewarded = true
+            return true, "Job turned in"
+        end
+    end
+
+    return false, "Job not found"
+end
+
 return RefineryQueue

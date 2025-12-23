@@ -166,6 +166,18 @@ function Hud:keypressed(ctx, key)
   return false
 end
 
+function Hud:textinput(ctx, text)
+  for i = #self.widgets, 1, -1 do
+    local w = self.widgets[i]
+    if w and w.textinput then
+      if w.textinput(ctx, text) then
+        return true
+      end
+    end
+  end
+  return false
+end
+
 function Hud:wheelmoved(ctx, x, y)
   -- Check all widgets
   for i = #self.widgets, 1, -1 do

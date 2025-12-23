@@ -12,6 +12,8 @@ local MathUtil = require("util.math")
 ---@param viewH number View height
 ---@return number, number Clamped centerX, centerY
 function M.clampCenter(sector, centerX, centerY, viewW, viewH)
+    local originX = (sector and sector.originX) or 0
+    local originY = (sector and sector.originY) or 0
     if not sector then
         return centerX, centerY
     end
@@ -20,15 +22,15 @@ function M.clampCenter(sector, centerX, centerY, viewW, viewH)
     local halfH = viewH * 0.5
 
     if viewW >= sector.width then
-        centerX = sector.width * 0.5
+        centerX = originX + sector.width * 0.5
     else
-        centerX = MathUtil.clamp(centerX, halfW, sector.width - halfW)
+        centerX = MathUtil.clamp(centerX, originX + halfW, originX + sector.width - halfW)
     end
 
     if viewH >= sector.height then
-        centerY = sector.height * 0.5
+        centerY = originY + sector.height * 0.5
     else
-        centerY = MathUtil.clamp(centerY, halfH, sector.height - halfH)
+        centerY = MathUtil.clamp(centerY, originY + halfH, originY + sector.height - halfH)
     end
 
     return centerX, centerY
@@ -135,6 +137,15 @@ function M.computeView(ctx, mapRect, mapUi)
 
     mapUi.centerX = mapUi.centerX or (ctx.x or (sector.width * 0.5))
     mapUi.centerY = mapUi.centerY or (ctx.y or (sector.height * 0.5))
+
+    local originX = sector.originX or 0
+    local originY = sector.originY or 0
+    if mapUi.centerX == sector.width * 0.5 then
+        mapUi.centerX = originX + sector.width * 0.5
+    end
+    if mapUi.centerY == sector.height * 0.5 then
+        mapUi.centerY = originY + sector.height * 0.5
+    end
 
     mapUi.centerX, mapUi.centerY = M.clampCenter(sector, mapUi.centerX, mapUi.centerY, viewW, viewH)
 

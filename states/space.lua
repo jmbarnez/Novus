@@ -63,8 +63,12 @@ function Space:enter(_, worldSeed)
   self.view = {}
   self.profiler = Profiler.new()
 
+  -- Sector grid foundation: current sector at (0,0)
+  self.currentSector = { x = 0, y = 0 }
   self.sectorWidth = 10000
   self.sectorHeight = 10000
+  self.sectorOriginX = self.currentSector.x * self.sectorWidth
+  self.sectorOriginY = self.currentSector.y * self.sectorHeight
 
   self.camera = Camera.new({
     zoom = 1.0,
@@ -85,7 +89,14 @@ function Space:enter(_, worldSeed)
 
   self.ecsWorld = Concord.world()
   self.ecsWorld:setResource("input", self.input)
-  self.ecsWorld:setResource("sector", { width = self.sectorWidth, height = self.sectorHeight })
+  self.ecsWorld:setResource("sector", {
+    width = self.sectorWidth,
+    height = self.sectorHeight,
+    x = self.currentSector.x,
+    y = self.currentSector.y,
+    originX = self.sectorOriginX,
+    originY = self.sectorOriginY,
+  })
   self.ecsWorld:setResource("physics", self.physicsWorld)
   self.ecsWorld:setResource("mouse_world", self.mouseWorld)
   self.ecsWorld:setResource("ui_capture", { active = false })
@@ -370,6 +381,20 @@ function Space:keypressed(key)
     end
   elseif key == "r" then
     Gamestate.switch(Space, self.worldSeed)
+  end
+end
+
+function Space:textinput(text)
+  local uiCapture = self.ecsWorld and self.ecsWorld:getResource("ui_capture")
+  if uiCapture and uiCapture.active then
+    if self.hudSystem then
+      self.hudSystem:textinput(text)
+    end
+    return
+  end
+
+  if self.hudSystem and self.hudSystem:textinput(text) then
+    return
   end
 end
 

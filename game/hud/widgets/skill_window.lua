@@ -10,8 +10,8 @@ local function makeSkillWindow()
     open = false,
   }
 
-  local WINDOW_W = 360
-  local WINDOW_H = 220
+  local WINDOW_W = 460
+  local WINDOW_H = 260
   local HEADER_H = 32
   local CONTENT_PAD = 14
 
@@ -32,7 +32,7 @@ local function makeSkillWindow()
     return bounds
   end
 
-  local function getMiningProgress(ctx)
+  local function getSkillProgress(ctx, key)
     local level = 1
     local xp = 0
     local xpToNext = 100
@@ -41,11 +41,11 @@ local function makeSkillWindow()
     if player and player:has("player_progress") then
       local pp = player.player_progress
       local skills = pp.skills
-      local mining = skills and skills.mining
+      local skill = skills and skills[key]
 
-      level = (mining and mining.level) or level
-      xp = (mining and mining.xp) or xp
-      xpToNext = (mining and mining.xpToNext) or xpToNext
+      level = (skill and skill.level) or level
+      xp = (skill and skill.xp) or xp
+      xpToNext = (skill and skill.xpToNext) or xpToNext
     end
 
     return level, xp, xpToNext
@@ -105,7 +105,7 @@ local function makeSkillWindow()
     local iconY = cardRect.y + pad
     drawMiningIcon(iconX, iconY, iconSize)
 
-    local level, xp, xpToNext = getMiningProgress(ctx)
+    local level, xp, xpToNext = getSkillProgress(ctx, "mining")
     local title = "Mining"
     love.graphics.setColor(colors.text[1], colors.text[2], colors.text[3], 0.95)
     love.graphics.print(title, iconX + iconSize + 12, iconY + 4)
@@ -113,10 +113,6 @@ local function makeSkillWindow()
     local levelText = string.format("Level %d", level)
     love.graphics.setColor(0.60, 0.90, 1.00, 0.9)
     love.graphics.print(levelText, iconX + iconSize + 12, iconY + 26)
-
-    local perkText = "+10% ore yield, +5% mining speed"
-    love.graphics.setColor(0.75, 0.85, 1.00, 0.8)
-    love.graphics.print(perkText, iconX + iconSize + 12, iconY + 46)
 
     local barW = cardRect.w - pad * 2
     local barH = 18
@@ -132,6 +128,73 @@ local function makeSkillWindow()
     love.graphics.rectangle("fill", barX, barY, fill, barH, 4)
 
     love.graphics.setColor(0.30, 0.45, 0.65, 0.8)
+    love.graphics.rectangle("line", barX, barY, barW, barH, 4)
+
+    local xpText = string.format("%d / %d xp", xp, xpToNext)
+    love.graphics.setColor(1, 1, 1, 0.9)
+    love.graphics.print(xpText, barX + 8, barY - font:getHeight() - 2)
+  end
+
+  local function drawMetallurgyIcon(x, y, size)
+    local baseW = size * 0.9
+    local baseH = size * 0.28
+    local topW = size * 0.65
+    local topH = size * 0.14
+    local inset = (baseW - topW) / 2
+
+    love.graphics.setColor(0.85, 0.65, 0.25, 0.95)
+    love.graphics.rectangle("fill", x, y + size - baseH, baseW, baseH, 4)
+    love.graphics.setColor(0.95, 0.85, 0.55, 0.9)
+    love.graphics.rectangle("fill", x + inset, y + size - baseH - topH, topW, topH, 3)
+    love.graphics.setColor(0.25, 0.22, 0.18, 0.9)
+    love.graphics.rectangle("fill", x + baseW * 0.35, y + size - baseH - topH - topH * 0.6, baseW * 0.3, topH * 0.6, 3)
+  end
+
+  local function drawMetallurgyCard(ctx, bounds)
+    local theme = (ctx and ctx.theme) or Theme
+    local colors = theme.hud.colors
+    local font = love.graphics.getFont()
+
+    local pad = 12
+    local cardH = bounds.h - pad * 2
+    local cardRect = { x = bounds.x, y = bounds.y, w = bounds.w, h = cardH }
+
+    love.graphics.setColor(0.10, 0.10, 0.12, 0.92)
+    love.graphics.rectangle("fill", cardRect.x, cardRect.y, cardRect.w, cardRect.h, 6)
+
+    love.graphics.setColor(0.70, 0.55, 0.30, 0.85)
+    love.graphics.setLineWidth(1.5)
+    love.graphics.rectangle("line", cardRect.x, cardRect.y, cardRect.w, cardRect.h, 6)
+    love.graphics.setLineWidth(1)
+
+    local iconSize = 64
+    local iconX = cardRect.x + pad
+    local iconY = cardRect.y + pad
+    drawMetallurgyIcon(iconX, iconY, iconSize)
+
+    local level, xp, xpToNext = getSkillProgress(ctx, "metallurgy")
+    local title = "Metallurgy"
+    love.graphics.setColor(colors.text[1], colors.text[2], colors.text[3], 0.95)
+    love.graphics.print(title, iconX + iconSize + 12, iconY + 4)
+
+    local levelText = string.format("Level %d", level)
+    love.graphics.setColor(0.95, 0.80, 0.45, 0.9)
+    love.graphics.print(levelText, iconX + iconSize + 12, iconY + 26)
+
+    local barW = cardRect.w - pad * 2
+    local barH = 18
+    local barX = cardRect.x + pad
+    local barY = cardRect.y + cardRect.h - pad - barH
+
+    local progress = (xpToNext > 0) and math.min(1, xp / xpToNext) or 0
+    love.graphics.setColor(0.14, 0.12, 0.10, 0.9)
+    love.graphics.rectangle("fill", barX, barY, barW, barH, 4)
+
+    local fill = math.floor(barW * progress)
+    love.graphics.setColor(0.95, 0.70, 0.30, 0.95)
+    love.graphics.rectangle("fill", barX, barY, fill, barH, 4)
+
+    love.graphics.setColor(0.70, 0.55, 0.30, 0.85)
     love.graphics.rectangle("line", barX, barY, barW, barH, 4)
 
     local xpText = string.format("%d / %d xp", xp, xpToNext)
@@ -161,7 +224,12 @@ local function makeSkillWindow()
       owner = self,
     })
 
-    drawMiningCard(ctx, bounds.content)
+    local gap = 12
+    local cardW = (bounds.content.w - gap) / 2
+    local cardH = bounds.content.h
+
+    drawMiningCard(ctx, { x = bounds.content.x, y = bounds.content.y, w = cardW, h = cardH })
+    drawMetallurgyCard(ctx, { x = bounds.content.x + cardW + gap, y = bounds.content.y, w = cardW, h = cardH })
   end
 
   function self.keypressed(ctx, key)

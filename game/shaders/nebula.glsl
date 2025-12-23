@@ -63,6 +63,13 @@ vec2 warp(vec2 p, float t)
   return vec2(w1, w2);
 }
 
+vec3 hsv2rgb(vec3 c)
+{
+  vec3 rgb = clamp(abs(mod(c.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+  rgb = rgb * rgb * (3.0 - 2.0 * rgb);
+  return c.z * mix(vec3(1.0), rgb, c.y);
+}
+
 vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords)
 {
   vec2 res = max(resolution, vec2(1.0));
@@ -91,27 +98,43 @@ vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords)
   float edgeNoise = fbm(p * 1.10 + vec2(seed * 0.37, seed * 0.53));
   float r = length(p - center) + (edgeNoise - 0.5) * 0.28;
 
-  // Smoother falloff at the perimeter: inner core plus a soft outer feather.
-  float core = 1.0 - smoothstep(0.30, 0.95, r);
-  float feather = 1.0 - smoothstep(0.95, 1.18, r);
-  float mask = pow(clamp(core * feather, 0.0, 1.0), 1.08);
+  // Single smooth fade with a wide falloff to avoid visible banding.
+  float mask = 1.0 - smoothstep(0.40, 1.30, r);
+  mask = pow(clamp(mask, 0.0, 1.0), 1.05);
+
+  float fade = smoothstep(0.0, 1.0, mask);
+  float edgeFactor = smoothstep(0.60, 1.05, r);
   density *= mask;
+  density = mix(density, fade, edgeFactor);  // near the edge, bias strongly to a single ramp
+  density = mix(density, fade, 0.50);        // global smoothing toward a flat fade
+
+  // Introduce large-scale variation so some sectors stay faint.
+  float intensityMod = 0.55 + 0.45 * fbm(pw * 0.65 + 80.0 + seed * 0.9);
+  density *= intensityMod;
+  density = smoothstep(0.0, 1.0, density);   // kill residual stepping
 
   float hue = fbm(pw * 1.8 + 12.3 + seed * 1.7);
 
-  vec3 deep = vec3(0.04, 0.06, 0.12);
-  vec3 midA = vec3(0.10, 0.18, 0.34);
-  vec3 midB = vec3(0.22, 0.10, 0.30);
-  vec3 glow = vec3(0.10, 0.42, 0.55);
+  // Palette varies per-seed in HSV space for smoother, distinct nebula colors.
+  float baseHue = fract(sin(seed * 12.345) * 43758.5453);
+  float accentHue = fract(baseHue + 0.32 + sin(seed * 4.1) * 0.08);
+  float contrastHue = fract(accentHue + 0.42 + cos(seed * 2.7) * 0.05);
+
+  vec3 deep = hsv2rgb(vec3(baseHue, 0.55, 0.18));
+  vec3 midA = hsv2rgb(vec3(fract(baseHue + 0.06), 0.48, 0.36));
+  vec3 midB = hsv2rgb(vec3(accentHue, 0.62, 0.45));
+  vec3 glow = hsv2rgb(vec3(contrastHue, 0.70, 0.85));
 
   vec3 col = mix(midA, midB, smoothstep(0.25, 0.85, hue));
-  col = mix(deep, col, density);
+  float finalAlpha = pow(density, 1.35);
+  col = mix(deep, col, finalAlpha);          // keep far edges close to background
 
   // Gentle internal highlights (kept subtle to feel far away).
   float highlight = pow(fbm(pw * 4.4 + 40.0 + seed * 2.3), 2.6);
   float ridge = pow(smoothstep(0.55, 0.95, detail), 2.1);
-  col += glow * highlight * 0.42 * density;
-  col += glow * ridge * 0.18 * density;
+  float highlightScale = 0.28 + 0.35 * intensityMod; // highlights tied to local intensity
+  col += glow * highlight * 0.30 * highlightScale * density;
+  col += glow * ridge * 0.12 * highlightScale * density;
 
   // Vignette helps sell scale and keeps the center readable.
   float v = 1.0 - smoothstep(0.15, 1.05, length(p * 0.9));
@@ -122,9 +145,9 @@ vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords)
   float dither = (hash21(screen_coords) - 0.5) / 255.0;
   col += dither;
 
-  col *= 1.65;
+  col *= 1.35;
   col = clamp(col, 0.0, 1.0);
 
-  float alpha = clamp(density * 1.15 * v, 0.0, 1.0);
+  float alpha = clamp(finalAlpha * 1.15 * v, 0.0, 1.0);
   return vec4(col, alpha) * color;
 }
