@@ -208,15 +208,18 @@ function RefineryBaySystem.getBayStatus(station)
 end
 
 -- Check if point (world coords) is in the bay or storage area
-function RefineryBaySystem.isPointInBay(station, x, y)
-    if not station or not station.refinery_bay or not station.physics_body then return false end
+local function toLocalCoords(station, x, y)
+    if not station or not station.refinery_bay or not station.physics_body then
+        return nil
+    end
 
-    local bay = station.refinery_bay
     local body = station.physics_body.body
+    if not body then
+        return nil
+    end
+
     local sx, sy = body:getPosition()
     local angle = body:getAngle()
-
-    -- Transform point to station-local space
     local dx = x - sx
     local dy = y - sy
     local c = math.cos(-angle)
@@ -224,23 +227,24 @@ function RefineryBaySystem.isPointInBay(station, x, y)
     local lx = dx * c - dy * s
     local ly = dx * s + dy * c
 
-    -- Bay dimensions
+    return lx, ly
+end
+
+local function getBayRects(bay, station)
     local radius = (station.space_station and station.space_station.radius) or 200
     local bayCenterX = bay.bayCenterX or (radius + 50)
     local bayCenterY = bay.bayCenterY or 0
     local bayWidth = bay.openingWidth or 50
     local bayDepth = bay.bayDepth or 100
-    local wallThickness = 10
 
-    -- Bay Rect
-    local bayRec = {
+    local bayRect = {
         x = bayCenterX - bayDepth / 2,
         y = bayCenterY - bayWidth / 2,
         w = bayDepth,
         h = bayWidth
     }
 
-    -- Storage Rect
+    local wallThickness = 10
     local storageWidth = 30
     local storageHeight = bayWidth + 10
     local storageX = bayCenterX - bayDepth / 2 - wallThickness - storageWidth - 5
@@ -252,11 +256,36 @@ function RefineryBaySystem.isPointInBay(station, x, y)
         h = storageHeight
     }
 
-    local inBay = lx >= bayRec.x and lx <= bayRec.x + bayRec.w and ly >= bayRec.y and ly <= bayRec.y + bayRec.h
-    local inStorage = lx >= storageRect.x and lx <= storageRect.x + storageRect.w and ly >= storageRect.y and
-        ly <= storageRect.y + storageRect.h
+    return bayRect, storageRect
+end
+
+local function pointInRect(lx, ly, rect)
+    return lx >= rect.x and lx <= rect.x + rect.w and ly >= rect.y and ly <= rect.y + rect.h
+end
+
+function RefineryBaySystem.isPointInBay(station, x, y)
+    local lx, ly = toLocalCoords(station, x, y)
+    if not lx then
+        return false
+    end
+
+    local bay = station.refinery_bay
+    local bayRect, storageRect = getBayRects(bay, station)
+    local inBay = pointInRect(lx, ly, bayRect)
+    local inStorage = pointInRect(lx, ly, storageRect)
 
     return inBay or inStorage
+end
+
+function RefineryBaySystem.isPointInBayOpening(station, x, y)
+    local lx, ly = toLocalCoords(station, x, y)
+    if not lx then
+        return false
+    end
+
+    local bay = station.refinery_bay
+    local bayRect = getBayRects(bay, station)
+    return pointInRect(lx, ly, bayRect)
 end
 
 -- Try to collect job at specific world coordinates
@@ -287,7 +316,7 @@ function RefineryBaySystem:drawHud()
     for i = 1, self.stations.size do
         local station = self.stations[i]
 
-        if RefineryBaySystem.isPointInBay(station, wx, wy) then
+        if RefineryBaySystem.isPointInBayOpening(station, wx, wy) then
             local bay = station.refinery_bay
             local body = station.physics_body.body
             local sx, sy = body:getPosition()
