@@ -127,6 +127,7 @@ function Space:enter(_, worldSeed)
     Systems.HudSystem,
     Systems.QuestSystem,
     Systems.RefinerySystem,
+    Systems.RefineryBaySystem,
     Systems.SoundSystem
   )
 
@@ -157,6 +158,20 @@ function Space:enter(_, worldSeed)
     self.physicsWorld,
     self.sectorWidth / 2 + 1500,
     self.sectorHeight / 2 - 800
+  )
+
+  -- Spawn a small test asteroid right outside the refinery bay for testing
+  -- Bay is on the right side of the station, opening at X + 250 + 50 = X + 300
+  local refineryX = self.sectorWidth / 2 + 1500
+  local refineryY = self.sectorHeight / 2 - 800
+  factory.createAsteroid(
+    self.ecsWorld,
+    self.physicsWorld,
+    refineryX + 350, -- Just outside the bay opening
+    refineryY,       -- Centered with bay
+    20,              -- Small radius (fits in 50-wide opening)
+    nil,             -- Use default RNG
+    "iron"           -- Has iron ore
   )
 
   -- Spawn the player ship offset from the station
@@ -441,6 +456,37 @@ function Space:mousepressed(x, y, button)
 
   if self.hudSystem and self.hudSystem:mousepressed(x, y, button) then
     return
+  end
+
+  -- Check for Refinery Bay interaction (Click to claim)
+  if button == 1 then
+    local targeting = self.ecsWorld:getResource("targeting")
+    local hovered = targeting and targeting.hovered
+
+    if hovered and hovered.refinery_bay then
+      -- Calculate world mouse from screen mouse x, y
+      local view = self.view
+      if view and view.zoom then
+        local wx = (x / view.zoom) + view.camX
+        local wy = (y / view.zoom) + view.camY
+
+        if Systems.RefineryBaySystem.isPointInBay(hovered, wx, wy) then
+          local success, msg = Systems.RefineryBaySystem.collectBayJob(hovered, self.ship)
+          if msg then
+            -- Show floating text feedback using the system directly or emitting an event
+            -- We can emit a floating text event if FloatingTextSystem listens for it, or just print to console for now
+            -- Actually, let's look at how HUD shows notifications.
+            -- We can assume the tooltip update will reflect the state immediately.
+            local FloatingText = require("game.floating_text") -- If available?
+            -- Or simpler: emit "floating_text" if system supports it.
+            -- self.ecsWorld:emit("spawnFloatingText", ...)
+
+            -- Just let the tooltip update for now.
+          end
+          return
+        end
+      end
+    end
   end
 
   if button ~= 1 then

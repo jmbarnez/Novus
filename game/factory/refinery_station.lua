@@ -79,6 +79,75 @@ function refinery_station.createRefineryStation(ecsWorld, physicsWorld, x, y)
 
     fixture:setUserData(e)
 
+    -- Create the asteroid container bay (U-shaped pocket)
+    -- Angle 0 = facing right, bay attached to right side of station
+    local bayAngle = 0
+    local bayOpeningWidth = 50 -- Level 1: only small asteroids fit (radius <= 25)
+    local bayDepth = 100       -- How deep the bay extends
+    local wallThickness = 10
+
+    -- Calculate bay position (attached to right side of station, facing right)
+    local bayOffsetDist = radius + bayDepth / 2
+    local bayCenterX = math.cos(bayAngle) * bayOffsetDist -- To the right
+    local bayCenterY = math.sin(bayAngle) * bayOffsetDist -- Centered vertically (0)
+
+    -- Top wall of bay (runs horizontally along X, at negative Y)
+    local topWallShape = love.physics.newRectangleShape(
+        bayCenterX,
+        bayCenterY - bayOpeningWidth / 2 - wallThickness / 2,
+        bayDepth,
+        wallThickness
+    )
+    local topWallFixture = love.physics.newFixture(body, topWallShape, 1)
+    topWallFixture:setRestitution(0.3)
+    topWallFixture:setFriction(0.5)
+    topWallFixture:setCategory(3)
+    topWallFixture:setUserData(e)
+
+    -- Bottom wall of bay (runs horizontally along X, at positive Y)
+    local bottomWallShape = love.physics.newRectangleShape(
+        bayCenterX,
+        bayCenterY + bayOpeningWidth / 2 + wallThickness / 2,
+        bayDepth,
+        wallThickness
+    )
+    local bottomWallFixture = love.physics.newFixture(body, bottomWallShape, 1)
+    bottomWallFixture:setRestitution(0.3)
+    bottomWallFixture:setFriction(0.5)
+    bottomWallFixture:setCategory(3)
+    bottomWallFixture:setUserData(e)
+
+    -- Back wall of bay (vertical, on left side closest to station)
+    local backWallShape = love.physics.newRectangleShape(
+        bayCenterX - bayDepth / 2 - wallThickness / 2,
+        bayCenterY,
+        wallThickness,
+        bayOpeningWidth + wallThickness * 2
+    )
+    local backWallFixture = love.physics.newFixture(body, backWallShape, 1)
+    backWallFixture:setRestitution(0.3)
+    backWallFixture:setFriction(0.5)
+    backWallFixture:setCategory(3)
+    backWallFixture:setUserData(e)
+
+    -- Sensor at the bay opening (right side, facing outward)
+    local sensorShape = love.physics.newRectangleShape(
+        bayCenterX + bayDepth / 2 - 5, -- Just inside the opening (right side)
+        bayCenterY,
+        10,
+        bayOpeningWidth - 10 -- Slightly narrower than opening
+    )
+    local sensorFixture = love.physics.newFixture(body, sensorShape, 0)
+    sensorFixture:setSensor(true)
+    sensorFixture:setUserData({ type = "bay_sensor", station = e })
+
+    -- Give the entity the refinery_bay component
+    e:give("refinery_bay", bayOpeningWidth, bayDepth, bayAngle)
+    e.refinery_bay.sensorFixture = sensorFixture
+    e.refinery_bay.bayCenterX = bayCenterX
+    e.refinery_bay.bayCenterY = bayCenterY
+    e.refinery_bay.openingFacesOutward = true -- Flag for detection logic
+
     return e
 end
 

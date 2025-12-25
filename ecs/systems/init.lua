@@ -20,6 +20,7 @@ Systems.RenderSystem = require("ecs.systems.render_system")
 Systems.HudSystem = require("ecs.systems.hud_system")
 Systems.QuestSystem = require("ecs.systems.quest_system")
 Systems.RefinerySystem = require("ecs.systems.refinery_system")
+Systems.RefineryBaySystem = require("ecs.systems.refinery_bay_system")
 Systems.SoundSystem = require("ecs.systems.sound_system")
 
 return Systems

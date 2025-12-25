@@ -58,6 +58,7 @@ function RenderSystem:drawWorld()
 
   local ctx = {
     playerShip = playerShip,
+    mouse_world = self.world and self.world:getResource("mouse_world"),
     hovered = hovered,
     selected = selected,
     cullPad = cullPad,

@@ -1,4 +1,6 @@
 local Utils = require("ecs.systems.draw.render_utils")
+local Items = require("game.items")
+local Items = require("game.items")
 
 local RefineryStationDraw = {}
 
@@ -113,8 +115,8 @@ function RefineryStationDraw.draw(ctx, e, body, shape, x, y, angle)
     local tankOffset = radius * 0.42
     local tankPositions = {
         { -tankOffset, -radius * 0.08 },
-        { tankOffset, -radius * 0.12 },
-        { 0, radius * 0.26 },
+        { tankOffset,  -radius * 0.12 },
+        { 0,           radius * 0.26 },
     }
     for _, pos in ipairs(tankPositions) do
         love.graphics.circle("fill", pos[1], pos[2], tankR)
@@ -174,6 +176,208 @@ function RefineryStationDraw.draw(ctx, e, body, shape, x, y, angle)
         love.graphics.circle("fill", vx, vy, 6)
     end
     love.graphics.pop()
+
+    -- Asteroid container bay (U-shaped pocket extending to the right)
+    if e.refinery_bay then
+        local bay = e.refinery_bay
+        local bayCenterX = bay.bayCenterX or (radius + 50)
+        local bayCenterY = bay.bayCenterY or 0
+        local bayWidth = bay.openingWidth or 50 -- Height of opening (Y axis)
+        local bayDepth = bay.bayDepth or 100    -- Depth extends along X axis
+        local wallThickness = 10
+
+        love.graphics.push("all")
+
+        -- Bay interior (dark shadowed area) - horizontal rectangle
+        love.graphics.setColor(0.08, 0.06, 0.05, 0.95)
+        love.graphics.rectangle("fill",
+            bayCenterX - bayDepth / 2,
+            bayCenterY - bayWidth / 2,
+            bayDepth,
+            bayWidth
+        )
+
+        -- Processing glow when job is active
+        if bay.processingJob then
+            local progress = bay.processingJob.progress / bay.processingJob.totalTime
+            local glowPulse = 0.3 + 0.3 * math.sin(time * 3)
+            love.graphics.setColor(0.9, 0.5, 0.1, glowPulse * (0.3 + progress * 0.4))
+            love.graphics.rectangle("fill",
+                bayCenterX - bayDepth / 2 + 5,
+                bayCenterY - bayWidth / 2 + 5,
+                bayDepth - 10,
+                bayWidth - 10,
+                4
+            )
+        end
+
+        -- Acceptance flash (green pulse when asteroid accepted)
+        if bay.acceptedFlash > 0 then
+            love.graphics.setColor(0.2, 1.0, 0.3, bay.acceptedFlash * 0.6)
+            love.graphics.rectangle("fill",
+                bayCenterX - bayDepth / 2,
+                bayCenterY - bayWidth / 2,
+                bayDepth,
+                bayWidth
+            )
+        end
+
+        -- Rejection flash (red pulse when asteroid too big)
+        if bay.rejectedFlash > 0 then
+            love.graphics.setColor(1.0, 0.2, 0.2, bay.rejectedFlash * 0.6)
+            love.graphics.rectangle("fill",
+                bayCenterX - bayDepth / 2,
+                bayCenterY - bayWidth / 2,
+                bayDepth,
+                bayWidth
+            )
+        end
+
+        -- Top wall (horizontal, runs along X at negative Y)
+        love.graphics.setColor(0.35, 0.28, 0.22, 1.0)
+        love.graphics.rectangle("fill",
+            bayCenterX - bayDepth / 2,
+            bayCenterY - bayWidth / 2 - wallThickness,
+            bayDepth,
+            wallThickness
+        )
+        love.graphics.setColor(0.55, 0.45, 0.35, 0.8)
+        love.graphics.setLineWidth(2)
+        love.graphics.rectangle("line",
+            bayCenterX - bayDepth / 2,
+            bayCenterY - bayWidth / 2 - wallThickness,
+            bayDepth,
+            wallThickness
+        )
+
+        -- Bottom wall (horizontal, runs along X at positive Y)
+        love.graphics.setColor(0.35, 0.28, 0.22, 1.0)
+        love.graphics.rectangle("fill",
+            bayCenterX - bayDepth / 2,
+            bayCenterY + bayWidth / 2,
+            bayDepth,
+            wallThickness
+        )
+        love.graphics.setColor(0.55, 0.45, 0.35, 0.8)
+        love.graphics.rectangle("line",
+            bayCenterX - bayDepth / 2,
+            bayCenterY + bayWidth / 2,
+            bayDepth,
+            wallThickness
+        )
+
+        -- Back wall (vertical, on left side closest to station)
+        love.graphics.setColor(0.30, 0.24, 0.18, 1.0)
+        love.graphics.rectangle("fill",
+            bayCenterX - bayDepth / 2 - wallThickness,
+            bayCenterY - bayWidth / 2 - wallThickness,
+            wallThickness,
+            bayWidth + wallThickness * 2
+        )
+        love.graphics.setColor(0.50, 0.40, 0.30, 0.8)
+        love.graphics.rectangle("line",
+            bayCenterX - bayDepth / 2 - wallThickness,
+            bayCenterY - bayWidth / 2 - wallThickness,
+            wallThickness,
+            bayWidth + wallThickness * 2
+        )
+
+        -- Guide rails at opening (right side, facing outward)
+        love.graphics.setColor(0.65, 0.55, 0.40, 0.9)
+        love.graphics.setLineWidth(3)
+        -- Top guide
+        love.graphics.line(
+            bayCenterX + bayDepth / 2 - 10,
+            bayCenterY - bayWidth / 2 - wallThickness / 2,
+            bayCenterX + bayDepth / 2 + 15,
+            bayCenterY - bayWidth / 2 - wallThickness / 2
+        )
+        -- Bottom guide
+        love.graphics.line(
+            bayCenterX + bayDepth / 2 - 10,
+            bayCenterY + bayWidth / 2 + wallThickness / 2,
+            bayCenterX + bayDepth / 2 + 15,
+            bayCenterY + bayWidth / 2 + wallThickness / 2
+        )
+
+        -- Size indicator marks on opening (right side)
+        love.graphics.setColor(0.7, 0.6, 0.4, 0.5)
+        love.graphics.setLineWidth(1)
+        love.graphics.line(
+            bayCenterX + bayDepth / 2 + 5,
+            bayCenterY - bayWidth / 2 + 5,
+            bayCenterX + bayDepth / 2 + 5,
+            bayCenterY + bayWidth / 2 - 5
+        )
+
+        -- Output storage compartment (between bay and station)
+        local storageWidth = 30
+        local storageHeight = bayWidth + 10
+        local storageX = bayCenterX - bayDepth / 2 - wallThickness - storageWidth - 5
+        local storageY = bayCenterY - storageHeight / 2
+
+        -- Storage compartment background
+        love.graphics.setColor(0.15, 0.12, 0.10, 1.0)
+        love.graphics.rectangle("fill", storageX, storageY, storageWidth, storageHeight, 4)
+
+        -- Storage frame
+        love.graphics.setColor(0.45, 0.38, 0.30, 0.9)
+        love.graphics.setLineWidth(2)
+        love.graphics.rectangle("line", storageX, storageY, storageWidth, storageHeight, 4)
+
+        -- Storage glow when items ready to collect
+        if bay.processingJob and bay.processingJob.progress >= bay.processingJob.totalTime then
+            local readyPulse = 0.5 + 0.5 * math.sin(time * 4)
+            love.graphics.setColor(0.2, 0.9, 0.3, readyPulse * 0.7)
+            love.graphics.rectangle("fill", storageX + 3, storageY + 3, storageWidth - 6, storageHeight - 6, 3)
+        end
+
+
+        -- Tooltip and Hover Interaction
+        -- Check if mouse is hovering over the bay or storage compartment
+        if ctx.mouse_world then
+            local mx, my = ctx.mouse_world.x, ctx.mouse_world.y
+
+            -- Transform world mouse to station-local space
+            local dx = mx - x
+            local dy = my - y
+            local c = math.cos(angle)
+            local s = math.sin(angle)
+            local lx = dx * c + dy * s
+            local ly = -dx * s + dy * c
+
+            -- Hit test variables
+            local bayRect = {
+                x = bayCenterX - bayDepth / 2,
+                y = bayCenterY - bayWidth / 2,
+                w = bayDepth,
+                h = bayWidth
+            }
+            local storageRect = {
+                x = storageX, -- Calculated above
+                y = storageY,
+                w = storageWidth,
+                h = storageHeight
+            }
+
+            local inBay = lx >= bayRect.x and lx <= bayRect.x + bayRect.w and ly >= bayRect.y and
+                ly <= bayRect.y + bayRect.h
+            local inStorage = lx >= storageRect.x and lx <= storageRect.x + storageRect.w and ly >= storageRect.y and
+                ly <= storageRect.y + storageRect.h
+
+            if inBay or inStorage then
+                -- Draw hover highlight (in world space)
+                love.graphics.setColor(1, 1, 1, 0.1)
+                if inBay then
+                    love.graphics.rectangle("fill", bayRect.x, bayRect.y, bayRect.w, bayRect.h)
+                else
+                    love.graphics.rectangle("fill", storageRect.x, storageRect.y, storageRect.w, storageRect.h)
+                end
+            end
+        end
+
+        love.graphics.pop()
+    end
 
     -- Docking distance ring (cyan) only when player is close enough
     drawDockRingIfNear(ctx, x, y, radius * 1.4)
